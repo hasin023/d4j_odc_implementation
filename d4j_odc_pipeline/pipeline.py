@@ -9,6 +9,7 @@ from .models import BugContext, ClassificationResult, CodeSnippet, StackFrame, e
 from .odc import ODC_TYPE_NAMES, coarse_group_for
 from .parsing import extract_json_object
 from .prompting import build_messages
+from . import console
 
 
 def collect_bug_context(
@@ -22,22 +23,60 @@ def collect_bug_context(
     run_coverage: bool = True,
 ) -> BugContext:
     version_id = f"{bug_id}b"
-    metadata = defects4j.query_bug_metadata(project_id, bug_id, DEFAULT_QUERY_FIELDS)
-    defects4j.checkout(project_id, version_id, work_dir)
-    compile_result = defects4j.compile(work_dir)
-    test_result = defects4j.test(work_dir)
+
+    console.header_panel(
+        f"Collecting bug context: {project_id}-{bug_id}",
+        f"Version {version_id}  •  Work dir: {work_dir}",
+    )
+
+    with console.spinner_step("Querying bug metadata"):
+        metadata = defects4j.query_bug_metadata(project_id, bug_id, DEFAULT_QUERY_FIELDS)
+    if metadata:
+        console.step("Metadata retrieved", detail=f"{len(metadata)} fields")
+    else:
+        console.warn("No metadata fields returned by Defects4J query")
+
+    with console.spinner_step(f"Checking out {project_id} {version_id}"):
+        defects4j.checkout(project_id, version_id, work_dir)
+
+    with console.spinner_step("Compiling buggy version"):
+        compile_result = defects4j.compile(work_dir)
+
+    with console.spinner_step("Running tests on buggy version"):
+        test_result = defects4j.test(work_dir)
+
+    console.step("Parsing test failures...")
     failures = defects4j.read_failures(work_dir, test_result.stdout + "\n" + test_result.stderr)
-    exports = defects4j.export_properties(work_dir, DEFAULT_EXPORT_PROPERTIES)
+    if failures:
+        console.step(f"Failing tests found: {len(failures)}", detail=", ".join(f.test_name for f in failures[:3]))
+    else:
+        console.warn("No failing tests were parsed")
+
+    with console.timed_step("Exporting Defects4J properties"):
+        exports = defects4j.export_properties(work_dir, DEFAULT_EXPORT_PROPERTIES)
+    console.step("Properties exported", detail=f"{len(exports)} properties")
+
     notes: list[str] = []
     notes.append(f"Compilation exit code: {compile_result.returncode}")
     notes.append(f"Test exit code on buggy version: {test_result.returncode}")
+
+    console.step("Selecting suspicious stack frames...")
     suspicious_frames = _select_suspicious_frames(failures)
+    console.step(f"Suspicious frames: {len(suspicious_frames)}")
+
+    console.step("Discovering source directories...")
     source_dirs = _discover_source_dirs(work_dir, exports)
-    code_snippets = _extract_code_snippets(source_dirs, suspicious_frames, radius=snippet_radius)
+    console.step(f"Source directories: {len(source_dirs)}")
+
+    with console.timed_step("Extracting code snippets"):
+        code_snippets = _extract_code_snippets(source_dirs, suspicious_frames, radius=snippet_radius)
+    console.step(f"Code snippets extracted: {len(code_snippets)}")
+
     hidden_oracles = {}
     if metadata.get("classes.modified"):
         hidden_oracles["classes.modified"] = metadata["classes.modified"]
         notes.append("Stored classes.modified as hidden oracle only; it is excluded from the LLM prompt by default.")
+        console.step("Hidden oracle stored", detail="classes.modified (excluded from prompt)")
 
     coverage = []
     if run_coverage:
@@ -47,17 +86,24 @@ def collect_bug_context(
             ensure_parent(instrument_file)
             instrument_file.write_text("\n".join(sorted(interesting_classes)), encoding="utf-8")
             single_test = failures[0].test_name if failures else None
-            coverage_result = defects4j.coverage(
-                work_dir,
-                single_test=single_test,
-                instrument_classes_file=instrument_file,
-            )
+            with console.spinner_step(f"Running coverage on {len(interesting_classes)} class(es)"):
+                coverage_result = defects4j.coverage(
+                    work_dir,
+                    single_test=single_test,
+                    instrument_classes_file=instrument_file,
+                )
             notes.append(f"Coverage exit code: {coverage_result.returncode}")
             coverage = defects4j.parse_coverage_reports(work_dir, interesting_classes=interesting_classes)
-            if not coverage:
+            if coverage:
+                console.step(f"Coverage parsed: {len(coverage)} class(es)")
+            else:
+                console.warn("No parseable coverage XML found after running defects4j coverage")
                 notes.append("No parseable coverage XML was found after running defects4j coverage.")
         else:
+            console.step("Coverage skipped", detail="no suspicious source frames available")
             notes.append("Coverage skipped because no suspicious source frames were available.")
+    else:
+        console.step("Coverage skipped", detail="--skip-coverage flag set")
 
     context = BugContext(
         project_id=project_id,
@@ -75,7 +121,19 @@ def collect_bug_context(
         hidden_oracles=hidden_oracles,
         notes=notes,
     )
+
+    console.step(f"Writing context → {output_path}")
     write_json(output_path, context.to_dict())
+
+    console.result_panel("Collection complete", [
+        ("Project", f"{project_id}-{bug_id} ({version_id})"),
+        ("Failing tests", str(len(failures))),
+        ("Suspicious frames", str(len(suspicious_frames))),
+        ("Code snippets", str(len(code_snippets))),
+        ("Coverage classes", str(len(coverage))),
+        ("Output", str(output_path)),
+    ])
+
     return context
 
 
@@ -91,20 +149,37 @@ def classify_bug_context(
     prompt_output_path: Path | None = None,
     dry_run: bool = False,
 ) -> ClassificationResult | None:
-    messages = build_messages(context, prompt_style)
+    console.header_panel(
+        f"Classifying: {context.project_id}-{context.bug_id}",
+        f"Provider: {provider}  •  Model: {model}  •  Style: {prompt_style}",
+    )
+
+    with console.timed_step(f"Building prompt ({prompt_style})"):
+        messages = build_messages(context, prompt_style)
+
     if prompt_output_path:
         ensure_parent(prompt_output_path)
         prompt_output_path.write_text(json.dumps(messages, indent=2), encoding="utf-8")
+        console.step(f"Prompt saved → {prompt_output_path}")
+
     if dry_run:
+        console.warn("Dry run — skipping LLM call")
+        console.result_panel("Dry run complete", [
+            ("Prompt style", prompt_style),
+            ("Prompt saved", str(prompt_output_path) if prompt_output_path else "not saved"),
+        ])
         return None
 
-    client = LLMClient.from_env(
-        provider=provider,
-        model=model,
-        api_key_env=api_key_env,
-        base_url=base_url,
-    )
-    raw_response = client.complete(messages)
+    with console.spinner_step(f"Calling {provider} ({model})"):
+        client = LLMClient.from_env(
+            provider=provider,
+            model=model,
+            api_key_env=api_key_env,
+            base_url=base_url,
+        )
+        raw_response = client.complete(messages)
+
+    console.step("Parsing LLM response...")
     payload = extract_json_object(raw_response)
     result = _validate_classification_payload(
         payload=payload,
@@ -114,7 +189,21 @@ def classify_bug_context(
         provider=provider,
         raw_response=raw_response,
     )
+
+    console.step(f"Writing classification → {output_path}")
     write_json(output_path, result.to_dict())
+
+    confidence_style = "green" if result.confidence >= 0.7 else "yellow" if result.confidence >= 0.4 else "red"
+    review_text = "Yes" if result.needs_human_review else "No"
+
+    console.result_panel("Classification complete", [
+        ("ODC Type", result.odc_type),
+        ("Coarse Group", result.coarse_group or "—"),
+        ("Confidence", f"{result.confidence:.2f}"),
+        ("Needs Human Review", review_text),
+        ("Output", str(output_path)),
+    ])
+
     return result
 
 
@@ -162,6 +251,7 @@ def write_markdown_report(
         )
     ensure_parent(output_path)
     output_path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+    console.step(f"Report written → {output_path}")
 
 
 def write_json(path: Path, payload: dict) -> None:
