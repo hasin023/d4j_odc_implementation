@@ -1,0 +1,234 @@
+from __future__ import annotations
+
+import csv
+import os
+import shlex
+import shutil
+import subprocess
+import xml.etree.ElementTree as ET
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Iterable
+
+from .models import CoverageClass, CoverageLine
+from .parsing import parse_failing_tests, parse_failing_tests_from_output
+
+DEFAULT_QUERY_FIELDS = [
+    "bug.id",
+    "report.id",
+    "report.url",
+    "classes.modified",
+    "classes.relevant",
+    "tests.trigger",
+    "tests.relevant",
+]
+
+DEFAULT_EXPORT_PROPERTIES = [
+    "dir.src.classes",
+    "dir.bin.classes",
+    "dir.src.tests",
+    "dir.bin.tests",
+    "cp.compile",
+    "cp.test",
+    "tests.trigger",
+    "tests.relevant",
+]
+
+
+class Defects4JError(RuntimeError):
+    pass
+
+
+@dataclass
+class CommandResult:
+    args: list[str]
+    cwd: str
+    returncode: int
+    stdout: str
+    stderr: str
+
+
+class Defects4JClient:
+    def __init__(self, command: str | None = None, timeout_seconds: int = 1800) -> None:
+        raw_command = command or os.environ.get("DEFECTS4J_CMD") or "defects4j"
+        self.command = shlex.split(raw_command, posix=False)
+        self.timeout_seconds = timeout_seconds
+
+    def ensure_available(self) -> None:
+        executable = self.command[0]
+        if len(self.command) == 1 and shutil.which(executable) is None:
+            raise Defects4JError(
+                f"Could not find '{executable}' on PATH. Set DEFECTS4J_CMD if you need a custom command prefix."
+            )
+
+    def run(
+        self,
+        subcommand: str,
+        *args: str,
+        cwd: Path | None = None,
+        allow_failure: bool = False,
+    ) -> CommandResult:
+        self.ensure_available()
+        cmd = [*self.command, subcommand, *args]
+        env = os.environ.copy()
+        env["TZ"] = "America/Los_Angeles"
+        completed = subprocess.run(
+            cmd,
+            cwd=str(cwd) if cwd else None,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=self.timeout_seconds,
+            check=False,
+        )
+        result = CommandResult(
+            args=cmd,
+            cwd=str(cwd) if cwd else os.getcwd(),
+            returncode=completed.returncode,
+            stdout=completed.stdout,
+            stderr=completed.stderr,
+        )
+        if not allow_failure and completed.returncode != 0:
+            raise Defects4JError(self._format_error(result))
+        return result
+
+    def checkout(self, project_id: str, version_id: str, work_dir: Path) -> CommandResult:
+        work_dir.parent.mkdir(parents=True, exist_ok=True)
+        return self.run("checkout", "-p", project_id, "-v", version_id, "-w", str(work_dir))
+
+    def compile(self, work_dir: Path) -> CommandResult:
+        return self.run("compile", "-w", str(work_dir))
+
+    def test(self, work_dir: Path, single_test: str | None = None) -> CommandResult:
+        args = ["-w", str(work_dir)]
+        if single_test:
+            args.extend(["-t", single_test])
+        return self.run("test", *args, allow_failure=True)
+
+    def coverage(
+        self,
+        work_dir: Path,
+        *,
+        single_test: str | None = None,
+        instrument_classes_file: Path | None = None,
+    ) -> CommandResult:
+        args = ["-w", str(work_dir)]
+        if single_test:
+            args.extend(["-t", single_test])
+        if instrument_classes_file and instrument_classes_file.exists():
+            args.extend(["-i", str(instrument_classes_file)])
+        return self.run("coverage", *args, allow_failure=True)
+
+    def export_property(self, work_dir: Path, property_name: str) -> str | None:
+        result = self.run("export", "-p", property_name, "-w", str(work_dir), allow_failure=True)
+        if result.returncode != 0:
+            return None
+        return result.stdout.strip()
+
+    def export_properties(self, work_dir: Path, property_names: Iterable[str]) -> dict[str, str]:
+        exported: dict[str, str] = {}
+        for property_name in property_names:
+            value = self.export_property(work_dir, property_name)
+            if value:
+                exported[property_name] = value
+        return exported
+
+    def query_available_fields(self, project_id: str) -> list[str]:
+        result = self.run("query", "-p", project_id, "-H")
+        fields = []
+        for line in result.stdout.splitlines():
+            line = line.strip()
+            if line and not line.startswith("#"):
+                fields.append(line)
+        return fields
+
+    def query_bug_metadata(self, project_id: str, bug_id: int, preferred_fields: Iterable[str]) -> dict[str, str]:
+        available = set(self.query_available_fields(project_id))
+        fields = [field for field in preferred_fields if field in available]
+        if not fields:
+            return {}
+        result = self.run("query", "-p", project_id, "-q", ",".join(fields))
+        reader = csv.DictReader(result.stdout.splitlines())
+        target_id = str(bug_id)
+        for row in reader:
+            if row.get("bug.id") == target_id or row.get("id") == target_id:
+                return {field: row.get(field, "") for field in fields}
+        return {}
+
+    def read_failures(self, work_dir: Path, test_output: str) -> list:
+        failing_tests_path = work_dir / "failing_tests"
+        if failing_tests_path.exists():
+            contents = failing_tests_path.read_text(encoding="utf-8", errors="replace")
+            failures = parse_failing_tests(contents)
+            if failures:
+                return failures
+        return parse_failing_tests_from_output(test_output)
+
+    def parse_coverage_reports(
+        self,
+        work_dir: Path,
+        interesting_classes: set[str] | None = None,
+    ) -> list[CoverageClass]:
+        reports = sorted(work_dir.rglob("coverage*.xml")) + sorted(work_dir.rglob("cobertura*.xml"))
+        parsed: dict[str, CoverageClass] = {}
+        for report in reports:
+            try:
+                root = ET.parse(report).getroot()
+            except ET.ParseError:
+                continue
+            for class_element in root.findall(".//class"):
+                class_name = class_element.attrib.get("name")
+                if not class_name:
+                    continue
+                normalized = class_name.replace("/", ".")
+                if interesting_classes and normalized not in interesting_classes:
+                    continue
+                line_rate = _float_or_none(class_element.attrib.get("line-rate"))
+                branch_rate = _float_or_none(class_element.attrib.get("branch-rate"))
+                coverage_class = parsed.setdefault(
+                    normalized,
+                    CoverageClass(
+                        class_name=normalized,
+                        filename=class_element.attrib.get("filename"),
+                        line_rate=line_rate,
+                        branch_rate=branch_rate,
+                        covered_lines=[],
+                    ),
+                )
+                for line_element in class_element.findall(".//line"):
+                    try:
+                        hits = int(line_element.attrib.get("hits", "0"))
+                        line_number = int(line_element.attrib.get("number", "0"))
+                    except ValueError:
+                        continue
+                    if hits <= 0 or line_number <= 0:
+                        continue
+                    coverage_class.covered_lines.append(
+                        CoverageLine(
+                            line_number=line_number,
+                            hits=hits,
+                            branch=line_element.attrib.get("branch", "false") == "true",
+                        )
+                    )
+        for coverage_class in parsed.values():
+            coverage_class.covered_lines.sort(key=lambda line: (-line.hits, line.line_number))
+        return list(parsed.values())
+
+    @staticmethod
+    def _format_error(result: CommandResult) -> str:
+        return (
+            f"Defects4J command failed with exit code {result.returncode}\n"
+            f"cwd: {result.cwd}\n"
+            f"command: {' '.join(result.args)}\n"
+            f"stdout:\n{result.stdout}\n"
+            f"stderr:\n{result.stderr}"
+        )
+
+
+def _float_or_none(value: str | None) -> float | None:
+    if value is None or value == "":
+        return None
+    try:
+        return float(value)
+    except ValueError:
+        return None
