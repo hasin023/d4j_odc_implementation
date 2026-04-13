@@ -100,6 +100,31 @@ class Defects4JClient:
         work_dir.parent.mkdir(parents=True, exist_ok=True)
         return self.run("checkout", "-p", project_id, "-v", version_id, "-w", str(work_dir))
 
+    # ------------------------------------------------------------------
+    # Proxy / convenience methods for interactive CLI use
+    # ------------------------------------------------------------------
+
+    def pids(self) -> list[str]:
+        """Return all available project IDs."""
+        result = self.run("pids")
+        return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+
+    def bids(self, project_id: str, *, include_deprecated: bool = False) -> list[str]:
+        """Return bug IDs for a project."""
+        extra_args: list[str] = []
+        if include_deprecated:
+            extra_args.append("-A")
+        result = self.run("bids", "-p", project_id, *extra_args)
+        return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+
+    def info(self, project_id: str, bug_id: int | None = None) -> str:
+        """Return project or bug info as raw text."""
+        args = ["-p", project_id]
+        if bug_id is not None:
+            args.extend(["-b", str(bug_id)])
+        result = self.run("info", *args)
+        return result.stdout.strip()
+
     def compile(self, work_dir: Path) -> CommandResult:
         return self.run("compile", "-w", str(work_dir))
 
