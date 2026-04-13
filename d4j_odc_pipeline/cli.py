@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 
 from .defects4j import Defects4JClient, Defects4JError
@@ -8,6 +9,8 @@ from .pipeline import classify_bug_context, collect_bug_context, load_context, w
 
 
 def build_parser() -> argparse.ArgumentParser:
+    default_provider = os.environ.get("DEFAULT_LLM_PROVIDER", "gemini")
+    default_model = os.environ.get("DEFAULT_LLM_MODEL", "gemini-3.1-flash-lite-preview")
     parser = argparse.ArgumentParser(
         prog="python -m d4j_odc_pipeline",
         description="Collect Defects4J bug context and classify it into ODC defect types with an LLM.",
@@ -26,9 +29,9 @@ def build_parser() -> argparse.ArgumentParser:
     classify_parser.add_argument("--report", type=Path, help="Optional markdown report output path.")
     classify_parser.add_argument("--prompt-output", type=Path, help="Optional path to save rendered prompt messages.")
     classify_parser.add_argument("--prompt-style", choices=["direct", "scientific"], default="scientific")
-    classify_parser.add_argument("--provider", default="openai-compatible")
-    classify_parser.add_argument("--model", required=True)
-    classify_parser.add_argument("--api-key-env", default="OPENAI_API_KEY")
+    classify_parser.add_argument("--provider", default=default_provider, choices=["gemini", "openrouter", "openai-compatible"])
+    classify_parser.add_argument("--model", default=default_model)
+    classify_parser.add_argument("--api-key-env", default=None)
     classify_parser.add_argument("--base-url")
     classify_parser.add_argument("--dry-run", action="store_true", help="Render the prompt but skip the LLM call.")
 
@@ -41,9 +44,9 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--snippet-radius", type=int, default=12)
     run_parser.add_argument("--skip-coverage", action="store_true")
     run_parser.add_argument("--prompt-style", choices=["direct", "scientific"], default="scientific")
-    run_parser.add_argument("--provider", default="openai-compatible")
-    run_parser.add_argument("--model", required=True)
-    run_parser.add_argument("--api-key-env", default="OPENAI_API_KEY")
+    run_parser.add_argument("--provider", default=default_provider, choices=["gemini", "openrouter", "openai-compatible"])
+    run_parser.add_argument("--model", default=default_model)
+    run_parser.add_argument("--api-key-env", default=None)
     run_parser.add_argument("--base-url")
     run_parser.add_argument("--dry-run", action="store_true")
     return parser
@@ -61,6 +64,7 @@ def _add_common_bug_args(parser: argparse.ArgumentParser) -> None:
 
 
 def main() -> int:
+    load_dotenv()
     parser = build_parser()
     args = parser.parse_args()
     try:
@@ -121,3 +125,21 @@ def main() -> int:
     except (Defects4JError, FileNotFoundError, ValueError) as exc:
         parser.exit(status=1, message=f"{exc}\n")
     return 0
+
+
+def load_dotenv(path: Path | None = None) -> None:
+    dotenv_path = path or Path(".env")
+    if not dotenv_path.exists():
+        return
+    for raw_line in dotenv_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+        if not key or key in os.environ:
+            continue
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+            value = value[1:-1]
+        os.environ[key] = value

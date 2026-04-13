@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from .defects4j import DEFAULT_EXPORT_PROPERTIES, DEFAULT_QUERY_FIELDS, Defects4JClient
-from .llm import LLMError, OpenAICompatibleClient
+from .llm import LLMClient, LLMError
 from .models import BugContext, ClassificationResult, CodeSnippet, StackFrame, ensure_parent, utc_now_iso
 from .odc import ODC_TYPE_NAMES, coarse_group_for
 from .parsing import extract_json_object
@@ -98,7 +98,7 @@ def classify_bug_context(
     if dry_run:
         return None
 
-    client = OpenAICompatibleClient.from_env(
+    client = LLMClient.from_env(
         provider=provider,
         model=model,
         api_key_env=api_key_env,

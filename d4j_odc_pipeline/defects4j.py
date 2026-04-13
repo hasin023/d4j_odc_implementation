@@ -53,6 +53,9 @@ class Defects4JClient:
         raw_command = command or os.environ.get("DEFECTS4J_CMD") or "defects4j"
         self.command = shlex.split(raw_command, posix=False)
         self.timeout_seconds = timeout_seconds
+        self.path_style = (os.environ.get("DEFECTS4J_PATH_STYLE") or "").strip().lower()
+        if not self.path_style:
+            self.path_style = "wsl" if self.command and self.command[0].lower() == "wsl" else "native"
 
     def ensure_available(self) -> None:
         executable = self.command[0]
@@ -69,7 +72,8 @@ class Defects4JClient:
         allow_failure: bool = False,
     ) -> CommandResult:
         self.ensure_available()
-        cmd = [*self.command, subcommand, *args]
+        normalized_args = self._normalize_args(args, cwd=cwd)
+        cmd = [*self.command, subcommand, *normalized_args]
         env = os.environ.copy()
         env["TZ"] = "America/Los_Angeles"
         completed = subprocess.run(
@@ -134,13 +138,22 @@ class Defects4JClient:
         return exported
 
     def query_available_fields(self, project_id: str) -> list[str]:
-        result = self.run("query", "-p", project_id, "-H")
-        fields = []
+        result = self.run("query", "-p", project_id, "-H", allow_failure=True)
+        if result.returncode not in (0, 1):
+            raise Defects4JError(self._format_error(result))
         for line in result.stdout.splitlines():
             line = line.strip()
-            if line and not line.startswith("#"):
-                fields.append(line)
-        return fields
+            if not line:
+                continue
+            prefix = "Available fields:"
+            if line.startswith(prefix):
+                raw_fields = line[len(prefix) :].strip()
+                return [field.strip() for field in raw_fields.split(",") if field.strip()]
+        raise Defects4JError(
+            "Defects4J did not return the available query fields in the expected format.\n"
+            f"stdout:\n{result.stdout}\n"
+            f"stderr:\n{result.stderr}"
+        )
 
     def query_bug_metadata(self, project_id: str, bug_id: int, preferred_fields: Iterable[str]) -> dict[str, str]:
         available = set(self.query_available_fields(project_id))
@@ -148,11 +161,18 @@ class Defects4JClient:
         if not fields:
             return {}
         result = self.run("query", "-p", project_id, "-q", ",".join(fields))
-        reader = csv.DictReader(result.stdout.splitlines())
+        row_fields = list(fields)
+        if "bug.id" not in row_fields:
+            row_fields = ["bug.id", *row_fields]
+        reader = csv.reader(result.stdout.splitlines())
         target_id = str(bug_id)
         for row in reader:
-            if row.get("bug.id") == target_id or row.get("id") == target_id:
-                return {field: row.get(field, "") for field in fields}
+            if not row:
+                continue
+            if row[0] != target_id:
+                continue
+            record = {field: value for field, value in zip(row_fields, row)}
+            return {field: record.get(field, "") for field in fields}
         return {}
 
     def read_failures(self, work_dir: Path, test_output: str) -> list:
@@ -224,6 +244,32 @@ class Defects4JClient:
             f"stderr:\n{result.stderr}"
         )
 
+    def _normalize_args(self, args: Iterable[str], cwd: Path | None = None) -> list[str]:
+        normalized: list[str] = []
+        path_flags = {"-w", "-i", "-o"}
+        args_list = list(args)
+        index = 0
+        while index < len(args_list):
+            value = args_list[index]
+            normalized.append(value)
+            if value in path_flags and index + 1 < len(args_list):
+                normalized.append(self._normalize_path_arg(args_list[index + 1], cwd=cwd))
+                index += 2
+                continue
+            index += 1
+        return normalized
+
+    def _normalize_path_arg(self, value: str, cwd: Path | None = None) -> str:
+        if self.path_style != "wsl":
+            return value
+        base_dir = cwd or Path.cwd()
+        path = Path(value)
+        if not path.is_absolute():
+            path = (base_dir / path).resolve()
+        else:
+            path = path.resolve()
+        return windows_to_wsl_path(path)
+
 
 def _float_or_none(value: str | None) -> float | None:
     if value is None or value == "":
@@ -232,3 +278,15 @@ def _float_or_none(value: str | None) -> float | None:
         return float(value)
     except ValueError:
         return None
+
+
+def windows_to_wsl_path(path: Path) -> str:
+    raw = str(path)
+    drive, tail = os.path.splitdrive(raw)
+    if not drive:
+        return raw.replace("\\", "/")
+    drive_letter = drive[0].lower()
+    tail = tail.replace("\\", "/")
+    if not tail.startswith("/"):
+        tail = "/" + tail
+    return f"/mnt/{drive_letter}{tail}"
