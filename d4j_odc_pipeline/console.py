@@ -53,7 +53,7 @@ def step(message: str, *, detail: str | None = None) -> None:
     if _quiet or _console is None:
         return
     text = Text()
-    text.append("  ● ", style="step")
+    text.append("  * ", style="step")
     text.append(message)
     if detail:
         text.append(f"  {detail}", style="info")
@@ -64,7 +64,7 @@ def success(message: str) -> None:
     if _quiet or _console is None:
         return
     text = Text()
-    text.append("  ✓ ", style="success")
+    text.append("  + ", style="success")
     text.append(message, style="success")
     _console.print(text)
 
@@ -73,7 +73,7 @@ def warn(message: str) -> None:
     if _quiet or _console is None:
         return
     text = Text()
-    text.append("  ⚠ ", style="warn")
+    text.append("  ! ", style="warn")
     text.append(message, style="warn")
     _console.print(text)
 
@@ -82,7 +82,7 @@ def error(message: str) -> None:
     if _quiet or _console is None:
         return
     text = Text()
-    text.append("  ✗ ", style="error")
+    text.append("  x ", style="error")
     text.append(message, style="error")
     _console.print(text)
 
@@ -120,7 +120,7 @@ def error_panel(title: str, message: str, *, hint: str | None = None) -> None:
     content = Text()
     content.append(message)
     if hint:
-        content.append(f"\n\n💡 {hint}", style="info")
+        content.append(f"\n\nHint: {hint}", style="info")
     _console.print()
     _console.print(Panel(content, title=f"[bold red]{title}[/bold red]", border_style="red", expand=True))
 
@@ -136,7 +136,7 @@ def timed_step(message: str) -> Generator[None, None, None]:
         yield
         return
     start = time.monotonic()
-    _console.print(Text.assemble(("  ● ", "step"), (f"{message}...", "")), end="")
+    _console.print(Text.assemble(("  * ", "step"), (f"{message}...", "")), end="")
     try:
         yield
         elapsed = time.monotonic() - start
@@ -154,11 +154,11 @@ def spinner_step(message: str) -> Generator[None, None, None]:
         yield
         return
     start = time.monotonic()
-    with _console.status(f"  [step]●[/step] {message}...", spinner="dots"):
+    with _console.status(f"  [step]*[/step] {message}...", spinner="dots"):
         yield
     elapsed = time.monotonic() - start
     text = Text()
-    text.append("  ● ", style="step")
+    text.append("  * ", style="step")
     text.append(f"{message}  ")
     text.append("done", style="success")
     text.append(f" ({elapsed:.1f}s)", style="info")
@@ -178,7 +178,7 @@ def print_list(title: str, items: list[str], *, style: str = "white") -> None:
         _console.print("  [info](none)[/info]")
         return
     for item in items:
-        _console.print(f"  • {item}", style=style)
+        _console.print(f"  - {item}", style=style)
 
 
 def print_table(title: str, headers: list[str], rows: list[list[str]]) -> None:
