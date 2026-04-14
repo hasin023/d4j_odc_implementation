@@ -70,6 +70,34 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--prompt-style", choices=["direct", "scientific"], default="scientific")
     _add_llm_args(run_parser, default_provider, default_model)
 
+    # ── compare ───────────────────────────────────────────────────────────
+    compare_parser = subparsers.add_parser(
+        "compare",
+        help="Compare a pre-fix and post-fix classification for accuracy evaluation.",
+    )
+    compare_parser.add_argument("--prefix", type=Path, required=True,
+                                help="Path to pre-fix classification JSON.")
+    compare_parser.add_argument("--postfix", type=Path, required=True,
+                                help="Path to post-fix classification JSON.")
+    compare_parser.add_argument("--output", type=Path, required=True,
+                                help="Path to write comparison JSON.")
+    compare_parser.add_argument("--report", type=Path,
+                                help="Optional markdown comparison report.")
+
+    # ── compare-batch ─────────────────────────────────────────────────────
+    batch_parser = subparsers.add_parser(
+        "compare-batch",
+        help="Batch compare multiple pre-fix/post-fix classification pairs.",
+    )
+    batch_parser.add_argument("--prefix-dir", type=Path, required=True,
+                              help="Directory containing *_prefix/classification.json files.")
+    batch_parser.add_argument("--postfix-dir", type=Path, required=True,
+                              help="Directory containing *_postfix/classification.json files.")
+    batch_parser.add_argument("--output", type=Path, required=True,
+                              help="Path to write batch comparison JSON.")
+    batch_parser.add_argument("--report", type=Path,
+                              help="Optional markdown batch report.")
+
     # ── d4j (Defects4J proxy commands) ────────────────────────────────────
     d4j_parser = subparsers.add_parser(
         "d4j",
@@ -132,6 +160,10 @@ def main() -> int:
             return _cmd_classify(args)
         if args.command == "run":
             return _cmd_run(args)
+        if args.command == "compare":
+            return _cmd_compare(args)
+        if args.command == "compare-batch":
+            return _cmd_compare_batch(args)
         if args.command == "d4j":
             return _cmd_d4j(args)
     except Defects4JError as exc:
@@ -224,6 +256,121 @@ def _cmd_run(args: argparse.Namespace) -> int:
         dry_run=args.dry_run,
     )
     write_markdown_report(context=context, classification=classification, output_path=args.report)
+    return 0
+
+
+def _cmd_compare(args: argparse.Namespace) -> int:
+    import json
+    from .comparison import compare_classifications, write_comparison_report
+    from .pipeline import write_json
+
+    prefix_data = json.loads(args.prefix.read_text(encoding="utf-8"))
+    postfix_data = json.loads(args.postfix.read_text(encoding="utf-8"))
+
+    result = compare_classifications(prefix_data, postfix_data)
+
+    console.header_panel(
+        f"Comparison: {result.project_id}-{result.bug_id}",
+        f"Pre-fix: {result.prefix_odc_type}  vs  Post-fix: {result.postfix_odc_type}",
+    )
+
+    write_json(args.output, result.to_dict())
+    console.step(f"Comparison JSON written -> {args.output}")
+
+    if args.report:
+        write_comparison_report(result, args.report)
+        console.step(f"Comparison report written -> {args.report}")
+
+    strict_icon = "MATCH" if result.strict_match else "MISS"
+    top2_icon = "MATCH" if result.top2_match else "MISS"
+    coarse_icon = "MATCH" if result.coarse_group_match else "MISS"
+
+    console.result_panel("Comparison complete", [
+        ("Pre-fix Type", f"{result.prefix_odc_type} ({result.prefix_confidence:.2f})"),
+        ("Post-fix Type", f"{result.postfix_odc_type} ({result.postfix_confidence:.2f})"),
+        ("Strict Match", strict_icon),
+        ("Top-2 Match", top2_icon),
+        ("Coarse Group Match", coarse_icon),
+        ("Detail", result.match_detail),
+    ])
+    return 0
+
+
+def _cmd_compare_batch(args: argparse.Namespace) -> int:
+    import json
+    from .comparison import batch_compare, write_comparison_report
+    from .pipeline import write_json
+
+    prefix_dir: Path = args.prefix_dir
+    postfix_dir: Path = args.postfix_dir
+
+    if not prefix_dir.is_dir():
+        console.error_panel("Directory Not Found", f"Pre-fix directory not found: {prefix_dir}")
+        return 1
+    if not postfix_dir.is_dir():
+        console.error_panel("Directory Not Found", f"Post-fix directory not found: {postfix_dir}")
+        return 1
+
+    # Auto-discover matching pairs
+    # Expected: prefix_dir/ProjectName_BugId_prefix/classification.json
+    #           postfix_dir/ProjectName_BugId_postfix/classification.json
+    pairs: list[tuple[dict, dict]] = []
+    matched_bugs: list[str] = []
+
+    prefix_files: dict[str, Path] = {}
+    for child in sorted(prefix_dir.iterdir()):
+        if child.is_dir():
+            cls_file = child / "classification.json"
+            if cls_file.exists():
+                key = child.name
+                if key.endswith("_prefix"):
+                    key = key[:-7]
+                prefix_files[key] = cls_file
+
+    for child in sorted(postfix_dir.iterdir()):
+        if child.is_dir():
+            cls_file = child / "classification.json"
+            if cls_file.exists():
+                key = child.name
+                if key.endswith("_postfix"):
+                    key = key[:-8]
+                if key in prefix_files:
+                    prefix_data = json.loads(prefix_files[key].read_text(encoding="utf-8"))
+                    postfix_data = json.loads(cls_file.read_text(encoding="utf-8"))
+                    pairs.append((prefix_data, postfix_data))
+                    matched_bugs.append(key)
+
+    if not pairs:
+        console.warn("No matching pre-fix/post-fix pairs found.")
+        console.step(
+            "Expected naming: <Project>_<Bug>_prefix/ and <Project>_<Bug>_postfix/ "
+            "each containing classification.json"
+        )
+        return 1
+
+    console.header_panel(
+        f"Batch Comparison: {len(pairs)} bug(s)",
+        f"Bugs: {', '.join(matched_bugs)}",
+    )
+
+    result = batch_compare(pairs)
+
+    write_json(args.output, result.to_dict())
+    console.step(f"Batch comparison JSON written -> {args.output}")
+
+    if args.report:
+        write_comparison_report(result, args.report)
+        console.step(f"Batch comparison report written -> {args.report}")
+
+    kappa_str = f"{result.cohens_kappa:.3f}" if result.cohens_kappa is not None else "N/A"
+
+    console.result_panel("Batch Comparison complete", [
+        ("Total Bugs", str(result.total_bugs)),
+        ("Strict Match", f"{result.strict_match_rate:.0%} ({result.strict_match_count}/{result.total_bugs})"),
+        ("Top-2 Match", f"{result.top2_match_rate:.0%} ({result.top2_match_count}/{result.total_bugs})"),
+        ("Coarse Group Match", f"{result.coarse_group_match_rate:.0%} ({result.coarse_group_match_count}/{result.total_bugs})"),
+        ("Cohen's Kappa", kappa_str),
+    ])
     return 0
 
 

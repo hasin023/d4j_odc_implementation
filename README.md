@@ -234,6 +234,25 @@ python -m d4j_odc_pipeline d4j bids --project Lang           # List bug IDs
 python -m d4j_odc_pipeline d4j info --project Lang --bug 1   # Show bug details
 ```
 
+### `compare` and `compare-batch` — Accuracy Evaluation
+
+Compare pre-fix and post-fix classification results using multi-tier accuracy metrics:
+
+```powershell
+# Compare a single bug pair
+python -m d4j_odc_pipeline compare `
+  --prefix .\artifacts\Lang_1\classification.json `
+  --postfix .\artifacts\Lang_1f\classification.json `
+  --output .\artifacts\Lang_1\comparison.json
+
+# Batch compare a directory of pairs
+python -m d4j_odc_pipeline compare-batch `
+  --prefix-dir .\artifacts\prefix_runs `
+  --postfix-dir .\artifacts\postfix_runs `
+  --output .\artifacts\batch_comparison.json `
+  --report .\artifacts\accuracy_report.md
+```
+
 ---
 
 ## CLI Parameters
@@ -264,6 +283,17 @@ python -m d4j_odc_pipeline d4j info --project Lang --bug 1   # Show bug details
 | `--api-key-env`                        |    No    | Custom env var name for the API key.                 |
 | `--base-url`                           |    No    | Override API base URL.                               |
 | `--dry-run`                            |    No    | Build prompt only, skip LLM call.                    |
+
+### Comparison parameters (used by `compare`, `compare-batch`)
+
+| Parameter       | Required | Description                                         |
+| --------------- | :------: | --------------------------------------------------- |
+| `--prefix`      |  Yes\*   | Path to pre-fix JSON. (_`compare` only_)            |
+| `--postfix`     |  Yes\*   | Path to post-fix JSON. (_`compare` only_)           |
+| `--prefix-dir`  |   Yes†   | Directory of pre-fix runs. (†`compare-batch` only)  |
+| `--postfix-dir` |   Yes†   | Directory of post-fix runs. (†`compare-batch` only) |
+| `--output`      |   Yes    | Path for comparison JSON output.                    |
+| `--report`      |    No    | Path for human-readable markdown report.            |
 
 ### Global flags
 
