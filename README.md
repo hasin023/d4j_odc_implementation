@@ -1,16 +1,123 @@
 # Defects4J ODC Pipeline
 
-A thesis pipeline that collects pre-fix bug evidence from Defects4J, classifies it into ODC defect types using an LLM (Gemini by default, OpenRouter as fallback), and saves machine-readable outputs for evaluation.
+A research pipeline that collects pre-fix bug evidence from [Defects4J](https://github.com/rjust/defects4j), classifies it into ODC (**Orthogonal Defect Classification**) defect types using an LLM (Gemini by default, OpenRouter as fallback), and saves machine-readable outputs for evaluation.
+
+The pipeline follows a **Scientific Debugging** methodology — observation → hypothesis → prediction → experiment → conclusion — to classify each bug into one of 7 ODC defect types with grounded, code-level reasoning.
+
+---
+
+## Pipeline Architecture
+
+### Evidence Collection Flow (`collect`)
+
+```mermaid
+flowchart TD
+    A[Start: project ID + bug ID] --> B[Query Bug Metadata]
+    B --> |"bug.id, report.url,\nrevision.buggy/fixed,\ntests.trigger, classes.modified"| C[Fetch Bug Info]
+    C --> |"d4j info -p X -b Y\n→ root cause text"| D{report.url exists?}
+    D -->|Yes| E[Fetch Bug Report Page]
+    D -->|No| F[Skip fetch]
+    E --> |"JIRA/GitHub content\n→ description, comments"| G[Checkout Buggy Version]
+    F --> G
+    G --> |"d4j checkout -p X -v Yb"| H[Compile Buggy Version]
+    H --> |"d4j compile"| I[Run Tests]
+    I --> |"d4j test"| J[Parse Failing Tests]
+    J --> |"Parse stack traces,\nextract frames"| K[Export D4J Properties]
+    K --> |"dir.src.classes,\ndir.src.tests, etc."| L[Select Suspicious Frames]
+    L --> |"Filter framework classes\n→ prioritize project source"| M[Discover Source Dirs]
+    M --> N[Extract Production Code Snippets]
+    N --> |"Source around each\nsuspicious frame ±12 lines"| O[Extract Test Source Code]
+    O --> |"Failing test method source\n→ shows expected behavior"| P{Coverage enabled?}
+    P -->|Yes| Q[Run D4J Coverage]
+    P -->|No| R[Write context.json]
+    Q --> |"Retry without -i\nif first attempt fails"| R
+    R --> S["✅ context.json saved"]
+```
+
+### Classification Flow (`classify`)
+
+```mermaid
+flowchart TD
+    A[Load context.json] --> B[Build System Prompt]
+    B --> |"ODC taxonomy\n+ diagnostic decision tree\n+ few-shot examples\n+ scientific debugging protocol"| C[Build User Prompt]
+    C --> |"Evidence payload:\n• production_code_snippets\n• test_code_snippets\n• bug_info + bug_report\n• stack traces + metadata"| D[Call LLM API]
+    D --> E[Parse JSON Response]
+    E --> F{Valid odc_type?}
+    F -->|No| G[Retry up to 2 times]
+    G --> D
+    F -->|Yes| H[Enforce Canonical Coarse Group]
+    H --> |"odc.coarse_group_for\nnever trust LLM mapping"| I[Write classification.json]
+    I --> J[Generate Markdown Report]
+    J --> K["✅ classification.json\n+ report.md saved"]
+```
+
+### Evidence Sent to LLM
+
+```mermaid
+flowchart LR
+    subgraph "Evidence Payload"
+        direction TB
+        A["🔍 Production Code Snippets\n(source around crash point)"]
+        B["🧪 Test Source Code\n(shows expected behavior)"]
+        C["📋 Bug Report Content\n(JIRA/GitHub description)"]
+        D["ℹ️ Bug Info\n(d4j info root cause)"]
+        E["💥 Stack Traces\n(filtered, project-only)"]
+        F["📊 Coverage Data\n(line + branch rates)"]
+        G["📝 Metadata\n(report.url, revisions, etc.)"]
+    end
+    subgraph "LLM Classification"
+        direction TB
+        H["7-Question Diagnostic Tree"]
+        I["5 Few-Shot Examples"]
+        J["Scientific Debugging Protocol"]
+        K["Contrastive ODC Definitions"]
+    end
+    A --> H
+    B --> H
+    C --> I
+    D --> I
+    E --> J
+    F --> J
+    G --> K
+```
+
+---
 
 ## What the pipeline does
 
-- Checks out a buggy Defects4J version via the official CLI.
-- Compiles and tests the buggy version.
-- Parses `failing_tests` and stack traces.
-- Extracts source snippets around suspicious stack frames.
-- Optionally runs targeted `defects4j coverage` on suspicious classes only.
-- Builds a structured ODC classification prompt (direct or scientific-debugging style).
-- Writes `context.json`, `classification.json`, and a markdown report.
+1. **Queries bug metadata** — `report.url`, `revision.buggy`, `revision.fixed`, `tests.trigger`, `classes.modified` (hidden oracle), etc.
+2. **Fetches bug info** — Runs `defects4j info` to capture root cause text and triggering tests.
+3. **Fetches bug report page** — Downloads and parses JIRA/GitHub bug report content for natural language descriptions.
+4. **Checks out and compiles the buggy version** — `defects4j checkout` + `defects4j compile`.
+5. **Runs tests and parses failures** — Parses `failing_tests` file and extracts structured stack frames.
+6. **Filters suspicious frames** — Removes JUnit, Ant, JDK, Hamcrest, Mockito, and 20+ other framework classes. Prioritizes project source frames.
+7. **Extracts production code snippets** — Reads Java source around each suspicious frame (±12 lines).
+8. **Extracts test source code** — Reads the failing test method source to show expected behavior.
+9. **Runs targeted coverage** (optional) — Instruments only suspicious classes, retries on failure.
+10. **Classifies using LLM** — Sends structured evidence to Gemini/OpenRouter with a scientific debugging prompt containing:
+    - Contrastive ODC definitions with boundary rules
+    - 5 canonical few-shot examples
+    - 7-question diagnostic decision tree
+    - Anti-bias rules preventing default-to-Function behavior
+11. **Writes outputs** — `context.json`, `classification.json`, and a markdown report.
+
+---
+
+## ODC Defect Types
+
+The pipeline classifies into 7 ODC **Defect Type** categories:
+
+| ODC Type                 | Coarse Group     | Description                                     |
+| ------------------------ | ---------------- | ----------------------------------------------- |
+| **Function**             | Structural       | Missing capability never implemented at all     |
+| **Interface**            | Structural       | Parameter/API contract mismatch between modules |
+| **Build/Package/Merge**  | Structural       | Build scripts, config, dependency issues        |
+| **Checking**             | Control and Data | Missing/incorrect validation or guard           |
+| **Assignment**           | Control and Data | Wrong value, wrong variable, wrong constant     |
+| **Algorithm**            | Control and Data | Incorrect computation or procedure logic        |
+| **Timing/Serialization** | Control and Data | Race condition, ordering, or concurrency bug    |
+
+---
 
 ## Setup
 
@@ -46,7 +153,7 @@ sudo cpanm String::Interpolate
 sudo cpanm --installdeps ~/defects4j
 ```
 
-### 5. Create a Python virtual environment and install dependencies
+### 4. Create a Python virtual environment and install dependencies
 
 ```powershell
 cd C:\path\to\your\repo\implementation
@@ -64,7 +171,7 @@ Or install as an editable package (adds the `d4j-odc` shortcut command):
 pip install -e .
 ```
 
-### 6. Configure `.env`
+### 5. Configure `.env`
 
 Copy `.env.example` to `.env` and set your values:
 
@@ -76,9 +183,13 @@ DEFECTS4J_CMD=wsl perl /home/your-linux-user/defects4j/framework/bin/defects4j
 DEFECTS4J_PATH_STYLE=wsl
 ```
 
+---
+
 ## Usage
 
 ### `collect` — Build pre-fix context
+
+Checks out the buggy version, runs tests, fetches all evidence, and saves `context.json`.
 
 ```powershell
 python -m d4j_odc_pipeline collect `
@@ -90,6 +201,8 @@ python -m d4j_odc_pipeline collect `
 
 ### `classify` — Classify an existing context
 
+Sends evidence to the LLM and produces classification + report.
+
 ```powershell
 python -m d4j_odc_pipeline classify `
   --context .\artifacts\Lang_1\context.json `
@@ -98,6 +211,8 @@ python -m d4j_odc_pipeline classify `
 ```
 
 ### `run` — End-to-end collection + classification
+
+Runs both `collect` and `classify` in a single command.
 
 ```powershell
 python -m d4j_odc_pipeline run `
@@ -118,6 +233,8 @@ python -m d4j_odc_pipeline d4j pids                         # List all projects
 python -m d4j_odc_pipeline d4j bids --project Lang           # List bug IDs
 python -m d4j_odc_pipeline d4j info --project Lang --bug 1   # Show bug details
 ```
+
+---
 
 ## CLI Parameters
 
@@ -153,24 +270,30 @@ python -m d4j_odc_pipeline d4j info --project Lang --bug 1   # Show bug details
 | ---------------- | ---------------------------------------------------- |
 | `-q` / `--quiet` | Suppress all rich console output (for scripting/CI). |
 
+---
+
 ## Coverage Mode
 
-Coverage is optional. The main collection always performs metadata lookup, checkout, compile, test, failure parsing, and snippet extraction. The `--skip-coverage` flag only controls the extra `defects4j coverage` step.
+Coverage is optional and adds line/branch-level evidence to the context.
 
-- **With `--skip-coverage`**: Faster, simpler. Best for first runs, setup debugging, or fast batch collection. No runtime coverage evidence in `context.json`.
-- **Without `--skip-coverage`**: Instruments only suspicious classes, runs coverage with the first failing test, and parses coverage XML. Slower but richer evidence. If no suspicious source frames exist, coverage is skipped automatically.
+- **With `--skip-coverage`**: Faster, simpler. Best for first runs, setup debugging, or fast batch collection.
+- **Without `--skip-coverage`**: Instruments suspicious classes, runs coverage with the first failing test, and parses Cobertura XML. If the first attempt fails (e.g., Cobertura instrumentation crash), the pipeline **automatically retries without the instrument file**. If no suspicious source frames exist, coverage is skipped automatically.
 
 **Recommendation**: Use `--skip-coverage` until checkout/compile/test/classify are working, then remove it.
 
+---
+
 ## Output Files
 
-| File                     | Produced by        | Contents                                     |
-| ------------------------ | ------------------ | -------------------------------------------- |
-| `context.json`           | `collect` / `run`  | Pre-fix Defects4J evidence.                  |
-| `classification.json`    | `classify` / `run` | ODC classification from the LLM.             |
-| `report.md`              | `classify` / `run` | Human-readable bug + classification summary. |
-| `prompt.json`            | `--prompt-output`  | Rendered prompt messages sent to the LLM.    |
-| `instrument_classes.txt` | Coverage step      | Classes instrumented for coverage.           |
+| File                     | Produced by        | Contents                                            |
+| ------------------------ | ------------------ | --------------------------------------------------- |
+| `context.json`           | `collect` / `run`  | All pre-fix evidence (code, tests, bug report, etc) |
+| `classification.json`    | `classify` / `run` | ODC classification with reasoning chain             |
+| `report.md`              | `classify` / `run` | Human-readable bug + classification summary         |
+| `prompt.json`            | `--prompt-output`  | Rendered prompt messages sent to the LLM            |
+| `instrument_classes.txt` | Coverage step      | Classes instrumented for coverage                   |
+
+---
 
 ## Provider Options
 
@@ -191,13 +314,38 @@ OPENROUTER_HTTP_REFERER=https://your-site.example
 OPENROUTER_APP_TITLE=Defects4J ODC Pipeline
 ```
 
+---
+
+## Project Structure
+
+```bash
+d4j_odc_pipeline/
+├── __main__.py        # CLI entry point (argparse commands)
+├── pipeline.py        # Core collect + classify orchestration
+├── defects4j.py       # Defects4J client (checkout, test, query, coverage)
+├── llm.py             # LLM API client (Gemini, OpenRouter, OpenAI-compatible)
+├── prompting.py       # Prompt engineering (ODC taxonomy, few-shot examples, decision tree)
+├── odc.py             # ODC type definitions with contrastive boundary rules
+├── models.py          # Data models (BugContext, ClassificationResult, etc.)
+├── parsing.py         # Stack trace parser, JSON extraction
+├── console.py         # Rich terminal output helpers
+└── reporting.py       # Markdown report generator
+```
+
+---
+
 ## Design Choices
 
 - The LLM sees **pre-fix evidence only** by default.
 - `classes.modified` is stored as a hidden oracle for offline analysis but excluded from the prompt.
 - The default prompt style is `scientific`, following observation → hypothesis → prediction → experiment → conclusion.
-- The ODC target is the 7-class **Defect Type** attribute (`Function`, `Interface`, `Checking`, `Assignment`, `Timing/Serialization`, `Build/Package/Merge`, `Algorithm`).
+- The ODC target is the 7-class **Defect Type** attribute.
+- Evidence is separated into `production_code_snippets` and `test_code_snippets` so the LLM distinguishes "where the bug is" from "what behavior is expected."
+- Framework classes (JUnit, Ant, JDK, Hamcrest, Mockito, etc.) are aggressively filtered to ensure only project source frames reach the LLM.
+- Bug report content is fetched from JIRA/GitHub and truncated to 6,000 chars to avoid prompt explosion.
 - Defects4J runs through WSL; Windows paths are converted automatically when `DEFECTS4J_PATH_STYLE=wsl`.
+
+---
 
 ## Official References
 

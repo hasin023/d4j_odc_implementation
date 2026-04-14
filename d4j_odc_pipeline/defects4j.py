@@ -17,6 +17,8 @@ DEFAULT_QUERY_FIELDS = [
     "bug.id",
     "report.id",
     "report.url",
+    "revision.buggy",
+    "revision.fixed",
     "classes.modified",
     "classes.relevant",
     "tests.trigger",

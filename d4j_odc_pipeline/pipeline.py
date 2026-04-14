@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+import re
+import urllib.request
+import urllib.error
 from pathlib import Path
 
 from .defects4j import DEFAULT_EXPORT_PROPERTIES, DEFAULT_QUERY_FIELDS, Defects4JClient
@@ -36,6 +39,34 @@ def collect_bug_context(
     else:
         console.warn("No metadata fields returned by Defects4J query")
 
+    # ── Fetch bug info from d4j info command ──────────────────────────
+    bug_info = ""
+    try:
+        with console.spinner_step(f"Fetching bug info ({project_id}-{bug_id})"):
+            bug_info = defects4j.info(project_id, bug_id)
+        if bug_info:
+            console.step("Bug info retrieved", detail=f"{len(bug_info)} chars")
+        else:
+            console.warn("No bug info returned")
+    except Exception as exc:
+        console.warn(f"Could not fetch bug info: {exc}")
+
+    # ── Fetch bug report content from URL ─────────────────────────────
+    bug_report_content = ""
+    report_url = metadata.get("report.url", "")
+    if report_url:
+        try:
+            with console.spinner_step("Fetching bug report page"):
+                bug_report_content = _fetch_bug_report(report_url)
+            if bug_report_content:
+                console.step("Bug report fetched", detail=f"{len(bug_report_content)} chars")
+            else:
+                console.warn("Bug report page returned empty content")
+        except Exception as exc:
+            console.warn(f"Could not fetch bug report: {exc}")
+    else:
+        console.step("Bug report fetch skipped", detail="no report.url in metadata")
+
     with console.spinner_step(f"Checking out {project_id} {version_id}"):
         defects4j.checkout(project_id, version_id, work_dir)
 
@@ -68,9 +99,16 @@ def collect_bug_context(
     source_dirs = _discover_source_dirs(work_dir, exports)
     console.step(f"Source directories: {len(source_dirs)}")
 
-    with console.timed_step("Extracting code snippets"):
+    # ── Extract production code snippets ──────────────────────────────
+    with console.timed_step("Extracting code snippets from suspicious frames"):
         code_snippets = _extract_code_snippets(source_dirs, suspicious_frames, radius=snippet_radius)
-    console.step(f"Code snippets extracted: {len(code_snippets)}")
+    console.step(f"Production code snippets: {len(code_snippets)}")
+
+    # ── Extract test source code snippets ─────────────────────────────
+    with console.timed_step("Extracting test source code"):
+        test_snippets = _extract_test_source(source_dirs, failures, radius=snippet_radius + 6)
+    console.step(f"Test code snippets: {len(test_snippets)}")
+    code_snippets.extend(test_snippets)
 
     hidden_oracles = {}
     if metadata.get("classes.modified"):
@@ -86,6 +124,8 @@ def collect_bug_context(
             ensure_parent(instrument_file)
             instrument_file.write_text("\n".join(sorted(interesting_classes)), encoding="utf-8")
             single_test = failures[0].test_name if failures else None
+
+            # Attempt 1: Run coverage with instrument file for focused results
             with console.spinner_step(f"Running coverage on {len(interesting_classes)} class(es)"):
                 coverage_result = defects4j.coverage(
                     work_dir,
@@ -93,12 +133,34 @@ def collect_bug_context(
                     instrument_classes_file=instrument_file,
                 )
             notes.append(f"Coverage exit code: {coverage_result.returncode}")
+
+            # If coverage command failed, retry without instrument file
+            if coverage_result.returncode not in (0, 1):
+                console.warn(
+                    f"Coverage failed (exit {coverage_result.returncode}), retrying without instrument file..."
+                )
+                if coverage_result.stderr:
+                    notes.append(f"Coverage stderr (attempt 1): {coverage_result.stderr[:300]}")
+                with console.spinner_step("Retrying coverage without instrument filter"):
+                    coverage_result = defects4j.coverage(
+                        work_dir,
+                        single_test=single_test,
+                    )
+                notes.append(f"Coverage retry exit code: {coverage_result.returncode}")
+
             coverage = defects4j.parse_coverage_reports(work_dir, interesting_classes=interesting_classes)
             if coverage:
                 console.step(f"Coverage parsed: {len(coverage)} class(es)")
             else:
-                console.warn("No parseable coverage XML found after running defects4j coverage")
-                notes.append("No parseable coverage XML was found after running defects4j coverage.")
+                # Try parsing without the class filter as a last resort
+                coverage = defects4j.parse_coverage_reports(work_dir)
+                if coverage:
+                    console.step(f"Coverage parsed (unfiltered): {len(coverage)} class(es)")
+                else:
+                    console.warn("No parseable coverage XML found after running defects4j coverage")
+                    notes.append("No parseable coverage XML was found after running defects4j coverage.")
+                    if coverage_result.stderr:
+                        notes.append(f"Coverage stderr: {coverage_result.stderr[:300]}")
         else:
             console.step("Coverage skipped", detail="no suspicious source frames available")
             notes.append("Coverage skipped because no suspicious source frames were available.")
@@ -120,16 +182,22 @@ def collect_bug_context(
         coverage=coverage,
         hidden_oracles=hidden_oracles,
         notes=notes,
+        bug_info=bug_info,
+        bug_report_content=bug_report_content,
     )
 
     console.step(f"Writing context → {output_path}")
     write_json(output_path, context.to_dict())
 
+    total_snippets_prod = len(code_snippets) - len(test_snippets)
     console.result_panel("Collection complete", [
         ("Project", f"{project_id}-{bug_id} ({version_id})"),
         ("Failing tests", str(len(failures))),
         ("Suspicious frames", str(len(suspicious_frames))),
-        ("Code snippets", str(len(code_snippets))),
+        ("Production snippets", str(total_snippets_prod)),
+        ("Test snippets", str(len(test_snippets))),
+        ("Bug report", "fetched" if bug_report_content else "not available"),
+        ("Bug info", "fetched" if bug_info else "not available"),
         ("Coverage classes", str(len(coverage))),
         ("Output", str(output_path)),
     ])
@@ -263,20 +331,90 @@ def load_context(path: Path) -> BugContext:
     return BugContext.from_dict(json.loads(path.read_text(encoding="utf-8")))
 
 
+# ---------------------------------------------------------------------------
+# Framework class blocklist — these NEVER belong in suspicious frames
+# ---------------------------------------------------------------------------
+
+_FRAMEWORK_PREFIXES: tuple[str, ...] = (
+    # JUnit
+    "org.junit.",
+    "junit.",
+    # Test runners and utilities
+    "org.hamcrest.",
+    "org.mockito.",
+    "org.powermock.",
+    "org.easymock.",
+    "org.assertj.",
+    # Build tools
+    "org.apache.tools.ant.",
+    "org.apache.maven.",
+    "org.gradle.",
+    # JDK internals
+    "java.",
+    "javax.",
+    "jdk.",
+    "sun.",
+    "com.sun.",
+    # Reflection
+    "jdk.internal.reflect.",
+)
+
+
+def _is_framework_class(class_name: str) -> bool:
+    """Return True if the class belongs to a test/build/JDK framework."""
+    for prefix in _FRAMEWORK_PREFIXES:
+        if class_name.startswith(prefix):
+            return True
+    return False
+
+
+def _looks_like_test_class(class_name: str) -> bool:
+    """Return True if the class appears to be a test class."""
+    simple = class_name.rsplit(".", 1)[-1].split("$")[0]
+    lowered = simple.lower()
+    return (
+        lowered.endswith("test")
+        or lowered.endswith("tests")
+        or lowered.startswith("test")
+        or "test" in class_name.lower().split("$")[-1:]
+    )
+
+
 def _select_suspicious_frames(failures: list) -> list[StackFrame]:
-    selected: list[StackFrame] = []
+    """Select frames most likely to contain the bug.
+
+    Strategy:
+      1. Collect ALL non-framework, non-test frames from every failure.
+      2. Prioritize project source frames (these are most useful for code extraction).
+      3. Fall back to test frames only if zero project frames exist.
+    """
+    project_frames: list[StackFrame] = []
+    test_frames: list[StackFrame] = []
     seen: set[tuple[str, int | None]] = set()
+
     for failure in failures:
         for frame in failure.frames:
-            if _looks_like_test_class(frame.class_name):
+            # Skip frames with missing/empty class names
+            if not frame.class_name or not frame.class_name.strip():
                 continue
+            # Always skip framework / JDK / build-tool classes
+            if _is_framework_class(frame.class_name):
+                continue
+
             key = (frame.class_name, frame.line_number)
             if key in seen:
                 continue
             seen.add(key)
-            selected.append(frame)
-            if len(selected) >= 12:
-                return selected
+
+            if _looks_like_test_class(frame.class_name):
+                test_frames.append(frame)
+            else:
+                project_frames.append(frame)
+
+    # Prefer project source frames; include test frames only as fallback
+    selected = project_frames[:12]
+    if not selected:
+        selected = test_frames[:6]
     return selected
 
 
@@ -343,7 +481,21 @@ def _extract_code_snippets(source_dirs: list[Path], frames: list[StackFrame], ra
 
 
 def _resolve_java_file(source_dirs: list[Path], frame: StackFrame) -> Path | None:
-    relative = Path(*frame.class_name.split("$")[0].split(".")).with_suffix(".java")
+    class_name = (frame.class_name or "").strip()
+    if not class_name:
+        return None
+
+    # Convert e.g. "org.example.Foo$Inner" → "org/example/Foo.java"
+    outer_class = class_name.split("$")[0]
+    parts = [p for p in outer_class.split(".") if p]
+    if not parts:
+        return None
+
+    try:
+        relative = Path(*parts).with_suffix(".java")
+    except (TypeError, ValueError):
+        return None
+
     for source_dir in source_dirs:
         candidate = source_dir / relative
         if candidate.exists():
@@ -356,9 +508,170 @@ def _resolve_java_file(source_dirs: list[Path], frame: StackFrame) -> Path | Non
     return None
 
 
-def _looks_like_test_class(class_name: str) -> bool:
-    lowered = class_name.lower()
-    return lowered.endswith("test") or ".test" in lowered or "$test" in lowered
+# ---------------------------------------------------------------------------
+# Bug report fetching
+# ---------------------------------------------------------------------------
+
+def _fetch_bug_report(url: str, *, timeout: int = 15, max_chars: int = 6000) -> str:
+    """Fetch and extract meaningful text from a JIRA or GitHub bug report page.
+
+    Returns a truncated plain-text summary suitable for LLM consumption.
+    Fails silently and returns empty string on any error.
+    """
+    try:
+        request = urllib.request.Request(
+            url,
+            headers={"User-Agent": "Defects4J-ODC-Pipeline/0.2 (research tool)"},
+        )
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            raw_html = response.read().decode("utf-8", errors="replace")
+    except (urllib.error.URLError, OSError, ValueError):
+        return ""
+
+    # Strip HTML tags to get raw text
+    text = re.sub(r"<script[^>]*>.*?</script>", "", raw_html, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r"<style[^>]*>.*?</style>", "", text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = re.sub(r"&[a-zA-Z]+;", " ", text)
+    text = re.sub(r"&#\d+;", " ", text)
+    # Collapse whitespace
+    text = re.sub(r"\s+", " ", text).strip()
+
+    # Try to extract the most relevant section (description / comments)
+    # For JIRA pages, the description usually follows "Description" heading
+    description_section = _extract_section(text, [
+        "Description", "Details", "Summary", "Problem", "Bug Description",
+    ])
+    if description_section and len(description_section) > 100:
+        text = description_section
+
+    # Truncate to max_chars to avoid prompt explosion
+    if len(text) > max_chars:
+        text = text[:max_chars] + "... [truncated]"
+
+    return text
+
+
+def _extract_section(text: str, keywords: list[str]) -> str:
+    """Try to extract a section of text after one of the keywords."""
+    lowered = text.lower()
+    best_start = -1
+    for keyword in keywords:
+        idx = lowered.find(keyword.lower())
+        if idx != -1 and (best_start == -1 or idx < best_start):
+            best_start = idx
+    if best_start == -1:
+        return ""
+    return text[best_start:best_start + 4000].strip()
+
+
+# ---------------------------------------------------------------------------
+# Test source code extraction
+# ---------------------------------------------------------------------------
+
+def _extract_test_source(
+    source_dirs: list[Path],
+    failures: list,
+    radius: int = 18,
+) -> list[CodeSnippet]:
+    """Extract source code of failing test methods.
+
+    The test code shows WHAT the expected behavior is, which is critical
+    for ODC classification — e.g., a null-check test hints at Checking,
+    a numerical assertion hints at Algorithm/Assignment.
+    """
+    snippets: list[CodeSnippet] = []
+    seen_tests: set[str] = set()
+
+    for failure in failures[:3]:  # Limit to first 3 failures
+        test_class = failure.test_class
+        if not test_class or test_class in seen_tests:
+            continue
+        seen_tests.add(test_class)
+
+        # Build a StackFrame-like object to resolve the test file
+        test_frame = StackFrame(
+            class_name=test_class,
+            method_name=failure.test_method or "",
+            file_name=None,
+            line_number=None,
+            raw="",
+        )
+        source_file = _resolve_java_file(source_dirs, test_frame)
+        if not source_file or not source_file.exists():
+            continue
+
+        content = source_file.read_text(encoding="utf-8", errors="replace").splitlines()
+
+        # Try to find the specific test method in the source
+        method_name = failure.test_method
+        if method_name:
+            method_start, method_end = _find_method_bounds(content, method_name)
+        else:
+            method_start, method_end = None, None
+
+        if method_start is not None and method_end is not None:
+            # Extract just the test method + some context
+            start_line = max(1, method_start - 2)
+            end_line = min(len(content), method_end + 2)
+        else:
+            # Fallback: extract a chunk around the assertion line from the stack trace
+            assertion_line = _find_test_assertion_line(failure)
+            if assertion_line:
+                start_line = max(1, assertion_line - radius)
+                end_line = min(len(content), assertion_line + radius)
+            else:
+                # Last resort: first N lines of the test class
+                start_line = 1
+                end_line = min(len(content), 60)
+
+        snippet_lines = []
+        for line_no in range(start_line, end_line + 1):
+            snippet_lines.append(f"  {line_no:4d}: {content[line_no - 1]}")
+
+        snippets.append(
+            CodeSnippet(
+                class_name=test_class,
+                file_path=str(source_file),
+                start_line=start_line,
+                end_line=end_line,
+                focus_line=_find_test_assertion_line(failure),
+                reason=f"Test source: {failure.test_name} (shows expected behavior)",
+                content="\n".join(snippet_lines),
+            )
+        )
+
+    return snippets
+
+
+def _find_method_bounds(lines: list[str], method_name: str) -> tuple[int | None, int | None]:
+    """Find the start and end line of a method in Java source."""
+    method_start = None
+    brace_depth = 0
+
+    for i, line in enumerate(lines, start=1):
+        if method_start is None:
+            # Look for method declaration
+            if method_name in line and ("void" in line or "public" in line or "@Test" in lines[max(0, i-2):i-1+1]):
+                method_start = i
+                brace_depth = line.count("{") - line.count("}")
+        else:
+            brace_depth += line.count("{") - line.count("}")
+            if brace_depth <= 0:
+                return method_start, i
+
+    return method_start, len(lines) if method_start else (None, None)
+
+
+def _find_test_assertion_line(failure) -> int | None:
+    """Find the line number in the test class where the assertion failed."""
+    test_class = failure.test_class
+    if not test_class:
+        return None
+    for frame in failure.frames:
+        if frame.class_name == test_class and frame.line_number:
+            return frame.line_number
+    return None
 
 
 def _validate_classification_payload(
@@ -384,7 +697,7 @@ def _validate_classification_payload(
         provider=provider,
         created_at=utc_now_iso(),
         odc_type=odc_type,
-        coarse_group=payload.get("coarse_group") or coarse_group_for(odc_type),
+        coarse_group=coarse_group_for(odc_type),  # Always use canonical mapping, never trust LLM
         confidence=confidence,
         needs_human_review=bool(payload.get("needs_human_review", False)),
         observation_summary=str(payload.get("observation_summary", "")).strip(),

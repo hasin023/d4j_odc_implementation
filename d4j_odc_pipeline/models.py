@@ -72,6 +72,8 @@ class BugContext:
     coverage: list[CoverageClass] = field(default_factory=list)
     hidden_oracles: dict[str, Any] = field(default_factory=dict)
     notes: list[str] = field(default_factory=list)
+    bug_info: str = ""
+    bug_report_content: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -117,6 +119,8 @@ class BugContext:
             coverage=coverage,
             hidden_oracles=dict(data.get("hidden_oracles", {})),
             notes=list(data.get("notes", [])),
+            bug_info=str(data.get("bug_info", "")),
+            bug_report_content=str(data.get("bug_report_content", "")),
         )
 
 
