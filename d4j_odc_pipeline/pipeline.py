@@ -24,6 +24,7 @@ def collect_bug_context(
     output_path: Path,
     snippet_radius: int = 12,
     run_coverage: bool = True,
+    include_fix_diff: bool = False,
 ) -> BugContext:
     version_id = f"{bug_id}b"
 
@@ -186,6 +187,25 @@ def collect_bug_context(
         bug_report_content=bug_report_content,
     )
 
+    # ── Collect fix diff (optional, post-fix oracle) ──────────────────
+    if include_fix_diff:
+        with console.timed_step("Collecting buggy→fixed diff (post-fix oracle)"):
+            fix_diff = _collect_fix_diff(
+                defects4j=defects4j,
+                project_id=project_id,
+                bug_id=bug_id,
+                work_dir=work_dir,
+                source_dirs=source_dirs,
+                modified_classes=metadata.get("classes.modified", ""),
+            )
+        if fix_diff:
+            context.fix_diff = fix_diff
+            context.notes.append(f"Fix diff collected ({len(fix_diff)} chars). This is post-fix oracle information.")
+            console.step("Fix diff collected", detail=f"{len(fix_diff)} chars")
+        else:
+            console.warn("Could not collect fix diff")
+            context.notes.append("Fix diff requested but could not be collected.")
+
     console.step(f"Writing context → {output_path}")
     write_json(output_path, context.to_dict())
 
@@ -198,6 +218,7 @@ def collect_bug_context(
         ("Test snippets", str(len(test_snippets))),
         ("Bug report", "fetched" if bug_report_content else "not available"),
         ("Bug info", "fetched" if bug_info else "not available"),
+        ("Fix diff", f"{len(context.fix_diff)} chars" if context.fix_diff else ("not requested" if not include_fix_diff else "not available")),
         ("Coverage classes", str(len(coverage))),
         ("Output", str(output_path)),
     ])
@@ -268,6 +289,7 @@ def classify_bug_context(
         ("ODC Type", result.odc_type),
         ("Coarse Group", result.coarse_group or "—"),
         ("Confidence", f"{result.confidence:.2f}"),
+        ("Evidence Mode", result.evidence_mode),
         ("Needs Human Review", review_text),
         ("Output", str(output_path)),
     ])
@@ -307,8 +329,14 @@ def write_markdown_report(
     if classification is None:
         lines.append("- No classification was executed. Prompt messages were generated only.")
     else:
+        evidence_label = (
+            "\u26a0\ufe0f Post-fix (with buggy->fixed diff)"
+            if classification.evidence_mode == "post-fix"
+            else "\u2705 Pre-fix only"
+        )
         lines.extend(
             [
+                f"- **Evidence Mode**: {evidence_label}",
                 f"- ODC Type: `{classification.odc_type}`",
                 f"- Coarse Group: `{classification.coarse_group}`",
                 f"- Confidence: `{classification.confidence}`",
@@ -506,6 +534,105 @@ def _resolve_java_file(source_dirs: list[Path], frame: StackFrame) -> Path | Non
             if matches:
                 return matches[0]
     return None
+
+
+# ---------------------------------------------------------------------------
+# Fix diff collection (post-fix oracle)
+# ---------------------------------------------------------------------------
+
+def _collect_fix_diff(
+    *,
+    defects4j: Defects4JClient,
+    project_id: str,
+    bug_id: int,
+    work_dir: Path,
+    source_dirs: list[Path],
+    modified_classes: str,
+    max_chars: int = 8000,
+) -> str:
+    """Checkout the fixed version and diff modified classes against the buggy version.
+
+    This is POST-FIX oracle information. It should only be included when
+    the --include-fix-diff flag is used. The diff dramatically improves
+    classification accuracy but violates the pre-fix-only methodology.
+    """
+    import difflib
+    import shutil
+
+    if not modified_classes:
+        return ""
+
+    # Parse the modified classes list (semicolon or comma separated)
+    class_list = [c.strip() for c in modified_classes.replace(";", ",").split(",") if c.strip()]
+    if not class_list:
+        return ""
+
+    # Checkout the fixed version in a sibling directory
+    fixed_dir = work_dir.parent / f"{work_dir.name}_fixed"
+    fixed_version = f"{bug_id}f"
+
+    try:
+        if fixed_dir.exists():
+            shutil.rmtree(fixed_dir, ignore_errors=True)
+
+        defects4j.checkout(project_id, fixed_version, fixed_dir)
+
+        # Discover source dirs in the fixed checkout
+        fixed_exports = defects4j.export_properties(fixed_dir, ["dir.src.classes"])
+        fixed_source_dirs = _discover_source_dirs(fixed_dir, fixed_exports)
+
+        diff_parts: list[str] = []
+        total_chars = 0
+
+        for class_name in class_list:
+            if total_chars >= max_chars:
+                diff_parts.append(f"\n... [truncated at {max_chars} chars, {len(class_list)} classes total]")
+                break
+
+            # Find the source file in both buggy and fixed versions
+            dummy_frame = StackFrame(
+                class_name=class_name,
+                method_name="",
+                file_name=None,
+                line_number=None,
+                raw="",
+            )
+            buggy_file = _resolve_java_file(source_dirs, dummy_frame)
+            fixed_file = _resolve_java_file(fixed_source_dirs, dummy_frame)
+
+            if not buggy_file or not buggy_file.exists():
+                diff_parts.append(f"--- {class_name}: buggy source not found")
+                continue
+            if not fixed_file or not fixed_file.exists():
+                diff_parts.append(f"--- {class_name}: fixed source not found")
+                continue
+
+            buggy_lines = buggy_file.read_text(encoding="utf-8", errors="replace").splitlines(keepends=True)
+            fixed_lines = fixed_file.read_text(encoding="utf-8", errors="replace").splitlines(keepends=True)
+
+            diff = list(difflib.unified_diff(
+                buggy_lines,
+                fixed_lines,
+                fromfile=f"{class_name} (buggy)",
+                tofile=f"{class_name} (fixed)",
+                n=3,
+            ))
+
+            if diff:
+                diff_text = "".join(diff)
+                diff_parts.append(diff_text)
+                total_chars += len(diff_text)
+            else:
+                diff_parts.append(f"--- {class_name}: no differences found (identical)")
+
+        return "\n".join(diff_parts).strip()
+
+    except Exception:
+        return ""
+    finally:
+        # Clean up the fixed checkout to save disk space
+        if fixed_dir.exists():
+            shutil.rmtree(fixed_dir, ignore_errors=True)
 
 
 # ---------------------------------------------------------------------------
@@ -712,5 +839,6 @@ def _validate_classification_payload(
             for item in payload.get("alternative_types", [])
             if isinstance(item, dict)
         ],
+        evidence_mode="post-fix" if context.fix_diff else "pre-fix",
         raw_response=raw_response,
     )

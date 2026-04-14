@@ -7,7 +7,8 @@ from .odc import ODC_TYPE_NAMES, taxonomy_markdown
 
 
 def build_messages(context: BugContext, prompt_style: str) -> list[dict[str, str]]:
-    system_prompt = _build_system_prompt(prompt_style)
+    has_fix_diff = bool(context.fix_diff)
+    system_prompt = _build_system_prompt(prompt_style, has_fix_diff=has_fix_diff)
     user_prompt = _build_user_prompt(context, prompt_style)
     return [
         {"role": "system", "content": system_prompt},
@@ -15,10 +16,32 @@ def build_messages(context: BugContext, prompt_style: str) -> list[dict[str, str
     ]
 
 
-def _build_system_prompt(prompt_style: str) -> str:
+def _build_system_prompt(prompt_style: str, *, has_fix_diff: bool = False) -> str:
     base = [
         "You are an expert software defect analyst specializing in Orthogonal Defect Classification (ODC).",
-        "Your job is to classify one bug into exactly one ODC defect type using ONLY the provided pre-fix evidence.",
+    ]
+
+    if has_fix_diff:
+        base.extend([
+            "You are classifying a bug using BOTH pre-fix evidence AND the actual buggy-to-fixed diff.",
+            "The diff shows exactly what was changed to fix the bug. Use it to determine the nature of the fix:",
+            "  - If the diff ADDS a missing null/bounds check → Checking",
+            "  - If the diff CHANGES a value, constant, or variable → Assignment",
+            "  - If the diff REWRITES a computation or loop logic → Algorithm",
+            "  - If the diff ADDS entirely new methods/classes that didn't exist → Function",
+            "  - If the diff CHANGES method signatures or API contracts → Interface",
+            "  - If the diff ADDS synchronization or reorders operations → Timing/Serialization",
+            "  - If the diff CHANGES build files, configs, or dependencies → Build/Package/Merge",
+            "",
+            "IMPORTANT: The diff is the GROUND TRUTH of what was fixed. Your classification should be",
+            "consistent with the nature of the change shown in the diff.",
+        ])
+    else:
+        base.extend([
+            "Your job is to classify one bug into exactly one ODC defect type using ONLY the provided pre-fix evidence.",
+        ])
+
+    base.extend([
         "",
         "CRITICAL RULES:",
         "- Do NOT default to 'Function'. Function means the capability was NEVER IMPLEMENTED.",
@@ -30,7 +53,7 @@ def _build_system_prompt(prompt_style: str) -> str:
         "",
         "Return only valid JSON matching this schema:",
         _json_contract(),
-    ]
+    ])
     if prompt_style == "scientific":
         base.extend(
             [
@@ -144,8 +167,10 @@ These examples show how to distinguish between ODC types using pre-fix evidence:
 
 def _build_user_prompt(context: BugContext, prompt_style: str) -> str:
     payload = _context_payload(context, prompt_style)
+    evidence_mode = "post-fix (with buggy->fixed diff)" if context.fix_diff else "pre-fix only"
     rules = [
         "Classify this bug into one ODC defect type.",
+        f"Evidence mode: {evidence_mode}",
         "",
         "IMPORTANT ANALYSIS RULES:",
         "- Use ONLY the evidence in this prompt.",
@@ -155,6 +180,8 @@ def _build_user_prompt(context: BugContext, prompt_style: str) -> str:
         "- If evidence is incomplete, lower confidence and set needs_human_review=true.",
         "- The output odc_type must be one of: " + ", ".join(ODC_TYPE_NAMES),
     ]
+    if context.fix_diff:
+        rules.append("- CAREFULLY examine the fix_diff_oracle to see exactly what was changed. The nature of the change determines the ODC type.")
     return "\n".join(rules) + "\n\nEvidence:\n" + json.dumps(payload, indent=2)
 
 
@@ -249,6 +276,14 @@ def _context_payload(context: BugContext, prompt_style: str) -> dict:
                 ],
             }
         )
+    # ── Fix diff (post-fix oracle, optional) ────────────────────────────
+    if context.fix_diff:
+        payload["fix_diff_oracle"] = {
+            "note": "This is POST-FIX oracle information (the actual buggy→fixed diff). "
+                    "Use it to confirm your classification, but remember: in a real scenario "
+                    "this information would NOT be available before the fix.",
+            "unified_diff": context.fix_diff,
+        }
 
     # ── Notes ─────────────────────────────────────────────────────────
     if context.notes:
