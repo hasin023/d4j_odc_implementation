@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import json
 import re
-import urllib.request
-import urllib.error
 from pathlib import Path
 
 from .defects4j import DEFAULT_EXPORT_PROPERTIES, DEFAULT_QUERY_FIELDS, Defects4JClient
@@ -12,6 +10,7 @@ from .models import BugContext, ClassificationResult, CodeSnippet, StackFrame, e
 from .odc import ODC_TYPE_NAMES, coarse_group_for
 from .parsing import extract_json_object
 from .prompting import build_messages
+from .web_fetch import fetch_bug_report
 from . import console
 
 
@@ -56,15 +55,18 @@ def collect_bug_context(
     bug_report_content = ""
     report_url = metadata.get("report.url", "")
     if report_url:
-        try:
-            with console.spinner_step("Fetching bug report page"):
-                bug_report_content = _fetch_bug_report(report_url)
-            if bug_report_content:
-                console.step("Bug report fetched", detail=f"{len(bug_report_content)} chars")
-            else:
-                console.warn("Bug report page returned empty content")
-        except Exception as exc:
-            console.warn(f"Could not fetch bug report: {exc}")
+        with console.spinner_step("Fetching bug report page"):
+            fetch_result = fetch_bug_report(report_url)
+        bug_report_content = fetch_result.content
+        if fetch_result.error:
+            console.warn(f"Bug report fetch issue: {fetch_result.error}")
+        elif bug_report_content:
+            console.step(
+                "Bug report fetched",
+                detail=f"{fetch_result.content_length} chars via {fetch_result.source_type} ({fetch_result.duration_ms}ms)",
+            )
+        else:
+            console.warn("Bug report page returned empty content")
     else:
         console.step("Bug report fetch skipped", detail="no report.url in metadata")
 
@@ -635,61 +637,6 @@ def _collect_fix_diff(
             shutil.rmtree(fixed_dir, ignore_errors=True)
 
 
-# ---------------------------------------------------------------------------
-# Bug report fetching
-# ---------------------------------------------------------------------------
-
-def _fetch_bug_report(url: str, *, timeout: int = 15, max_chars: int = 6000) -> str:
-    """Fetch and extract meaningful text from a JIRA or GitHub bug report page.
-
-    Returns a truncated plain-text summary suitable for LLM consumption.
-    Fails silently and returns empty string on any error.
-    """
-    try:
-        request = urllib.request.Request(
-            url,
-            headers={"User-Agent": "Defects4J-ODC-Pipeline/0.2 (research tool)"},
-        )
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            raw_html = response.read().decode("utf-8", errors="replace")
-    except (urllib.error.URLError, OSError, ValueError):
-        return ""
-
-    # Strip HTML tags to get raw text
-    text = re.sub(r"<script[^>]*>.*?</script>", "", raw_html, flags=re.DOTALL | re.IGNORECASE)
-    text = re.sub(r"<style[^>]*>.*?</style>", "", text, flags=re.DOTALL | re.IGNORECASE)
-    text = re.sub(r"<[^>]+>", " ", text)
-    text = re.sub(r"&[a-zA-Z]+;", " ", text)
-    text = re.sub(r"&#\d+;", " ", text)
-    # Collapse whitespace
-    text = re.sub(r"\s+", " ", text).strip()
-
-    # Try to extract the most relevant section (description / comments)
-    # For JIRA pages, the description usually follows "Description" heading
-    description_section = _extract_section(text, [
-        "Description", "Details", "Summary", "Problem", "Bug Description",
-    ])
-    if description_section and len(description_section) > 100:
-        text = description_section
-
-    # Truncate to max_chars to avoid prompt explosion
-    if len(text) > max_chars:
-        text = text[:max_chars] + "... [truncated]"
-
-    return text
-
-
-def _extract_section(text: str, keywords: list[str]) -> str:
-    """Try to extract a section of text after one of the keywords."""
-    lowered = text.lower()
-    best_start = -1
-    for keyword in keywords:
-        idx = lowered.find(keyword.lower())
-        if idx != -1 and (best_start == -1 or idx < best_start):
-            best_start = idx
-    if best_start == -1:
-        return ""
-    return text[best_start:best_start + 4000].strip()
 
 
 # ---------------------------------------------------------------------------
