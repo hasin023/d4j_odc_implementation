@@ -207,12 +207,92 @@ def _gemini_contents(messages: list[dict[str, str]]) -> list[dict]:
     return contents
 
 
-def _urlopen_json(request: urllib.request.Request) -> str:
-    try:
-        with urllib.request.urlopen(request, timeout=300) as response:
-            return response.read().decode("utf-8")
-    except urllib.error.HTTPError as exc:
-        body = exc.read().decode("utf-8", errors="replace")
-        raise LLMError(f"LLM request failed with status {exc.code}: {body}") from exc
-    except urllib.error.URLError as exc:
-        raise LLMError(f"LLM request failed: {exc}") from exc
+def _urlopen_json(
+    request: urllib.request.Request,
+    *,
+    max_retries: int = 5,
+    base_delay: float = 2.0,
+    max_delay: float = 60.0,
+) -> str:
+    """Make an HTTP request with automatic retry on transient failures.
+
+    Retries on 429 (rate limit), 500, 502, 503 (service unavailable) with
+    exponential backoff + jitter.  Non-retryable errors (400, 401, 403, etc.)
+    fail immediately.
+    """
+    import random
+    import time
+    from . import console
+
+    _RETRYABLE_STATUS_CODES = {429, 500, 502, 503}
+
+    last_exception: Exception | None = None
+
+    for attempt in range(max_retries):
+        try:
+            with urllib.request.urlopen(request, timeout=300) as response:
+                return response.read().decode("utf-8")
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode("utf-8", errors="replace")
+            last_exception = exc
+
+            if exc.code not in _RETRYABLE_STATUS_CODES:
+                # Non-retryable error — fail immediately
+                raise LLMError(f"LLM request failed with status {exc.code}: {body}") from exc
+
+            # Check for Retry-After header (some APIs send it with 429)
+            retry_after = exc.headers.get("Retry-After") if exc.headers else None
+            if retry_after:
+                try:
+                    wait = min(float(retry_after), max_delay)
+                except ValueError:
+                    wait = base_delay * (2 ** attempt)
+            else:
+                # Exponential backoff + jitter
+                wait = min(base_delay * (2 ** attempt) + random.uniform(0, 1), max_delay)
+
+            remaining = max_retries - attempt - 1
+            console.warn(
+                f"LLM request failed (HTTP {exc.code}). "
+                f"Retrying in {wait:.1f}s... ({remaining} attempt(s) left)"
+            )
+            time.sleep(wait)
+
+            # Rebuild the request since the body stream is consumed
+            request = urllib.request.Request(
+                url=request.full_url,
+                data=request.data,
+                headers=dict(request.headers),
+                method=request.get_method(),
+            )
+
+        except urllib.error.URLError as exc:
+            last_exception = exc
+            remaining = max_retries - attempt - 1
+            if remaining <= 0:
+                raise LLMError(f"LLM request failed after {max_retries} attempts: {exc}") from exc
+
+            wait = min(base_delay * (2 ** attempt) + random.uniform(0, 1), max_delay)
+            console.warn(
+                f"LLM network error: {exc.reason}. "
+                f"Retrying in {wait:.1f}s... ({remaining} attempt(s) left)"
+            )
+            time.sleep(wait)
+
+            # Rebuild the request
+            request = urllib.request.Request(
+                url=request.full_url,
+                data=request.data,
+                headers=dict(request.headers),
+                method=request.get_method(),
+            )
+
+    # All retries exhausted
+    if isinstance(last_exception, urllib.error.HTTPError):
+        raise LLMError(
+            f"LLM request failed after {max_retries} attempts "
+            f"(last status: {last_exception.code}). The API may be under heavy load. "
+            f"Try again in a few minutes."
+        ) from last_exception
+    raise LLMError(f"LLM request failed after {max_retries} attempts: {last_exception}") from last_exception
+

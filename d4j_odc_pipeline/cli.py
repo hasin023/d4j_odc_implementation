@@ -34,6 +34,10 @@ def build_parser() -> argparse.ArgumentParser:
     collect_parser.add_argument("--output", type=Path, required=True, help="Where to write the context JSON.")
     collect_parser.add_argument("--snippet-radius", type=int, default=12)
     collect_parser.add_argument("--skip-coverage", action="store_true")
+    collect_parser.add_argument(
+        "--include-fix-diff", action="store_true",
+        help="Include the buggy->fixed diff as post-fix oracle evidence (improves accuracy but is not pre-fix).",
+    )
 
     # ── classify ─────────────────────────────────────────────────────────
     classify_parser = subparsers.add_parser(
@@ -59,6 +63,10 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--prompt-output", type=Path)
     run_parser.add_argument("--snippet-radius", type=int, default=12)
     run_parser.add_argument("--skip-coverage", action="store_true")
+    run_parser.add_argument(
+        "--include-fix-diff", action="store_true",
+        help="Include the buggy->fixed diff as post-fix oracle evidence (improves accuracy but is not pre-fix).",
+    )
     run_parser.add_argument("--prompt-style", choices=["direct", "scientific"], default="scientific")
     _add_llm_args(run_parser, default_provider, default_model)
 
@@ -169,6 +177,7 @@ def _cmd_collect(args: argparse.Namespace) -> int:
         output_path=args.output,
         snippet_radius=args.snippet_radius,
         run_coverage=not args.skip_coverage,
+        include_fix_diff=args.include_fix_diff,
     )
     return 0
 
@@ -201,6 +210,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
         output_path=args.context_output,
         snippet_radius=args.snippet_radius,
         run_coverage=not args.skip_coverage,
+        include_fix_diff=args.include_fix_diff,
     )
     classification = classify_bug_context(
         context=context,

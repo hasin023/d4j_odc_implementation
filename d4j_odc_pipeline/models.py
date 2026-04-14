@@ -74,6 +74,7 @@ class BugContext:
     notes: list[str] = field(default_factory=list)
     bug_info: str = ""
     bug_report_content: str = ""
+    fix_diff: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -121,6 +122,7 @@ class BugContext:
             notes=list(data.get("notes", [])),
             bug_info=str(data.get("bug_info", "")),
             bug_report_content=str(data.get("bug_report_content", "")),
+            fix_diff=str(data.get("fix_diff", "")),
         )
 
 
@@ -145,6 +147,7 @@ class ClassificationResult:
     evidence_used: list[str]
     evidence_gaps: list[str]
     alternative_types: list[dict[str, str]]
+    evidence_mode: str = "pre-fix"
     raw_response: str | None = None
 
     def to_dict(self) -> dict[str, Any]:

@@ -240,14 +240,15 @@ python -m d4j_odc_pipeline d4j info --project Lang --bug 1   # Show bug details
 
 ### Common parameters (used by `collect`, `run`)
 
-| Parameter          | Required | Description                                           |
-| ------------------ | :------: | ----------------------------------------------------- |
-| `--project`        |   Yes    | Defects4J project id (`Lang`, `Math`, `Chart`, etc.)  |
-| `--bug`            |   Yes    | Numeric bug id. Automatically suffixed to `<bug>b`.   |
-| `--work-dir`       |   Yes    | Checkout directory for the buggy revision.            |
-| `--defects4j-cmd`  |    No    | Override `DEFECTS4J_CMD` for this run.                |
-| `--snippet-radius` |    No    | Source lines around suspicious frames. Default: `12`. |
-| `--skip-coverage`  |    No    | Skip the `defects4j coverage` step.                   |
+| Parameter            | Required | Description                                               |
+| -------------------- | :------: | --------------------------------------------------------- |
+| `--project`          |   Yes    | Defects4J project id (`Lang`, `Math`, `Chart`, etc.)      |
+| `--bug`              |   Yes    | Numeric bug id. Automatically suffixed to `<bug>b`.       |
+| `--work-dir`         |   Yes    | Checkout directory for the buggy revision.                |
+| `--defects4j-cmd`    |    No    | Override `DEFECTS4J_CMD` for this run.                    |
+| `--snippet-radius`   |    No    | Source lines around suspicious frames. Default: `12`.     |
+| `--skip-coverage`    |    No    | Skip the `defects4j coverage` step.                       |
+| `--include-fix-diff` |    No    | Include buggy->fixed diff as post-fix oracle (see below). |
 
 ### LLM parameters (used by `classify`, `run`)
 
@@ -282,6 +283,52 @@ Coverage is optional and adds line/branch-level evidence to the context.
 **Recommendation**: Use `--skip-coverage` until checkout/compile/test/classify are working, then remove it.
 
 ---
+
+## Fix Diff Mode (Post-Fix Oracle)
+
+By default, the pipeline only uses **pre-fix evidence** — the LLM never sees the actual fix. This simulates real-world bug triage.
+
+With `--include-fix-diff`, the pipeline also:
+
+1. Checks out the **fixed version** (`<bug>f`) in a temporary directory
+2. Diffs the modified classes between buggy and fixed versions
+3. Includes the unified diff in the LLM evidence as a **post-fix oracle**
+4. Cleans up the fixed checkout automatically
+
+### Comparing Pre-fix vs Post-fix Accuracy
+
+For thesis evaluation, you can compare classification accuracy by running each bug **twice**:
+
+```powershell
+# Step 1: Collect pre-fix context (no diff)
+python -m d4j_odc_pipeline collect `
+  --project Lang --bug 1 `
+  --work-dir .\work\Lang_1b `
+  --output .\artifacts\Lang_1\context.json `
+  --skip-coverage
+
+# Step 2: Collect post-fix context (with diff)
+python -m d4j_odc_pipeline collect `
+  --project Lang --bug 1 `
+  --work-dir .\work\Lang_1b_fix `
+  --output .\artifacts\Lang_1f\context.json `
+  --skip-coverage --include-fix-diff
+
+# Step 3: Classify both (reuse existing context — instant, no checkout needed)
+python -m d4j_odc_pipeline classify `
+  --context .\artifacts\Lang_1\context.json `
+  --output .\artifacts\Lang_1\classification.json `
+  --report .\artifacts\Lang_1\report.md
+
+python -m d4j_odc_pipeline classify `
+  --context .\artifacts\Lang_1f\context.json `
+  --output .\artifacts\Lang_1f\classification.json `
+  --report .\artifacts\Lang_1f\report.md
+```
+
+Both `classification.json` and `report.md` include an **`evidence_mode`** field (`"pre-fix"` or `"post-fix"`) so you can programmatically compare results. Reports also display this prominently with a ✅ or ⚠️ badge.
+
+> **Note**: The fix diff is clearly labeled in the prompt as "POST-FIX oracle information" so the LLM knows it wouldn't normally be available. The `classes.modified` field remains hidden from the prompt regardless.
 
 ## Output Files
 
