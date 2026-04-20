@@ -289,7 +289,108 @@ def _context_payload(context: BugContext, prompt_style: str) -> dict:
     if context.notes:
         payload["notes"] = list(context.notes)
 
+    # ── ODC opener/closer alignment hints (additive, optional) ──────
+    opener_hints, closer_hints = _build_odc_mapping_hints(context)
+    payload["odc_opener_hints"] = opener_hints
+    payload["odc_closer_hints"] = closer_hints
+
     return payload
+
+
+def _build_odc_mapping_hints(context: BugContext) -> tuple[dict, dict]:
+    activity_candidates: list[str] = ["Unit Test"]
+    trigger_candidates: list[str] = []
+    impact_candidates: list[str] = []
+
+    combined_text = " ".join(
+        [
+            context.bug_report_content,
+            context.bug_info,
+            " ".join((f.headline or "") + " " + " ".join(f.stack_trace[:3]) for f in context.failures),
+        ]
+    ).lower()
+
+    if "integration" in combined_text or "end-to-end" in combined_text:
+        activity_candidates.append("Function Test")
+    if any(token in combined_text for token in ("workload", "stress", "throughput", "latency", "hang under load")):
+        activity_candidates.append("System Test")
+
+    if any(token in combined_text for token in ("nullpointer", "assert", "expected", "boundary", "invalid")):
+        trigger_candidates.append("Test Variation")
+    if any(token in combined_text for token in ("sequence", "order", "after", "before", "then")):
+        trigger_candidates.append("Test Sequencing")
+    if any(token in combined_text for token in ("interaction", "interact", "combined", "together")):
+        trigger_candidates.append("Test Interaction")
+    if any(token in combined_text for token in ("exception", "recover", "recovery", "abend")):
+        trigger_candidates.append("Recovery/Exception")
+    if any(token in combined_text for token in ("workload", "stress", "load")):
+        trigger_candidates.append("Workload/Stress")
+    if not trigger_candidates:
+        trigger_candidates.append("Coverage")
+
+    if any(token in combined_text for token in ("crash", "hang", "deadlock", "abort", "exception")):
+        impact_candidates.append("Reliability")
+    if any(token in combined_text for token in ("slow", "performance", "latency", "throughput")):
+        impact_candidates.append("Performance")
+    if any(token in combined_text for token in ("security", "permission", "auth", "integrity")):
+        impact_candidates.append("Integrity/Security")
+    if any(token in combined_text for token in ("documentation", "javadoc", "manual", "message")):
+        impact_candidates.append("Documentation")
+    if not impact_candidates:
+        impact_candidates.append("Capability")
+
+    qualifier_hint: str | None = None
+    age_hint: str | None = None
+    source_hint: str | None = None
+
+    if context.fix_diff:
+        added = 0
+        removed = 0
+        for line in context.fix_diff.splitlines():
+            if line.startswith("+++") or line.startswith("---"):
+                continue
+            if line.startswith("+"):
+                added += 1
+            elif line.startswith("-"):
+                removed += 1
+
+        if added > 0 and removed == 0:
+            qualifier_hint = "Missing"
+        elif removed > 0 and added == 0:
+            qualifier_hint = "Extraneous"
+        elif added > 0 or removed > 0:
+            qualifier_hint = "Incorrect"
+
+        total_delta = added + removed
+        if total_delta >= 120:
+            age_hint = "Rewritten"
+        elif added >= 24 and added > (removed * 2):
+            age_hint = "New"
+        elif total_delta > 0:
+            age_hint = "Base"
+
+    opener_hints = {
+        "activity_candidates": activity_candidates,
+        "trigger_candidates": sorted(set(trigger_candidates)),
+        "impact_candidates": sorted(set(impact_candidates)),
+        "mapping_rationale": (
+            "Derived from failing test patterns, bug report/bug info text, and failure headlines. "
+            "These are heuristic candidates aligned to ODC opener attributes."
+        ),
+    }
+
+    closer_hints = {
+        "target": "Design/Code",
+        "qualifier_hint": qualifier_hint,
+        "age_hint": age_hint,
+        "source_hint": source_hint,
+        "mapping_rationale": (
+            "Target is fixed for this pipeline scope; qualifier/age/source are heuristic and optional, "
+            "primarily informed by fix-diff shape and available metadata."
+        ),
+    }
+
+    return opener_hints, closer_hints
 
 
 def _json_contract() -> str:
@@ -297,6 +398,13 @@ def _json_contract() -> str:
         "{"
         '"odc_type": "one of the allowed ODC types", '
         '"family": "Control and Data Flow or Structural", '
+        '"target": "Design/Code (optional; closer attribute)", '
+        '"qualifier": "Missing or Incorrect or Extraneous (optional; closer attribute)", '
+        '"age": "Base or New or Rewritten or ReFixed (optional; closer attribute)", '
+        '"source": "Developed In-House or Reused From Library or Outsourced or Ported (optional; closer attribute)", '
+        '"inferred_activity": "ODC opener activity candidate (optional)", '
+        '"inferred_triggers": ["ODC opener trigger candidates (optional)"], '
+        '"inferred_impact": ["ODC opener impact candidates (optional)"], '
         '"confidence": "number between 0 and 1", '
         '"needs_human_review": "boolean", '
         '"observation_summary": "short paragraph describing failure symptoms", '

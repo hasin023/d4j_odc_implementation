@@ -147,6 +147,13 @@ class ClassificationResult:
     evidence_used: list[str]
     evidence_gaps: list[str]
     alternative_types: list[dict[str, str]]
+    target: str | None = None
+    qualifier: str | None = None
+    age: str | None = None
+    source: str | None = None
+    inferred_activity: str | None = None
+    inferred_triggers: list[str] = field(default_factory=list)
+    inferred_impact: list[str] = field(default_factory=list)
     evidence_mode: str = "pre-fix"
     raw_response: str | None = None
 

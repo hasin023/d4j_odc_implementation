@@ -32,6 +32,14 @@ class LLMTests(unittest.TestCase):
         self.assertEqual("object", schema["type"])
         self.assertIn("odc_type", schema["required"])
         self.assertIn("alternative_types", schema["properties"])
+        self.assertIn("target", schema["properties"])
+        self.assertIn("qualifier", schema["properties"])
+        self.assertIn("age", schema["properties"])
+        self.assertIn("source", schema["properties"])
+        self.assertIn("inferred_activity", schema["properties"])
+        self.assertIn("inferred_triggers", schema["properties"])
+        self.assertIn("inferred_impact", schema["properties"])
+        self.assertNotIn("target", schema["required"])
 
 
 if __name__ == "__main__":

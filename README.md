@@ -45,8 +45,8 @@ flowchart TD
     E --> F{Valid odc_type?}
     F -->|No| G[Retry up to 2 times]
     G --> D
-    F -->|Yes| H[Enforce Canonical Coarse Group]
-    H --> |"odc.coarse_group_for\nnever trust LLM mapping"| I[Write classification.json]
+    F -->|Yes| H[Enforce Canonical Family]
+    H --> |"odc.family_for\nnever trust LLM mapping"| I[Write classification.json]
     I --> J[Generate Markdown Report]
     J --> K["✅ classification.json\n+ report.md saved"]
 ```
@@ -99,7 +99,19 @@ flowchart LR
     - 5 canonical few-shot examples
     - 7-question diagnostic decision tree
     - Anti-bias rules preventing default-to-Function behavior
+  11. **Adds ODC mapping hints** (optional) — Includes heuristic opener/closer-aligned metadata in prompt evidence (`odc_opener_hints`, `odc_closer_hints`) to improve traceability to ODC concepts.
 11. **Writes outputs** — `context.json`, `classification.json`, and a markdown report.
+
+  ### Optional ODC Opener/Closer Metadata
+
+  The core pipeline output remains the same (`odc_type`, `family`, confidence, reasoning).
+
+  In addition, `classification.json` may include optional ODC-aligned fields when inferable:
+
+  - Opener-oriented (inferred): `inferred_activity`, `inferred_triggers`, `inferred_impact`
+  - Closer-oriented (optional): `target` (defaults to `Design/Code`), `qualifier`, `age`, `source`
+
+  These fields are additive and optional-first for backward compatibility.
 
 ---
 
@@ -453,6 +465,8 @@ With `--include-fix-diff`, the pipeline also:
 
 For thesis evaluation, you can compare classification accuracy by running each bug **twice**:
 
+**PowerShell (Windows):**
+
 ```powershell
 # Step 1: Collect pre-fix context (no diff)
 python -m d4j_odc_pipeline collect `
@@ -480,6 +494,35 @@ python -m d4j_odc_pipeline classify `
   --report .\artifacts\Lang_1f\report.md
 ```
 
+**Bash (Ubuntu/Linux/WSL):**
+
+```bash
+# Step 1: Collect pre-fix context (no diff)
+python -m d4j_odc_pipeline collect \
+  --project Lang --bug 1 \
+  --work-dir ./work/Lang_1b \
+  --output ./artifacts/Lang_1/context.json \
+  --skip-coverage
+
+# Step 2: Collect post-fix context (with diff)
+python -m d4j_odc_pipeline collect \
+  --project Lang --bug 1 \
+  --work-dir ./work/Lang_1b_fix \
+  --output ./artifacts/Lang_1f/context.json \
+  --skip-coverage --include-fix-diff
+
+# Step 3: Classify both (reuse existing context - instant, no checkout needed)
+python -m d4j_odc_pipeline classify \
+  --context ./artifacts/Lang_1/context.json \
+  --output ./artifacts/Lang_1/classification.json \
+  --report ./artifacts/Lang_1/report.md
+
+python -m d4j_odc_pipeline classify \
+  --context ./artifacts/Lang_1f/context.json \
+  --output ./artifacts/Lang_1f/classification.json \
+  --report ./artifacts/Lang_1f/report.md
+```
+
 Both `classification.json` and `report.md` include an **`evidence_mode`** field (`"pre-fix"` or `"post-fix"`) so you can programmatically compare results. Reports also display this prominently with a ✅ or ⚠️ badge.
 
 > **Note**: The fix diff is clearly labeled in the prompt as "POST-FIX oracle information" so the LLM knows it wouldn't normally be available. The `classes.modified` field remains hidden from the prompt regardless.
@@ -489,7 +532,7 @@ Both `classification.json` and `report.md` include an **`evidence_mode`** field 
 | File                     | Produced by        | Contents                                            |
 | ------------------------ | ------------------ | --------------------------------------------------- |
 | `context.json`           | `collect` / `run`  | All pre-fix evidence (code, tests, bug report, etc) |
-| `classification.json`    | `classify` / `run` | ODC classification with reasoning chain             |
+| `classification.json`    | `classify` / `run` | ODC classification with reasoning chain + optional opener/closer-aligned metadata |
 | `report.md`              | `classify` / `run` | Human-readable bug + classification summary         |
 | `prompt.json`            | `--prompt-output`  | Rendered prompt messages sent to the LLM            |
 | `instrument_classes.txt` | Coverage step      | Classes instrumented for coverage                   |

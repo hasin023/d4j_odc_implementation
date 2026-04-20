@@ -42,7 +42,7 @@ def build_parser() -> argparse.ArgumentParser:
     # ── classify ─────────────────────────────────────────────────────────
     classify_parser = subparsers.add_parser(
         "classify",
-        help="Classify an existing context JSON with an LLM.",
+        help="Classify an existing context JSON with an LLM (includes optional ODC opener/closer metadata when inferable).",
     )
     classify_parser.add_argument("--context", type=Path, required=True, help="Path to context JSON.")
     classify_parser.add_argument("--output", type=Path, required=True, help="Where to write classification JSON.")

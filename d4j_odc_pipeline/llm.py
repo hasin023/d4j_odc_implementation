@@ -150,6 +150,13 @@ def classification_response_schema() -> dict:
         "properties": {
             "odc_type": {"type": "string"},
             "family": {"type": ["string", "null"]},
+            "target": {"type": ["string", "null"]},
+            "qualifier": {"type": ["string", "null"]},
+            "age": {"type": ["string", "null"]},
+            "source": {"type": ["string", "null"]},
+            "inferred_activity": {"type": ["string", "null"]},
+            "inferred_triggers": {"type": "array", "items": {"type": "string"}},
+            "inferred_impact": {"type": "array", "items": {"type": "string"}},
             "confidence": {"type": "number"},
             "needs_human_review": {"type": "boolean"},
             "observation_summary": {"type": "string"},

@@ -30,6 +30,10 @@ class ComparisonResult:
     prefix_alternatives: list[str]
     prefix_evidence_mode: str
     prefix_reasoning_summary: str
+    prefix_target: str | None
+    prefix_qualifier: str | None
+    prefix_age: str | None
+    prefix_source: str | None
 
     # Post-fix side
     postfix_odc_type: str
@@ -38,6 +42,10 @@ class ComparisonResult:
     postfix_alternatives: list[str]
     postfix_evidence_mode: str
     postfix_reasoning_summary: str
+    postfix_target: str | None
+    postfix_qualifier: str | None
+    postfix_age: str | None
+    postfix_source: str | None
 
     # Tier metrics
     strict_match: bool
@@ -93,6 +101,14 @@ def compare_classifications(
     # Backward compatibility: older artifacts use coarse_group instead of family.
     prefix_family = prefix_data.get("family", prefix_data.get("coarse_group"))
     postfix_family = postfix_data.get("family", postfix_data.get("coarse_group"))
+    prefix_target = prefix_data.get("target")
+    postfix_target = postfix_data.get("target")
+    prefix_qualifier = prefix_data.get("qualifier")
+    postfix_qualifier = postfix_data.get("qualifier")
+    prefix_age = prefix_data.get("age")
+    postfix_age = postfix_data.get("age")
+    prefix_source = prefix_data.get("source")
+    postfix_source = postfix_data.get("source")
 
     # Tier 1: Strict match
     strict = prefix_type == postfix_type
@@ -140,12 +156,20 @@ def compare_classifications(
         prefix_alternatives=prefix_alts,
         prefix_evidence_mode=prefix_data.get("evidence_mode", "pre-fix"),
         prefix_reasoning_summary=prefix_data.get("reasoning_summary", ""),
+        prefix_target=prefix_target,
+        prefix_qualifier=prefix_qualifier,
+        prefix_age=prefix_age,
+        prefix_source=prefix_source,
         postfix_odc_type=postfix_type,
         postfix_family=postfix_family,
         postfix_confidence=float(postfix_data.get("confidence", 0)),
         postfix_alternatives=postfix_alts,
         postfix_evidence_mode=postfix_data.get("evidence_mode", "post-fix"),
         postfix_reasoning_summary=postfix_data.get("reasoning_summary", ""),
+        postfix_target=postfix_target,
+        postfix_qualifier=postfix_qualifier,
+        postfix_age=postfix_age,
+        postfix_source=postfix_source,
         strict_match=strict,
         top2_match=top2,
         family_match=family,
@@ -285,6 +309,10 @@ def _single_comparison_report(r: ComparisonResult) -> list[str]:
         "|--------|---------|----------|",
         f"| **Primary Type** | {r.prefix_odc_type} | {r.postfix_odc_type} |",
         f"| **Family** | {r.prefix_family} | {r.postfix_family} |",
+        f"| **Target** | {r.prefix_target or '—'} | {r.postfix_target or '—'} |",
+        f"| **Qualifier** | {r.prefix_qualifier or '—'} | {r.postfix_qualifier or '—'} |",
+        f"| **Age** | {r.prefix_age or '—'} | {r.postfix_age or '—'} |",
+        f"| **Source** | {r.prefix_source or '—'} | {r.postfix_source or '—'} |",
         f"| **Confidence** | {r.prefix_confidence:.2f} | {r.postfix_confidence:.2f} |",
         f"| **Evidence Mode** | {r.prefix_evidence_mode} | {r.postfix_evidence_mode} |",
         f"| **Alternatives** | {', '.join(r.prefix_alternatives) or 'none'} | {', '.join(r.postfix_alternatives) or 'none'} |",
