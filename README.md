@@ -107,15 +107,15 @@ flowchart LR
 
 The pipeline classifies into 7 ODC **Defect Type** categories:
 
-| ODC Type                 | Coarse Group     | Description                                     |
-| ------------------------ | ---------------- | ----------------------------------------------- |
-| **Function**             | Structural       | Missing capability never implemented at all     |
-| **Interface**            | Structural       | Parameter/API contract mismatch between modules |
-| **Build/Package/Merge**  | Structural       | Build scripts, config, dependency issues        |
-| **Checking**             | Control and Data | Missing/incorrect validation or guard           |
-| **Assignment**           | Control and Data | Wrong value, wrong variable, wrong constant     |
-| **Algorithm**            | Control and Data | Incorrect computation or procedure logic        |
-| **Timing/Serialization** | Control and Data | Race condition, ordering, or concurrency bug    |
+| ODC Defect Type               | Family                | Description                                                                                                                                                                          |
+| ----------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Algorithm/Method**          | Control and Data Flow | Efficiency or correctness problems that affect the task and can be fixed by (re)implementing an algorithm or local data structure without the need for requesting a design change... |
+| **Assignment/Initialization** | Control and Data Flow | Value(s) assigned incorrectly or not assigned at all...                                                                                                                              |
+| **Checking**                  | Control and Data Flow | Errors caused by missing or incorrect validation of parameters or data in conditional statements...                                                                                  |
+| **Timing/Serialization**      | Control and Data Flow | Necessary serialization of shared resource was missing, the wrong resource was serialized, or the wrong serialization technique was employed...                                      |
+| **Function/Class/Object**     | Structural            | The error should require a formal design change, as it affects significant capability, end-user interfaces, product interfaces, interface with hardware architecture, or global data structure(s)... |
+| **Interface/O-O Messages**    | Structural            | Communication problems between modules, components, device drivers, objects, or functions...                                                                                         |
+| **Relationship**              | Structural            | Problems related to associations among procedures, data structures and objects. Such associations may be conditional...                                                              |
 
 ---
 
