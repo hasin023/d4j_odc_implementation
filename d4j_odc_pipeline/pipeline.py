@@ -7,7 +7,7 @@ from pathlib import Path
 from .defects4j import DEFAULT_EXPORT_PROPERTIES, DEFAULT_QUERY_FIELDS, Defects4JClient
 from .llm import LLMClient, LLMError
 from .models import BugContext, ClassificationResult, CodeSnippet, StackFrame, ensure_parent, utc_now_iso
-from .odc import ODC_TYPE_NAMES, coarse_group_for
+from .odc import ODC_TYPE_NAMES, family_for
 from .parsing import extract_json_object
 from .prompting import build_messages
 from .web_fetch import fetch_bug_report
@@ -289,7 +289,7 @@ def classify_bug_context(
 
     console.result_panel("Classification complete", [
         ("ODC Type", result.odc_type),
-        ("Coarse Group", result.coarse_group or "—"),
+        ("Family", result.family or "—"),
         ("Confidence", f"{result.confidence:.2f}"),
         ("Evidence Mode", result.evidence_mode),
         ("Needs Human Review", review_text),
@@ -340,7 +340,7 @@ def write_markdown_report(
             [
                 f"- **Evidence Mode**: {evidence_label}",
                 f"- ODC Type: `{classification.odc_type}`",
-                f"- Coarse Group: `{classification.coarse_group}`",
+                f"- Family: `{classification.family}`",
                 f"- Confidence: `{classification.confidence}`",
                 f"- Needs Human Review: `{classification.needs_human_review}`",
                 "",
@@ -771,7 +771,7 @@ def _validate_classification_payload(
         provider=provider,
         created_at=utc_now_iso(),
         odc_type=odc_type,
-        coarse_group=coarse_group_for(odc_type),  # Always use canonical mapping, never trust LLM
+        family=family_for(odc_type),  # Always use canonical mapping, never trust LLM
         confidence=confidence,
         needs_human_review=bool(payload.get("needs_human_review", False)),
         observation_summary=str(payload.get("observation_summary", "")).strip(),

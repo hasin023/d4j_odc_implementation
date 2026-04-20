@@ -26,12 +26,12 @@ def _build_system_prompt(prompt_style: str, *, has_fix_diff: bool = False) -> st
             "You are classifying a bug using BOTH pre-fix evidence AND the actual buggy-to-fixed diff.",
             "The diff shows exactly what was changed to fix the bug. Use it to determine the nature of the fix:",
             "  - If the diff ADDS a missing null/bounds check → Checking",
-            "  - If the diff CHANGES a value, constant, or variable → Assignment",
-            "  - If the diff REWRITES a computation or loop logic → Algorithm",
-            "  - If the diff ADDS entirely new methods/classes that didn't exist → Function",
-            "  - If the diff CHANGES method signatures or API contracts → Interface",
+            "  - If the diff CHANGES a value, constant, or initialization → Assignment/Initialization",
+            "  - If the diff REWRITES a computation or local procedure → Algorithm/Method",
+            "  - If the diff CHANGES method signatures or API contracts → Interface/O-O Messages",
             "  - If the diff ADDS synchronization or reorders operations → Timing/Serialization",
-            "  - If the diff CHANGES build files, configs, or dependencies → Build/Package/Merge",
+            "  - If the diff FIXES associations among procedures/data structures/objects → Relationship",
+            "  - If the diff REQUIRES a design-level capability correction → Function/Class/Object",
             "",
             "IMPORTANT: The diff is the GROUND TRUTH of what was fixed. Your classification should be",
             "consistent with the nature of the change shown in the diff.",
@@ -44,8 +44,8 @@ def _build_system_prompt(prompt_style: str, *, has_fix_diff: bool = False) -> st
     base.extend([
         "",
         "CRITICAL RULES:",
-        "- Do NOT default to 'Function'. Function means the capability was NEVER IMPLEMENTED.",
-        "- Most Defects4J bugs are in EXISTING code that produces wrong results — these are typically Checking, Algorithm, or Assignment.",
+        "- Do NOT default to 'Function/Class/Object'. This type implies a design-level capability issue.",
+        "- Most Defects4J bugs are in existing code that produces wrong results — these are often Checking, Algorithm/Method, or Assignment/Initialization.",
         "- Read the code snippets carefully. The type of fix needed determines the ODC type.",
         "- Do not use benchmark familiarity, project reputation, or hidden fix knowledge.",
         "",
@@ -70,27 +70,27 @@ def _build_system_prompt(prompt_style: str, *, has_fix_diff: bool = False) -> st
                 "",
                 "2. **Is a specific value, constant, or initialization wrong?**",
                 "   → Look for: wrong default values, wrong constants, wrong variable used in assignment.",
-                "   → If YES and the fix is a single value change → strongly consider **Assignment**.",
+                "   → If YES and the fix is a value/initialization correction → strongly consider **Assignment/Initialization**.",
                 "",
                 "3. **Is the computational logic or procedure itself wrong?**",
                 "   → Look for: wrong formula, wrong loop logic, wrong sort order, wrong data structure operation.",
-                "   → If YES → strongly consider **Algorithm**.",
+                "   → If YES → strongly consider **Algorithm/Method**.",
                 "",
                 "4. **Is the problem at a component boundary or API interaction?**",
                 "   → Look for: wrong parameter order, type mismatch between caller/callee, contract violation.",
-                "   → If YES → strongly consider **Interface**.",
+                "   → If YES → strongly consider **Interface/O-O Messages**.",
                 "",
                 "5. **Does the problem depend on execution order or timing?**",
                 "   → Look for: race conditions, lifecycle ordering, serialization order.",
                 "   → If YES → strongly consider **Timing/Serialization**.",
                 "",
-                "6. **Is functionality completely missing (never implemented)?**",
-                "   → Look for: no existing code handles this case at all; requires adding new methods/classes.",
-                "   → If YES → consider **Function**.",
+                "6. **Is the issue centered on associations among procedures/data structures/objects?**",
+                "   → Look for: broken assumptions between related entities that must stay aligned.",
+                "   → If YES → consider **Relationship**.",
                 "",
-                "7. **Is the problem in build/packaging/configuration?**",
-                "   → Look for: build script issues, dependency problems, classpath errors.",
-                "   → If YES → consider **Build/Package/Merge**.",
+                "7. **Does the defect require a formal design-level capability correction?**",
+                "   → Look for: significant capability/class/object/interface structure correction.",
+                "   → If YES → consider **Function/Class/Object**.",
                 "",
                 "Work through these questions using the evidence provided, then choose the BEST matching type.",
             ]
@@ -116,8 +116,8 @@ Follow this structured reasoning process:
 
 **Step 3 — PREDICT**: What would we expect to see in the code if your hypothesis is correct?
 - If it's a Checking bug: we'd see a missing/wrong if-condition or guard.
-- If it's an Algorithm bug: we'd see wrong iteration, formula, or procedure.
-- If it's an Assignment bug: we'd see a wrong value or initialization.
+- If it's an Algorithm/Method bug: we'd see wrong iteration, formula, or procedure.
+- If it's an Assignment/Initialization bug: we'd see a wrong value or initialization.
 
 **Step 4 — EXAMINE EVIDENCE**: Look at the code snippets provided.
 - Do the code snippets confirm or refute your hypothesis?
@@ -135,34 +135,34 @@ These examples show how to distinguish between ODC types using pre-fix evidence:
 **Symptom**: NullPointerException in `StringUtils.isEmpty()` when called with a null locale parameter.
 **Code snippet**: `return input.length() == 0;` (no null check before `.length()`)
 **Classification**: **Checking** — The logic is correct for non-null inputs, but a null guard is MISSING. The fix is adding `if (input == null) return true;`.
-**NOT Function**: The method exists and works — it just lacks a validation check.
-**NOT Algorithm**: The computation (checking length) is correct — only the guard is missing.
+**NOT Function/Class/Object**: The method exists and works — it just lacks a validation check.
+**NOT Algorithm/Method**: The computation (checking length) is correct — only the guard is missing.
 
-### Example 2: Assignment
+### Example 2: Assignment/Initialization
 **Symptom**: `assertEquals(expected, actual)` fails because a method returns -1 instead of 0.
 **Code snippet**: `int result = -1;` (wrong initial value; should be `0`)
-**Classification**: **Assignment** — The control flow and algorithm are correct, but a single value is initialized wrong. The fix is changing `-1` to `0`.
+**Classification**: **Assignment/Initialization** — The control flow and algorithm are correct, but a single value is initialized wrong. The fix is changing `-1` to `0`.
 **NOT Checking**: No condition or guard is missing — the value itself is wrong.
-**NOT Algorithm**: The procedure is correct — only the assigned constant is wrong.
+**NOT Algorithm/Method**: The procedure is correct — only the assigned constant is wrong.
 
-### Example 3: Algorithm
+### Example 3: Algorithm/Method
 **Symptom**: `testMultiply` fails with wrong numerical result.
 **Code snippet**: `total += values[i] * weights[i+1];` (should be `weights[i]`, not `weights[i+1]`)
-**Classification**: **Algorithm** — The computation procedure uses the wrong index in its formula. The fix changes the array indexing logic in the computation.
-**NOT Assignment**: The issue isn't a wrong constant — it's wrong indexing logic in the computation.
+**Classification**: **Algorithm/Method** — The computation procedure uses the wrong index in its formula. The fix changes the array indexing logic in the computation.
+**NOT Assignment/Initialization**: The issue isn't a wrong constant — it's wrong indexing logic in the computation.
 **NOT Checking**: No guard or condition is missing — the computation steps are wrong.
 
-### Example 4: Interface
+### Example 4: Interface/O-O Messages
 **Symptom**: `testSerialize` fails because the deserialized object has swapped fields.
 **Code snippet**: `writer.write(name, value);` but reader does `reader.read(value, name);` — parameter order mismatch.
-**Classification**: **Interface** — Two components disagree on the parameter contract at their boundary.
-**NOT Algorithm**: Each component's logic is correct internally — the mismatch is at the boundary.
+**Classification**: **Interface/O-O Messages** — Two components disagree on the parameter contract at their boundary.
+**NOT Algorithm/Method**: Each component's logic is correct internally — the mismatch is at the boundary.
 
-### Example 5: Function
+### Example 5: Function/Class/Object
 **Symptom**: `testHandleSpecialCharacters` fails with UnsupportedOperationException.
 **Code snippet**: The method has `throw new UnsupportedOperationException("not yet implemented");`
-**Classification**: **Function** — The capability was never implemented at all. The fix requires writing entirely new logic.
-**NOT Algorithm**: There's no wrong computation — there's NO computation. The feature is absent."""
+**Classification**: **Function/Class/Object** — The capability was never implemented at all. The fix requires writing new design-level behavior.
+**NOT Algorithm/Method**: There's no wrong computation — there is no computation for this capability."""
 
 
 def _build_user_prompt(context: BugContext, prompt_style: str) -> str:
@@ -176,7 +176,7 @@ def _build_user_prompt(context: BugContext, prompt_style: str) -> str:
         "- Use ONLY the evidence in this prompt.",
         "- Examine code snippets line-by-line to determine the root cause mechanism.",
         "- Consider: Is the root cause a missing CHECK, a wrong VALUE, a wrong COMPUTATION, a BOUNDARY mismatch, or truly MISSING functionality?",
-        "- If code snippets show existing logic producing wrong results, this is NOT 'Function'.",
+        "- If code snippets show existing logic producing wrong results, this is usually NOT 'Function/Class/Object'.",
         "- If evidence is incomplete, lower confidence and set needs_human_review=true.",
         "- The output odc_type must be one of: " + ", ".join(ODC_TYPE_NAMES),
     ]
@@ -296,7 +296,7 @@ def _json_contract() -> str:
     return (
         "{"
         '"odc_type": "one of the allowed ODC types", '
-        '"coarse_group": "Control and Data or Structural", '
+        '"family": "Control and Data Flow or Structural", '
         '"confidence": "number between 0 and 1", '
         '"needs_human_review": "boolean", '
         '"observation_summary": "short paragraph describing failure symptoms", '

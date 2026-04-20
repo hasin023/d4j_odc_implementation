@@ -136,7 +136,7 @@ class ClassificationResult:
     provider: str
     created_at: str
     odc_type: str
-    coarse_group: str | None
+    family: str | None
     confidence: float
     needs_human_review: bool
     observation_summary: str

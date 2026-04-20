@@ -149,7 +149,7 @@ def classification_response_schema() -> dict:
         "type": "object",
         "properties": {
             "odc_type": {"type": "string"},
-            "coarse_group": {"type": ["string", "null"]},
+            "family": {"type": ["string", "null"]},
             "confidence": {"type": "number"},
             "needs_human_review": {"type": "boolean"},
             "observation_summary": {"type": "string"},
@@ -173,7 +173,7 @@ def classification_response_schema() -> dict:
         },
         "required": [
             "odc_type",
-            "coarse_group",
+            "family",
             "confidence",
             "needs_human_review",
             "observation_summary",
