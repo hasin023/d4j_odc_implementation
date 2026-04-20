@@ -42,7 +42,7 @@ def build_parser() -> argparse.ArgumentParser:
     # ── classify ─────────────────────────────────────────────────────────
     classify_parser = subparsers.add_parser(
         "classify",
-        help="Classify an existing context JSON with an LLM.",
+        help="Classify an existing context JSON with an LLM (includes optional ODC opener/closer metadata when inferable).",
     )
     classify_parser.add_argument("--context", type=Path, required=True, help="Path to context JSON.")
     classify_parser.add_argument("--output", type=Path, required=True, help="Where to write classification JSON.")
@@ -283,14 +283,14 @@ def _cmd_compare(args: argparse.Namespace) -> int:
 
     strict_icon = "MATCH" if result.strict_match else "MISS"
     top2_icon = "MATCH" if result.top2_match else "MISS"
-    coarse_icon = "MATCH" if result.coarse_group_match else "MISS"
+    family_icon = "MATCH" if result.family_match else "MISS"
 
     console.result_panel("Comparison complete", [
         ("Pre-fix Type", f"{result.prefix_odc_type} ({result.prefix_confidence:.2f})"),
         ("Post-fix Type", f"{result.postfix_odc_type} ({result.postfix_confidence:.2f})"),
         ("Strict Match", strict_icon),
         ("Top-2 Match", top2_icon),
-        ("Coarse Group Match", coarse_icon),
+        ("Family Match", family_icon),
         ("Detail", result.match_detail),
     ])
     return 0
@@ -368,7 +368,7 @@ def _cmd_compare_batch(args: argparse.Namespace) -> int:
         ("Total Bugs", str(result.total_bugs)),
         ("Strict Match", f"{result.strict_match_rate:.0%} ({result.strict_match_count}/{result.total_bugs})"),
         ("Top-2 Match", f"{result.top2_match_rate:.0%} ({result.top2_match_count}/{result.total_bugs})"),
-        ("Coarse Group Match", f"{result.coarse_group_match_rate:.0%} ({result.coarse_group_match_count}/{result.total_bugs})"),
+        ("Family Match", f"{result.family_match_rate:.0%} ({result.family_match_count}/{result.total_bugs})"),
         ("Cohen's Kappa", kappa_str),
     ])
     return 0

@@ -1,173 +1,147 @@
 from __future__ import annotations
 
 ODC_TYPES: dict[str, dict[str, str]] = {
-    "Function": {
+    "Algorithm/Method": {
         "summary": (
-            "The defect requires adding entirely new capability, a new method, a new parameter, "
-            "or a significant change to high-level feature design that was never implemented. "
-            "This is NOT about incorrect logic — it is about MISSING functionality that was "
-            "never coded at all."
+            "Efficiency or correctness problems that affect the task and can be fixed by "
+            "(re)implementing an algorithm or local data structure without requesting a formal "
+            "design change."
         ),
         "indicators": (
-            "A required feature, method, or behavior is completely absent. The fix would "
-            "involve adding substantial new code (new methods, new classes, new parameters) "
-            "rather than correcting existing code."
+            "The defect is in the procedure itself: wrong iteration strategy, wrong search logic, "
+            "incorrect algorithmic step ordering, or an incorrect method-level computational strategy."
         ),
         "distinguish_from": (
-            "If existing code produces a WRONG result, that is Algorithm, Checking, or Assignment — "
-            "not Function. Function means the capability was never implemented. "
-            "If a condition/guard is missing, that is Checking. If a computation is wrong, that is Algorithm."
+            "If the fix is primarily a missing/incorrect guard, use Checking. "
+            "If the fix is mainly a wrong value or initialization, use Assignment/Initialization. "
+            "If a formal design capability is missing, use Function/Class/Object."
         ),
         "examples": (
-            "A method that should handle a specific input type but has no handler for it at all. "
-            "A feature that was specified but the implementation was never written. "
-            "A CLI option that was documented but never wired up."
+            "The low-level design required delaying transmission of some messages, but implementation "
+            "transmitted all messages immediately. The delay algorithm was missing. "
+            "A chain search algorithm was corrected from circular-linked list traversal to linear-linked list traversal. "
+            "A method operation had incorrect parameter specification and required method-level correction."
         ),
-        "coarse_group": "Structural",
+        "family": "Control and Data Flow",
     },
-    "Interface": {
+    "Assignment/Initialization": {
         "summary": (
-            "The defect is in the interaction between components, modules, or APIs. "
-            "Wrong method signature, incorrect parameter passing, wrong return type handling, "
-            "protocol or contract mismatch at a component boundary."
+            "Value(s) assigned incorrectly or not assigned at all, including incorrect initialization "
+            "of variables or object state."
         ),
         "indicators": (
-            "The bug occurs at the boundary between two modules, classes, or subsystems. "
-            "The caller and callee disagree on types, parameter order, return semantics, "
-            "or protocol. Serialization/deserialization format mismatches also qualify."
+            "The correction is about setting or initializing a value correctly rather than "
+            "reworking overall procedural logic."
         ),
         "distinguish_from": (
-            "If the logic within a single method is wrong, that is Algorithm or Checking. "
-            "Interface is specifically about CROSS-COMPONENT mismatches: wrong parameter order, "
-            "type confusion between caller/callee, or API contract violations."
+            "If the fix requires changes to control predicates or guards, use Checking. "
+            "If the correction requires algorithmic/procedural rewrite, use Algorithm/Method."
         ),
         "examples": (
-            "Passing arguments in the wrong order to another module's API. "
-            "Misinterpreting the return value of a library method. "
-            "Serialization format mismatch between writer and reader components."
+            "An internal variable or control-block field had an incorrect value or no value. "
+            "Parameter initialization was incorrect and required correction. "
+            "An instance variable capturing object state was omitted or initialized incorrectly."
         ),
-        "coarse_group": "Structural",
+        "family": "Control and Data Flow",
     },
     "Checking": {
         "summary": (
-            "The defect is a missing or incorrect validation, condition, guard, boundary check, "
-            "or exception handling. The core logic may be correct, but a protective check is "
-            "absent or wrong."
+            "Errors caused by missing or incorrect validation of parameters or data in conditional "
+            "statements."
         ),
         "indicators": (
-            "The fix involves adding, removing, or correcting an if/else condition, a null check, "
-            "a bounds check, a loop guard, an instanceof test, a try/catch block, or an assertion. "
-            "The underlying algorithm or data flow is correct — it just lacks proper validation."
+            "The main issue is in predicate logic, boundary checks, loop stop conditions, or "
+            "parameter/data validation."
         ),
         "distinguish_from": (
-            "If the computation itself is wrong (wrong formula, wrong iteration order), that is Algorithm. "
-            "If a variable holds the wrong value, that is Assignment. Checking is specifically about "
-            "CONDITIONAL LOGIC that guards against invalid states, inputs, or edge cases."
+            "If values are simply wrong but condition logic is correct, use Assignment/Initialization. "
+            "If the procedure itself is wrong, use Algorithm/Method."
         ),
         "examples": (
-            "Missing null check before dereferencing an object. "
-            "Wrong boundary condition in an if-statement (off-by-one in a comparison). "
-            "Missing validation of user input or method parameters. "
-            "Incorrect exception type in a catch block. "
-            "A flag or boolean condition that evaluates incorrectly."
+            "A value greater than 100 was invalid, but the check ensuring value < 100 was missing. "
+            "A loop should have stopped at iteration 9 but continued because of an incorrect condition."
         ),
-        "coarse_group": "Control and Data",
-    },
-    "Assignment": {
-        "summary": (
-            "The defect is a wrong value assignment, incorrect initialization, wrong constant, "
-            "or incorrect variable/field update. The control flow and algorithm are correct, "
-            "but a specific data value is wrong."
-        ),
-        "indicators": (
-            "The fix is localized: changing a single value, constant, initialization expression, or "
-            "field assignment. The surrounding logic and control flow remain untouched. "
-            "Typically a one-line or two-line fix that changes WHAT value is stored."
-        ),
-        "distinguish_from": (
-            "If the fix requires changing a condition or adding a guard, that is Checking. "
-            "If the fix requires changing algorithmic logic (loops, recursion, data structure operations), "
-            "that is Algorithm. Assignment is specifically about a WRONG DATA VALUE in otherwise correct code."
-        ),
-        "examples": (
-            "A constant set to 0 instead of 1. "
-            "A variable initialized with the wrong default. "
-            "A field set to 'false' when it should be 'true'. "
-            "Using the wrong variable name in a simple assignment (e.g., x = a instead of x = b). "
-            "Returning the wrong variable from a method."
-        ),
-        "coarse_group": "Control and Data",
+        "family": "Control and Data Flow",
     },
     "Timing/Serialization": {
         "summary": (
-            "The defect depends on execution order, timing, concurrency, lifecycle sequencing, "
-            "or serialization/deserialization behavior."
+            "Necessary serialization of a shared resource was missing, the wrong resource was "
+            "serialized, or the wrong serialization technique was employed."
         ),
         "indicators": (
-            "The fix involves reordering operations, adding synchronization, fixing race conditions, "
-            "correcting lifecycle callbacks, or fixing serialization order/format. The code may work "
-            "correctly in isolation but fails under specific timing or ordering conditions."
+            "The bug depends on operation order, lock/serialization strategy, or concurrency-aware "
+            "coordination of shared resources."
         ),
         "distinguish_from": (
-            "If the order doesn't matter and the value is simply wrong, that is Assignment. "
-            "If a guard against concurrent access is missing, that overlaps with Checking but "
-            "belongs here if the root cause is fundamentally about ORDERING or TIMING."
+            "If the issue is primarily value assignment, use Assignment/Initialization. "
+            "If the issue is guard validation rather than ordering/serialization, use Checking."
         ),
         "examples": (
-            "A race condition between two threads. "
-            "Operations executed in the wrong lifecycle order (init before config). "
-            "State corrupted because serialization and deserialization use different field ordering."
+            "Serialization was missing while updating a shared control block. "
+            "A hierarchical locking scheme existed, but locks were acquired in the wrong sequence."
         ),
-        "coarse_group": "Control and Data",
+        "family": "Control and Data Flow",
     },
-    "Build/Package/Merge": {
+    "Function/Class/Object": {
         "summary": (
-            "The defect is caused by build configuration, packaging, dependency wiring, "
-            "or source-integration/merge issues."
+            "The error requires a formal design-level correction because it affects significant "
+            "capability, end-user interfaces, product interfaces, hardware interface, or global "
+            "data structures."
         ),
         "indicators": (
-            "The fix involves build scripts, dependency declarations, packaging metadata, "
-            "classpath configuration, or resolving merge conflicts. The source logic itself may be correct "
-            "but the built artifact is wrong."
+            "A major function/class/object capability is absent or incorrectly designed in a way "
+            "that goes beyond local procedural correction."
         ),
         "distinguish_from": (
-            "If the source code logic is wrong, use one of the other types. "
-            "Build/Package/Merge is reserved for problems in the build/deploy pipeline, "
-            "not in application logic."
+            "If the defect is local algorithmic logic, use Algorithm/Method. "
+            "If it is an API contract mismatch between components, use Interface/O-O Messages."
         ),
         "examples": (
-            "Missing dependency in pom.xml or build.gradle. "
-            "Wrong classpath causing ClassNotFoundException at runtime. "
-            "A merge conflict that introduced duplicate or contradictory code."
+            "A database design omitted a required street-address field specified in requirements. "
+            "A postal code field existed but was too small for international codes. "
+            "A required class in the system design was omitted."
         ),
-        "coarse_group": "Structural",
+        "family": "Structural",
     },
-    "Algorithm": {
+    "Interface/O-O Messages": {
         "summary": (
-            "The defect is in the core computational logic, procedure, or data-structure manipulation. "
-            "The code exists and executes, but it computes the wrong result because the algorithm "
-            "or procedure is incorrect."
+            "Communication problems between modules, components, device drivers, objects, or "
+            "functions via call signatures, parameter lists, control blocks, or messages."
         ),
         "indicators": (
-            "The fix changes HOW a computation works: correcting a formula, fixing loop logic, "
-            "changing iteration order, fixing a sort comparator, correcting a data structure operation, "
-            "or restructuring a multi-step procedure. More complex than a simple assignment fix "
-            "but contained within a single component (not cross-component like Interface)."
+            "The defect is at a boundary where one party expects a different contract, type, "
+            "service name, or parameter signature than the other."
         ),
         "distinguish_from": (
-            "If the fix is just changing a single value/constant, that is Assignment. "
-            "If the fix is adding a guard/condition, that is Checking. "
-            "Algorithm is specifically about wrong PROCEDURAL LOGIC — the steps of the computation "
-            "are incorrect, not just a missing guard or wrong value."
+            "If the main issue is internal computation within one component, use Algorithm/Method. "
+            "If it is a design-level capability omission, use Function/Class/Object."
         ),
         "examples": (
-            "Wrong mathematical formula in a calculation method. "
-            "Incorrect loop iteration logic (e.g., iterating forward instead of backward). "
-            "Wrong comparator in a sort or wrong key in a hash lookup. "
-            "Off-by-one in array indexing within a data processing loop. "
-            "Using add() where multiply() is needed in a numerical method."
+            "A deletion interface existed but was not made callable from the external boundary. "
+            "An interface specified pointer-to-number while implementation expected pointer-to-character. "
+            "An OO message used the wrong service name or non-conforming parameter signature."
         ),
-        "coarse_group": "Control and Data",
+        "family": "Structural",
+    },
+    "Relationship": {
+        "summary": (
+            "Problems related to associations among procedures, data structures, and objects. "
+            "These associations can be conditional and cross-cutting."
+        ),
+        "indicators": (
+            "Correctness depends on consistency between related structures or procedures in different "
+            "parts of the codebase."
+        ),
+        "distinguish_from": (
+            "If the issue is clearly a boundary message/signature mismatch, use Interface/O-O Messages. "
+            "If the issue is local procedural logic with no cross-entity relationship issue, use Algorithm/Method."
+        ),
+        "examples": (
+            "Code/data in one location assumed a specific structure in another location; "
+            "without honoring that association, execution failed or produced incorrect behavior. "
+            "A fix corrected the association constraints among related procedures, structures, or objects."
+        ),
+        "family": "Structural",
     },
 }
 
@@ -183,7 +157,7 @@ def taxonomy_markdown() -> str:
         "",
     ]
     for name, meta in ODC_TYPES.items():
-        lines.append(f"### {name} (Coarse group: {meta['coarse_group']})")
+        lines.append(f"### {name} (Family: {meta['family']})")
         lines.append(f"**Definition**: {meta['summary']}")
         lines.append(f"**When to choose this type**: {meta['indicators']}")
         lines.append(f"**When NOT to choose this type**: {meta['distinguish_from']}")
@@ -192,6 +166,11 @@ def taxonomy_markdown() -> str:
     return "\n".join(lines)
 
 
-def coarse_group_for(odc_type: str) -> str | None:
+def family_for(odc_type: str) -> str | None:
     meta = ODC_TYPES.get(odc_type)
-    return meta["coarse_group"] if meta else None
+    return meta["family"] if meta else None
+
+
+def coarse_group_for(odc_type: str) -> str | None:
+    """Backward-compatible alias for older callers and artifacts."""
+    return family_for(odc_type)

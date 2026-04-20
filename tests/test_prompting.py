@@ -29,6 +29,8 @@ class PromptingTests(unittest.TestCase):
         combined = "\n".join(message["content"] for message in messages)
         self.assertIn("tests.trigger", combined)
         self.assertNotIn("org.example.Hidden", combined)
+        self.assertIn('"odc_opener_hints"', combined)
+        self.assertIn('"odc_closer_hints"', combined)
 
 
 if __name__ == "__main__":

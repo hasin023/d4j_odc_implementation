@@ -3,7 +3,7 @@
 Implements a multi-tier accuracy framework:
   Tier 1 — Strict Match:       exact odc_type agreement
   Tier 2 — Top-2 Match:        primary or alternative_types overlap
-  Tier 3 — Coarse Group Match: same high-level category
+    Tier 3 — Family Match:       same high-level category
   Tier 4 — Cohen's Kappa:      inter-rater agreement statistic
 """
 
@@ -25,24 +25,32 @@ class ComparisonResult:
 
     # Pre-fix side
     prefix_odc_type: str
-    prefix_coarse_group: str | None
+    prefix_family: str | None
     prefix_confidence: float
     prefix_alternatives: list[str]
     prefix_evidence_mode: str
     prefix_reasoning_summary: str
+    prefix_target: str | None
+    prefix_qualifier: str | None
+    prefix_age: str | None
+    prefix_source: str | None
 
     # Post-fix side
     postfix_odc_type: str
-    postfix_coarse_group: str | None
+    postfix_family: str | None
     postfix_confidence: float
     postfix_alternatives: list[str]
     postfix_evidence_mode: str
     postfix_reasoning_summary: str
+    postfix_target: str | None
+    postfix_qualifier: str | None
+    postfix_age: str | None
+    postfix_source: str | None
 
     # Tier metrics
     strict_match: bool
     top2_match: bool
-    coarse_group_match: bool
+    family_match: bool
     match_detail: str
 
     # Additional context
@@ -60,10 +68,10 @@ class BatchComparisonResult:
     total_bugs: int
     strict_match_count: int
     top2_match_count: int
-    coarse_group_match_count: int
+    family_match_count: int
     strict_match_rate: float
     top2_match_rate: float
-    coarse_group_match_rate: float
+    family_match_rate: float
     cohens_kappa: float | None
     per_bug: list[dict[str, Any]] = field(default_factory=list)
     type_confusion_matrix: dict[str, dict[str, int]] = field(default_factory=dict)
@@ -90,8 +98,17 @@ def compare_classifications(
 
     prefix_type = prefix_data.get("odc_type", "")
     postfix_type = postfix_data.get("odc_type", "")
-    prefix_coarse = prefix_data.get("coarse_group")
-    postfix_coarse = postfix_data.get("coarse_group")
+    # Backward compatibility: older artifacts use coarse_group instead of family.
+    prefix_family = prefix_data.get("family", prefix_data.get("coarse_group"))
+    postfix_family = postfix_data.get("family", postfix_data.get("coarse_group"))
+    prefix_target = prefix_data.get("target")
+    postfix_target = postfix_data.get("target")
+    prefix_qualifier = prefix_data.get("qualifier")
+    postfix_qualifier = postfix_data.get("qualifier")
+    prefix_age = prefix_data.get("age")
+    postfix_age = postfix_data.get("age")
+    prefix_source = prefix_data.get("source")
+    postfix_source = postfix_data.get("source")
 
     # Tier 1: Strict match
     strict = prefix_type == postfix_type
@@ -103,8 +120,8 @@ def compare_classifications(
         or postfix_type in prefix_alts
     )
 
-    # Tier 3: Coarse group match
-    coarse = prefix_coarse == postfix_coarse
+    # Tier 3: Family match
+    family = prefix_family == postfix_family
 
     # Build detail string
     if strict:
@@ -118,15 +135,15 @@ def compare_classifications(
         detail = f"Pre-fix primary '{prefix_type}' found in post-fix alternative types"
     elif postfix_type in prefix_alts:
         detail = f"Post-fix primary '{postfix_type}' found in pre-fix alternative types"
-    elif coarse:
+    elif family:
         detail = (
-            f"Coarse group match only: both '{prefix_coarse}' but types differ "
+            f"Family match only: both '{prefix_family}' but types differ "
             f"('{prefix_type}' vs '{postfix_type}')"
         )
     else:
         detail = (
-            f"No match: pre-fix '{prefix_type}' ({prefix_coarse}) vs "
-            f"post-fix '{postfix_type}' ({postfix_coarse})"
+            f"No match: pre-fix '{prefix_type}' ({prefix_family}) vs "
+            f"post-fix '{postfix_type}' ({postfix_family})"
         )
 
     return ComparisonResult(
@@ -134,20 +151,28 @@ def compare_classifications(
         bug_id=prefix_data.get("bug_id", 0),
         version_id=prefix_data.get("version_id", ""),
         prefix_odc_type=prefix_type,
-        prefix_coarse_group=prefix_coarse,
+        prefix_family=prefix_family,
         prefix_confidence=float(prefix_data.get("confidence", 0)),
         prefix_alternatives=prefix_alts,
         prefix_evidence_mode=prefix_data.get("evidence_mode", "pre-fix"),
         prefix_reasoning_summary=prefix_data.get("reasoning_summary", ""),
+        prefix_target=prefix_target,
+        prefix_qualifier=prefix_qualifier,
+        prefix_age=prefix_age,
+        prefix_source=prefix_source,
         postfix_odc_type=postfix_type,
-        postfix_coarse_group=postfix_coarse,
+        postfix_family=postfix_family,
         postfix_confidence=float(postfix_data.get("confidence", 0)),
         postfix_alternatives=postfix_alts,
         postfix_evidence_mode=postfix_data.get("evidence_mode", "post-fix"),
         postfix_reasoning_summary=postfix_data.get("reasoning_summary", ""),
+        postfix_target=postfix_target,
+        postfix_qualifier=postfix_qualifier,
+        postfix_age=postfix_age,
+        postfix_source=postfix_source,
         strict_match=strict,
         top2_match=top2,
-        coarse_group_match=coarse,
+        family_match=family,
         match_detail=detail,
         model=prefix_data.get("model", ""),
         provider=prefix_data.get("provider", ""),
@@ -167,16 +192,16 @@ def batch_compare(pairs: list[tuple[dict, dict]]) -> BatchComparisonResult:
             total_bugs=0,
             strict_match_count=0,
             top2_match_count=0,
-            coarse_group_match_count=0,
+            family_match_count=0,
             strict_match_rate=0.0,
             top2_match_rate=0.0,
-            coarse_group_match_rate=0.0,
+            family_match_rate=0.0,
             cohens_kappa=None,
         )
 
     strict_count = sum(1 for r in results if r.strict_match)
     top2_count = sum(1 for r in results if r.top2_match)
-    coarse_count = sum(1 for r in results if r.coarse_group_match)
+    family_count = sum(1 for r in results if r.family_match)
 
     # Build confusion matrix
     confusion: dict[str, dict[str, int]] = {}
@@ -196,10 +221,10 @@ def batch_compare(pairs: list[tuple[dict, dict]]) -> BatchComparisonResult:
         total_bugs=n,
         strict_match_count=strict_count,
         top2_match_count=top2_count,
-        coarse_group_match_count=coarse_count,
+        family_match_count=family_count,
         strict_match_rate=strict_count / n,
         top2_match_rate=top2_count / n,
-        coarse_group_match_rate=coarse_count / n,
+        family_match_rate=family_count / n,
         cohens_kappa=kappa,
         per_bug=[r.to_dict() for r in results],
         type_confusion_matrix=confusion,
@@ -270,7 +295,7 @@ def write_comparison_report(
 def _single_comparison_report(r: ComparisonResult) -> list[str]:
     strict_icon = "✅" if r.strict_match else "❌"
     top2_icon = "✅" if r.top2_match else "❌"
-    coarse_icon = "✅" if r.coarse_group_match else "❌"
+    family_icon = "✅" if r.family_match else "❌"
 
     lines = [
         f"# ODC Comparison Report: {r.project_id}-{r.bug_id}",
@@ -283,7 +308,11 @@ def _single_comparison_report(r: ComparisonResult) -> list[str]:
         "| Aspect | Pre-fix | Post-fix |",
         "|--------|---------|----------|",
         f"| **Primary Type** | {r.prefix_odc_type} | {r.postfix_odc_type} |",
-        f"| **Coarse Group** | {r.prefix_coarse_group} | {r.postfix_coarse_group} |",
+        f"| **Family** | {r.prefix_family} | {r.postfix_family} |",
+        f"| **Target** | {r.prefix_target or '—'} | {r.postfix_target or '—'} |",
+        f"| **Qualifier** | {r.prefix_qualifier or '—'} | {r.postfix_qualifier or '—'} |",
+        f"| **Age** | {r.prefix_age or '—'} | {r.postfix_age or '—'} |",
+        f"| **Source** | {r.prefix_source or '—'} | {r.postfix_source or '—'} |",
         f"| **Confidence** | {r.prefix_confidence:.2f} | {r.postfix_confidence:.2f} |",
         f"| **Evidence Mode** | {r.prefix_evidence_mode} | {r.postfix_evidence_mode} |",
         f"| **Alternatives** | {', '.join(r.prefix_alternatives) or 'none'} | {', '.join(r.postfix_alternatives) or 'none'} |",
@@ -294,7 +323,7 @@ def _single_comparison_report(r: ComparisonResult) -> list[str]:
         f"|--------|--------|",
         f"| Strict Match (exact type) | {strict_icon} |",
         f"| Top-2 Match (incl. alternatives) | {top2_icon} |",
-        f"| Coarse Group Match | {coarse_icon} |",
+        f"| Family Match | {family_icon} |",
         "",
         f"**Detail**: {r.match_detail}",
         "",
@@ -324,7 +353,7 @@ def _batch_comparison_report(r: BatchComparisonResult) -> list[str]:
         "|--------|----------|-------|",
         f"| Strict Match (exact type) | {r.strict_match_rate:.0%} | {r.strict_match_count}/{r.total_bugs} |",
         f"| Top-2 Match (incl. alternatives) | {r.top2_match_rate:.0%} | {r.top2_match_count}/{r.total_bugs} |",
-        f"| Coarse Group Match | {r.coarse_group_match_rate:.0%} | {r.coarse_group_match_count}/{r.total_bugs} |",
+        f"| Family Match | {r.family_match_rate:.0%} | {r.family_match_count}/{r.total_bugs} |",
         f"| Cohen's Kappa | {kappa_str} | {kappa_interp} |",
         "",
     ]
@@ -352,13 +381,13 @@ def _batch_comparison_report(r: BatchComparisonResult) -> list[str]:
         lines.extend([
             "## Per-Bug Results",
             "",
-            "| Bug | Pre-fix Type | Post-fix Type | Strict | Top-2 | Coarse | Detail |",
+            "| Bug | Pre-fix Type | Post-fix Type | Strict | Top-2 | Family | Detail |",
             "|-----|-------------|---------------|--------|-------|--------|--------|",
         ])
         for bug in r.per_bug:
             s = "✅" if bug["strict_match"] else "❌"
             t = "✅" if bug["top2_match"] else "❌"
-            c = "✅" if bug["coarse_group_match"] else "❌"
+            c = "✅" if bug["family_match"] else "❌"
             lines.append(
                 f"| {bug['project_id']}-{bug['bug_id']} "
                 f"| {bug['prefix_odc_type']} "

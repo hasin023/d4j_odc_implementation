@@ -7,7 +7,7 @@ from pathlib import Path
 from .defects4j import DEFAULT_EXPORT_PROPERTIES, DEFAULT_QUERY_FIELDS, Defects4JClient
 from .llm import LLMClient, LLMError
 from .models import BugContext, ClassificationResult, CodeSnippet, StackFrame, ensure_parent, utc_now_iso
-from .odc import ODC_TYPE_NAMES, coarse_group_for
+from .odc import ODC_TYPE_NAMES, family_for
 from .parsing import extract_json_object
 from .prompting import build_messages
 from .web_fetch import fetch_bug_report
@@ -287,14 +287,33 @@ def classify_bug_context(
     confidence_style = "green" if result.confidence >= 0.7 else "yellow" if result.confidence >= 0.4 else "red"
     review_text = "Yes" if result.needs_human_review else "No"
 
-    console.result_panel("Classification complete", [
+    optional_rows: list[tuple[str, str]] = []
+    if result.target:
+        optional_rows.append(("Target", result.target))
+    if result.qualifier:
+        optional_rows.append(("Qualifier", result.qualifier))
+    if result.age:
+        optional_rows.append(("Age", result.age))
+    if result.source:
+        optional_rows.append(("Source", result.source))
+    if result.inferred_activity:
+        optional_rows.append(("Inferred Activity", result.inferred_activity))
+    if result.inferred_triggers:
+        optional_rows.append(("Inferred Triggers", ", ".join(result.inferred_triggers)))
+    if result.inferred_impact:
+        optional_rows.append(("Inferred Impact", ", ".join(result.inferred_impact)))
+
+    summary_rows = [
         ("ODC Type", result.odc_type),
-        ("Coarse Group", result.coarse_group or "—"),
+        ("Family", result.family or "—"),
         ("Confidence", f"{result.confidence:.2f}"),
         ("Evidence Mode", result.evidence_mode),
         ("Needs Human Review", review_text),
         ("Output", str(output_path)),
-    ])
+    ]
+    summary_rows.extend(optional_rows)
+
+    console.result_panel("Classification complete", summary_rows)
 
     return result
 
@@ -340,13 +359,33 @@ def write_markdown_report(
             [
                 f"- **Evidence Mode**: {evidence_label}",
                 f"- ODC Type: `{classification.odc_type}`",
-                f"- Coarse Group: `{classification.coarse_group}`",
+                f"- Family: `{classification.family}`",
+                f"- Target: `{classification.target or 'Design/Code'}`",
                 f"- Confidence: `{classification.confidence}`",
                 f"- Needs Human Review: `{classification.needs_human_review}`",
                 "",
                 classification.reasoning_summary,
             ]
         )
+        closer_lines = []
+        if classification.qualifier:
+            closer_lines.append(f"- Qualifier: `{classification.qualifier}`")
+        if classification.age:
+            closer_lines.append(f"- Age: `{classification.age}`")
+        if classification.source:
+            closer_lines.append(f"- Source: `{classification.source}`")
+        opener_lines = []
+        if classification.inferred_activity:
+            opener_lines.append(f"- Inferred Activity: `{classification.inferred_activity}`")
+        if classification.inferred_triggers:
+            opener_lines.append(f"- Inferred Triggers: `{', '.join(classification.inferred_triggers)}`")
+        if classification.inferred_impact:
+            opener_lines.append(f"- Inferred Impact: `{', '.join(classification.inferred_impact)}`")
+
+        if closer_lines or opener_lines:
+            lines.extend(["", "## ODC Attribute Mapping (Optional)"])
+            lines.extend(closer_lines)
+            lines.extend(opener_lines)
     ensure_parent(output_path)
     output_path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
     console.step(f"Report written → {output_path}")
@@ -757,6 +796,17 @@ def _validate_classification_payload(
     provider: str,
     raw_response: str,
 ) -> ClassificationResult:
+    def _opt_text(value: object) -> str | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
+
+    def _opt_list(value: object) -> list[str]:
+        if not isinstance(value, list):
+            return []
+        return [str(item).strip() for item in value if str(item).strip()]
+
     odc_type = payload.get("odc_type")
     if odc_type not in ODC_TYPE_NAMES:
         raise LLMError(f"Invalid or missing odc_type in LLM output: {odc_type!r}")
@@ -771,7 +821,7 @@ def _validate_classification_payload(
         provider=provider,
         created_at=utc_now_iso(),
         odc_type=odc_type,
-        coarse_group=coarse_group_for(odc_type),  # Always use canonical mapping, never trust LLM
+        family=family_for(odc_type),  # Always use canonical mapping, never trust LLM
         confidence=confidence,
         needs_human_review=bool(payload.get("needs_human_review", False)),
         observation_summary=str(payload.get("observation_summary", "")).strip(),
@@ -786,6 +836,13 @@ def _validate_classification_payload(
             for item in payload.get("alternative_types", [])
             if isinstance(item, dict)
         ],
+        target=_opt_text(payload.get("target")) or "Design/Code",
+        qualifier=_opt_text(payload.get("qualifier")),
+        age=_opt_text(payload.get("age")),
+        source=_opt_text(payload.get("source")),
+        inferred_activity=_opt_text(payload.get("inferred_activity")),
+        inferred_triggers=_opt_list(payload.get("inferred_triggers")),
+        inferred_impact=_opt_list(payload.get("inferred_impact")),
         evidence_mode="post-fix" if context.fix_diff else "pre-fix",
         raw_response=raw_response,
     )
