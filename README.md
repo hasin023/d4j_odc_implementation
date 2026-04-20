@@ -254,10 +254,20 @@ These hints are **additive and optional** — the LLM is free to accept or rejec
     - Contrastive ODC taxonomy (7 types with indicators, boundaries, and examples)
     - 5 canonical few-shot examples with explicit `NOT X` reasoning
     - 7-question diagnostic decision tree
-    - Anti-bias rules preventing default-to-Function/Class/Object
-    - Heuristic ODC opener/closer alignment hints
-16. **Enforces canonical ODC family** — never trusts the LLM's `family` field; always re-maps from `odc.family_for(odc_type)`.
-17. **Writes outputs** — `classification.json` (with optional ODC closer/opener attributes), and `report.md`.
+    - Anti-bias rules preventing default-to-Function behavior
+  11. **Adds ODC mapping hints** (optional) — Includes heuristic opener/closer-aligned metadata in prompt evidence (`odc_opener_hints`, `odc_closer_hints`) to improve traceability to ODC concepts.
+11. **Writes outputs** — `context.json`, `classification.json`, and a markdown report.
+
+  ### Optional ODC Opener/Closer Metadata
+
+  The core pipeline output remains the same (`odc_type`, `family`, confidence, reasoning).
+
+  In addition, `classification.json` may include optional ODC-aligned fields when inferable:
+
+  - Opener-oriented (inferred): `inferred_activity`, `inferred_triggers`, `inferred_impact`
+  - Closer-oriented (optional): `target` (defaults to `Design/Code`), `qualifier`, `age`, `source`
+
+  These fields are additive and optional-first for backward compatibility.
 
 ---
 
@@ -265,15 +275,15 @@ These hints are **additive and optional** — the LLM is free to accept or rejec
 
 The pipeline classifies into 7 ODC **Defect Type** categories:
 
-| ODC Defect Type               | Family                | Description                                                                                                                |
-| ----------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| **Algorithm/Method**          | Control and Data Flow | Efficiency or correctness problems fixed by (re)implementing an algorithm or local data structure — no design change needed. |
-| **Assignment/Initialization** | Control and Data Flow | Values assigned incorrectly or not assigned at all.                                                                        |
-| **Checking**                  | Control and Data Flow | Missing or incorrect validation of parameters or data in conditional statements.                                            |
-| **Timing/Serialization**      | Control and Data Flow | Missing, wrong, or incorrect serialization of shared resources.                                                            |
-| **Function/Class/Object**     | Structural            | Design-level capability issue affecting significant end-user interfaces, product interfaces, or global data structures.     |
-| **Interface/O-O Messages**    | Structural            | Communication problems between modules, components, or objects via call signatures or parameter contracts.                  |
-| **Relationship**              | Structural            | Problems with associations among procedures, data structures, and objects.                                                  |
+| ODC Defect Type               | Family                | Description                                                                                                                                                                          |
+| ----------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Algorithm/Method**          | Control and Data Flow | Efficiency or correctness problems that affect the task and can be fixed by (re)implementing an algorithm or local data structure without the need for requesting a design change... |
+| **Assignment/Initialization** | Control and Data Flow | Value(s) assigned incorrectly or not assigned at all...                                                                                                                              |
+| **Checking**                  | Control and Data Flow | Errors caused by missing or incorrect validation of parameters or data in conditional statements...                                                                                  |
+| **Timing/Serialization**      | Control and Data Flow | Necessary serialization of shared resource was missing, the wrong resource was serialized, or the wrong serialization technique was employed...                                      |
+| **Function/Class/Object**     | Structural            | The error should require a formal design change, as it affects significant capability, end-user interfaces, product interfaces, interface with hardware architecture, or global data structure(s)... |
+| **Interface/O-O Messages**    | Structural            | Communication problems between modules, components, device drivers, objects, or functions...                                                                                         |
+| **Relationship**              | Structural            | Problems related to associations among procedures, data structures and objects. Such associations may be conditional...                                                              |
 
 ---
 
@@ -291,6 +301,10 @@ Use path placeholders below so the commands stay valid regardless of where you k
 | `<IMPL_DIR>`   | Absolute path to this repo (`d4j_odc_implementation`) |
 | `<D4J_HOME>`   | Absolute path to your Defects4J clone                 |
 | `<LINUX_USER>` | Your Linux username                                   |
+
+Example: `<IMPL_DIR>` might be `C:\dev\thesis\d4j_odc_implementation` on Windows, or `/home/alex/dev/d4j_odc_implementation` on Ubuntu.
+
+`<D4J_HOME>` is defined by where you clone Defects4J. If you use the default clone command below, it will usually be the absolute path of a `defects4j` directory.
 
 ### Mode A - Windows + WSL (Ubuntu)
 
@@ -344,7 +358,7 @@ pip install -e .
 
 ```dotenv
 DEFAULT_LLM_PROVIDER=gemini
-DEFAULT_LLM_MODEL=gemini-2.5-flash-preview-04-17
+DEFAULT_LLM_MODEL=gemini-3.1-flash-lite-preview
 GEMINI_API_KEY=your_real_key_here
 DEFECTS4J_CMD=wsl perl <D4J_HOME>/framework/bin/defects4j
 DEFECTS4J_PATH_STYLE=wsl
@@ -396,7 +410,7 @@ pip install -e .
 
 ```dotenv
 DEFAULT_LLM_PROVIDER=gemini
-DEFAULT_LLM_MODEL=gemini-2.5-flash-preview-04-17
+DEFAULT_LLM_MODEL=gemini-3.1-flash-lite-preview
 GEMINI_API_KEY=your_real_key_here
 DEFECTS4J_CMD=perl <D4J_HOME>/framework/bin/defects4j
 DEFECTS4J_PATH_STYLE=native
@@ -613,6 +627,35 @@ With `--include-fix-diff`, the pipeline also:
 
 For thesis evaluation, you can compare classification accuracy by running each bug **twice**:
 
+**PowerShell (Windows):**
+
+```powershell
+# Step 1: Collect pre-fix context (no diff)
+python -m d4j_odc_pipeline collect `
+  --project Lang --bug 1 `
+  --work-dir .\work\Lang_1b `
+  --output .\artifacts\Lang_1\context.json `
+  --skip-coverage
+
+# Step 2: Collect post-fix context (with diff)
+python -m d4j_odc_pipeline collect `
+  --project Lang --bug 1 `
+  --work-dir .\work\Lang_1b_fix `
+  --output .\artifacts\Lang_1f\context.json `
+  --skip-coverage --include-fix-diff
+
+# Step 3: Classify both (reuse existing context — instant, no checkout needed)
+python -m d4j_odc_pipeline classify `
+  --context .\artifacts\Lang_1\context.json `
+  --output .\artifacts\Lang_1\classification.json `
+  --report .\artifacts\Lang_1\report.md
+
+python -m d4j_odc_pipeline classify `
+  --context .\artifacts\Lang_1f\context.json `
+  --output .\artifacts\Lang_1f\classification.json `
+  --report .\artifacts\Lang_1f\report.md
+```
+
 **Bash (Ubuntu/Linux/WSL):**
 
 ```bash
@@ -706,7 +749,7 @@ OpenRouter example:
 
 ```dotenv
 DEFAULT_LLM_PROVIDER=openrouter
-DEFAULT_LLM_MODEL=openai/gpt-4.1
+DEFAULT_LLM_MODEL=openai/gpt-5.2
 OPENROUTER_API_KEY=your_key_here
 OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
 OPENROUTER_HTTP_REFERER=https://your-site.example
@@ -717,7 +760,7 @@ OPENROUTER_APP_TITLE=Defects4J ODC Pipeline
 
 ## Project Structure
 
-```
+```bash
 d4j_odc_pipeline/
 ├── __init__.py        # Package init
 ├── __main__.py        # Entry point (delegates to cli.main)
