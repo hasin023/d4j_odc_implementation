@@ -261,10 +261,13 @@ If validation fails with `Can't open perl script .../framework/bin/defects4j`, v
 
 ## Usage
 
+Commands are provided in both **PowerShell** (Windows) and **Bash** (Ubuntu/Linux/WSL) variants. Copy from the section that matches your environment.
+
 ### `collect` — Build pre-fix context
 
 Checks out the buggy version, runs tests, fetches all evidence, and saves `context.json`.
 
+**PowerShell (Windows):**
 ```powershell
 python -m d4j_odc_pipeline collect `
   --project Lang --bug 1 `
@@ -273,10 +276,20 @@ python -m d4j_odc_pipeline collect `
   --skip-coverage
 ```
 
+**Bash (Ubuntu/Linux/WSL):**
+```bash
+python -m d4j_odc_pipeline collect \
+  --project Lang --bug 1 \
+  --work-dir ./work/Lang_1b \
+  --output ./artifacts/Lang_1/context.json \
+  --skip-coverage
+```
+
 ### `classify` — Classify an existing context
 
 Sends evidence to the LLM and produces classification + report.
 
+**PowerShell (Windows):**
 ```powershell
 python -m d4j_odc_pipeline classify `
   --context .\artifacts\Lang_1\context.json `
@@ -284,10 +297,19 @@ python -m d4j_odc_pipeline classify `
   --report .\artifacts\Lang_1\report.md
 ```
 
+**Bash (Ubuntu/Linux/WSL):**
+```bash
+python -m d4j_odc_pipeline classify \
+  --context ./artifacts/Lang_1/context.json \
+  --output ./artifacts/Lang_1/classification.json \
+  --report ./artifacts/Lang_1/report.md
+```
+
 ### `run` — End-to-end collection + classification
 
 Runs both `collect` and `classify` in a single command.
 
+**PowerShell (Windows):**
 ```powershell
 python -m d4j_odc_pipeline run `
   --project Lang --bug 1 `
@@ -298,11 +320,22 @@ python -m d4j_odc_pipeline run `
   --skip-coverage
 ```
 
+**Bash (Ubuntu/Linux/WSL):**
+```bash
+python -m d4j_odc_pipeline run \
+  --project Lang --bug 1 \
+  --work-dir ./work/Lang_1b \
+  --context-output ./artifacts/Lang_1/context.json \
+  --classification-output ./artifacts/Lang_1/classification.json \
+  --report ./artifacts/Lang_1/report.md \
+  --skip-coverage
+```
+
 ### `d4j` — Defects4J proxy commands
 
 Convenience wrappers around common Defects4J operations with formatted output:
 
-```powershell
+```bash
 python -m d4j_odc_pipeline d4j pids                         # List all projects
 python -m d4j_odc_pipeline d4j bids --project Lang           # List bug IDs
 python -m d4j_odc_pipeline d4j info --project Lang --bug 1   # Show bug details
@@ -310,8 +343,9 @@ python -m d4j_odc_pipeline d4j info --project Lang --bug 1   # Show bug details
 
 ### `compare` and `compare-batch` — Accuracy Evaluation
 
-Compare pre-fix and post-fix classification results using multi-tier accuracy metrics:
+Compare pre-fix and post-fix classification results using multi-tier accuracy metrics.
 
+**PowerShell (Windows):**
 ```powershell
 # Compare a single bug pair
 python -m d4j_odc_pipeline compare `
@@ -325,6 +359,22 @@ python -m d4j_odc_pipeline compare-batch `
   --postfix-dir .\artifacts\postfix_runs `
   --output .\artifacts\batch_comparison.json `
   --report .\artifacts\accuracy_report.md
+```
+
+**Bash (Ubuntu/Linux/WSL):**
+```bash
+# Compare a single bug pair
+python -m d4j_odc_pipeline compare \
+  --prefix ./artifacts/Lang_1/classification.json \
+  --postfix ./artifacts/Lang_1f/classification.json \
+  --output ./artifacts/Lang_1/comparison.json
+
+# Batch compare a directory of pairs
+python -m d4j_odc_pipeline compare-batch \
+  --prefix-dir ./artifacts/prefix_runs \
+  --postfix-dir ./artifacts/postfix_runs \
+  --output ./artifacts/batch_comparison.json \
+  --report ./artifacts/accuracy_report.md
 ```
 
 ---
