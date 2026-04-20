@@ -128,11 +128,11 @@ This project supports two installation modes:
 
 Use path placeholders below so the commands stay valid regardless of where you keep your repos.
 
-| Placeholder | Meaning |
-| --- | --- |
-| `<IMPL_DIR>` | Absolute path to this repo (`d4j_odc_implementation`) |
-| `<D4J_HOME>` | Absolute path to your Defects4J clone |
-| `<LINUX_USER>` | Your Linux username |
+| Placeholder    | Meaning                                               |
+| -------------- | ----------------------------------------------------- |
+| `<IMPL_DIR>`   | Absolute path to this repo (`d4j_odc_implementation`) |
+| `<D4J_HOME>`   | Absolute path to your Defects4J clone                 |
+| `<LINUX_USER>` | Your Linux username                                   |
 
 Example: `<IMPL_DIR>` might be `C:\dev\thesis\d4j_odc_implementation` on Windows, or `/home/alex/dev/d4j_odc_implementation` on Ubuntu.
 
