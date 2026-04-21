@@ -1,0 +1,44 @@
+{
+  "project_id": "Compress",
+  "bug_id": 27,
+  "version_id": "27b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-04-21T11:37:23+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The TarUtils.parseOctal method throws an IllegalArgumentException when encountering a buffer that contains only NUL or space characters, which is a valid scenario in some TAR archive headers.",
+  "hypothesis": "The method incorrectly assumes that if the buffer contains only NUL or space characters after trimming, it must be an invalid octal string, failing to account for cases where an empty field (all NULs/spaces) should be parsed as 0.",
+  "prediction": "The fix will involve adding a check to return 0 if the buffer is empty or contains only NUL/space characters, rather than throwing an exception.",
+  "experiment_rationale": "The failing test case provides a buffer of {0, ' '} and expects 0, but the current code throws an exception because it reaches the 'if (start == end)' check after trimming all characters.",
+  "reasoning_summary": "The defect is a missing guard condition. The code currently treats an empty/blank buffer as an error, but the requirements (and the failing test) indicate that such buffers should be interpreted as 0. This is a classic validation logic error.",
+  "evidence_used": [
+    "TarUtils.java:133-136",
+    "TarUtilsTest.java:67-69",
+    "Stack trace: java.lang.IllegalArgumentException: Invalid byte 32 at offset 1 in ' {NUL}' len=2"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the logic is procedural, the core issue is the lack of a guard condition to handle the 'all-blank' case, which is a validation/checking concern."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": "New",
+  "source": "Developed In-House",
+  "inferred_activity": "Unit Test",
+  "inferred_triggers": [
+    "Recovery/Exception",
+    "Test Variation"
+  ],
+  "inferred_impact": [
+    "Reliability"
+  ],
+  "evidence_mode": "pre-fix",
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"age\": \"New\",\n  \"source\": \"Developed In-House\",\n  \"inferred_activity\": \"Unit Test\",\n  \"inferred_triggers\": [\"Recovery/Exception\", \"Test Variation\"],\n  \"inferred_impact\": [\"Reliability\"],\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The TarUtils.parseOctal method throws an IllegalArgumentException when encountering a buffer that contains only NUL or space characters, which is a valid scenario in some TAR archive headers.\",\n  \"hypothesis\": \"The method incorrectly assumes that if the buffer contains only NUL or space characters after trimming, it must be an invalid octal string, failing to account for cases where an empty field (all NULs/spaces) should be parsed as 0.\",\n  \"prediction\": \"The fix will involve adding a check to return 0 if the buffer is empty or contains only NUL/space characters, rather than throwing an exception.\",\n  \"experiment_rationale\": \"The failing test case provides a buffer of {0, ' '} and expects 0, but the current code throws an exception because it reaches the 'if (start == end)' check after trimming all characters.\",\n  \"reasoning_summary\": \"The defect is a missing guard condition. The code currently treats an empty/blank buffer as an error, but the requirements (and the failing test) indicate that such buffers should be interpreted as 0. This is a classic validation logic error.\",\n  \"evidence_used\": [\"TarUtils.java:133-136\", \"TarUtilsTest.java:67-69\", \"Stack trace: java.lang.IllegalArgumentException: Invalid byte 32 at offset 1 in ' {NUL}' len=2\"],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the logic is procedural, the core issue is the lack of a guard condition to handle the 'all-blank' case, which is a validation/checking concern.\"\n    }\n  ]\n}"
+}

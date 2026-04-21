@@ -100,15 +100,26 @@ python -m d4j_odc_pipeline study-run `
   --skip-coverage
 ```
 
+#### Stopping a Running Study
+
+If you need to stop an active `study-run` process (e.g., it's taking too long or you need to interrupt), use this PowerShell command to kill the process tree immediately:
+
+```powershell
+Get-CimInstance Win32_Process |
+  Where-Object { $_.CommandLine -match 'd4j_odc_pipeline study-run' } |
+  ForEach-Object { taskkill /PID $_.ProcessId /T /F }
+```
+
+Alternatively, in VS Code, you can click the **trash icon** on the terminal tab to kill the session and all child processes.
+
 ### Step 3 - Run cross-artifact analysis
 
 This consumes prefix/postfix outputs and produces study-level analytics, including:
 
 1. total bugs analyzed
 2. bugs with changed type in postfix vs prefix
-3. top 3 alternative-match divergences
-4. top 3 no-common-alternative divergences
-5. per-project drift and type-transition summaries
+3. all alternative-match divergences (where type changed but alternatives overlap)
+4. per-project drift and type-transition summaries
 
 ```powershell
 python -m d4j_odc_pipeline study-analyze `
@@ -119,6 +130,23 @@ python -m d4j_odc_pipeline study-analyze `
   --output .\.dist\study\analysis.json `
   --report .\.dist\study\analysis.md
 ```
+
+#### Understanding the Analysis Metrics
+
+The `analysis.md` header shows these key metrics:
+
+- **Total pairs**: Number of bug pairs analyzed
+- **Projects covered**: Number of unique projects represented
+- **Type changed**: Bugs where pre-fix and post-fix classifications differ
+- **Type unchanged**: Bugs with identical pre-fix and post-fix classifications
+- **No alternative overlap**: Type-changed bugs where the pre-fix and post-fix types have no overlapping alternative types. These represent the hardest classification disagreements
+- **No family match**: Type-changed bugs where the pre-fix and post-fix types belong to different defect families (Control and Data Flow vs Structural)
+- **Family match**: Type-changed bugs where both classifications share the same defect family, even if the specific type differs
+
+The **Type Transitions** section lists all type changes and marks them with:
+- `(no alt overlap)` — pre-fix and post-fix types have no shared alternatives
+- `(no family match)` — types are from completely different defect families
+- Both markers if both conditions apply
 
 ### Step 4 - Optional compatibility comparison output
 

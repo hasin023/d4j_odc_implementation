@@ -272,7 +272,7 @@ def analyze_batch_artifacts(
 ) -> dict[str, Any]:
     pairs = _discover_pairs(prefix_dir, postfix_dir)
     rows: list[dict[str, Any]] = []
-    transitions: dict[str, int] = {}
+    transitions: dict[str, dict[str, Any]] = {}
     per_project: dict[str, dict[str, int]] = {}
 
     for key, pair in pairs.items():
@@ -299,7 +299,10 @@ def analyze_batch_artifacts(
         )
 
         transition = f"{cmp_result.prefix_odc_type} -> {cmp_result.postfix_odc_type}"
-        transitions[transition] = transitions.get(transition, 0) + 1
+        if transition not in transitions:
+            transitions[transition] = {"count": 0, "bugs": []}
+        transitions[transition]["count"] += 1
+        transitions[transition]["bugs"].append(f"{cmp_result.project_id}-{cmp_result.bug_id}")
 
         project_bucket = per_project.setdefault(
             cmp_result.project_id,
@@ -351,8 +354,10 @@ def analyze_batch_artifacts(
 
     total = len(rows)
     type_changed = sum(1 for row in rows if not row["strict_match"])
+    type_unchanged = total - type_changed
     top2 = sum(1 for row in rows if row["top2_match"])
     family = sum(1 for row in rows if row["family_match"])
+    no_family_match = sum(1 for row in rows if not row["strict_match"] and not row["family_match"])
 
     projects_seen = sorted({row["project_id"] for row in rows})
     missing_projects: list[str] = []
@@ -364,6 +369,11 @@ def analyze_batch_artifacts(
         for row in rows
         if not row["strict_match"] and row["primary_cross_alternative_match"]
     ]
+    no_alternative_candidates = [
+        row
+        for row in rows
+        if not row["strict_match"] and not row["primary_cross_alternative_match"]
+    ]
     no_common_candidates = [
         row
         for row in rows
@@ -371,10 +381,45 @@ def analyze_batch_artifacts(
     ]
 
     alt_candidates.sort(key=lambda item: (item["confidence_gap"], not item["family_match"]), reverse=True)
+    no_alternative_candidates.sort(key=lambda item: (item["confidence_gap"], not item["family_match"]), reverse=True)
     no_common_candidates.sort(
         key=lambda item: (item["confidence_gap"], not item["family_match"]),
         reverse=True,
     )
+
+    # Separate transitions into changed and unchanged, and track no-alternative and no-family-match bugs
+    transitions_changed = {}
+    transitions_unchanged = {}
+    no_alternative_bug_set = {row["project_id"] + "-" + str(row["bug_id"]) for row in no_alternative_candidates}
+    no_family_match_bug_set = {
+        row["project_id"] + "-" + str(row["bug_id"])
+        for row in rows
+        if not row["strict_match"] and not row["family_match"]
+    }
+    
+    for transition, data in transitions.items():
+        prefix_type, postfix_type = transition.split(" -> ")
+        # Mark bugs with no alternative overlap and/or no family match
+        marked_bugs = []
+        for bug in data["bugs"]:
+            markers = []
+            if bug in no_alternative_bug_set:
+                markers.append("no alt overlap")
+            if bug in no_family_match_bug_set:
+                markers.append("no family match")
+            if markers:
+                marked_bugs.append(f"{bug} ({', '.join(markers)})")
+            else:
+                marked_bugs.append(bug)
+        data["bugs"] = marked_bugs
+        
+        if prefix_type == postfix_type:
+            transitions_unchanged[transition] = data
+        else:
+            transitions_changed[transition] = data
+
+    transitions_changed = dict(sorted(transitions_changed.items(), key=lambda item: item[1]["count"], reverse=True))
+    transitions_unchanged = dict(sorted(transitions_unchanged.items(), key=lambda item: item[1]["count"], reverse=True))
 
     summary = {
         "created_at": utc_now_iso(),
@@ -384,13 +429,21 @@ def analyze_batch_artifacts(
         "missing_projects": missing_projects,
         "type_changed_count": type_changed,
         "type_changed_rate": (type_changed / total) if total else 0.0,
+        "type_unchanged_count": type_unchanged,
+        "type_unchanged_rate": (type_unchanged / total) if total else 0.0,
+        "no_alternative_count": len(no_alternative_candidates),
+        "no_alternative_rate": (len(no_alternative_candidates) / total) if total else 0.0,
+        "no_family_match_count": no_family_match,
+        "no_family_match_rate": (no_family_match / total) if total else 0.0,
         "top2_match_count": top2,
         "top2_match_rate": (top2 / total) if total else 0.0,
         "family_match_count": family,
         "family_match_rate": (family / total) if total else 0.0,
         "per_project": per_project,
-        "type_transitions": dict(sorted(transitions.items(), key=lambda item: item[1], reverse=True)),
-        "top3_alternative_match": alt_candidates[:3],
+        "type_transitions_changed": transitions_changed,
+        "type_transitions_unchanged": transitions_unchanged,
+        "top3_alternative_match": alt_candidates,
+        "type_changed_no_alternative": no_alternative_candidates,
         "top3_no_common_alternative": no_common_candidates[:3],
         "rows": rows,
     }
@@ -405,7 +458,9 @@ def write_analysis_markdown(summary: dict[str, Any], output_path: Path) -> None:
         f"- Total pairs: **{summary.get('total_pairs', 0)}**",
         f"- Projects covered: **{summary.get('unique_projects', 0)}**",
         f"- Type changed: **{summary.get('type_changed_count', 0)}** ({summary.get('type_changed_rate', 0.0):.1%})",
-        f"- Top-2 match: **{summary.get('top2_match_count', 0)}** ({summary.get('top2_match_rate', 0.0):.1%})",
+        f"- Type unchanged: **{summary.get('type_unchanged_count', 0)}** ({summary.get('type_unchanged_rate', 0.0):.1%})",
+        f"- No alternative overlap: **{summary.get('no_alternative_count', 0)}** ({summary.get('no_alternative_rate', 0.0):.1%})",
+        f"- No family match: **{summary.get('no_family_match_count', 0)}** ({summary.get('no_family_match_rate', 0.0):.1%})",
         f"- Family match: **{summary.get('family_match_count', 0)}** ({summary.get('family_match_rate', 0.0):.1%})",
         "",
     ]
@@ -419,26 +474,26 @@ def write_analysis_markdown(summary: dict[str, Any], output_path: Path) -> None:
         lines.append("")
 
     lines.extend([
-        "## Top 3: Alternative Match Cases",
+        "## Alternative Match Cases (Type Changed)",
         "",
     ])
-    top_alt = summary.get("top3_alternative_match", []) or []
-    if not top_alt:
+    alt_match = summary.get("top3_alternative_match", []) or []
+    if not alt_match:
         lines.append("- No qualifying cases found.")
-    for row in top_alt:
+    for row in alt_match:
         lines.append(f"### {row['project_id']}-{row['bug_id']}")
         for reason in row.get("reason_lines", [])[:6]:
             lines.append(f"- {reason}")
         lines.append("")
 
     lines.extend([
-        "## Top 3: No Common Alternative Cases",
+        "## Type Changed (No Alternative Overlap)",
         "",
     ])
-    top_no_common = summary.get("top3_no_common_alternative", []) or []
-    if not top_no_common:
+    no_alt_match = summary.get("type_changed_no_alternative", []) or []
+    if not no_alt_match:
         lines.append("- No qualifying cases found.")
-    for row in top_no_common:
+    for row in no_alt_match:
         lines.append(f"### {row['project_id']}-{row['bug_id']}")
         for reason in row.get("reason_lines", [])[:6]:
             lines.append(f"- {reason}")
@@ -448,12 +503,34 @@ def write_analysis_markdown(summary: dict[str, Any], output_path: Path) -> None:
         "## Type Transitions",
         "",
     ])
-    transitions = summary.get("type_transitions", {}) or {}
-    if not transitions:
-        lines.append("- No transitions recorded.")
-    else:
-        for transition, count in transitions.items():
+
+    transitions_changed = summary.get("type_transitions_changed", {}) or {}
+    transitions_unchanged = summary.get("type_transitions_unchanged", {}) or {}
+
+    if transitions_changed:
+        lines.append("### Type Changed (Prefix → Postfix)")
+        lines.append("")
+        for transition, data in transitions_changed.items():
+            count = data.get("count", 0)
+            bugs = data.get("bugs", [])
             lines.append(f"- {transition}: {count}")
+            if bugs:
+                lines.append(f"  - Bugs: {', '.join(bugs)}")
+        lines.append("")
+
+    if transitions_unchanged:
+        lines.append("### Type Unchanged")
+        lines.append("")
+        for transition, data in transitions_unchanged.items():
+            count = data.get("count", 0)
+            bugs = data.get("bugs", [])
+            lines.append(f"- {transition}: {count}")
+            if bugs:
+                lines.append(f"  - Bugs: {', '.join(bugs)}")
+        lines.append("")
+
+    if not transitions_changed and not transitions_unchanged:
+        lines.append("- No transitions recorded.")
 
     ensure_parent(output_path)
     output_path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
@@ -579,8 +656,8 @@ def _compose_reason_lines(
     lines = [
         f"Type shift: {cmp_result.prefix_odc_type} -> {cmp_result.postfix_odc_type}.",
         f"Comparison detail: {cmp_result.match_detail}",
-        f"Prefix reasoning summary: {cmp_result.prefix_reasoning_summary[:220] or 'N/A'}",
-        f"Postfix reasoning summary: {cmp_result.postfix_reasoning_summary[:220] or 'N/A'}",
+        f"Prefix reasoning summary: {cmp_result.prefix_reasoning_summary or 'N/A'}",
+        f"Postfix reasoning summary: {cmp_result.postfix_reasoning_summary or 'N/A'}",
         f"Prefix context signal: {_first_failure_headline(prefix_context)}",
         f"Postfix context signal: {_first_failure_headline(postfix_context)}",
         f"Prefix suspicious frame: {_first_suspicious_frame(prefix_context)}",

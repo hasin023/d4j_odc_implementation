@@ -1,0 +1,44 @@
+{
+  "project_id": "Chart",
+  "bug_id": 13,
+  "version_id": "13b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-04-21T13:12:41+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The application throws an IllegalArgumentException when creating a Range object because the upper bound is negative, resulting in a lower bound (0.0) being greater than the upper bound.",
+  "hypothesis": "The BorderArrangement class calculates the width constraint for the right block by subtracting the width of the left block (w[2]) from the total constraint width. When the left block's width is larger than the total available width, the resulting upper bound for the Range becomes negative, violating the Range constructor's invariant (lower <= upper).",
+  "prediction": "The code in BorderArrangement.java needs a guard or a clamping mechanism to ensure that the width passed to the Range constructor is at least 0.0, preventing the creation of an invalid Range.",
+  "experiment_rationale": "The stack trace points directly to the Range constructor throwing an exception due to invalid bounds. The calling code in BorderArrangement.java performs arithmetic on widths without validating if the result is non-negative before passing it to the Range constructor.",
+  "reasoning_summary": "The defect is a classic boundary/validation issue. The code fails to validate that the calculated width is non-negative before using it to construct a Range object. This is a missing guard/check on the input parameters to the Range constructor.",
+  "evidence_used": [
+    "java.lang.IllegalArgumentException: Range(double, double): require lower (0.0) <= upper (-2.3000000000000007).",
+    "org.jfree.data.Range.<init>(Range.java:87)",
+    "org.jfree.chart.block.BorderArrangement.arrangeFF(BorderArrangement.java:455)"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the calculation is part of an algorithm, the failure is specifically due to the lack of a boundary check (guard) on the result of that calculation before it is used in a constructor that enforces strict invariants."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": "Base",
+  "source": "Developed In-House",
+  "inferred_activity": "Unit Test",
+  "inferred_triggers": [
+    "Recovery/Exception",
+    "Test Sequencing"
+  ],
+  "inferred_impact": [
+    "Reliability"
+  ],
+  "evidence_mode": "pre-fix",
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"age\": \"Base\",\n  \"source\": \"Developed In-House\",\n  \"inferred_activity\": \"Unit Test\",\n  \"inferred_triggers\": [\"Recovery/Exception\", \"Test Sequencing\"],\n  \"inferred_impact\": [\"Reliability\"],\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The application throws an IllegalArgumentException when creating a Range object because the upper bound is negative, resulting in a lower bound (0.0) being greater than the upper bound.\",\n  \"hypothesis\": \"The BorderArrangement class calculates the width constraint for the right block by subtracting the width of the left block (w[2]) from the total constraint width. When the left block's width is larger than the total available width, the resulting upper bound for the Range becomes negative, violating the Range constructor's invariant (lower <= upper).\",\n  \"prediction\": \"The code in BorderArrangement.java needs a guard or a clamping mechanism to ensure that the width passed to the Range constructor is at least 0.0, preventing the creation of an invalid Range.\",\n  \"experiment_rationale\": \"The stack trace points directly to the Range constructor throwing an exception due to invalid bounds. The calling code in BorderArrangement.java performs arithmetic on widths without validating if the result is non-negative before passing it to the Range constructor.\",\n  \"reasoning_summary\": \"The defect is a classic boundary/validation issue. The code fails to validate that the calculated width is non-negative before using it to construct a Range object. This is a missing guard/check on the input parameters to the Range constructor.\",\n  \"evidence_used\": [\"java.lang.IllegalArgumentException: Range(double, double): require lower (0.0) <= upper (-2.3000000000000007).\", \"org.jfree.data.Range.<init>(Range.java:87)\", \"org.jfree.chart.block.BorderArrangement.arrangeFF(BorderArrangement.java:455)\"],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the calculation is part of an algorithm, the failure is specifically due to the lack of a boundary check (guard) on the result of that calculation before it is used in a constructor that enforces strict invariants.\"\n    }\n  ]\n}"
+}
