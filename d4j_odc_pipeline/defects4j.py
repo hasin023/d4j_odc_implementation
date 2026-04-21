@@ -292,9 +292,11 @@ class Defects4JClient:
         base_dir = cwd or Path.cwd()
         path = Path(value)
         if not path.is_absolute():
-            path = (base_dir / path).resolve()
+            # Keep lexical absolute paths so Windows junctions/symlinks are preserved.
+            # Defects4J shell scripts can break when WSL paths include spaces.
+            path = Path(os.path.abspath(str(base_dir / path)))
         else:
-            path = path.resolve()
+            path = Path(os.path.abspath(str(path)))
         return windows_to_wsl_path(path)
 
 

@@ -98,6 +98,82 @@ def build_parser() -> argparse.ArgumentParser:
     batch_parser.add_argument("--report", type=Path,
                               help="Optional markdown batch report.")
 
+    # ── study-plan ──────────────────────────────────────────────────────
+    plan_parser = subparsers.add_parser(
+        "study-plan",
+        help="Generate a balanced bug manifest for large-scale pre/post studies.",
+    )
+    plan_parser.add_argument("--output", type=Path, required=True, help="Path to write study manifest JSON.")
+    plan_parser.add_argument("--target-bugs", type=int, default=68,
+                             help="Target number of bugs to include (recommended 50-70).")
+    plan_parser.add_argument("--min-per-project", type=int, default=1,
+                             help="Minimum bug count per project to enforce.")
+    plan_parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducible sampling.")
+    plan_parser.add_argument("--include-deprecated", action="store_true",
+                             help="Include deprecated bug IDs while sampling.")
+    plan_parser.add_argument("--projects", nargs="+",
+                             help="Optional project IDs. Omit to include all Defects4J projects.")
+    plan_parser.add_argument("--allow-partial-project-coverage", action="store_true",
+                             help="Allow manifests that do not cover all discovered projects.")
+    plan_parser.add_argument(
+        "--defects4j-cmd",
+        default=None,
+        help="Optional Defects4J command prefix.",
+    )
+
+    # ── study-run ───────────────────────────────────────────────────────
+    study_run_parser = subparsers.add_parser(
+        "study-run",
+        help="Execute prefix and postfix runs for every bug in a study manifest.",
+    )
+    study_run_parser.add_argument("--manifest", type=Path, required=True, help="Path to study manifest JSON.")
+    study_run_parser.add_argument("--artifacts-root", type=Path, required=True,
+                                  help="Root directory for generated artifacts.")
+    study_run_parser.add_argument("--work-root", type=Path, required=True,
+                                  help="Root directory for Defects4J checkouts.")
+    study_run_parser.add_argument("--summary-output", type=Path, required=True,
+                                  help="Path to write batch execution summary JSON.")
+    study_run_parser.add_argument("--prompt-style", choices=["direct", "scientific"], default="scientific")
+    study_run_parser.add_argument("--snippet-radius", type=int, default=12)
+    study_run_parser.add_argument("--skip-coverage", action="store_true")
+    study_run_parser.add_argument("--no-skip-existing", action="store_true",
+                                  help="Re-run artifacts even when output files already exist.")
+    study_run_parser.add_argument("--prompt-output", action="store_true",
+                                  help="Persist prompt JSON for each run.")
+    study_run_parser.add_argument("--require-all-projects", action="store_true",
+                                  help="Fail when the manifest does not include all discovered projects.")
+    study_run_parser.add_argument(
+        "--defects4j-cmd",
+        default=None,
+        help="Optional Defects4J command prefix.",
+    )
+    _add_llm_args(study_run_parser, default_provider, default_model)
+
+    # ── study-analyze ───────────────────────────────────────────────────
+    study_analyze_parser = subparsers.add_parser(
+        "study-analyze",
+        help="Cross-artifact analysis over prefix/postfix study outputs.",
+    )
+    study_analyze_parser.add_argument("--prefix-dir", type=Path, required=True,
+                                      help="Directory containing *_prefix run folders.")
+    study_analyze_parser.add_argument("--postfix-dir", type=Path, required=True,
+                                      help="Directory containing *_postfix run folders.")
+    study_analyze_parser.add_argument("--output", type=Path, required=True,
+                                      help="Path to write analysis JSON.")
+    study_analyze_parser.add_argument("--report", type=Path,
+                                      help="Optional markdown analysis report.")
+    study_analyze_parser.add_argument("--manifest", type=Path,
+                                      help="Optional manifest JSON to derive expected projects.")
+    study_analyze_parser.add_argument("--expected-projects", nargs="+",
+                                      help="Optional explicit expected project list.")
+    study_analyze_parser.add_argument("--require-all-projects", action="store_true",
+                                      help="Fail when analysis does not cover all expected projects.")
+    study_analyze_parser.add_argument(
+        "--defects4j-cmd",
+        default=None,
+        help="Optional Defects4J command prefix. Used to infer expected projects if needed.",
+    )
+
     # ── d4j (Defects4J proxy commands) ────────────────────────────────────
     d4j_parser = subparsers.add_parser(
         "d4j",
@@ -164,6 +240,12 @@ def main() -> int:
             return _cmd_compare(args)
         if args.command == "compare-batch":
             return _cmd_compare_batch(args)
+        if args.command == "study-plan":
+            return _cmd_study_plan(args)
+        if args.command == "study-run":
+            return _cmd_study_run(args)
+        if args.command == "study-analyze":
+            return _cmd_study_analyze(args)
         if args.command == "d4j":
             return _cmd_d4j(args)
     except Defects4JError as exc:
@@ -370,6 +452,128 @@ def _cmd_compare_batch(args: argparse.Namespace) -> int:
         ("Top-2 Match", f"{result.top2_match_rate:.0%} ({result.top2_match_count}/{result.total_bugs})"),
         ("Family Match", f"{result.family_match_rate:.0%} ({result.family_match_count}/{result.total_bugs})"),
         ("Cohen's Kappa", kappa_str),
+    ])
+    return 0
+
+
+def _cmd_study_plan(args: argparse.Namespace) -> int:
+    from .batch import generate_study_manifest
+
+    client = Defects4JClient(command=args.defects4j_cmd)
+    discovered_projects = sorted(client.pids())
+
+    manifest = generate_study_manifest(
+        defects4j=client,
+        output_path=args.output,
+        target_bugs=args.target_bugs,
+        min_per_project=args.min_per_project,
+        include_deprecated=args.include_deprecated,
+        seed=args.seed,
+        projects=args.projects,
+    )
+
+    covered_projects = set(manifest.get("projects_covered", []))
+    expected_projects = set(args.projects) if args.projects else set(discovered_projects)
+    missing_projects = sorted(expected_projects - covered_projects)
+
+    if missing_projects and not args.allow_partial_project_coverage:
+        raise ValueError(
+            "Study manifest does not cover all requested projects. "
+            f"Missing: {', '.join(missing_projects)}"
+        )
+
+    console.result_panel("Study plan generated", [
+        ("Output", str(args.output)),
+        ("Target bugs", str(manifest.get("target_bugs"))),
+        ("Selected bugs", str(manifest.get("selected_bugs"))),
+        ("Projects covered", str(len(covered_projects))),
+        ("Missing projects", ", ".join(missing_projects) if missing_projects else "none"),
+    ])
+    return 0
+
+
+def _cmd_study_run(args: argparse.Namespace) -> int:
+    from .batch import load_manifest, run_batch_from_manifest
+    from .pipeline import write_json
+
+    client = Defects4JClient(command=args.defects4j_cmd)
+    manifest = load_manifest(args.manifest)
+
+    if args.require_all_projects:
+        expected_projects = set(client.pids())
+        covered_projects = set(manifest.get("projects_covered", []))
+        missing_projects = sorted(expected_projects - covered_projects)
+        if missing_projects:
+            raise ValueError(
+                "Manifest is missing project coverage required for this run: "
+                + ", ".join(missing_projects)
+            )
+
+    summary = run_batch_from_manifest(
+        defects4j=client,
+        manifest=manifest,
+        artifacts_root=args.artifacts_root,
+        work_root=args.work_root,
+        provider=args.provider,
+        model=args.model,
+        api_key_env=args.api_key_env,
+        base_url=args.base_url,
+        prompt_style=args.prompt_style,
+        snippet_radius=args.snippet_radius,
+        run_coverage=not args.skip_coverage,
+        skip_existing=not args.no_skip_existing,
+        prompt_output=args.prompt_output,
+    )
+
+    write_json(args.summary_output, summary)
+
+    console.result_panel("Study run complete", [
+        ("Summary", str(args.summary_output)),
+        ("Total entries", str(summary.get("total_entries", 0))),
+        ("Prefix ready", str(summary.get("prefix_ok", 0))),
+        ("Postfix ready", str(summary.get("postfix_ok", 0))),
+        ("Paired compare", str(summary.get("paired_for_compare", 0))),
+        ("Projects covered", str(len(summary.get("projects_covered", [])))),
+    ])
+    return 0
+
+
+def _cmd_study_analyze(args: argparse.Namespace) -> int:
+    from .batch import analyze_batch_artifacts, load_manifest, write_analysis_markdown
+    from .pipeline import write_json
+
+    expected_projects: list[str] | None = None
+    if args.expected_projects:
+        expected_projects = sorted(set(args.expected_projects))
+    elif args.manifest:
+        manifest = load_manifest(args.manifest)
+        expected_projects = sorted(set(manifest.get("projects_requested", [])))
+    elif args.require_all_projects:
+        client = Defects4JClient(command=args.defects4j_cmd)
+        expected_projects = sorted(client.pids())
+
+    summary = analyze_batch_artifacts(
+        prefix_dir=args.prefix_dir,
+        postfix_dir=args.postfix_dir,
+        expected_projects=expected_projects,
+    )
+
+    if args.require_all_projects and summary.get("missing_projects"):
+        raise ValueError(
+            "Analysis failed all-project requirement. Missing projects: "
+            + ", ".join(summary["missing_projects"])
+        )
+
+    write_json(args.output, summary)
+    if args.report:
+        write_analysis_markdown(summary, args.report)
+
+    console.result_panel("Study analysis complete", [
+        ("Output", str(args.output)),
+        ("Total pairs", str(summary.get("total_pairs", 0))),
+        ("Projects seen", str(summary.get("unique_projects", 0))),
+        ("Missing projects", ", ".join(summary.get("missing_projects", [])) or "none"),
+        ("Type changed", str(summary.get("type_changed_count", 0))),
     ])
     return 0
 

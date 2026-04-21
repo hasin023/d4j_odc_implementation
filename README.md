@@ -4,6 +4,8 @@ A research pipeline that collects pre-fix bug evidence from [Defects4J](https://
 
 The pipeline follows a **Scientific Debugging** methodology — observation → hypothesis → prediction → experiment → conclusion — to classify each bug into one of 7 ODC defect types with grounded, code-level reasoning.
 
+For large-scale evaluation, the CLI also supports batch-study commands: `study-plan`, `study-run`, and `study-analyze`.
+
 ---
 
 ## Pipeline Architecture
@@ -550,6 +552,64 @@ python -m d4j_odc_pipeline compare-batch \
 
 **Batch naming convention**: directories must be named `<Project>_<Bug>_prefix/` and `<Project>_<Bug>_postfix/`, each containing a `classification.json`.
 
+### `study-plan`, `study-run`, and `study-analyze` — Large-Scale Batch Workflow
+
+These commands support large studies (for example, 50-70 bugs) with paired pre-fix/post-fix runs and built-in cross-artifact analysis.
+
+**PowerShell (Windows):**
+```powershell
+# Step 1: Build a balanced manifest across all discovered projects
+python -m d4j_odc_pipeline study-plan `
+  --output .\.dist\study\manifest_68.json `
+  --target-bugs 68 `
+  --min-per-project 1
+
+# Step 2: Execute prefix + postfix runs for every manifest entry
+python -m d4j_odc_pipeline study-run `
+  --manifest .\.dist\study\manifest_68.json `
+  --artifacts-root .\.dist\study\artifacts `
+  --work-root .\.dist\study\work `
+  --summary-output .\.dist\study\run_summary.json `
+  --require-all-projects `
+  --skip-coverage
+
+# Step 3: Analyze classification.json + context.json + report.md together
+python -m d4j_odc_pipeline study-analyze `
+  --prefix-dir .\.dist\study\artifacts\prefix `
+  --postfix-dir .\.dist\study\artifacts\postfix `
+  --manifest .\.dist\study\manifest_68.json `
+  --require-all-projects `
+  --output .\.dist\study\analysis.json `
+  --report .\.dist\study\analysis.md
+```
+
+**Bash (Ubuntu/Linux/WSL):**
+```bash
+# Step 1: Build a balanced manifest across all discovered projects
+python -m d4j_odc_pipeline study-plan \
+  --output ./.dist/study/manifest_68.json \
+  --target-bugs 68 \
+  --min-per-project 1
+
+# Step 2: Execute prefix + postfix runs for every manifest entry
+python -m d4j_odc_pipeline study-run \
+  --manifest ./.dist/study/manifest_68.json \
+  --artifacts-root ./.dist/study/artifacts \
+  --work-root ./.dist/study/work \
+  --summary-output ./.dist/study/run_summary.json \
+  --require-all-projects \
+  --skip-coverage
+
+# Step 3: Analyze classification.json + context.json + report.md together
+python -m d4j_odc_pipeline study-analyze \
+  --prefix-dir ./.dist/study/artifacts/prefix \
+  --postfix-dir ./.dist/study/artifacts/postfix \
+  --manifest ./.dist/study/manifest_68.json \
+  --require-all-projects \
+  --output ./.dist/study/analysis.json \
+  --report ./.dist/study/analysis.md
+```
+
 ---
 
 ## CLI Parameters
@@ -591,6 +651,26 @@ python -m d4j_odc_pipeline compare-batch \
 | `--postfix-dir` |   Yes†   | Directory of post-fix runs. (†`compare-batch` only) |
 | `--output`      |   Yes    | Path for comparison JSON output.                    |
 | `--report`      |    No    | Path for human-readable markdown report.            |
+
+### Study parameters (used by `study-plan`, `study-run`, `study-analyze`)
+
+| Parameter | Required | Description |
+| --- | :---: | --- |
+| `--manifest` | Yes* | Study manifest JSON path. (*Required in `study-run` and optional in `study-analyze`.) |
+| `--target-bugs` | No | Desired study size for `study-plan` (default: `68`). |
+| `--min-per-project` | No | Minimum selected bugs per project in `study-plan` (default: `1`). |
+| `--seed` | No | Reproducible sampling seed for `study-plan` (default: `42`). |
+| `--projects` | No | Optional project subset for `study-plan`; omit to include all discovered projects. |
+| `--allow-partial-project-coverage` | No | Allow incomplete project coverage during `study-plan`. |
+| `--artifacts-root` | Yes† | Root output directory for paired batch artifacts. (†`study-run` only) |
+| `--work-root` | Yes† | Root checkout directory for batch runs. (†`study-run` only) |
+| `--summary-output` | Yes† | Batch execution summary JSON path. (†`study-run` only) |
+| `--no-skip-existing` | No | Re-run entries even when artifacts already exist (`study-run`). |
+| `--prompt-output` | No | Save prompt payloads for each entry (`study-run`). |
+| `--prefix-dir` | Yes‡ | Prefix artifact directory for analysis. (‡`study-analyze` only) |
+| `--postfix-dir` | Yes‡ | Postfix artifact directory for analysis. (‡`study-analyze` only) |
+| `--expected-projects` | No | Explicit expected project list for `study-analyze`. |
+| `--require-all-projects` | No | Enforce full project coverage in `study-run` and `study-analyze`. |
 
 ### Global flags
 
@@ -707,6 +787,10 @@ Both `classification.json` and `report.md` include an **`evidence_mode`** field 
 | `report.md`              | `classify` / `run` | Human-readable bug + classification summary                                   |
 | `comparison.json`        | `compare`          | Single-pair strict/top2/family match result                                   |
 | `batch_comparison.json`  | `compare-batch`    | Aggregate metrics + confusion matrix + per-bug detail                         |
+| `manifest_*.json`        | `study-plan`       | Balanced bug manifest with all selected project/bug entries                   |
+| `run_summary.json`       | `study-run`        | Per-entry execution status for prefix/postfix runs                            |
+| `analysis.json`          | `study-analyze`    | Cross-artifact study analytics and top-3 divergence buckets                   |
+| `analysis.md`            | `study-analyze`    | Human-readable batch analysis report                                           |
 | `prompt.json`            | `--prompt-output`  | Rendered prompt messages sent to the LLM (system + user)                      |
 | `instrument_classes.txt` | Coverage step      | Classes instrumented for targeted coverage                                    |
 
@@ -764,8 +848,9 @@ OPENROUTER_APP_TITLE=Defects4J ODC Pipeline
 d4j_odc_pipeline/
 ├── __init__.py        # Package init
 ├── __main__.py        # Entry point (delegates to cli.main)
-├── cli.py             # Argparse CLI: collect, classify, run, compare, compare-batch, d4j
+├── cli.py             # Argparse CLI: collect, classify, run, compare, compare-batch, study-plan, study-run, study-analyze, d4j
 ├── pipeline.py        # Core orchestration: collect_bug_context, classify_bug_context, write_markdown_report
+├── batch.py           # Batch manifest generation, batch execution, and cross-artifact analysis
 ├── defects4j.py       # Defects4J client (checkout, compile, test, coverage, query, export, info, pids, bids)
 ├── web_fetch.py       # Bug report fetcher: GitHub API, JIRA API, generic HTML → text pipeline
 ├── llm.py             # LLM API client (Gemini, OpenRouter, OpenAI-compatible)
