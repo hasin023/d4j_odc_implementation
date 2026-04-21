@@ -55,6 +55,8 @@ Primary CLI modes:
 - `run`: `collect` + `classify` in one command
 - `compare`: compare one pre-fix classification with one post-fix classification
 - `compare-batch`: compare many pre-fix/post-fix pairs
+- `multifault`: query multi-fault co-existence data from defects4j-mf
+- `multifault-enrich`: enrich an existing classification JSON with multi-fault context
 - `d4j pids|bids|info`: convenience proxy commands over Defects4J
 
 The filesystem is the main contract:
@@ -81,7 +83,8 @@ Tracked authored files:
 - `d4j_odc_pipeline/odc.py`: canonical 7-type ODC taxonomy and family mapping
 - `d4j_odc_pipeline/models.py`: dataclasses for persisted artifacts
 - `d4j_odc_pipeline/parsing.py`: failing test parsing, stack frame parsing, JSON extraction from LLM output
-- `d4j_odc_pipeline/comparison.py`: pre-fix/post-fix evaluation logic and markdown report writing
+- `d4j_odc_pipeline/comparison.py`: pre-fix/post-fix evaluation logic with extended analysis layers (semantic distance, evidence asymmetry, attribute concordance, divergence patterns, insight generation)
+- `d4j_odc_pipeline/multifault.py`: pure-Python loader/querier for defects4j-mf multi-fault JSON data
 - `d4j_odc_pipeline/web_fetch.py`: bug report retrieval from GitHub, JIRA, or generic pages
 - `d4j_odc_pipeline/console.py`: Rich-based console helpers
 - `tests/test_comparison.py`: comparison compatibility tests
@@ -91,6 +94,7 @@ Tracked authored files:
 - `tests/test_prompting.py`: prompt payload tests, especially hidden-oracle exclusion and ODC hint presence
 - `tests/test_url_fetch.py`: live integration script with top-level network calls
 - `README.md`: usage and setup doc
+- `Eval Defence.md`: complete scientific defence for pre-fix/post-fix evaluation methodology
 - `odc_doc.md`: IBM ODC reference material
 - `thesis_plan.md`: research/background context
 - `pyproject.toml`: packaging and pytest config
@@ -102,6 +106,7 @@ Generated or local-only areas:
 - `.venv/`: local Python environment, not implementation
 - `work/`: checked-out Defects4J project snapshots, effectively third-party source trees
 - `artifacts/`: generated outputs from experiments
+- `fault_data/`: multi-fault JSON data copied from defects4j-mf (Chart, Closure, Lang, Math, Time)
 - `.env`: local secrets/config, do not copy into outputs
 
 ## 5. Core Execution Flow
@@ -343,7 +348,7 @@ Important details:
 
 ### `comparison.py`
 
-Pure comparison/reporting logic for evaluation experiments.
+Comparison/reporting logic for evaluation experiments with extended analysis layers.
 
 Important details:
 
@@ -351,6 +356,47 @@ Important details:
 - preserves optional closer fields in comparison records
 - computes Cohen's kappa only in batch mode
 - writes markdown reports for both single and batch comparisons
+
+Extended analysis layers (added for thesis defense):
+
+- **Semantic Distance** (Layer A): 0.0–1.0 ODC type proximity score based on family and type boundaries.  Calibrated from Thung 2012 and Chillarege 1992.
+- **Evidence Asymmetry** (Layer B): structured explanation of WHY pre-fix ≠ post-fix, with 3 rules (symptom/cause asymmetry, ODC boundary ambiguity, multi-fault contamination) and literature references.
+- **Attribute Concordance** (Layer C): tracks agreement on target/qualifier/age/source beyond the primary type.
+- **Divergence Pattern** (Layer D): categorizes each comparison as `exact-match`, `soft-divergence`, `moderate-divergence`, or `hard-divergence`.
+- **Insights** (Layer E): generates human-readable insight strings for each comparison.
+
+New public functions:
+
+- `semantic_distance(type_a, type_b)` → float
+- `classify_divergence_pattern(strict, top2, family, distance)` → str
+- `analyze_evidence_asymmetry(prefix_data, postfix_data, pattern)` → dict
+- `compute_attribute_concordance(prefix_data, postfix_data)` → dict
+- `generate_comparison_insights(prefix_data, postfix_data, result, ...)` → list[str]
+
+### `multifault.py`
+
+Pure-Python loader for defects4j-mf multi-fault data.
+
+Supported projects: Chart, Closure, Lang, Math, Time.
+
+Data sources:
+
+- `{Project}.json`: version → fault_id → [triggering_test_names]
+- `{Project}_backtrack.json`: fault location tracking through history
+
+Key functions:
+
+- `get_multifault_summary(project, bug_id)` → `MultiFaultSummary`
+- `get_coexisting_fault_ids(fault_data_dir, project, bug_id)` → list[int]
+- `get_fault_tests(fault_data_dir, project, bug_id, fault_id)` → list[str]
+- `get_fault_locations(fault_data_dir, project, bug_id, fault_id)` → list[FaultLocation]
+- `enrich_classification(classification, fault_data_dir)` → dict
+
+Path resolution order:
+
+1. Explicit `fault_data_dir` parameter
+2. `MULTIFAULT_DATA_DIR` environment variable
+3. `implementation/fault_data/` (sibling of `d4j_odc_pipeline/`)
 
 ### `web_fetch.py`
 
@@ -562,6 +608,7 @@ Core configuration variables:
 - `OPENAI_BASE_URL`
 - `DEFECTS4J_CMD`
 - `DEFECTS4J_PATH_STYLE`
+- `MULTIFAULT_DATA_DIR` — path to `fault_data/` directory from defects4j-mf; defaults to `./fault_data/` relative to implementation root
 
 Defects4J path style:
 
@@ -666,6 +713,8 @@ python -m d4j_odc_pipeline classify --context .\artifacts\Lang_1\context.json --
 python -m d4j_odc_pipeline run --project Lang --bug 1 --work-dir .\work\Lang_1b --context-output .\artifacts\Lang_1\context.json --classification-output .\artifacts\Lang_1\classification.json --report .\artifacts\Lang_1\report.md --skip-coverage
 python -m d4j_odc_pipeline compare --prefix .\artifacts\Lang_1\classification.json --postfix .\artifacts\Lang_1f\classification.json --output .\artifacts\Lang_1\comparison.json
 python -m d4j_odc_pipeline compare-batch --prefix-dir .\artifacts\prefix_runs --postfix-dir .\artifacts\postfix_runs --output .\artifacts\batch_comparison.json
+python -m d4j_odc_pipeline multifault --project Lang --bug 1
+python -m d4j_odc_pipeline multifault-enrich --classification .\artifacts\Lang_1\classification.json --output .\artifacts\Lang_1\classification_enriched.json
 ```
 
 Safer unit test command:

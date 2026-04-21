@@ -98,6 +98,32 @@ def build_parser() -> argparse.ArgumentParser:
     batch_parser.add_argument("--report", type=Path,
                               help="Optional markdown batch report.")
 
+    # ── multifault ──────────────────────────────────────────────────────
+    mf_parser = subparsers.add_parser(
+        "multifault",
+        help="Query multi-fault data from defects4j-mf for a single bug version.",
+    )
+    mf_parser.add_argument("--project", "-p", required=True,
+                           help="Defects4J project id (Chart, Closure, Lang, Math, Time).")
+    mf_parser.add_argument("--bug", "-b", type=int, required=True,
+                           help="Defects4J bug id.")
+    mf_parser.add_argument("--fault-data-dir", type=Path, default=None,
+                           help="Path to fault_data/ directory. Defaults to MULTIFAULT_DATA_DIR env or implementation/fault_data/.")
+    mf_parser.add_argument("--output", type=Path,
+                           help="Optional path to write multi-fault summary JSON.")
+
+    # ── multifault-enrich ───────────────────────────────────────────────
+    mfe_parser = subparsers.add_parser(
+        "multifault-enrich",
+        help="Enrich an existing classification JSON with multi-fault context.",
+    )
+    mfe_parser.add_argument("--classification", type=Path, required=True,
+                            help="Path to existing classification.json.")
+    mfe_parser.add_argument("--fault-data-dir", type=Path, default=None,
+                            help="Path to fault_data/ directory.")
+    mfe_parser.add_argument("--output", type=Path, required=True,
+                            help="Path to write enriched classification JSON.")
+
     # ── study-plan ──────────────────────────────────────────────────────
     plan_parser = subparsers.add_parser(
         "study-plan",
@@ -246,6 +272,10 @@ def main() -> int:
             return _cmd_study_run(args)
         if args.command == "study-analyze":
             return _cmd_study_analyze(args)
+        if args.command == "multifault":
+            return _cmd_multifault(args)
+        if args.command == "multifault-enrich":
+            return _cmd_multifault_enrich(args)
         if args.command == "d4j":
             return _cmd_d4j(args)
     except Defects4JError as exc:
@@ -453,6 +483,93 @@ def _cmd_compare_batch(args: argparse.Namespace) -> int:
         ("Family Match", f"{result.family_match_rate:.0%} ({result.family_match_count}/{result.total_bugs})"),
         ("Cohen's Kappa", kappa_str),
     ])
+    return 0
+
+
+def _cmd_multifault(args: argparse.Namespace) -> int:
+    from .multifault import get_multifault_summary, SUPPORTED_PROJECTS
+    from .pipeline import write_json
+
+    project = args.project
+    bug_id = args.bug
+    fault_data_dir = args.fault_data_dir
+
+    console.header_panel(
+        f"Multi-Fault Query: {project}-{bug_id}",
+        f"Supported projects: {', '.join(sorted(SUPPORTED_PROJECTS))}",
+    )
+
+    summary = get_multifault_summary(project, bug_id, fault_data_dir)
+
+    if not summary.data_available:
+        for note in summary.notes:
+            console.warn(note)
+        return 1
+
+    result_rows = [
+        ("Project", summary.project_id),
+        ("Bug ID", str(summary.bug_id)),
+        ("Version", summary.version_id),
+        ("Total Co-existing Faults", str(summary.total_coexisting_faults)),
+        ("Fault IDs", ", ".join(str(f) for f in summary.coexisting_fault_ids)),
+    ]
+
+    # Show fault details
+    for fault in summary.coexisting_faults:
+        tests_str = "; ".join(fault.triggering_tests[:3])
+        if len(fault.triggering_tests) > 3:
+            tests_str += f" (+{len(fault.triggering_tests) - 3} more)"
+        loc_str = "; ".join(f"{loc.file_path}:{loc.lines}" for loc in fault.locations[:3])
+        if len(fault.locations) > 3:
+            loc_str += f" (+{len(fault.locations) - 3} more)"
+        result_rows.append((f"Fault #{fault.fault_id}", f"tests=[{tests_str}] locs=[{loc_str}]"))
+
+    console.result_panel(f"Multi-Fault Summary: {project}-{bug_id}", result_rows)
+
+    for note in summary.notes:
+        console.step(note)
+
+    if args.output:
+        write_json(args.output, summary.to_dict())
+        console.step(f"Summary JSON written -> {args.output}")
+
+    return 0
+
+
+def _cmd_multifault_enrich(args: argparse.Namespace) -> int:
+    import json as json_mod
+    from .multifault import enrich_classification
+    from .pipeline import write_json
+
+    cls_path: Path = args.classification
+    if not cls_path.exists():
+        console.error_panel("File Not Found", f"Classification file not found: {cls_path}")
+        return 1
+
+    classification = json_mod.loads(cls_path.read_text(encoding="utf-8"))
+    project = classification.get("project_id", "")
+    bug_id = classification.get("bug_id", 0)
+
+    console.header_panel(
+        f"Multi-Fault Enrichment: {project}-{bug_id}",
+        f"Source: {cls_path}",
+    )
+
+    enriched = enrich_classification(classification, args.fault_data_dir)
+    mf_ctx = enriched.get("multifault_context", {})
+
+    write_json(args.output, enriched)
+
+    console.result_panel(f"Enrichment Complete: {project}-{bug_id}", [
+        ("Data Available", str(mf_ctx.get("data_available", False))),
+        ("Co-existing Faults", str(mf_ctx.get("total_coexisting_faults", 0))),
+        ("Fault IDs", ", ".join(str(f) for f in mf_ctx.get("coexisting_fault_ids", []))),
+        ("Output", str(args.output)),
+    ])
+
+    for note in mf_ctx.get("notes", []):
+        console.step(note)
+
     return 0
 
 
