@@ -58,6 +58,12 @@ class LLMClient:
                 default_headers["HTTP-Referer"] = referer
             if title:
                 default_headers["X-OpenRouter-Title"] = title
+        elif provider == "groq":
+            resolved_base_url = (
+                base_url
+                or os.environ.get("GROQ_BASE_URL")
+                or "https://api.groq.com/openai/v1"
+            )
         else:
             resolved_base_url = base_url or os.environ.get("OPENAI_BASE_URL") or "https://api.openai.com/v1"
         return cls(
@@ -141,7 +147,31 @@ def default_api_key_env(provider: str) -> str:
         return "GEMINI_API_KEY"
     if provider == "openrouter":
         return "OPENROUTER_API_KEY"
+    if provider == "groq":
+        return "GROQ_API_KEY"
     return "OPENAI_API_KEY"
+
+
+def default_model_for_provider(provider: str, fallback: str) -> str:
+    """Resolve per-provider default model from environment variables.
+
+    Lookup order:
+    1. Provider-specific env var (GEMINI_MODEL, OPENROUTER_MODEL, GROQ_MODEL)
+    2. Global DEFAULT_LLM_MODEL env var
+    3. The provided fallback value
+    """
+    provider = provider.strip().lower()
+    _ENV_MAP = {
+        "gemini": "GEMINI_MODEL",
+        "openrouter": "OPENROUTER_MODEL",
+        "groq": "GROQ_MODEL",
+    }
+    env_key = _ENV_MAP.get(provider)
+    if env_key:
+        val = os.environ.get(env_key, "").strip()
+        if val:
+            return val
+    return fallback
 
 
 def classification_response_schema() -> dict:

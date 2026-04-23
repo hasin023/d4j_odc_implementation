@@ -545,6 +545,54 @@ python -m d4j_odc_pipeline run \
   --skip-coverage
 ```
 
+### Switching LLM provider (with environment variables)
+
+You can switch the default LLM provider at runtime without modifying `.env`.
+Each provider has its own model/API-key pair in the environment.
+
+**Example: switch to Groq (O120B model)**
+
+Make sure `GROQ_API_KEY`, `GROQ_BASE_URL`, `GROQ_MODEL` are set in your environment.
+Then run:
+
+```bash
+# Run with Groq default (no --provider flag needed)
+python -m d4j_odc_pipeline run --project Lang --bug 1
+
+# Or explicitly:
+python -m d4j_odc_pipeline run \
+  --provider groq \
+  --project Lang --bug 1
+```
+
+When you omit `--model`, the pipeline auto-selects the provider-specific default
+(e.g. `GROQ_MODEL`) instead of `DEFAULT_LLM_MODEL` from `.env`.
+
+To switch back to Gemini:
+
+```bash
+python -m d4j_odc_pipeline run \
+  --provider gemini \
+  --project Lang --bug 1
+```
+
+**Example: switch to OpenRouter (e.g. DeepSeek)**
+
+```bash
+python -m d4j_odc_pipeline run \
+  --provider openrouter \
+  --project Lang --bug 1
+```
+
+This uses `OPENROUTER_API_KEY`, `OPENROUTER_BASE_URL`, `OPENROUTER_MODEL`.
+
+**Supported providers** (via `--provider` flag and per-provider env vars):
+
+- `gemini` (global default in `.env`)
+- `groq`
+- `openrouter`
+- `openai-compatible`
+
 ### `d4j` — Defects4J proxy commands
 
 Convenience wrappers around common Defects4J operations with formatted output:
