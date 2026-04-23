@@ -31,7 +31,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Checkout a buggy Defects4J version and build context JSON.",
     )
     _add_common_bug_args(collect_parser)
-    collect_parser.add_argument("--output", type=Path, required=True, help="Where to write the context JSON.")
+    collect_parser.add_argument("--output", type=Path, default=None, help="Where to write the context JSON. Defaults to .dist/runs/<project>_<bug>/context.json.")
     collect_parser.add_argument("--snippet-radius", type=int, default=12)
     collect_parser.add_argument("--skip-coverage", action="store_true")
     collect_parser.add_argument(
@@ -45,8 +45,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="Classify an existing context JSON with an LLM (includes optional ODC opener/closer metadata when inferable).",
     )
     classify_parser.add_argument("--context", type=Path, required=True, help="Path to context JSON.")
-    classify_parser.add_argument("--output", type=Path, required=True, help="Where to write classification JSON.")
-    classify_parser.add_argument("--report", type=Path, help="Optional markdown report output path.")
+    classify_parser.add_argument("--output", type=Path, default=None, help="Where to write classification JSON. Defaults to same directory as --context.")
+    classify_parser.add_argument("--report", type=Path, default=None, help="Markdown report output path. Defaults to same directory as --context.")
     classify_parser.add_argument("--prompt-output", type=Path, help="Optional path to save rendered prompt messages.")
     classify_parser.add_argument("--prompt-style", choices=["direct", "scientific"], default="scientific")
     _add_llm_args(classify_parser, default_provider, default_model)
@@ -57,9 +57,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="End-to-end collection plus classification.",
     )
     _add_common_bug_args(run_parser)
-    run_parser.add_argument("--context-output", type=Path, required=True)
-    run_parser.add_argument("--classification-output", type=Path, required=True)
-    run_parser.add_argument("--report", type=Path, required=True)
+    run_parser.add_argument("--context-output", type=Path, default=None, help="Defaults to .dist/runs/<project>_<bug>/context.json.")
+    run_parser.add_argument("--classification-output", type=Path, default=None, help="Defaults to .dist/runs/<project>_<bug>/classification.json.")
+    run_parser.add_argument("--report", type=Path, default=None, help="Defaults to .dist/runs/<project>_<bug>/report.md.")
     run_parser.add_argument("--prompt-output", type=Path)
     run_parser.add_argument("--snippet-radius", type=int, default=12)
     run_parser.add_argument("--skip-coverage", action="store_true")
@@ -153,12 +153,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Execute prefix and postfix runs for every bug in a study manifest.",
     )
     study_run_parser.add_argument("--manifest", type=Path, required=True, help="Path to study manifest JSON.")
-    study_run_parser.add_argument("--artifacts-root", type=Path, required=True,
-                                  help="Root directory for generated artifacts.")
-    study_run_parser.add_argument("--work-root", type=Path, required=True,
-                                  help="Root directory for Defects4J checkouts.")
-    study_run_parser.add_argument("--summary-output", type=Path, required=True,
-                                  help="Path to write batch execution summary JSON.")
+    study_run_parser.add_argument("--artifacts-root", type=Path, default=None,
+                                  help="Root directory for generated artifacts. Defaults to .dist/study/artifacts.")
+    study_run_parser.add_argument("--work-root", type=Path, default=None,
+                                  help="Root directory for Defects4J checkouts. Defaults to .dist/study/work.")
+    study_run_parser.add_argument("--summary-output", type=Path, default=None,
+                                  help="Path to write batch execution summary JSON. Defaults to .dist/study/summary.json.")
     study_run_parser.add_argument("--prompt-style", choices=["direct", "scientific"], default="scientific")
     study_run_parser.add_argument("--snippet-radius", type=int, default=12)
     study_run_parser.add_argument("--skip-coverage", action="store_true")
@@ -313,6 +313,10 @@ def main() -> int:
 
 def _cmd_collect(args: argparse.Namespace) -> int:
     client = Defects4JClient(command=args.defects4j_cmd)
+    # Default output to .dist/runs/<project>_<bug>_<mode>/context.json
+    if args.output is None:
+        mode_suffix = "postfix" if args.include_fix_diff else "prefix"
+        args.output = Path(".dist") / "runs" / f"{args.project}_{args.bug}_{mode_suffix}" / "context.json"
     collect_bug_context(
         defects4j=client,
         project_id=args.project,
@@ -328,6 +332,12 @@ def _cmd_collect(args: argparse.Namespace) -> int:
 
 def _cmd_classify(args: argparse.Namespace) -> int:
     context = load_context(args.context)
+    # Default output/report to same directory as the context file
+    context_dir = args.context.parent
+    if args.output is None:
+        args.output = context_dir / "classification.json"
+    if args.report is None:
+        args.report = context_dir / "report.md"
     classification = classify_bug_context(
         context=context,
         prompt_style=args.prompt_style,
@@ -346,6 +356,15 @@ def _cmd_classify(args: argparse.Namespace) -> int:
 
 def _cmd_run(args: argparse.Namespace) -> int:
     client = Defects4JClient(command=args.defects4j_cmd)
+    # Default outputs to .dist/runs/<project>_<bug>_<mode>/
+    mode_suffix = "postfix" if args.include_fix_diff else "prefix"
+    run_dir = Path(".dist") / "runs" / f"{args.project}_{args.bug}_{mode_suffix}"
+    if args.context_output is None:
+        args.context_output = run_dir / "context.json"
+    if args.classification_output is None:
+        args.classification_output = run_dir / "classification.json"
+    if args.report is None:
+        args.report = run_dir / "report.md"
     context = collect_bug_context(
         defects4j=client,
         project_id=args.project,
@@ -610,11 +629,31 @@ def _cmd_study_plan(args: argparse.Namespace) -> int:
 
 
 def _cmd_study_run(args: argparse.Namespace) -> int:
-    from .batch import load_manifest, run_batch_from_manifest
+    from .batch import install_signal_handlers, load_manifest, reset_shutdown, run_batch_from_manifest
     from .pipeline import write_json
+
+    # Install signal handlers for graceful Ctrl+C
+    install_signal_handlers()
+    reset_shutdown()
 
     client = Defects4JClient(command=args.defects4j_cmd)
     manifest = load_manifest(args.manifest)
+
+    # Default output paths to .dist/study/
+    dist_study = Path(".dist") / "study"
+    if args.artifacts_root is None:
+        args.artifacts_root = dist_study / "artifacts"
+    if args.work_root is None:
+        args.work_root = dist_study / "work"
+    if args.summary_output is None:
+        args.summary_output = dist_study / "summary.json"
+
+    console.header_panel("Study Run Configuration", None)
+    console.step(f"Manifest: {args.manifest}")
+    console.step(f"Artifacts: {args.artifacts_root}")
+    console.step(f"Work dir: {args.work_root}")
+    console.step(f"Summary: {args.summary_output}")
+    console.step("Ctrl+C to gracefully stop and save checkpoint")
 
     if args.require_all_projects:
         expected_projects = set(client.pids())
@@ -644,9 +683,12 @@ def _cmd_study_run(args: argparse.Namespace) -> int:
 
     write_json(args.summary_output, summary)
 
-    console.result_panel("Study run complete", [
+    status_label = "Study run interrupted (checkpoint saved)" if summary.get("interrupted") else "Study run complete"
+    console.result_panel(status_label, [
         ("Summary", str(args.summary_output)),
         ("Total entries", str(summary.get("total_entries", 0))),
+        ("Completed", str(summary.get("completed_entries", 0))),
+        ("Interrupted", "Yes" if summary.get("interrupted") else "No"),
         ("Prefix ready", str(summary.get("prefix_ok", 0))),
         ("Postfix ready", str(summary.get("postfix_ok", 0))),
         ("Paired compare", str(summary.get("paired_for_compare", 0))),

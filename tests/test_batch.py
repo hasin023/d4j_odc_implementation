@@ -154,5 +154,91 @@ class BatchAnalysisTests(unittest.TestCase):
         )
 
 
+class SignalHandlingTests(unittest.TestCase):
+    def setUp(self) -> None:
+        from d4j_odc_pipeline.batch import reset_shutdown
+        reset_shutdown()
+
+    def tearDown(self) -> None:
+        from d4j_odc_pipeline.batch import reset_shutdown
+        reset_shutdown()
+
+    def test_shutdown_flag_set_on_request(self) -> None:
+        from d4j_odc_pipeline.batch import _request_shutdown, is_shutdown_requested
+        self.assertFalse(is_shutdown_requested())
+        _request_shutdown(2, None)
+        self.assertTrue(is_shutdown_requested())
+
+    def test_second_shutdown_raises_system_exit(self) -> None:
+        from d4j_odc_pipeline.batch import _request_shutdown, is_shutdown_requested
+        _request_shutdown(2, None)
+        self.assertTrue(is_shutdown_requested())
+        with self.assertRaises(SystemExit) as cm:
+            _request_shutdown(2, None)
+        self.assertEqual(cm.exception.code, 130)
+
+    def test_reset_clears_flag(self) -> None:
+        from d4j_odc_pipeline.batch import _request_shutdown, is_shutdown_requested, reset_shutdown
+        _request_shutdown(2, None)
+        self.assertTrue(is_shutdown_requested())
+        reset_shutdown()
+        self.assertFalse(is_shutdown_requested())
+
+
+class CheckpointTests(unittest.TestCase):
+    def test_checkpoint_round_trip(self) -> None:
+        from d4j_odc_pipeline.batch import _write_checkpoint, _load_checkpoint
+        with tempfile.TemporaryDirectory() as temp_dir:
+            cp_path = Path(temp_dir) / "checkpoint.json"
+            records = [
+                {"bug_key": "Lang_1", "prefix_status": "ok", "postfix_status": "ok"},
+                {"bug_key": "Math_2", "prefix_status": "ok", "postfix_status": "ok"},
+                {"bug_key": "Chart_3", "prefix_status": "failed", "postfix_status": "pending"},
+            ]
+            _write_checkpoint(cp_path, records, manifest_hash="abc123", interrupted=False)
+            self.assertTrue(cp_path.exists())
+
+            completed = _load_checkpoint(cp_path, manifest_hash="abc123")
+            self.assertEqual(completed, {"Lang_1", "Math_2"})
+            self.assertNotIn("Chart_3", completed)
+
+    def test_checkpoint_stale_manifest_returns_empty(self) -> None:
+        from d4j_odc_pipeline.batch import _write_checkpoint, _load_checkpoint
+        with tempfile.TemporaryDirectory() as temp_dir:
+            cp_path = Path(temp_dir) / "checkpoint.json"
+            records = [
+                {"bug_key": "Lang_1", "prefix_status": "ok", "postfix_status": "ok"},
+            ]
+            _write_checkpoint(cp_path, records, manifest_hash="abc123", interrupted=False)
+
+            # Different manifest hash → should return empty
+            completed = _load_checkpoint(cp_path, manifest_hash="different_hash")
+            self.assertEqual(completed, set())
+
+    def test_checkpoint_missing_file_returns_empty(self) -> None:
+        from d4j_odc_pipeline.batch import _load_checkpoint
+        with tempfile.TemporaryDirectory() as temp_dir:
+            cp_path = Path(temp_dir) / "nonexistent.json"
+            completed = _load_checkpoint(cp_path, manifest_hash="abc123")
+            self.assertEqual(completed, set())
+
+    def test_manifest_hash_deterministic(self) -> None:
+        from d4j_odc_pipeline.batch import _compute_manifest_hash
+        entries = [
+            {"project_id": "Lang", "bug_id": 1},
+            {"project_id": "Math", "bug_id": 2},
+        ]
+        hash1 = _compute_manifest_hash(entries)
+        hash2 = _compute_manifest_hash(list(reversed(entries)))
+        # Hash should be the same regardless of order (sorted internally)
+        self.assertEqual(hash1, hash2)
+
+    def test_manifest_hash_changes_with_different_entries(self) -> None:
+        from d4j_odc_pipeline.batch import _compute_manifest_hash
+        entries_a = [{"project_id": "Lang", "bug_id": 1}]
+        entries_b = [{"project_id": "Math", "bug_id": 2}]
+        self.assertNotEqual(_compute_manifest_hash(entries_a), _compute_manifest_hash(entries_b))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -55,14 +55,21 @@ Primary CLI modes:
 - `run`: `collect` + `classify` in one command
 - `compare`: compare one pre-fix classification with one post-fix classification
 - `compare-batch`: compare many pre-fix/post-fix pairs
+- `study-plan`: generate a balanced bug manifest for large-scale batch studies
+- `study-run`: execute prefix + postfix runs for every bug in a study manifest (with checkpoint/resume and graceful Ctrl+C)
+- `study-analyze`: cross-artifact analysis over prefix/postfix study outputs
 - `multifault`: query multi-fault co-existence data from defects4j-mf
 - `multifault-enrich`: enrich an existing classification JSON with multi-fault context
 - `d4j pids|bids|info`: convenience proxy commands over Defects4J
 
 The filesystem is the main contract:
 
-- `work/` contains checked-out Defects4J projects
-- `artifacts/` contains generated contexts, classifications, reports, and comparisons
+- `.dist/runs/` contains outputs from standalone commands (`collect`, `run`, `classify`)
+- `.dist/study/` contains outputs from batch commands (`study-run`, `study-analyze`)
+- `.dist/study/artifacts/` has `prefix/` and `postfix/` subdirectories for paired runs
+- `.dist/study/checkpoint.json` tracks progress for resumable batch runs
+- `work/` contains checked-out Defects4J projects (for standalone runs)
+- `.dist/study/work/` contains checkouts for batch runs
 
 Methodologically, the pipeline has two evidence modes:
 
@@ -85,8 +92,10 @@ Tracked authored files:
 - `d4j_odc_pipeline/parsing.py`: failing test parsing, stack frame parsing, JSON extraction from LLM output
 - `d4j_odc_pipeline/comparison.py`: pre-fix/post-fix evaluation logic with extended analysis layers (semantic distance, evidence asymmetry, attribute concordance, divergence patterns, insight generation)
 - `d4j_odc_pipeline/multifault.py`: pure-Python loader/querier for defects4j-mf multi-fault JSON data
+- `d4j_odc_pipeline/batch.py`: batch manifest generation, batch execution with checkpoint/resume, signal handling, progress bar, and cross-artifact analysis
 - `d4j_odc_pipeline/web_fetch.py`: bug report retrieval from GitHub, JIRA, or generic pages
 - `d4j_odc_pipeline/console.py`: Rich-based console helpers
+- `tests/test_batch.py`: batch manifest generation, analysis, signal handling, and checkpoint persistence tests
 - `tests/test_comparison.py`: comparison compatibility tests
 - `tests/test_defects4j.py`: WSL path normalization tests
 - `tests/test_llm.py`: provider/env/schema tests
@@ -204,6 +213,11 @@ Owns the CLI surface:
 - `run`
 - `compare`
 - `compare-batch`
+- `study-plan`
+- `study-run`
+- `study-analyze`
+- `multifault`
+- `multifault-enrich`
 - `d4j pids|bids|info`
 
 Important details:
@@ -211,8 +225,32 @@ Important details:
 - Reads `DEFAULT_LLM_PROVIDER` and `DEFAULT_LLM_MODEL` at parser build time.
 - Includes a lightweight `.env` loader that only fills variables not already present in `os.environ`.
 - `classify --report` is optional.
-- `run --report` is required.
+- `run` outputs default to `.dist/runs/<project>_<bug>/` when `--context-output`, `--classification-output`, and `--report` are omitted.
+- `collect --output` defaults to `.dist/runs/<project>_<bug>/context.json` when omitted.
+- `study-run` paths default to `.dist/study/artifacts/`, `.dist/study/work/`, `.dist/study/summary.json` when omitted.
+- `study-run` installs SIGINT/SIGBREAK signal handlers for graceful Ctrl+C shutdown.
 - `d4j bids` supports `--all` to include deprecated bug IDs.
+
+### `batch.py`
+
+Manages large-scale batch workflows.
+
+Key responsibilities:
+
+- Manifest generation with balanced per-project sampling (`generate_study_manifest`)
+- Batch execution with paired prefix/postfix runs (`run_batch_from_manifest`)
+- Signal handling: SIGINT sets a shutdown flag; checked at every loop iteration and between collect/classify steps
+- Checkpoint persistence: `checkpoint.json` written after each entry; loaded on restart to skip completed entries
+- Manifest hash: SHA-256 of sorted entry keys detects stale checkpoints from different manifests
+- Progress bar: Rich progress bar showing current bug and completion count
+- Cross-artifact analysis (`analyze_batch_artifacts`): discovers prefix/postfix pairs, computes transition matrices, identifies divergence patterns
+
+Important behavior:
+
+- First Ctrl+C sets a flag and prints a warning; the current bug finishes, then the loop exits.
+- Second Ctrl+C raises `SystemExit(130)` for immediate termination.
+- `checkpoint.json` uses a manifest hash to detect when the manifest has changed; stale checkpoints are ignored.
+- `skip_existing=True` (default) skips entries where all 3 output files exist, independent of checkpoint.
 
 ### `pipeline.py`
 

@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import random
+import signal
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +17,90 @@ from .pipeline import (
     write_json,
     write_markdown_report,
 )
+from . import console
+
+
+# ---------------------------------------------------------------------------
+# Graceful shutdown via signal handling
+# ---------------------------------------------------------------------------
+
+_shutdown_requested = threading.Event()
+
+
+def _request_shutdown(signum: int, frame: object) -> None:
+    """Signal handler: first Ctrl+C sets the flag; second force-exits."""
+    if _shutdown_requested.is_set():
+        # Second interrupt → force exit immediately
+        raise SystemExit(130)
+    _shutdown_requested.set()
+    console.warn("Shutdown requested — finishing current entry then stopping (press Ctrl+C again to force-quit)")
+
+
+def install_signal_handlers() -> None:
+    """Install SIGINT/SIGBREAK handlers for graceful batch shutdown."""
+    signal.signal(signal.SIGINT, _request_shutdown)
+    if hasattr(signal, "SIGBREAK"):  # Windows
+        signal.signal(signal.SIGBREAK, _request_shutdown)
+
+
+def reset_shutdown() -> None:
+    """Clear the shutdown flag (call before starting a new batch)."""
+    _shutdown_requested.clear()
+
+
+def is_shutdown_requested() -> bool:
+    """Check whether a graceful shutdown has been requested."""
+    return _shutdown_requested.is_set()
+
+
+# ---------------------------------------------------------------------------
+# Checkpoint persistence for resume capability
+# ---------------------------------------------------------------------------
+
+def _compute_manifest_hash(entries: list[dict[str, Any]]) -> str:
+    """Deterministic hash of manifest entries so we can detect stale checkpoints."""
+    keys = sorted(f"{e.get('project_id', '')}_{e.get('bug_id', '')}" for e in entries)
+    return hashlib.sha256("|".join(keys).encode()).hexdigest()[:16]
+
+
+def _is_entry_complete(record: dict[str, Any]) -> bool:
+    return (
+        record.get("prefix_status") in {"ok", "skipped-existing"}
+        and record.get("postfix_status") in {"ok", "skipped-existing"}
+    )
+
+
+def _write_checkpoint(
+    checkpoint_path: Path,
+    records: list[dict[str, Any]],
+    manifest_hash: str,
+    interrupted: bool,
+) -> None:
+    data = {
+        "manifest_hash": manifest_hash,
+        "updated_at": utc_now_iso(),
+        "completed_keys": [r["bug_key"] for r in records if _is_entry_complete(r)],
+        "total_attempted": len(records),
+        "interrupted": interrupted,
+    }
+    write_json(checkpoint_path, data)
+
+
+def _load_checkpoint(checkpoint_path: Path, manifest_hash: str) -> set[str]:
+    """Load completed bug keys from a checkpoint, or empty set if stale/missing."""
+    if not checkpoint_path.exists():
+        return set()
+    try:
+        data = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return set()
+    if data.get("manifest_hash") != manifest_hash:
+        console.warn("Checkpoint manifest hash mismatch — starting fresh")
+        return set()
+    completed = set(data.get("completed_keys", []))
+    if completed:
+        console.step(f"Resuming from checkpoint: {len(completed)} entries already complete")
+    return completed
 
 
 def generate_study_manifest(
@@ -144,117 +231,195 @@ def run_batch_from_manifest(
     ensure_parent(artifacts_root / "placeholder.json")
     ensure_parent(work_root / "placeholder.txt")
 
+    # ── Checkpoint setup ──────────────────────────────────────────────
+    manifest_hash = _compute_manifest_hash(entries)
+    checkpoint_path = artifacts_root / "checkpoint.json"
+    completed_keys = _load_checkpoint(checkpoint_path, manifest_hash)
+
     records: list[dict[str, Any]] = []
+    interrupted = False
 
-    for index, entry in enumerate(entries, start=1):
-        project_id = str(entry.get("project_id", "")).strip()
-        bug_id = int(entry.get("bug_id", 0))
-        if not project_id or bug_id <= 0:
-            records.append(
-                {
-                    "index": index,
-                    "project_id": project_id,
-                    "bug_id": bug_id,
-                    "prefix_status": "invalid-manifest-entry",
-                    "postfix_status": "invalid-manifest-entry",
-                    "error": "Entry must include valid project_id and bug_id",
-                }
-            )
-            continue
+    # ── Progress bar ──────────────────────────────────────────────────
+    from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, MofNCompleteColumn, TimeElapsedColumn
 
-        bug_key = f"{project_id}_{bug_id}"
-        record: dict[str, Any] = {
-            "index": index,
-            "project_id": project_id,
-            "bug_id": bug_id,
-            "bug_key": bug_key,
-            "prefix_status": "pending",
-            "postfix_status": "pending",
-        }
+    con = console.get_console()
+    progress_ctx = Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        MofNCompleteColumn(),
+        TimeElapsedColumn(),
+        console=con,
+        disable=console.is_quiet() or con is None,
+    )
 
-        for evidence_mode in ("prefix", "postfix"):
-            run_name = f"{bug_key}_{evidence_mode}"
-            include_fix_diff = evidence_mode == "postfix"
-            run_artifacts_dir = artifacts_root / evidence_mode / run_name
-            run_work_dir = work_root / evidence_mode / f"{project_id}_{bug_id}b"
-            context_path = run_artifacts_dir / "context.json"
-            classification_path = run_artifacts_dir / "classification.json"
-            report_path = run_artifacts_dir / "report.md"
-            prompt_path = run_artifacts_dir / "prompt.json" if prompt_output else None
+    with progress_ctx as progress:
+        task_id = progress.add_task("Processing bugs", total=len(entries))
 
-            status_key = f"{evidence_mode}_status"
-            path_key = f"{evidence_mode}_paths"
-            record[path_key] = {
-                "context": str(context_path),
-                "classification": str(classification_path),
-                "report": str(report_path),
-            }
+        for index, entry in enumerate(entries, start=1):
+            # ── Check for graceful shutdown ────────────────────────────
+            if is_shutdown_requested():
+                console.warn(f"Shutdown requested — stopping after {index - 1}/{len(entries)} entries")
+                interrupted = True
+                break
 
-            if (
-                skip_existing
-                and context_path.exists()
-                and classification_path.exists()
-                and report_path.exists()
-            ):
-                record[status_key] = "skipped-existing"
+            project_id = str(entry.get("project_id", "")).strip()
+            bug_id = int(entry.get("bug_id", 0))
+            if not project_id or bug_id <= 0:
+                records.append(
+                    {
+                        "index": index,
+                        "project_id": project_id,
+                        "bug_id": bug_id,
+                        "prefix_status": "invalid-manifest-entry",
+                        "postfix_status": "invalid-manifest-entry",
+                        "error": "Entry must include valid project_id and bug_id",
+                    }
+                )
+                progress.advance(task_id)
                 continue
 
+            bug_key = f"{project_id}_{bug_id}"
+
+            # ── Skip if already completed in a previous run ───────────
+            if bug_key in completed_keys:
+                progress.update(task_id, description=f"[dim]{bug_key} (checkpoint-skip)[/dim]")
+                records.append(
+                    {
+                        "index": index,
+                        "project_id": project_id,
+                        "bug_id": bug_id,
+                        "bug_key": bug_key,
+                        "prefix_status": "skipped-existing",
+                        "postfix_status": "skipped-existing",
+                    }
+                )
+                progress.advance(task_id)
+                continue
+
+            progress.update(task_id, description=f"[cyan]{bug_key}[/cyan] [{index}/{len(entries)}]")
+
+            record: dict[str, Any] = {
+                "index": index,
+                "project_id": project_id,
+                "bug_id": bug_id,
+                "bug_key": bug_key,
+                "prefix_status": "pending",
+                "postfix_status": "pending",
+            }
+
+            for evidence_mode in ("prefix", "postfix"):
+                # Check shutdown between evidence modes too
+                if is_shutdown_requested():
+                    record[f"{evidence_mode}_status"] = "interrupted"
+                    interrupted = True
+                    break
+
+                run_name = f"{bug_key}_{evidence_mode}"
+                include_fix_diff = evidence_mode == "postfix"
+                run_artifacts_dir = artifacts_root / evidence_mode / run_name
+                run_work_dir = work_root / evidence_mode / f"{project_id}_{bug_id}b"
+                context_path = run_artifacts_dir / "context.json"
+                classification_path = run_artifacts_dir / "classification.json"
+                report_path = run_artifacts_dir / "report.md"
+                prompt_path = run_artifacts_dir / "prompt.json" if prompt_output else None
+
+                status_key = f"{evidence_mode}_status"
+                path_key = f"{evidence_mode}_paths"
+                record[path_key] = {
+                    "context": str(context_path),
+                    "classification": str(classification_path),
+                    "report": str(report_path),
+                }
+
+                if (
+                    skip_existing
+                    and context_path.exists()
+                    and classification_path.exists()
+                    and report_path.exists()
+                ):
+                    record[status_key] = "skipped-existing"
+                    continue
+
+                try:
+                    context = collect_bug_context(
+                        defects4j=defects4j,
+                        project_id=project_id,
+                        bug_id=bug_id,
+                        work_dir=run_work_dir,
+                        output_path=context_path,
+                        snippet_radius=snippet_radius,
+                        run_coverage=run_coverage,
+                        include_fix_diff=include_fix_diff,
+                    )
+
+                    # Check shutdown between collect and classify
+                    if is_shutdown_requested():
+                        record[status_key] = "interrupted"
+                        interrupted = True
+                        break
+
+                    classification = classify_bug_context(
+                        context=context,
+                        prompt_style=prompt_style,
+                        output_path=classification_path,
+                        provider=provider,
+                        model=model,
+                        api_key_env=api_key_env,
+                        base_url=base_url,
+                        prompt_output_path=prompt_path,
+                        dry_run=False,
+                    )
+
+                    if classification is None:
+                        raise ValueError("Classification returned None. Disable dry-run for batch execution.")
+
+                    write_markdown_report(
+                        context=context,
+                        classification=classification,
+                        output_path=report_path,
+                    )
+                    record[status_key] = "ok"
+                except Exception as exc:  # noqa: BLE001
+                    record[status_key] = "failed"
+                    record[f"{evidence_mode}_error"] = str(exc)
+
+            # If we broke out of the evidence_mode loop due to shutdown
+            if interrupted:
+                records.append(record)
+                break
+
+            # Include pairwise comparison inline when both runs are available.
             try:
-                context = collect_bug_context(
-                    defects4j=defects4j,
-                    project_id=project_id,
-                    bug_id=bug_id,
-                    work_dir=run_work_dir,
-                    output_path=context_path,
-                    snippet_radius=snippet_radius,
-                    run_coverage=run_coverage,
-                    include_fix_diff=include_fix_diff,
-                )
-
-                classification = classify_bug_context(
-                    context=context,
-                    prompt_style=prompt_style,
-                    output_path=classification_path,
-                    provider=provider,
-                    model=model,
-                    api_key_env=api_key_env,
-                    base_url=base_url,
-                    prompt_output_path=prompt_path,
-                    dry_run=False,
-                )
-
-                if classification is None:
-                    raise ValueError("Classification returned None. Disable dry-run for batch execution.")
-
-                write_markdown_report(
-                    context=context,
-                    classification=classification,
-                    output_path=report_path,
-                )
-                record[status_key] = "ok"
+                prefix_classification_path = Path(record["prefix_paths"]["classification"])
+                postfix_classification_path = Path(record["postfix_paths"]["classification"])
+                if prefix_classification_path.exists() and postfix_classification_path.exists():
+                    prefix_data = json.loads(prefix_classification_path.read_text(encoding="utf-8"))
+                    postfix_data = json.loads(postfix_classification_path.read_text(encoding="utf-8"))
+                    cmp_result = compare_classifications(prefix_data, postfix_data)
+                    record["comparison"] = cmp_result.to_dict()
             except Exception as exc:  # noqa: BLE001
-                record[status_key] = "failed"
-                record[f"{evidence_mode}_error"] = str(exc)
+                record["comparison_error"] = str(exc)
 
-        # Include pairwise comparison inline when both runs are available.
-        try:
-            prefix_classification_path = Path(record["prefix_paths"]["classification"])
-            postfix_classification_path = Path(record["postfix_paths"]["classification"])
-            if prefix_classification_path.exists() and postfix_classification_path.exists():
-                prefix_data = json.loads(prefix_classification_path.read_text(encoding="utf-8"))
-                postfix_data = json.loads(postfix_classification_path.read_text(encoding="utf-8"))
-                cmp_result = compare_classifications(prefix_data, postfix_data)
-                record["comparison"] = cmp_result.to_dict()
-        except Exception as exc:  # noqa: BLE001
-            record["comparison_error"] = str(exc)
+            records.append(record)
 
-        records.append(record)
+            # ── Write checkpoint after each completed entry ────────────
+            _write_checkpoint(checkpoint_path, records, manifest_hash, interrupted=False)
+
+            progress.advance(task_id)
+
+    # ── Final checkpoint ──────────────────────────────────────────────
+    _write_checkpoint(checkpoint_path, records, manifest_hash, interrupted=interrupted)
+
+    completed_count = sum(1 for r in records if _is_entry_complete(r))
 
     summary = {
         "created_at": utc_now_iso(),
         "manifest_target_bugs": manifest.get("target_bugs"),
         "manifest_selected_bugs": len(entries),
         "total_entries": len(records),
+        "completed_entries": completed_count,
+        "interrupted": interrupted,
         "prefix_ok": sum(1 for r in records if r.get("prefix_status") in {"ok", "skipped-existing"}),
         "postfix_ok": sum(1 for r in records if r.get("postfix_status") in {"ok", "skipped-existing"}),
         "paired_for_compare": sum(1 for r in records if isinstance(r.get("comparison"), dict)),

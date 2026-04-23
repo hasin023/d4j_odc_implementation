@@ -447,14 +447,29 @@ Commands are provided in both **PowerShell** (Windows) and **Bash** (Ubuntu/Linu
 
 Checks out the buggy version, runs tests, fetches all evidence, and saves `context.json`.
 
+Output defaults to `.dist/runs/<project>_<bug>_prefix/context.json` (or `_postfix` with `--include-fix-diff`) when `--output` is omitted.
+
 **PowerShell (Windows):**
 
 ```powershell
+# With explicit output path
 python -m d4j_odc_pipeline collect `
   --project Lang --bug 1 `
   --work-dir .\work\Lang_1b `
   --output .\artifacts\Lang_1\context.json `
   --skip-coverage
+
+# With default output (.dist/runs/Lang_1_prefix/context.json)
+python -m d4j_odc_pipeline collect `
+  --project Lang --bug 1 `
+  --work-dir .\work\Lang_1b `
+  --skip-coverage
+
+# Post-fix mode (.dist/runs/Lang_1_postfix/context.json)
+python -m d4j_odc_pipeline collect `
+  --project Lang --bug 1 `
+  --work-dir .\work\Lang_1b `
+  --include-fix-diff --skip-coverage
 ```
 
 **Bash (Ubuntu/Linux/WSL):**
@@ -463,7 +478,6 @@ python -m d4j_odc_pipeline collect `
 python -m d4j_odc_pipeline collect \
   --project Lang --bug 1 \
   --work-dir ./work/Lang_1b \
-  --output ./artifacts/Lang_1/context.json \
   --skip-coverage
 ```
 
@@ -471,9 +485,18 @@ python -m d4j_odc_pipeline collect \
 
 Sends evidence to the LLM and produces classification + report.
 
+When `--output` and `--report` are omitted, they default to the same directory as `--context`:
+
+- `classification.json` and `report.md` alongside `context.json`
+
 **PowerShell (Windows):**
 
 ```powershell
+# Minimal (outputs go next to context.json)
+python -m d4j_odc_pipeline classify `
+  --context .\.dist\runs\Lang_1_prefix\context.json
+
+# With explicit output paths
 python -m d4j_odc_pipeline classify `
   --context .\artifacts\Lang_1\context.json `
   --output .\artifacts\Lang_1\classification.json `
@@ -483,37 +506,42 @@ python -m d4j_odc_pipeline classify `
 **Bash (Ubuntu/Linux/WSL):**
 
 ```bash
+# Minimal (outputs go next to context.json)
 python -m d4j_odc_pipeline classify \
-  --context ./artifacts/Lang_1/context.json \
-  --output ./artifacts/Lang_1/classification.json \
-  --report ./artifacts/Lang_1/report.md
+  --context ./.dist/runs/Lang_1_prefix/context.json
 ```
 
 ### `run` — End-to-end collection + classification
 
 Runs both `collect` and `classify` in a single command.
 
+All output paths default to `.dist/runs/<project>_<bug>_prefix/` (or `_postfix` with `--include-fix-diff`) when omitted:
+
+- `context.json`, `classification.json`, `report.md`
+
 **PowerShell (Windows):**
 
 ```powershell
+# Minimal — pre-fix (all outputs go to .dist/runs/Lang_1_prefix/)
 python -m d4j_odc_pipeline run `
   --project Lang --bug 1 `
   --work-dir .\work\Lang_1b `
-  --context-output .\artifacts\Lang_1\context.json `
-  --classification-output .\artifacts\Lang_1\classification.json `
-  --report .\artifacts\Lang_1\report.md `
   --skip-coverage
+
+# Post-fix mode (outputs go to .dist/runs/Lang_1_postfix/)
+python -m d4j_odc_pipeline run `
+  --project Lang --bug 1 `
+  --work-dir .\work\Lang_1b `
+  --include-fix-diff --skip-coverage
 ```
 
 **Bash (Ubuntu/Linux/WSL):**
 
 ```bash
+# Minimal — pre-fix (all outputs go to .dist/runs/Lang_1_prefix/)
 python -m d4j_odc_pipeline run \
   --project Lang --bug 1 \
   --work-dir ./work/Lang_1b \
-  --context-output ./artifacts/Lang_1/context.json \
-  --classification-output ./artifacts/Lang_1/classification.json \
-  --report ./artifacts/Lang_1/report.md \
   --skip-coverage
 ```
 
@@ -608,6 +636,13 @@ The multi-fault data directory is resolved in order: `--fault-data-dir` CLI argu
 
 These commands support large studies (for example, 50-70 bugs) with paired pre-fix/post-fix runs and built-in cross-artifact analysis.
 
+**Key features:**
+
+- **Graceful Ctrl+C** — Press Ctrl+C once to finish the current bug and stop cleanly. Press twice to force-quit.
+- **Checkpoint/Resume** — A `checkpoint.json` is written after each bug completes. Re-running the same command resumes from where it left off.
+- **Progress bar** — Real-time progress display showing current bug and completion count.
+- **Default paths** — `--artifacts-root`, `--work-root`, and `--summary-output` default to `.dist/study/` when omitted.
+
 **PowerShell (Windows):**
 
 ```powershell
@@ -618,12 +653,14 @@ python -m d4j_odc_pipeline study-plan `
   --min-per-project 1
 
 # Step 2: Execute prefix + postfix runs for every manifest entry
+# All paths default to .dist/study/ — only --manifest is required
 python -m d4j_odc_pipeline study-run `
   --manifest .\.dist\study\manifest_68.json `
-  --artifacts-root .\.dist\study\artifacts `
-  --work-root .\.dist\study\work `
-  --summary-output .\.dist\study\run_summary.json `
-  --require-all-projects `
+  --skip-coverage
+
+# To resume after interruption, just re-run the same command:
+python -m d4j_odc_pipeline study-run `
+  --manifest .\.dist\study\manifest_68.json `
   --skip-coverage
 
 # Step 3: Analyze classification.json + context.json + report.md together
@@ -645,16 +682,12 @@ python -m d4j_odc_pipeline study-plan \
   --target-bugs 68 \
   --min-per-project 1
 
-# Step 2: Execute prefix + postfix runs for every manifest entry
+# Step 2: Execute prefix + postfix runs (defaults to .dist/study/)
 python -m d4j_odc_pipeline study-run \
   --manifest ./.dist/study/manifest_68.json \
-  --artifacts-root ./.dist/study/artifacts \
-  --work-root ./.dist/study/work \
-  --summary-output ./.dist/study/run_summary.json \
-  --require-all-projects \
   --skip-coverage
 
-# Step 3: Analyze classification.json + context.json + report.md together
+# Step 3: Analyze
 python -m d4j_odc_pipeline study-analyze \
   --prefix-dir ./.dist/study/artifacts/prefix \
   --postfix-dir ./.dist/study/artifacts/postfix \
@@ -716,9 +749,9 @@ python -m d4j_odc_pipeline study-analyze \
 | `--seed`                           |    No    | Reproducible sampling seed for `study-plan` (default: `42`).                           |
 | `--projects`                       |    No    | Optional project subset for `study-plan`; omit to include all discovered projects.     |
 | `--allow-partial-project-coverage` |    No    | Allow incomplete project coverage during `study-plan`.                                 |
-| `--artifacts-root`                 |   Yes†   | Root output directory for paired batch artifacts. (†`study-run` only)                  |
-| `--work-root`                      |   Yes†   | Root checkout directory for batch runs. (†`study-run` only)                            |
-| `--summary-output`                 |   Yes†   | Batch execution summary JSON path. (†`study-run` only)                                 |
+| `--artifacts-root`                 |    No    | Root output directory for paired batch artifacts. Defaults to `.dist/study/artifacts`. |
+| `--work-root`                      |    No    | Root checkout directory for batch runs. Defaults to `.dist/study/work`.                |
+| `--summary-output`                 |    No    | Batch execution summary JSON path. Defaults to `.dist/study/summary.json`.             |
 | `--no-skip-existing`               |    No    | Re-run entries even when artifacts already exist (`study-run`).                        |
 | `--prompt-output`                  |    No    | Save prompt payloads for each entry (`study-run`).                                     |
 | `--prefix-dir`                     |   Yes‡   | Prefix artifact directory for analysis. (‡`study-analyze` only)                        |
@@ -834,6 +867,15 @@ Both `classification.json` and `report.md` include an **`evidence_mode`** field 
 
 ## Output Files
 
+### Default Output Directories
+
+| Command scope | Default root   | Example path                                                     |
+| ------------- | -------------- | ---------------------------------------------------------------- |
+| Standalone    | `.dist/runs/`  | `.dist/runs/Lang_1_prefix/classification.json`                   |
+| Batch study   | `.dist/study/` | `.dist/study/artifacts/prefix/Lang_1_prefix/classification.json` |
+
+### File Reference
+
 | File                     | Produced by        | Contents                                                                          |
 | ------------------------ | ------------------ | --------------------------------------------------------------------------------- |
 | `context.json`           | `collect` / `run`  | All pre-fix evidence: code snippets, metadata, failures, coverage, bug report     |
@@ -842,7 +884,8 @@ Both `classification.json` and `report.md` include an **`evidence_mode`** field 
 | `comparison.json`        | `compare`          | Single-pair strict/top2/family match result                                       |
 | `batch_comparison.json`  | `compare-batch`    | Aggregate metrics + confusion matrix + per-bug detail                             |
 | `manifest_*.json`        | `study-plan`       | Balanced bug manifest with all selected project/bug entries                       |
-| `run_summary.json`       | `study-run`        | Per-entry execution status for prefix/postfix runs                                |
+| `summary.json`           | `study-run`        | Per-entry execution status for prefix/postfix runs                                |
+| `checkpoint.json`        | `study-run`        | Resume checkpoint: tracks completed bugs for interrupted batch runs               |
 | `analysis.json`          | `study-analyze`    | Cross-artifact study analytics and top-3 divergence buckets                       |
 | `analysis.md`            | `study-analyze`    | Human-readable batch analysis report                                              |
 | `prompt.json`            | `--prompt-output`  | Rendered prompt messages sent to the LLM (system + user)                          |
@@ -931,6 +974,9 @@ d4j_odc_pipeline/
 - ODC family is **always** derived from the canonical `odc.family_for()` mapping — the LLM's `family` field is overwritten to prevent drift.
 - Comparison uses a 4-tier hierarchy: Strict Match > Top-2 Match > Family Match > Cohen's Kappa, giving partial credit for near-misses.
 - Defects4J supports both WSL mode (`DEFECTS4J_PATH_STYLE=wsl`) and native Linux mode (`DEFECTS4J_PATH_STYLE=native`).
+- **Batch runs are resumable** — `checkpoint.json` tracks completed entries; re-running `study-run` skips bugs that finished previously.
+- **Graceful shutdown** — Ctrl+C during `study-run` finishes the current bug, saves checkpoint, and exits cleanly. A second Ctrl+C force-quits.
+- **Standardized output layout** — standalone commands default to `.dist/runs/`, batch studies default to `.dist/study/`.
 
 ---
 
