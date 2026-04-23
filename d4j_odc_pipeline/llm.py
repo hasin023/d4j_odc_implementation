@@ -6,6 +6,8 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 
+_USER_AGENT = "d4j-odc-pipeline/1.0"
+
 
 class LLMError(RuntimeError):
     pass
@@ -93,6 +95,7 @@ class LLMClient:
             headers={
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {self.settings.api_key}",
+                "User-Agent": _USER_AGENT,
                 **self.settings.default_headers,
             },
             method="POST",
@@ -125,6 +128,7 @@ class LLMClient:
             headers={
                 "Content-Type": "application/json",
                 "x-goog-api-key": self.settings.api_key,
+                "User-Agent": _USER_AGENT,
             },
             method="POST",
         )
