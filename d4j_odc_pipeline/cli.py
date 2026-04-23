@@ -240,7 +240,7 @@ def _add_common_bug_args(parser: argparse.ArgumentParser) -> None:
 
 
 def _add_llm_args(parser: argparse.ArgumentParser, default_provider: str, default_model: str) -> None:
-    parser.add_argument("--provider", default=default_provider, choices=["gemini", "openrouter", "openai-compatible"])
+    parser.add_argument("--provider", default=default_provider, choices=["gemini", "openrouter", "groq", "openai-compatible"])
     parser.add_argument("--model", default=default_model)
     parser.add_argument("--api-key-env", default=None)
     parser.add_argument("--base-url")
@@ -251,6 +251,14 @@ def main() -> int:
     load_dotenv()
     parser = build_parser()
     args = parser.parse_args()
+
+    # Resolve per-provider default model if --model wasn't explicitly given.
+    # When the user switches provider (e.g. --provider groq), this auto-selects
+    # the provider-specific model from env (e.g. GROQ_MODEL) instead of the
+    # global DEFAULT_LLM_MODEL which might be a Gemini model ID.
+    if hasattr(args, "provider") and hasattr(args, "model"):
+        from .llm import default_model_for_provider
+        args.model = default_model_for_provider(args.provider, args.model)
 
     # Initialize rich console (respects --quiet)
     console.init_console(quiet=args.quiet)
