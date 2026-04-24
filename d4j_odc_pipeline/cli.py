@@ -249,6 +249,12 @@ def _add_llm_args(parser: argparse.ArgumentParser, default_provider: str, defaul
 
 def main() -> int:
     load_dotenv()
+
+    # If no arguments provided, launch the interactive REPL
+    if len(sys.argv) == 1:
+        from .interactive import launch_repl
+        return launch_repl()
+
     parser = build_parser()
     args = parser.parse_args()
 

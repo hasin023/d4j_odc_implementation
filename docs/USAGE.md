@@ -1,5 +1,218 @@
 # CLI Usage
 
+The D4J ODC Pipeline supports two modes of operation:
+
+1. **Interactive Mode** (recommended) — A REPL shell with `/slash` commands, tab completion, and session persistence
+2. **Script Mode** — Traditional CLI commands for scripting, CI, and automation
+
+---
+
+## Interactive Mode (REPL)
+
+### Launching
+
+```bash
+# Simply run the module with no arguments
+python -m d4j_odc_pipeline
+```
+
+This opens the interactive shell:
+
+```bash
+╭──────────────────────────────────────────╮
+│  🔬 D4J ODC Pipeline — Interactive Mode  │
+│                                          │
+│  Provider   gemini                       │
+│  Model      gemini-3.1-flash-lite-preview│
+│  Mode       prefix (realistic)           │
+│                                          │
+│  Type /help for available commands       │
+│  Type /exit or Ctrl+D to quit            │
+╰──────────────────────────────────────────╯
+
+odc>
+```
+
+### Slash Commands Reference
+
+Type `/help` inside the REPL to see all commands. Here's the full list:
+
+#### 🔧 Pipeline Commands
+
+| Command                                           | Description                                               |
+| ------------------------------------------------- | --------------------------------------------------------- |
+| `/collect [--project P --bug N] [--postfix]`      | Collect bug evidence (prefix or postfix mode)             |
+| `/classify [context_directory_name]`              | Classify an existing context JSON with LLM                |
+| `/run [--project P --bug N] [--postfix]`          | End-to-end collect + classify                             |
+| `/compare --prefix P --postfix Q`                 | Compare pre-fix and post-fix classifications (NOT USEFUL) |
+| `/compare-batch --prefix-dir D1 --postfix-dir D2` | Batch compare (alias: `/cb`) (NOT USEFUL)                 |
+
+#### 📊 Study Commands
+
+| Command                                                  | Description                    |
+| -------------------------------------------------------- | ------------------------------ |
+| `/study plan [--target-bugs N]`                          | Generate balanced bug manifest |
+| `/study run [--manifest M]`                              | Execute batch paired runs      |
+| `/study analyze [--manifest M] [--require-all-projects]` | Cross-artifact analysis        |
+
+#### 🐛 Defects4J Proxy
+
+| Command                           | Description                 |
+| --------------------------------- | --------------------------- |
+| `/d4j pids`                       | List all available projects |
+| `/d4j bids [--project P]`         | List bug IDs for a project  |
+| `/d4j info [--project P --bug N]` | Show project or bug details |
+
+#### 🔗 Multi-Fault
+
+| Command                             | Description                                    |
+| ----------------------------------- | ---------------------------------------------- |
+| `/multifault [--project P --bug N]` | Query multi-fault data (alias: `/mf`)          |
+| `/enrich [classification_path]`     | Enrich classification with multi-fault context |
+
+#### 🔍 Inspection
+
+| Command                | Description                                 |
+| ---------------------- | ------------------------------------------- |
+| `/show context`        | Pretty-print the last collected context     |
+| `/show classification` | Pretty-print the last classification result |
+| `/show report`         | Render the last markdown report in terminal |
+| `/show prompt`         | Show the rendered LLM prompt messages       |
+
+#### ⚙️ Session & Config
+
+| Command                    | Description                                                  |
+| -------------------------- | ------------------------------------------------------------ |
+| `/help`                    | Show all available commands                                  |
+| `/status`                  | Show current session state                                   |
+| `/config [key] [value]`    | Show or modify config (provider, model, skip-coverage, etc.) |
+| `/provider [name]`         | Show or switch LLM provider (session-only)                   |
+| `/model [name]`            | Show or switch LLM model                                     |
+| `/history [N]`             | Show last N commands                                         |
+| `/bugs`                    | List recently worked-on bugs                                 |
+| `/clear [screen\|session]` | Clear terminal or reset session                              |
+| `/doctor`                  | Check environment health (D4J, API keys, Python)             |
+| `/version`                 | Show pipeline version                                        |
+| `/exit`                    | Exit (aliases: `/quit`, `/q`)                                |
+
+### Tab Completion
+
+Press **Tab** at any point to get suggestions:
+
+- Type `/` + Tab → see all available commands
+- Type `/ru` + Tab → autocompletes to `/run`
+- Type `/d4j ` + Tab → shows subcommands (`pids`, `bids`, `info`)
+- Type `/provider ` + Tab → shows available providers
+- Type `/clear ` + Tab → shows `screen` and `session` options
+
+### Interactive File Pickers
+
+When you run `/classify` or `/study run` without specifying a file path, a **dropdown selection dialog** appears showing all available files:
+
+```
+odc> /classify
+
+  ┌── Select context.json ────────────────┐
+  │ Use ↑↓ arrow keys, Enter to select:   │
+  │                                        │
+  │ ● .dist/runs/Lang_1_prefix/context.json│
+  │ ○ .dist/runs/Lang_1_postfix/context.json│
+  │ ○ .dist/runs/Math_3_prefix/context.json│
+  └────────────────────────────────────────┘
+```
+
+This works for:
+
+- `/classify` — picks from discovered `context.json` files
+- `/enrich` — picks from discovered `classification.json` files
+- `/study run` — picks from discovered `manifest*.json` files
+- `/study analyze` — picks from discovered `manifest*.json` files
+
+### Session Persistence
+
+Sessions **auto-resume** by default. When you relaunch the REPL, it remembers:
+
+- Active project and bug (set by `/run`, `/collect`, `/d4j info`)
+- Provider and model (session-only — resets to `.env` defaults on fresh launch)
+- Last context, classification, and report paths
+- Recent bugs worked on (up to 20)
+- Command history (up to 100 entries, also used for ↑↓ arrow recall)
+
+Session data is stored at `.dist/.odc_session.json`.
+
+To start completely fresh:
+
+```
+odc> /clear session
+```
+
+### Bare Input Shorthand
+
+You can type a project and bug number directly without a slash command:
+
+```bash
+odc> Lang 1
+  💡 Tip: Interpreted as: /run --project Lang --bug 1
+          Next time, use /run directly for explicit control.
+  Collecting Lang-1 (prefix)...
+```
+
+This is a shorthand for `/run --project Lang --bug 1`. The REPL shows a tip so you learn the proper slash command for next time.
+
+### Postfix (Oracle) Mode
+
+To switch between pre-fix (realistic) and post-fix (oracle) modes:
+
+```
+odc> /config include-fix-diff true     # Switch to postfix mode
+odc> /run --project Lang --bug 1       # Now runs in postfix mode
+
+odc> /config include-fix-diff false    # Switch back to prefix mode
+```
+
+Or use the `--postfix` flag per-command:
+
+```
+odc> /collect --project Lang --bug 1 --postfix
+odc> /run --project Lang --bug 1 --postfix
+```
+
+### Example Workflow
+
+```
+odc> /doctor                              # Check environment health
+odc> /d4j pids                            # See available projects
+odc> /d4j bids --project Lang             # See bug IDs for Lang
+odc> /run --project Lang --bug 1          # Collect + classify
+odc> /show classification                 # View result
+odc> /show report                         # View markdown report
+odc> /run --project Lang --bug 1 --postfix  # Run postfix for comparison
+odc> /compare --prefix .dist/runs/Lang_1_prefix/classification.json \
+               --postfix .dist/runs/Lang_1_postfix/classification.json
+odc> /bugs                                # See recent bugs
+odc> /status                              # Check session state
+odc> /exit                                # Save and quit
+```
+
+### Keyboard Shortcuts
+
+| Key        | Action                   |
+| ---------- | ------------------------ |
+| **Tab**    | Autocomplete commands    |
+| **↑ / ↓**  | Navigate command history |
+| **Ctrl+C** | Cancel current input     |
+| **Ctrl+D** | Exit the REPL            |
+
+---
+
+## Script Mode (Traditional CLI)
+
+All original CLI commands remain fully functional when arguments are provided. Use this mode for scripting, CI pipelines, and automation.
+
+```bash
+python -m d4j_odc_pipeline --help    # Show all script-mode commands
+```
+
 Commands are provided in both **PowerShell** (Windows) and **Bash** (Ubuntu/Linux/WSL) variants. Copy from the section that matches your environment.
 
 ---

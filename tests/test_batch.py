@@ -1,7 +1,10 @@
 import json
+import shutil
 import tempfile
 import unittest
+import uuid
 from pathlib import Path
+from unittest.mock import patch
 
 from d4j_odc_pipeline.batch import analyze_batch_artifacts, generate_study_manifest
 
@@ -238,6 +241,233 @@ class CheckpointTests(unittest.TestCase):
         entries_a = [{"project_id": "Lang", "bug_id": 1}]
         entries_b = [{"project_id": "Math", "bug_id": 2}]
         self.assertNotEqual(_compute_manifest_hash(entries_a), _compute_manifest_hash(entries_b))
+
+
+class _FakeCompareResult:
+    def to_dict(self) -> dict:
+        return {"strict_match": True, "match_detail": "stub"}
+
+
+class BatchResumeTests(unittest.TestCase):
+    @staticmethod
+    def _scratch_dir(name: str) -> Path:
+        base = Path(".dist") / "test_tmp_batch" / f"{name}_{uuid.uuid4().hex[:8]}"
+        base.mkdir(parents=True, exist_ok=True)
+        return base
+
+    def setUp(self) -> None:
+        from d4j_odc_pipeline.batch import reset_shutdown
+        reset_shutdown()
+
+    def tearDown(self) -> None:
+        from d4j_odc_pipeline.batch import reset_shutdown
+        reset_shutdown()
+
+    def test_resume_skips_completed_entries_from_checkpoint(self) -> None:
+        from d4j_odc_pipeline.batch import _request_shutdown, reset_shutdown, run_batch_from_manifest
+
+        manifest = {
+            "target_bugs": 2,
+            "entries": [
+                {"project_id": "Lang", "bug_id": 1},
+                {"project_id": "Math", "bug_id": 2},
+            ],
+        }
+        client = _FakeDefects4JClient()
+        temp_root = self._scratch_dir("resume_checkpoint_skip")
+        artifacts_root = temp_root / "artifacts"
+        work_root = temp_root / "work"
+        checkpoint_path = artifacts_root / "checkpoint.json"
+        first_run_calls: list[tuple[str, str, int, str]] = []
+        second_run_calls: list[tuple[str, str, int, str]] = []
+        shutdown_once = {"done": False}
+
+        def fake_collect(*, project_id: str, bug_id: int, output_path: Path, **kwargs):
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(
+                json.dumps({"project_id": project_id, "bug_id": bug_id}),
+                encoding="utf-8",
+            )
+            log = first_run_calls if not shutdown_once["done"] else second_run_calls
+            log.append(("collect", project_id, bug_id, output_path.parent.name))
+            return {"project_id": project_id, "bug_id": bug_id}
+
+        def fake_classify(*, context: dict, output_path: Path, **kwargs):
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(
+                json.dumps(
+                    {
+                        "project_id": context["project_id"],
+                        "bug_id": context["bug_id"],
+                        "version_id": f"{context['bug_id']}b",
+                        "odc_type": "Checking",
+                        "family": "Control and Data Flow",
+                        "confidence": 0.9,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            log = first_run_calls if not shutdown_once["done"] else second_run_calls
+            log.append(("classify", context["project_id"], context["bug_id"], output_path.parent.name))
+            return {
+                "project_id": context["project_id"],
+                "bug_id": context["bug_id"],
+            }
+
+        def fake_report(*, context: dict, classification: dict, output_path: Path):
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text("# report", encoding="utf-8")
+            log = first_run_calls if not shutdown_once["done"] else second_run_calls
+            log.append(("report", context["project_id"], context["bug_id"], output_path.parent.name))
+            if output_path.parent.name == "Lang_1_postfix" and not shutdown_once["done"]:
+                shutdown_once["done"] = True
+                _request_shutdown(2, None)
+
+        with (
+            patch("d4j_odc_pipeline.batch.collect_bug_context", side_effect=fake_collect),
+            patch("d4j_odc_pipeline.batch.classify_bug_context", side_effect=fake_classify),
+            patch("d4j_odc_pipeline.batch.write_markdown_report", side_effect=fake_report),
+            patch("d4j_odc_pipeline.batch.compare_classifications", return_value=_FakeCompareResult()),
+        ):
+            first_summary = run_batch_from_manifest(
+                defects4j=client,
+                manifest=manifest,
+                artifacts_root=artifacts_root,
+                work_root=work_root,
+                provider="gemini",
+                model="test-model",
+                api_key_env=None,
+                base_url=None,
+                prompt_style="scientific",
+            )
+
+            checkpoint_after_first = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+
+            reset_shutdown()
+
+            second_summary = run_batch_from_manifest(
+                defects4j=client,
+                manifest=manifest,
+                artifacts_root=artifacts_root,
+                work_root=work_root,
+                provider="gemini",
+                model="test-model",
+                api_key_env=None,
+                base_url=None,
+                prompt_style="scientific",
+            )
+
+        checkpoint_after_second = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+        self.assertTrue(first_summary["interrupted"])
+        self.assertEqual(1, first_summary["completed_entries"])
+        self.assertEqual(["Lang_1"], checkpoint_after_first["completed_keys"])
+        self.assertFalse(second_summary["interrupted"])
+        self.assertEqual(2, second_summary["completed_entries"])
+        self.assertEqual(["Lang_1", "Math_2"], checkpoint_after_second["completed_keys"])
+        self.assertTrue(second_run_calls)
+        self.assertTrue(all(call[1] == "Math" and call[2] == 2 for call in second_run_calls))
+
+    def test_resume_continues_partial_bug_via_skip_existing(self) -> None:
+        from d4j_odc_pipeline.batch import _request_shutdown, reset_shutdown, run_batch_from_manifest
+
+        manifest = {
+            "target_bugs": 1,
+            "entries": [
+                {"project_id": "Lang", "bug_id": 1},
+            ],
+        }
+        client = _FakeDefects4JClient()
+        temp_root = self._scratch_dir("resume_partial_bug")
+        artifacts_root = temp_root / "artifacts"
+        work_root = temp_root / "work"
+        checkpoint_path = artifacts_root / "checkpoint.json"
+        first_run_calls: list[tuple[str, str, int, str]] = []
+        second_run_calls: list[tuple[str, str, int, str]] = []
+        shutdown_once = {"done": False}
+
+        def fake_collect(*, project_id: str, bug_id: int, output_path: Path, **kwargs):
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(
+                json.dumps({"project_id": project_id, "bug_id": bug_id}),
+                encoding="utf-8",
+            )
+            log = first_run_calls if not shutdown_once["done"] else second_run_calls
+            log.append(("collect", project_id, bug_id, output_path.parent.name))
+            return {"project_id": project_id, "bug_id": bug_id}
+
+        def fake_classify(*, context: dict, output_path: Path, **kwargs):
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(
+                json.dumps(
+                    {
+                        "project_id": context["project_id"],
+                        "bug_id": context["bug_id"],
+                        "version_id": f"{context['bug_id']}b",
+                        "odc_type": "Checking",
+                        "family": "Control and Data Flow",
+                        "confidence": 0.9,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            log = first_run_calls if not shutdown_once["done"] else second_run_calls
+            log.append(("classify", context["project_id"], context["bug_id"], output_path.parent.name))
+            return {
+                "project_id": context["project_id"],
+                "bug_id": context["bug_id"],
+            }
+
+        def fake_report(*, context: dict, classification: dict, output_path: Path):
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text("# report", encoding="utf-8")
+            log = first_run_calls if not shutdown_once["done"] else second_run_calls
+            log.append(("report", context["project_id"], context["bug_id"], output_path.parent.name))
+            if output_path.parent.name == "Lang_1_prefix" and not shutdown_once["done"]:
+                shutdown_once["done"] = True
+                _request_shutdown(2, None)
+
+        with (
+            patch("d4j_odc_pipeline.batch.collect_bug_context", side_effect=fake_collect),
+            patch("d4j_odc_pipeline.batch.classify_bug_context", side_effect=fake_classify),
+            patch("d4j_odc_pipeline.batch.write_markdown_report", side_effect=fake_report),
+            patch("d4j_odc_pipeline.batch.compare_classifications", return_value=_FakeCompareResult()),
+        ):
+            first_summary = run_batch_from_manifest(
+                defects4j=client,
+                manifest=manifest,
+                artifacts_root=artifacts_root,
+                work_root=work_root,
+                provider="gemini",
+                model="test-model",
+                api_key_env=None,
+                base_url=None,
+                prompt_style="scientific",
+            )
+
+            checkpoint_after_first = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+
+            reset_shutdown()
+
+            second_summary = run_batch_from_manifest(
+                defects4j=client,
+                manifest=manifest,
+                artifacts_root=artifacts_root,
+                work_root=work_root,
+                provider="gemini",
+                model="test-model",
+                api_key_env=None,
+                base_url=None,
+                prompt_style="scientific",
+            )
+
+        checkpoint_after_second = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+        self.assertTrue(first_summary["interrupted"])
+        self.assertEqual([], checkpoint_after_first["completed_keys"])
+        self.assertFalse(second_summary["interrupted"])
+        self.assertEqual(1, second_summary["completed_entries"])
+        self.assertEqual(["Lang_1"], checkpoint_after_second["completed_keys"])
+        self.assertTrue(second_run_calls)
+        self.assertTrue(all(call[3] == "Lang_1_postfix" for call in second_run_calls))
 
 
 if __name__ == "__main__":

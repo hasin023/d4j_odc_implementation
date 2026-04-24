@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import os
+import signal
 import shlex
 import shutil
 import subprocess
@@ -78,25 +79,91 @@ class Defects4JClient:
         cmd = [*self.command, subcommand, *normalized_args]
         env = os.environ.copy()
         env["TZ"] = "America/Los_Angeles"
-        completed = subprocess.run(
-            cmd,
-            cwd=str(cwd) if cwd else None,
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=self.timeout_seconds,
-            check=False,
-        )
+        popen_kwargs: dict[str, object] = {
+            "cwd": str(cwd) if cwd else None,
+            "env": env,
+            "stdout": subprocess.PIPE,
+            "stderr": subprocess.PIPE,
+            "text": True,
+        }
+        if os.name == "nt":
+            popen_kwargs["creationflags"] = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+        else:
+            popen_kwargs["start_new_session"] = True
+
+        process = subprocess.Popen(cmd, **popen_kwargs)
+        try:
+            stdout, stderr = process.communicate(timeout=self.timeout_seconds)
+        except subprocess.TimeoutExpired:
+            self._terminate_process(process)
+            stdout, stderr = self._safe_communicate(process)
+            result = CommandResult(
+                args=cmd,
+                cwd=str(cwd) if cwd else os.getcwd(),
+                returncode=process.returncode if process.returncode is not None else -1,
+                stdout=stdout,
+                stderr=stderr,
+            )
+            raise Defects4JError(
+                f"Defects4J command timed out after {self.timeout_seconds} seconds.\n"
+                f"{self._format_error(result)}"
+            )
+        except BaseException:
+            self._terminate_process(process)
+            self._safe_communicate(process)
+            raise
         result = CommandResult(
             args=cmd,
             cwd=str(cwd) if cwd else os.getcwd(),
-            returncode=completed.returncode,
-            stdout=completed.stdout,
-            stderr=completed.stderr,
+            returncode=process.returncode if process.returncode is not None else -1,
+            stdout=stdout,
+            stderr=stderr,
         )
-        if not allow_failure and completed.returncode != 0:
+        if not allow_failure and result.returncode != 0:
             raise Defects4JError(self._format_error(result))
         return result
+
+    def _safe_communicate(self, process: subprocess.Popen[str]) -> tuple[str, str]:
+        try:
+            stdout, stderr = process.communicate(timeout=5)
+        except Exception:
+            return "", ""
+        return stdout, stderr
+
+    def _terminate_process(self, process: subprocess.Popen[str]) -> None:
+        if process.poll() is not None:
+            return
+
+        if os.name == "nt":
+            ctrl_break = getattr(signal, "CTRL_BREAK_EVENT", None)
+            if ctrl_break is not None:
+                try:
+                    process.send_signal(ctrl_break)
+                    process.wait(timeout=3)
+                except Exception:
+                    pass
+            if process.poll() is None:
+                process.kill()
+                try:
+                    process.wait(timeout=3)
+                except Exception:
+                    pass
+            return
+
+        try:
+            os.killpg(process.pid, signal.SIGTERM)
+            process.wait(timeout=3)
+        except Exception:
+            pass
+        if process.poll() is None:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except Exception:
+                process.kill()
+            try:
+                process.wait(timeout=3)
+            except Exception:
+                pass
 
     def checkout(self, project_id: str, version_id: str, work_dir: Path) -> CommandResult:
         work_dir.parent.mkdir(parents=True, exist_ok=True)

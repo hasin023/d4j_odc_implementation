@@ -35,6 +35,13 @@ def init_console(*, quiet: bool = False) -> None:
     _console = Console(theme=_THEME, highlight=False) if not quiet else None
 
 
+def bind_console(console: Console | None, *, quiet: bool = False) -> None:
+    """Bind an existing Rich console for shared pipeline output."""
+    global _console, _quiet
+    _quiet = quiet
+    _console = None if quiet else console
+
+
 def get_console() -> Console | None:
     """Return the console, or None if quiet mode."""
     return _console
