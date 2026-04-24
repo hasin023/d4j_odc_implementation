@@ -121,15 +121,15 @@ def build_parser() -> argparse.ArgumentParser:
                             help="Path to existing classification.json.")
     mfe_parser.add_argument("--fault-data-dir", type=Path, default=None,
                             help="Path to fault_data/ directory.")
-    mfe_parser.add_argument("--output", type=Path, required=True,
-                            help="Path to write enriched classification JSON.")
+    mfe_parser.add_argument("--output", type=Path, default=None,
+                            help="Path to write enriched classification JSON. Defaults to classification_enriched.json alongside input.")
 
     # ── study-plan ──────────────────────────────────────────────────────
     plan_parser = subparsers.add_parser(
         "study-plan",
         help="Generate a balanced bug manifest for large-scale pre/post studies.",
     )
-    plan_parser.add_argument("--output", type=Path, required=True, help="Path to write study manifest JSON.")
+    plan_parser.add_argument("--output", type=Path, default=None, help="Path to write study manifest JSON. Defaults to .dist/study/manifest_<target_bugs>.json.")
     plan_parser.add_argument("--target-bugs", type=int, default=68,
                              help="Target number of bugs to include (recommended 50-70).")
     plan_parser.add_argument("--min-per-project", type=int, default=1,
@@ -152,9 +152,9 @@ def build_parser() -> argparse.ArgumentParser:
         "study-run",
         help="Execute prefix and postfix runs for every bug in a study manifest.",
     )
-    study_run_parser.add_argument("--manifest", type=Path, required=True, help="Path to study manifest JSON.")
+    study_run_parser.add_argument("--manifest", type=Path, required=True, help="Path to study manifest JSON. Bare filenames are resolved under .dist/study/.")
     study_run_parser.add_argument("--artifacts-root", type=Path, default=None,
-                                  help="Root directory for generated artifacts. Defaults to .dist/study/artifacts.")
+                                  help="Root directory for generated artifacts. Defaults to .dist/study/artifacts_<target_bugs>.")
     study_run_parser.add_argument("--work-root", type=Path, default=None,
                                   help="Root directory for Defects4J checkouts. Defaults to .dist/study/work.")
     study_run_parser.add_argument("--summary-output", type=Path, default=None,
@@ -180,14 +180,14 @@ def build_parser() -> argparse.ArgumentParser:
         "study-analyze",
         help="Cross-artifact analysis over prefix/postfix study outputs.",
     )
-    study_analyze_parser.add_argument("--prefix-dir", type=Path, required=True,
-                                      help="Directory containing *_prefix run folders.")
-    study_analyze_parser.add_argument("--postfix-dir", type=Path, required=True,
-                                      help="Directory containing *_postfix run folders.")
-    study_analyze_parser.add_argument("--output", type=Path, required=True,
-                                      help="Path to write analysis JSON.")
-    study_analyze_parser.add_argument("--report", type=Path,
-                                      help="Optional markdown analysis report.")
+    study_analyze_parser.add_argument("--prefix-dir", type=Path, default=None,
+                                      help="Directory containing *_prefix run folders. Defaults to .dist/study/artifacts_<N>/prefix.")
+    study_analyze_parser.add_argument("--postfix-dir", type=Path, default=None,
+                                      help="Directory containing *_postfix run folders. Defaults to .dist/study/artifacts_<N>/postfix.")
+    study_analyze_parser.add_argument("--output", type=Path, default=None,
+                                      help="Path to write analysis JSON. Defaults to .dist/study/analysis_<N>.json.")
+    study_analyze_parser.add_argument("--report", type=Path, default=None,
+                                      help="Markdown analysis report. Defaults to .dist/study/analysis_<N>.md.")
     study_analyze_parser.add_argument("--manifest", type=Path,
                                       help="Optional manifest JSON to derive expected projects.")
     study_analyze_parser.add_argument("--expected-projects", nargs="+",
@@ -231,7 +231,7 @@ def build_parser() -> argparse.ArgumentParser:
 def _add_common_bug_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--project", required=True, help="Defects4J project id, for example Lang.")
     parser.add_argument("--bug", type=int, required=True, help="Defects4J bug id.")
-    parser.add_argument("--work-dir", type=Path, required=True, help="Checkout directory for the buggy version.")
+    parser.add_argument("--work-dir", type=Path, default=None, help="Checkout directory for the buggy version. Defaults to work/<project>_<bug>_prefix (or _postfix with --include-fix-diff).")
     parser.add_argument(
         "--defects4j-cmd",
         default=None,
@@ -321,9 +321,12 @@ def main() -> int:
 
 def _cmd_collect(args: argparse.Namespace) -> int:
     client = Defects4JClient(command=args.defects4j_cmd)
+    mode_suffix = "postfix" if args.include_fix_diff else "prefix"
+    # Default work-dir to work/<project>_<bug>_<mode>
+    if args.work_dir is None:
+        args.work_dir = Path("work") / f"{args.project}_{args.bug}_{mode_suffix}"
     # Default output to .dist/runs/<project>_<bug>_<mode>/context.json
     if args.output is None:
-        mode_suffix = "postfix" if args.include_fix_diff else "prefix"
         args.output = Path(".dist") / "runs" / f"{args.project}_{args.bug}_{mode_suffix}" / "context.json"
     collect_bug_context(
         defects4j=client,
@@ -367,6 +370,9 @@ def _cmd_run(args: argparse.Namespace) -> int:
     # Default outputs to .dist/runs/<project>_<bug>_<mode>/
     mode_suffix = "postfix" if args.include_fix_diff else "prefix"
     run_dir = Path(".dist") / "runs" / f"{args.project}_{args.bug}_{mode_suffix}"
+    # Default work-dir to work/<project>_<bug>_<mode>
+    if args.work_dir is None:
+        args.work_dir = Path("work") / f"{args.project}_{args.bug}_{mode_suffix}"
     if args.context_output is None:
         args.context_output = run_dir / "context.json"
     if args.classification_output is None:
@@ -573,6 +579,10 @@ def _cmd_multifault_enrich(args: argparse.Namespace) -> int:
         console.error_panel("File Not Found", f"Classification file not found: {cls_path}")
         return 1
 
+    # Default output to classification_enriched.json alongside input
+    if args.output is None:
+        args.output = cls_path.parent / "classification_enriched.json"
+
     classification = json_mod.loads(cls_path.read_text(encoding="utf-8"))
     project = classification.get("project_id", "")
     bug_id = classification.get("bug_id", 0)
@@ -605,6 +615,13 @@ def _cmd_study_plan(args: argparse.Namespace) -> int:
 
     client = Defects4JClient(command=args.defects4j_cmd)
     discovered_projects = sorted(client.pids())
+
+    # Default output to .dist/study/manifest_<target_bugs>.json
+    if args.output is None:
+        args.output = Path(".dist") / "study" / f"manifest_{args.target_bugs}.json"
+    elif not args.output.parent.parts:
+        # Bare filename — resolve under .dist/study/
+        args.output = Path(".dist") / "study" / args.output
 
     manifest = generate_study_manifest(
         defects4j=client,
@@ -644,13 +661,20 @@ def _cmd_study_run(args: argparse.Namespace) -> int:
     install_signal_handlers()
     reset_shutdown()
 
+    # Resolve bare manifest filename under .dist/study/
+    if args.manifest and not args.manifest.parent.parts:
+        args.manifest = Path(".dist") / "study" / args.manifest
+
     client = Defects4JClient(command=args.defects4j_cmd)
     manifest = load_manifest(args.manifest)
 
-    # Default output paths to .dist/study/
+    # Derive target_bugs from manifest for default folder naming
+    target_bugs = manifest.get("target_bugs", manifest.get("selected_bugs", 0))
+
+    # Default output paths to .dist/study/ with target_bugs suffix
     dist_study = Path(".dist") / "study"
     if args.artifacts_root is None:
-        args.artifacts_root = dist_study / "artifacts"
+        args.artifacts_root = dist_study / f"artifacts_{target_bugs}"
     if args.work_root is None:
         args.work_root = dist_study / "work"
     if args.summary_output is None:
@@ -709,11 +733,45 @@ def _cmd_study_analyze(args: argparse.Namespace) -> int:
     from .batch import analyze_batch_artifacts, load_manifest, write_analysis_markdown
     from .pipeline import write_json
 
+    # Resolve bare manifest filename under .dist/study/
+    if args.manifest and not args.manifest.parent.parts:
+        args.manifest = Path(".dist") / "study" / args.manifest
+
+    # Derive target_bugs from manifest for default paths
+    target_bugs: int | str = ""
+    if args.manifest and args.manifest.exists():
+        manifest = load_manifest(args.manifest)
+        target_bugs = manifest.get("target_bugs", manifest.get("selected_bugs", ""))
+    else:
+        manifest = None
+
+    dist_study = Path(".dist") / "study"
+
+    # Default prefix/postfix dirs from artifacts_<N>/
+    if args.prefix_dir is None:
+        artifacts_folder = f"artifacts_{target_bugs}" if target_bugs else "artifacts"
+        args.prefix_dir = dist_study / artifacts_folder / "prefix"
+    if args.postfix_dir is None:
+        artifacts_folder = f"artifacts_{target_bugs}" if target_bugs else "artifacts"
+        args.postfix_dir = dist_study / artifacts_folder / "postfix"
+
+    # Default output/report with _<N> suffix
+    if args.output is None:
+        suffix = f"_{target_bugs}" if target_bugs else ""
+        args.output = dist_study / f"analysis{suffix}.json"
+    elif not args.output.parent.parts:
+        args.output = dist_study / args.output
+
+    if args.report is None:
+        suffix = f"_{target_bugs}" if target_bugs else ""
+        args.report = dist_study / f"analysis{suffix}.md"
+    elif not args.report.parent.parts:
+        args.report = dist_study / args.report
+
     expected_projects: list[str] | None = None
     if args.expected_projects:
         expected_projects = sorted(set(args.expected_projects))
-    elif args.manifest:
-        manifest = load_manifest(args.manifest)
+    elif manifest:
         expected_projects = sorted(set(manifest.get("projects_requested", [])))
     elif args.require_all_projects:
         client = Defects4JClient(command=args.defects4j_cmd)
@@ -737,6 +795,7 @@ def _cmd_study_analyze(args: argparse.Namespace) -> int:
 
     console.result_panel("Study analysis complete", [
         ("Output", str(args.output)),
+        ("Report", str(args.report)),
         ("Total pairs", str(summary.get("total_pairs", 0))),
         ("Projects seen", str(summary.get("unique_projects", 0))),
         ("Missing projects", ", ".join(summary.get("missing_projects", [])) or "none"),

@@ -41,7 +41,10 @@ When information conflicts, use this order:
 Notes:
 
 - `odc_doc.md` is the reference source for generic ODC terminology, not the executable contract.
-- `README.md` is much closer to the current system than it used to be, but it still contains a few behavioral mismatches with the live code.
+- `README.md` is a lightweight index page linking to focused docs under `docs/`.
+- `docs/SETUP.md` contains installation and environment setup instructions.
+- `docs/USAGE.md` contains CLI usage examples and parameter reference.
+- `docs/ARCHITECTURE.md` contains technical architecture, ODC taxonomy, and schema documentation.
 - Existing experiment outputs in `artifacts/` span multiple schema generations and should not be treated as the current contract.
 
 ## 3. High-Level Mental Model
@@ -66,9 +69,9 @@ The filesystem is the main contract:
 
 - `.dist/runs/` contains outputs from standalone commands (`collect`, `run`, `classify`)
 - `.dist/study/` contains outputs from batch commands (`study-run`, `study-analyze`)
-- `.dist/study/artifacts/` has `prefix/` and `postfix/` subdirectories for paired runs
+- `.dist/study/artifacts_<N>/` has `prefix/` and `postfix/` subdirectories for paired runs (N = target_bugs)
 - `.dist/study/checkpoint.json` tracks progress for resumable batch runs
-- `work/` contains checked-out Defects4J projects (for standalone runs)
+- `work/` contains checked-out Defects4J projects (for standalone runs, named `<project>_<bug>_prefix` or `_postfix`)
 - `.dist/study/work/` contains checkouts for batch runs
 
 Methodologically, the pipeline has two evidence modes:
@@ -225,9 +228,14 @@ Important details:
 - Reads `DEFAULT_LLM_PROVIDER` and `DEFAULT_LLM_MODEL` at parser build time.
 - Includes a lightweight `.env` loader that only fills variables not already present in `os.environ`.
 - `classify --report` is optional.
-- `run` outputs default to `.dist/runs/<project>_<bug>/` when `--context-output`, `--classification-output`, and `--report` are omitted.
-- `collect --output` defaults to `.dist/runs/<project>_<bug>/context.json` when omitted.
-- `study-run` paths default to `.dist/study/artifacts/`, `.dist/study/work/`, `.dist/study/summary.json` when omitted.
+- `--work-dir` is optional for `collect` and `run` — defaults to `work/<project>_<bug>_prefix` (or `_postfix` with `--include-fix-diff`).
+- `run` outputs default to `.dist/runs/<project>_<bug>_<mode>/` when `--context-output`, `--classification-output`, and `--report` are omitted.
+- `collect --output` defaults to `.dist/runs/<project>_<bug>_<mode>/context.json` when omitted.
+- `study-plan --output` defaults to `.dist/study/manifest_<target_bugs>.json`.
+- `study-run` reads `target_bugs` from the manifest and defaults `--artifacts-root` to `.dist/study/artifacts_<target_bugs>/`.
+- `study-run --manifest` and `study-analyze --manifest` resolve bare filenames under `.dist/study/`.
+- `study-analyze` defaults `--prefix-dir`, `--postfix-dir`, `--output`, `--report` using the manifest's `target_bugs`.
+- `multifault-enrich --output` defaults to `classification_enriched.json` alongside the input file.
 - `study-run` installs SIGINT/SIGBREAK signal handlers for graceful Ctrl+C shutdown.
 - `d4j bids` supports `--all` to include deprecated bug IDs.
 
@@ -740,19 +748,23 @@ If you change the additive ODC opener/closer mapping layer:
 
 ## 13. Recommended Commands
 
-Useful commands:
+Useful commands (simplified with smart defaults):
 
 ```powershell
 python -m d4j_odc_pipeline d4j pids
 python -m d4j_odc_pipeline d4j bids --project Lang
 python -m d4j_odc_pipeline d4j info --project Lang --bug 1
-python -m d4j_odc_pipeline collect --project Lang --bug 1 --work-dir .\work\Lang_1b --output .\artifacts\Lang_1\context.json --skip-coverage
-python -m d4j_odc_pipeline classify --context .\artifacts\Lang_1\context.json --output .\artifacts\Lang_1\classification.json --report .\artifacts\Lang_1\report.md
-python -m d4j_odc_pipeline run --project Lang --bug 1 --work-dir .\work\Lang_1b --context-output .\artifacts\Lang_1\context.json --classification-output .\artifacts\Lang_1\classification.json --report .\artifacts\Lang_1\report.md --skip-coverage
+python -m d4j_odc_pipeline collect --project Lang --bug 1 --skip-coverage
+python -m d4j_odc_pipeline classify --context .\.dist\runs\Lang_1_prefix\context.json
+python -m d4j_odc_pipeline run --project Lang --bug 1 --skip-coverage
+python -m d4j_odc_pipeline run --project Lang --bug 1 --include-fix-diff --skip-coverage
 python -m d4j_odc_pipeline compare --prefix .\artifacts\Lang_1\classification.json --postfix .\artifacts\Lang_1f\classification.json --output .\artifacts\Lang_1\comparison.json
 python -m d4j_odc_pipeline compare-batch --prefix-dir .\artifacts\prefix_runs --postfix-dir .\artifacts\postfix_runs --output .\artifacts\batch_comparison.json
 python -m d4j_odc_pipeline multifault --project Lang --bug 1
-python -m d4j_odc_pipeline multifault-enrich --classification .\artifacts\Lang_1\classification.json --output .\artifacts\Lang_1\classification_enriched.json
+python -m d4j_odc_pipeline multifault-enrich --classification .\artifacts\Lang_1\classification.json
+python -m d4j_odc_pipeline study-plan --target-bugs 68
+python -m d4j_odc_pipeline study-run --manifest manifest_68.json --skip-coverage
+python -m d4j_odc_pipeline study-analyze --manifest manifest_68.json
 ```
 
 Safer unit test command:
