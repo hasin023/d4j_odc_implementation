@@ -146,88 +146,24 @@ independent "raters" classifying the same bugs.
 
 ---
 
-## 3. Extended Analysis Layers
-
-Beyond the 4 tiers, our enhanced comparison framework provides:
-
-### Layer A: Semantic Distance (0.0 – 1.0)
-
-A quantitative measure of how "far apart" two ODC types are in the taxonomy
-structure. Calibrated from ODC literature on common mis-classifications.
-
-| Distance Range | Interpretation                                           |
-| -------------- | -------------------------------------------------------- |
-| 0.00           | Identical types                                          |
-| 0.20 – 0.40    | Same-family neighbor (e.g., Algorithm/Method ↔ Checking) |
-| 0.60 – 0.80    | Cross-family (e.g., Checking ↔ Function/Class/Object)    |
-| 1.00           | Maximum divergence (unknown/unrecognized types)          |
-
-### Layer B: Evidence Asymmetry Analysis
-
-For each divergent bug, the system automatically identifies **which evidence
-asymmetry rules** explain the divergence and generates a structured explanation
-with literature references.
-
-Three rules are evaluated:
-
-1. **Symptom vs Cause asymmetry** — always applies when evidence modes differ
-2. **ODC boundary ambiguity** — applies when the type pair is in a known ambiguity zone
-3. **Multi-fault contamination** — applies for projects in the defects4j-mf dataset
-
-### Layer C: Attribute Concordance
-
-Tracks agreement on ODC closer attributes (target, qualifier, age, source)
-beyond the primary type. Even when types diverge, high attribute concordance
-suggests the pipeline is correctly identifying the defect characteristics.
-
-### Layer D: Divergence Pattern Classification
-
-Every comparison is categorized into one of four patterns:
-
-| Pattern               | Meaning                            | Thesis Implication              |
-| --------------------- | ---------------------------------- | ------------------------------- |
-| `exact-match`         | Types identical                    | Pipeline is accurate            |
-| `soft-divergence`     | Same family or alternative overlap | Within expected ODC variability |
-| `moderate-divergence` | Cross-family with partial overlap  | Evidence asymmetry explains it  |
-| `hard-divergence`     | No match at any tier               | Requires manual review          |
-
-### Layer E: Insight Generation
-
-The system generates human-readable insights for each comparison, including:
-
-- Headline assessment with emoji indicators
-- Confidence delta analysis
-- Alternative type overlap analysis
-- Cross-alternative match detection
-- Attribute concordance summary
-
----
-
-## 4. Defending Specific Bug Examples
+## 3. Defending Specific Bug Examples
 
 ### Example: Cli-38
 
 - **Pre-fix**: `Checking` (Control and Data Flow)
 - **Post-fix**: `Algorithm/Method` (Control and Data Flow)
-- **Semantic Distance**: 0.25 (same-family neighbor)
-- **Divergence Pattern**: soft-divergence
 
 **Defence**: Both types belong to the `Control and Data Flow` family. The pre-fix
 classification saw a missing validation (checking) based on the `NullPointerException`
 symptoms. The post-fix classification, with access to the diff, saw that the fix
 involved restructuring the method logic (algorithm/method). The NPE was a symptom,
-the algorithm was the root cause. Semantic distance of 0.25 confirms these types
-are taxonomically close.
+the algorithm was the root cause.
 
 ---
 
-## 5. Summary: What Constitutes "Pipeline Accuracy"?
+## 4. Summary: What Constitutes "Pipeline Accuracy"?
 
-We propose that pipeline accuracy should be evaluated on **three levels**, not just one:
-
-1. **Per-bug accuracy**: measured by the multi-tier framework (strict → top-2 → family → kappa)
-2. **Aggregate consistency**: measured by semantic distance distribution and divergence pattern rates
-3. **Explainability**: measured by evidence asymmetry analysis and insight generation
+We propose that pipeline accuracy should be evaluated using the multi-tier framework:
 
 A pipeline that achieves:
 
@@ -235,14 +171,13 @@ A pipeline that achieves:
 - **Top-2 match ≥ 65%** — demonstrates the pipeline recognizes the correct type neighborhood
 - **Family match ≥ 80%** — demonstrates the pipeline identifies the correct defect category
 - **Cohen's κ ≥ 0.50** — "moderate to substantial" agreement
-- **Avg semantic distance ≤ 0.40** — divergences are within the same taxonomy neighborhood
 
 ...is performing **at or above** the level established in the ODC automation literature
 (Thung 2012: 77.8% with post-fix data only).
 
 ---
 
-## 6. Literature References
+## 5. Literature References
 
 | #   | Reference                                                                                                                                             | Relevance                                                                                 |
 | --- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
@@ -256,7 +191,7 @@ A pipeline that achieves:
 
 ---
 
-## 7. Thesis Defence Talking Points
+## 6. Thesis Defence Talking Points
 
 When presenting these results, emphasize:
 
@@ -270,9 +205,6 @@ When presenting these results, emphasize:
    9+ faults, the pre-fix classifier is seeing a _different defect landscape_ than the
    post-fix classifier.
 
-4. **"Our framework measures what matters."** Semantic distance and divergence patterns
-   tell a much richer story than binary match/no-match.
-
-5. **"The alternative types prove the LLM understands the ambiguity."** When the LLM's
+4. **"The alternative types prove the LLM understands the ambiguity."** When the LLM's
    alternative types in pre-fix include the post-fix primary (or vice versa), it demonstrates
    the model correctly identified the type boundary but ranked differently given different evidence.
