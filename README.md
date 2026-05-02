@@ -4,7 +4,9 @@ A research pipeline that collects pre-fix bug evidence from [Defects4J](https://
 
 The pipeline follows a **Scientific Debugging** methodology — observation → hypothesis → prediction → experiment → conclusion — to classify each bug into one of 7 ODC defect types with grounded, code-level reasoning.
 
-For large-scale evaluation, the CLI also supports batch-study commands: `study-plan`, `study-run`, and `study-analyze`.
+The default way to use the tool is now the interactive CLI: launch `d4j-odc` (or `python -m d4j_odc_pipeline`) with no arguments, then work from the `odc>` shell using slash commands such as `/run`, `/study plan`, and `/show classification`. The original argument-based command style is still supported for scripts, CI, notebooks, and existing workflows. Any old invocation like `python -m d4j_odc_pipeline run ...` remains valid.
+
+For large-scale evaluation, the CLI also supports batch-study commands: `/study plan`, `/study run`, and `/study analyze` in interactive mode, or `study-plan`, `study-run`, and `study-analyze` in script mode.
 
 For multi-fault analysis, the pipeline integrates with [defects4j-mf](https://github.com/DCallaz/defects4j-mf) data via the `multifault` and `multifault-enrich` commands.
 
@@ -16,10 +18,29 @@ For multi-fault analysis, the pipeline integrates with [defects4j-mf](https://gi
 # 1. Setup (see docs/SETUP.md for full instructions)
 pip install -r requirements.txt && pip install -e .
 
-# 2. Run a single bug classification (pre-fix)
-python -m d4j_odc_pipeline run --project Lang --bug 1 --skip-coverage
+# 2. Launch the interactive CLI (recommended)
+d4j-odc
 
-# 3. Run a batch study
+# If the console script is not on PATH, this launches the same CLI:
+python -m d4j_odc_pipeline
+```
+
+Inside the `odc>` shell:
+
+```text
+odc> /doctor
+odc> /run --project Lang --bug 1
+odc> /show classification
+
+odc> /study plan --target-bugs 68
+odc> /study run --manifest manifest_68.json
+odc> /study analyze --manifest manifest_68.json
+```
+
+Backwards-compatible script mode still works whenever you pass a command:
+
+```bash
+python -m d4j_odc_pipeline run --project Lang --bug 1 --skip-coverage
 python -m d4j_odc_pipeline study-plan --target-bugs 68
 python -m d4j_odc_pipeline study-run --manifest manifest_68.json --skip-coverage
 python -m d4j_odc_pipeline study-analyze --manifest manifest_68.json
@@ -29,17 +50,36 @@ python -m d4j_odc_pipeline study-analyze --manifest manifest_68.json
 
 ## Documentation
 
-| Document                                         | Contents                                                                                                                                                                             |
-| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [**docs/SETUP.md**](docs/SETUP.md)               | Installation for Windows+WSL and native Linux, Defects4J setup, Python environment, `.env` configuration, provider options                                                           |
-| [**docs/USAGE.md**](docs/USAGE.md)               | All CLI commands with examples (`collect`, `classify`, `run`, `compare`, `study-*`, `multifault`, `d4j`), parameter reference tables, coverage/fix-diff modes, output file reference |
-| [**docs/ARCHITECTURE.md**](docs/ARCHITECTURE.md) | Pipeline architecture diagrams, Defects4J evidence flow, ODC taxonomy, `classification.json` schema, project structure, design choices                                               |
-| [**AGENTS.md**](AGENTS.md)                       | Agent-facing codebase map: module guide, execution flows, artifact contracts, extension patterns                                                                                     |
-| [**docs/eval_defence.md**](docs/eval_defence.md) | Scientific defence for pre-fix/post-fix evaluation methodology                                                                                                                       |
+| Document                                         | Contents                                                                                                                                                       |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [**docs/SETUP.md**](docs/SETUP.md)               | Installation for Windows+WSL and native Linux, Defects4J setup, Python environment, `.env` configuration, provider options                                     |
+| [**docs/USAGE.md**](docs/USAGE.md)               | Interactive CLI workflow, slash command reference, backwards-compatible script-mode commands, parameter tables, coverage/fix-diff modes, output file reference |
+| [**docs/ARCHITECTURE.md**](docs/ARCHITECTURE.md) | Pipeline architecture diagrams, Defects4J evidence flow, ODC taxonomy, `classification.json` schema, project structure, design choices                         |
+| [**AGENTS.md**](AGENTS.md)                       | Agent-facing codebase map: module guide, execution flows, artifact contracts, extension patterns                                                               |
+| [**docs/eval_defence.md**](docs/eval_defence.md) | Scientific defence for pre-fix/post-fix evaluation methodology                                                                                                 |
 
 ---
 
-## CLI Commands at a Glance
+## CLI Usage at a Glance
+
+Recommended interactive commands:
+
+| REPL command            | Purpose                                              |
+| ----------------------- | ---------------------------------------------------- |
+| `/doctor`               | Check Defects4J, API keys, Python, and environment   |
+| `/run`                  | End-to-end: collect evidence + classify (single bug) |
+| `/collect`              | Build `context.json` from Defects4J evidence only    |
+| `/classify`             | Classify an existing `context.json` via LLM          |
+| `/show classification`  | Pretty-print the last classification result          |
+| `/show report`          | Render the last markdown report in the terminal      |
+| `/study plan`           | Generate a balanced bug manifest for batch studies   |
+| `/study run`            | Execute paired prefix/postfix runs from a manifest   |
+| `/study analyze`        | Cross-artifact analysis over study outputs           |
+| `/multifault`           | Query multi-fault co-existence data                  |
+| `/enrich`               | Enrich classification with multi-fault context       |
+| `/d4j pids\|bids\|info` | Defects4J proxy commands                             |
+
+Backwards-compatible script-mode commands:
 
 | Command                | Purpose                                              |
 | ---------------------- | ---------------------------------------------------- |
@@ -55,7 +95,7 @@ python -m d4j_odc_pipeline study-analyze --manifest manifest_68.json
 | `multifault-enrich`    | Enrich classification with multi-fault context       |
 | `d4j pids\|bids\|info` | Defects4J proxy commands                             |
 
-Most parameters have **smart defaults** — see [docs/USAGE.md](docs/USAGE.md) for details.
+Most parameters have **smart defaults** in both modes. See [docs/USAGE.md](docs/USAGE.md) for tab completion, file pickers, session persistence, and full command examples.
 
 ---
 
@@ -87,7 +127,8 @@ Most parameters have **smart defaults** — see [docs/USAGE.md](docs/USAGE.md) f
 
 ```bash
 d4j_odc_pipeline/
-├── cli.py             # CLI surface and command dispatch
+├── cli.py             # CLI entrypoint and script-mode command dispatch
+├── interactive/       # REPL app, slash commands, completion, session state
 ├── pipeline.py        # Core orchestration
 ├── batch.py           # Batch manifest, execution, analysis
 ├── defects4j.py       # Defects4J wrapper
