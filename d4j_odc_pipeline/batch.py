@@ -429,6 +429,197 @@ def run_batch_from_manifest(
     return summary
 
 
+def run_baseline_from_manifest(
+    *,
+    defects4j: Defects4JClient,
+    manifest: dict[str, Any],
+    baseline_root: Path,
+    work_root: Path,
+    scientific_artifacts_root: Path | None = None,
+    provider: str,
+    model: str,
+    api_key_env: str | None,
+    base_url: str | None,
+    prompt_style: str = "direct",
+    snippet_radius: int = 12,
+    run_coverage: bool = False,
+    skip_existing: bool = True,
+    prompt_output: bool = False,
+) -> dict[str, Any]:
+    """Run baseline (prefix-only) classifications for RQ2.2 comparison.
+
+    This function runs ONLY prefix classifications using the specified prompt
+    style (default: ``direct``).  When ``scientific_artifacts_root`` is provided
+    and a context.json already exists for a bug, it reuses that context
+    instead of re-collecting evidence — ensuring the baseline sees *exactly*
+    the same evidence as the scientific run.
+
+    Output layout:
+        baseline_root/<project>_<bug>_prefix/classification.json
+        baseline_root/<project>_<bug>_prefix/report.md
+    """
+    entries = list(manifest.get("entries", []))
+    if not entries:
+        raise ValueError("Manifest contains no entries.")
+
+    ensure_parent(baseline_root / "placeholder.json")
+    ensure_parent(work_root / "placeholder.txt")
+
+    manifest_hash = _compute_manifest_hash(entries)
+    checkpoint_path = baseline_root / "checkpoint.json"
+    completed_keys = _load_checkpoint(checkpoint_path, manifest_hash)
+
+    records: list[dict[str, Any]] = []
+    interrupted = False
+
+    from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, MofNCompleteColumn, TimeElapsedColumn
+
+    con = console.get_console()
+    progress_ctx = Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        MofNCompleteColumn(),
+        TimeElapsedColumn(),
+        console=con,
+        disable=console.is_quiet() or con is None,
+    )
+
+    with progress_ctx as progress:
+        task_id = progress.add_task("Baseline processing", total=len(entries))
+
+        for index, entry in enumerate(entries, start=1):
+            if is_shutdown_requested():
+                console.warn(f"Shutdown requested — stopping after {index - 1}/{len(entries)} entries")
+                interrupted = True
+                break
+
+            project_id = str(entry.get("project_id", "")).strip()
+            bug_id = int(entry.get("bug_id", 0))
+            if not project_id or bug_id <= 0:
+                records.append({
+                    "index": index,
+                    "project_id": project_id,
+                    "bug_id": bug_id,
+                    "status": "invalid-manifest-entry",
+                })
+                progress.advance(task_id)
+                continue
+
+            bug_key = f"{project_id}_{bug_id}"
+
+            if bug_key in completed_keys:
+                progress.update(task_id, description=f"[dim]{bug_key} (checkpoint-skip)[/dim]")
+                records.append({
+                    "index": index,
+                    "project_id": project_id,
+                    "bug_id": bug_id,
+                    "bug_key": bug_key,
+                    "status": "skipped-existing",
+                })
+                progress.advance(task_id)
+                continue
+
+            progress.update(task_id, description=f"[cyan]{bug_key} baseline[/cyan] [{index}/{len(entries)}]")
+
+            run_name = f"{bug_key}_prefix"
+            run_dir = baseline_root / run_name
+            context_path = run_dir / "context.json"
+            classification_path = run_dir / "classification.json"
+            report_path = run_dir / "report.md"
+            prompt_path = run_dir / "prompt.json" if prompt_output else None
+
+            record: dict[str, Any] = {
+                "index": index,
+                "project_id": project_id,
+                "bug_id": bug_id,
+                "bug_key": bug_key,
+                "status": "pending",
+            }
+
+            if skip_existing and classification_path.exists() and report_path.exists():
+                record["status"] = "skipped-existing"
+                records.append(record)
+                progress.advance(task_id)
+                continue
+
+            try:
+                # Reuse context from scientific run if available
+                reused_context = False
+                if scientific_artifacts_root:
+                    sci_context = scientific_artifacts_root / "prefix" / run_name / "context.json"
+                    if sci_context.exists():
+                        from .pipeline import load_context
+                        context = load_context(sci_context)
+                        reused_context = True
+
+                if not reused_context:
+                    run_work_dir = work_root / f"{project_id}_{bug_id}b"
+                    context = collect_bug_context(
+                        defects4j=defects4j,
+                        project_id=project_id,
+                        bug_id=bug_id,
+                        work_dir=run_work_dir,
+                        output_path=context_path,
+                        snippet_radius=snippet_radius,
+                        run_coverage=run_coverage,
+                        include_fix_diff=False,
+                    )
+
+                if is_shutdown_requested():
+                    record["status"] = "interrupted"
+                    interrupted = True
+                    records.append(record)
+                    break
+
+                classification = classify_bug_context(
+                    context=context,
+                    prompt_style=prompt_style,
+                    output_path=classification_path,
+                    provider=provider,
+                    model=model,
+                    api_key_env=api_key_env,
+                    base_url=base_url,
+                    prompt_output_path=prompt_path,
+                    dry_run=False,
+                )
+
+                if classification is None:
+                    raise ValueError("Classification returned None.")
+
+                write_markdown_report(
+                    context=context,
+                    classification=classification,
+                    output_path=report_path,
+                )
+                record["status"] = "ok"
+                record["reused_context"] = reused_context
+            except Exception as exc:  # noqa: BLE001
+                record["status"] = "failed"
+                record["error"] = str(exc)
+
+            records.append(record)
+            _write_checkpoint(checkpoint_path, records, manifest_hash, interrupted=False)
+            progress.advance(task_id)
+
+    _write_checkpoint(checkpoint_path, records, manifest_hash, interrupted=interrupted)
+
+    completed_count = sum(1 for r in records if r.get("status") in {"ok", "skipped-existing"})
+
+    return {
+        "created_at": utc_now_iso(),
+        "prompt_style": prompt_style,
+        "manifest_target_bugs": manifest.get("target_bugs"),
+        "total_entries": len(records),
+        "completed_entries": completed_count,
+        "interrupted": interrupted,
+        "ok_count": sum(1 for r in records if r.get("status") == "ok"),
+        "reused_context_count": sum(1 for r in records if r.get("reused_context")),
+        "projects_covered": sorted({str(r.get("project_id", "")) for r in records if r.get("project_id")}),
+        "records": records,
+    }
+
+
 def analyze_batch_artifacts(
     *,
     prefix_dir: Path,

@@ -808,6 +808,46 @@ def _validate_classification_payload(
         return [str(item).strip() for item in value if str(item).strip()]
 
     odc_type = payload.get("odc_type")
+    # Naive prompt style: free-form labels, no ODC validation (RQ2.3).
+    # The raw defect_type is stored in odc_type for unified artifact schema.
+    if prompt_style == "naive":
+        free_label = str(payload.get("defect_type", payload.get("odc_type", "unknown"))).strip()
+        confidence = float(payload.get("confidence", 0.0))
+        # Naive confidence is 0-100 scale; normalize to 0-1 for consistency.
+        if confidence > 1.0:
+            confidence = confidence / 100.0
+        confidence = min(1.0, max(0.0, confidence))
+        return ClassificationResult(
+            project_id=context.project_id,
+            bug_id=context.bug_id,
+            version_id=context.version_id,
+            prompt_style=prompt_style,
+            model=model,
+            provider=provider,
+            created_at=utc_now_iso(),
+            odc_type=free_label,  # Free-form label stored here
+            family=None,  # No ODC family for naive classifications
+            confidence=confidence,
+            needs_human_review=bool(payload.get("needs_human_review", False)),
+            observation_summary=str(payload.get("symptom", "")).strip(),
+            hypothesis="",
+            prediction="",
+            experiment_rationale="",
+            reasoning_summary=str(payload.get("reasoning_summary", "")).strip(),
+            evidence_used=[],
+            evidence_gaps=[],
+            alternative_types=[],
+            target=None,
+            qualifier=None,
+            age=None,
+            source=None,
+            inferred_activity=None,
+            inferred_triggers=[],
+            inferred_impact=[],
+            evidence_mode="post-fix" if context.fix_diff else "pre-fix",
+            raw_response=raw_response,
+        )
+
     if odc_type not in ODC_TYPE_NAMES:
         raise LLMError(f"Invalid or missing odc_type in LLM output: {odc_type!r}")
     confidence = float(payload.get("confidence", 0.0))

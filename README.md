@@ -2,11 +2,11 @@
 
 A research pipeline that collects pre-fix bug evidence from [Defects4J](https://github.com/rjust/defects4j), classifies it into ODC (**Orthogonal Defect Classification**) defect types using an LLM (Gemini by default, OpenRouter as fallback), and saves machine-readable outputs for evaluation.
 
-The pipeline follows a **Scientific Debugging** methodology — observation → hypothesis → prediction → experiment → conclusion — to classify each bug into one of 7 ODC defect types with grounded, code-level reasoning.
+The pipeline follows a **Scientific Debugging** methodology — observation → hypothesis → prediction → experiment → conclusion — to classify each bug into one of 7 ODC defect types with grounded, code-level reasoning. A `direct` (zero-shot) baseline prompt style is also available for controlled evaluation.
 
 The default way to use the tool is now the interactive CLI: launch `d4j-odc` (or `python -m d4j_odc_pipeline`) with no arguments, then work from the `odc>` shell using slash commands such as `/run`, `/study plan`, and `/show classification`. The original argument-based command style is still supported for scripts, CI, notebooks, and existing workflows. Any old invocation like `python -m d4j_odc_pipeline run ...` remains valid.
 
-For large-scale evaluation, the CLI also supports batch-study commands: `/study plan`, `/study run`, and `/study analyze` in interactive mode, or `study-plan`, `study-run`, and `study-analyze` in script mode.
+For large-scale evaluation, the CLI also supports batch-study commands: `/study plan`, `/study run`, `/study analyze`, `/study baseline`, and `/study export` in interactive mode, or `study-plan`, `study-run`, `study-analyze`, `study-baseline`, and `study-export` in script mode.
 
 For multi-fault analysis, the pipeline integrates with [defects4j-mf](https://github.com/DCallaz/defects4j-mf) data via the `multifault` and `multifault-enrich` commands.
 
@@ -35,6 +35,8 @@ odc> /show classification
 odc> /study plan --target-bugs 68
 odc> /study run --manifest manifest_68.json
 odc> /study analyze --manifest manifest_68.json
+odc> /study baseline --manifest manifest_68.json
+odc> /study export --analysis analysis_68.json
 ```
 
 Backwards-compatible script mode still works whenever you pass a command:
@@ -44,6 +46,8 @@ python -m d4j_odc_pipeline run --project Lang --bug 1 --skip-coverage
 python -m d4j_odc_pipeline study-plan --target-bugs 68
 python -m d4j_odc_pipeline study-run --manifest manifest_68.json --skip-coverage
 python -m d4j_odc_pipeline study-analyze --manifest manifest_68.json
+python -m d4j_odc_pipeline study-baseline --manifest manifest_68.json
+python -m d4j_odc_pipeline study-export --analysis .dist/study/analysis_68.json
 ```
 
 ---
@@ -55,6 +59,7 @@ python -m d4j_odc_pipeline study-analyze --manifest manifest_68.json
 | [**docs/SETUP.md**](docs/SETUP.md)               | Installation for Windows+WSL and native Linux, Defects4J setup, Python environment, `.env` configuration, provider options                                     |
 | [**docs/USAGE.md**](docs/USAGE.md)               | Interactive CLI workflow, slash command reference, backwards-compatible script-mode commands, parameter tables, coverage/fix-diff modes, output file reference |
 | [**docs/ARCHITECTURE.md**](docs/ARCHITECTURE.md) | Pipeline architecture diagrams, Defects4J evidence flow, ODC taxonomy, `classification.json` schema, project structure, design choices                         |
+| [**docs/METHODOLOGY.md**](docs/METHODOLOGY.md)   | Research methodology: RQ structure, evaluation framework, statistical tests, prompt style rationale, artifact layout                                            |
 | [**AGENTS.md**](AGENTS.md)                       | Agent-facing codebase map: module guide, execution flows, artifact contracts, extension patterns                                                               |
 | [**docs/eval_defence.md**](docs/eval_defence.md) | Scientific defence for pre-fix/post-fix evaluation methodology                                                                                                 |
 
@@ -75,6 +80,8 @@ Recommended interactive commands:
 | `/study plan`           | Generate a balanced bug manifest for batch studies   |
 | `/study run`            | Execute paired prefix/postfix runs from a manifest   |
 | `/study analyze`        | Cross-artifact analysis over study outputs           |
+| `/study baseline`       | Run baseline (direct) classifications for comparison |
+| `/study export`         | Export analysis results as LaTeX tables and CSV      |
 | `/multifault`           | Query multi-fault co-existence data                  |
 | `/enrich`               | Enrich classification with multi-fault context       |
 | `/d4j pids\|bids\|info` | Defects4J proxy commands                             |
@@ -91,6 +98,8 @@ Backwards-compatible script-mode commands:
 | `study-plan`           | Generate a balanced bug manifest for batch studies   |
 | `study-run`            | Execute paired prefix/postfix runs from a manifest   |
 | `study-analyze`        | Cross-artifact analysis over study outputs           |
+| `study-baseline`       | Run baseline (direct) classifications for comparison |
+| `study-export`         | Export analysis results as LaTeX tables and CSV      |
 | `multifault`           | Query multi-fault co-existence data                  |
 | `multifault-enrich`    | Enrich classification with multi-fault context       |
 | `d4j pids\|bids\|info` | Defects4J proxy commands                             |
@@ -115,10 +124,24 @@ Most parameters have **smart defaults** in both modes. See [docs/USAGE.md](docs/
     ├── summary.json
     ├── analysis_68.json
     ├── analysis_68.md
-    └── artifacts_68/
-        ├── prefix/
-        ├── postfix/
-        └── checkpoint.json
+    ├── baseline_summary.json
+    ├── artifacts_68/
+    │   ├── prefix/
+    │   ├── postfix/
+    │   └── checkpoint.json
+    ├── baseline_68/                   # Baseline (direct prompt) classifications
+    │   ├── Lang_1_prefix/
+    │   │   ├── classification.json
+    │   │   └── report.md
+    │   └── checkpoint.json
+    ├── latex/                         # LaTeX table exports (study-export)
+    │   ├── type_distribution.tex
+    │   ├── accuracy.tex
+    │   ├── confusion_matrix.tex
+    │   └── per_project_kappa.tex
+    └── csv/                           # CSV exports for R/SPSS (study-export)
+        ├── per_bug_comparison.csv
+        └── type_distribution.csv
 ```
 
 ---
@@ -130,14 +153,16 @@ d4j_odc_pipeline/
 ├── cli.py             # CLI entrypoint and script-mode command dispatch
 ├── interactive/       # REPL app, slash commands, completion, session state
 ├── pipeline.py        # Core orchestration
-├── batch.py           # Batch manifest, execution, analysis
+├── batch.py           # Batch manifest, execution, baseline runner, analysis
 ├── defects4j.py       # Defects4J wrapper
 ├── llm.py             # LLM provider abstraction
-├── prompting.py       # Prompt engineering
+├── prompting.py       # Prompt engineering (scientific + direct baseline)
 ├── odc.py             # ODC taxonomy
 ├── models.py          # Data models
 ├── parsing.py         # Stack trace + JSON parsing
-├── comparison.py      # Evaluation metrics
+├── comparison.py      # Evaluation metrics + per-project Kappa
+├── analysis.py        # Cross-study statistical analysis (RQ1–RQ4)
+├── results_export.py  # LaTeX table + CSV export for manuscript
 ├── multifault.py      # Multi-fault data loader
 ├── web_fetch.py       # Bug report fetcher
 └── console.py         # Rich output helpers

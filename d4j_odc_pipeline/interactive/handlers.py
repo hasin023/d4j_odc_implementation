@@ -567,8 +567,14 @@ def handle_study(app: "ODCApp", args: str) -> None:
         _study_run(app, sub_args)
     elif sub == "analyze":
         _study_analyze(app, sub_args)
+    elif sub == "baseline":
+        _study_baseline(app, sub_args)
+    elif sub == "naive":
+        _study_naive(app, sub_args)
+    elif sub == "export":
+        _study_export(app, sub_args)
     else:
-        app.console.print("[yellow]Usage: /study <plan|run|analyze> [options][/yellow]")
+        app.console.print("[yellow]Usage: /study <plan|run|analyze|baseline|naive|export> [options][/yellow]")
 
 
 def _study_plan(app: "ODCApp", args: str) -> None:
@@ -858,6 +864,340 @@ def _study_analyze(app: "ODCApp", args: str) -> None:
         },
         title="Study Analysis Summary",
     )
+
+
+def _study_baseline(app: "ODCApp", args: str) -> None:
+    tokens = shlex.split(args) if args.strip() else []
+    manifest_path = None
+    baseline_root: Path | None = None
+    work_root: Path | None = None
+    scientific_artifacts_root: Path | None = None
+    summary_output: Path | None = None
+    no_skip_existing = False
+    prompt_output = False
+
+    i = 0
+    while i < len(tokens):
+        token = tokens[i]
+        if token == "--manifest" and i + 1 < len(tokens):
+            manifest_path = tokens[i + 1]; i += 2
+        elif token == "--baseline-root" and i + 1 < len(tokens):
+            baseline_root = Path(tokens[i + 1]); i += 2
+        elif token == "--work-root" and i + 1 < len(tokens):
+            work_root = Path(tokens[i + 1]); i += 2
+        elif token == "--scientific-artifacts-root" and i + 1 < len(tokens):
+            scientific_artifacts_root = Path(tokens[i + 1]); i += 2
+        elif token == "--summary-output" and i + 1 < len(tokens):
+            summary_output = Path(tokens[i + 1]); i += 2
+        elif token == "--no-skip-existing":
+            no_skip_existing = True; i += 1
+        elif token == "--prompt-output":
+            prompt_output = True; i += 1
+        else:
+            i += 1
+
+    if not manifest_path:
+        manifests = discover_manifests()
+        if manifests:
+            picked = pick_file_interactive(manifests, title="Select study manifest")
+            if picked:
+                manifest_path = str(picked)
+    if not manifest_path:
+        app.console.print("[red]No manifest found. Run /study plan first.[/red]")
+        return
+
+    mp = Path(manifest_path)
+    if not mp.exists():
+        mp = Path(".dist") / "study" / manifest_path
+    if not mp.exists():
+        app.console.print(f"[red]Manifest not found: {manifest_path}[/red]")
+        return
+
+    from .. import console as pipeline_console
+    from ..batch import install_signal_handlers, load_manifest, reset_shutdown, run_baseline_from_manifest
+    from ..pipeline import write_json
+
+    previous_console = pipeline_console.get_console()
+    previous_quiet = pipeline_console.is_quiet()
+    previous_sigint = signal.getsignal(signal.SIGINT)
+    previous_sigbreak = signal.getsignal(signal.SIGBREAK) if hasattr(signal, "SIGBREAK") else None
+
+    pipeline_console.bind_console(app.console, quiet=False)
+    install_signal_handlers()
+    reset_shutdown()
+
+    try:
+        client = _get_client(app)
+        manifest = load_manifest(mp)
+        target_bugs = manifest.get("target_bugs", manifest.get("selected_bugs", 0))
+        dist_study = Path(".dist") / "study"
+
+        if baseline_root is None:
+            baseline_root = dist_study / f"baseline_{target_bugs}"
+        if work_root is None:
+            work_root = dist_study / "work"
+        if summary_output is None:
+            summary_output = dist_study / "baseline_summary.json"
+
+        llm = _get_llm_kwargs(app)
+        app.console.print(f"  [cyan]Running baseline from {mp.name}...[/cyan]")
+        app.console.print(f"  [dim]Baseline root  -> {baseline_root}[/dim]")
+        app.console.print(f"  [dim]Prompt style   -> direct[/dim]")
+        if scientific_artifacts_root:
+            app.console.print(f"  [dim]Reuse context  -> {scientific_artifacts_root}[/dim]")
+        app.console.print("  [dim]Ctrl+C once for graceful stop, twice to force stop.[/dim]")
+
+        try:
+            summary = run_baseline_from_manifest(
+                defects4j=client,
+                manifest=manifest,
+                baseline_root=baseline_root,
+                work_root=work_root,
+                scientific_artifacts_root=scientific_artifacts_root,
+                provider=llm["provider"],
+                model=llm["model"],
+                api_key_env=llm["api_key_env"],
+                base_url=llm["base_url"],
+                prompt_style="direct",
+                snippet_radius=app.state.snippet_radius,
+                run_coverage=not app.state.skip_coverage,
+                skip_existing=not no_skip_existing,
+                prompt_output=prompt_output,
+            )
+        except SystemExit as exc:
+            if exc.code == 130:
+                app.console.print("  [yellow]Force stop. Returning to interactive prompt.[/yellow]")
+                return
+            raise
+        except KeyboardInterrupt:
+            app.console.print("  [yellow]Interrupted. Returning to interactive prompt.[/yellow]")
+            return
+
+        write_json(summary_output, summary)
+
+        status_label = "Baseline interrupted" if summary.get("interrupted") else "Baseline complete"
+        app.console.print(f"  [green]✓[/green] {status_label}")
+        rendering.render_json_panel(
+            app.console,
+            {
+                "summary_output": str(summary_output),
+                "completed": summary.get("completed_entries", 0),
+                "reused_context": summary.get("reused_context_count", 0),
+            },
+            title="Baseline Summary",
+        )
+    finally:
+        reset_shutdown()
+        signal.signal(signal.SIGINT, previous_sigint)
+        if hasattr(signal, "SIGBREAK") and previous_sigbreak is not None:
+            signal.signal(signal.SIGBREAK, previous_sigbreak)
+        pipeline_console.bind_console(previous_console, quiet=previous_quiet)
+
+
+def _study_naive(app: "ODCApp", args: str) -> None:
+    tokens = shlex.split(args) if args.strip() else []
+    manifest_path = None
+    naive_root: Path | None = None
+    work_root: Path | None = None
+    scientific_artifacts_root: Path | None = None
+    summary_output: Path | None = None
+    no_skip_existing = False
+    prompt_output = False
+
+    i = 0
+    while i < len(tokens):
+        token = tokens[i]
+        if token == "--manifest" and i + 1 < len(tokens):
+            manifest_path = tokens[i + 1]; i += 2
+        elif token == "--naive-root" and i + 1 < len(tokens):
+            naive_root = Path(tokens[i + 1]); i += 2
+        elif token == "--work-root" and i + 1 < len(tokens):
+            work_root = Path(tokens[i + 1]); i += 2
+        elif token == "--scientific-artifacts-root" and i + 1 < len(tokens):
+            scientific_artifacts_root = Path(tokens[i + 1]); i += 2
+        elif token == "--summary-output" and i + 1 < len(tokens):
+            summary_output = Path(tokens[i + 1]); i += 2
+        elif token == "--no-skip-existing":
+            no_skip_existing = True; i += 1
+        elif token == "--prompt-output":
+            prompt_output = True; i += 1
+        else:
+            i += 1
+
+    if not manifest_path:
+        manifests = discover_manifests()
+        if manifests:
+            picked = pick_file_interactive(manifests, title="Select study manifest")
+            if picked:
+                manifest_path = str(picked)
+    if not manifest_path:
+        app.console.print("[red]No manifest found. Run /study plan first.[/red]")
+        return
+
+    mp = Path(manifest_path)
+    if not mp.exists():
+        mp = Path(".dist") / "study" / manifest_path
+    if not mp.exists():
+        app.console.print(f"[red]Manifest not found: {manifest_path}[/red]")
+        return
+
+    from .. import console as pipeline_console
+    from ..batch import install_signal_handlers, load_manifest, reset_shutdown, run_baseline_from_manifest
+    from ..pipeline import write_json
+
+    previous_console = pipeline_console.get_console()
+    previous_quiet = pipeline_console.is_quiet()
+    previous_sigint = signal.getsignal(signal.SIGINT)
+    previous_sigbreak = signal.getsignal(signal.SIGBREAK) if hasattr(signal, "SIGBREAK") else None
+
+    pipeline_console.bind_console(app.console, quiet=False)
+    install_signal_handlers()
+    reset_shutdown()
+
+    try:
+        client = _get_client(app)
+        manifest = load_manifest(mp)
+        target_bugs = manifest.get("target_bugs", manifest.get("selected_bugs", 0))
+        dist_study = Path(".dist") / "study"
+
+        if naive_root is None:
+            naive_root = dist_study / f"naive_{target_bugs}"
+        if work_root is None:
+            work_root = dist_study / "work"
+        if summary_output is None:
+            summary_output = dist_study / "naive_summary.json"
+
+        llm = _get_llm_kwargs(app)
+        app.console.print(f"  [cyan]Running naive (taxonomy-free) from {mp.name}...[/cyan]")
+        app.console.print(f"  [dim]Naive root     -> {naive_root}[/dim]")
+        app.console.print(f"  [dim]Prompt style   -> naive (no ODC taxonomy)[/dim]")
+        if scientific_artifacts_root:
+            app.console.print(f"  [dim]Reuse context  -> {scientific_artifacts_root}[/dim]")
+        app.console.print("  [dim]Ctrl+C once for graceful stop, twice to force stop.[/dim]")
+
+        try:
+            summary = run_baseline_from_manifest(
+                defects4j=client,
+                manifest=manifest,
+                baseline_root=naive_root,
+                work_root=work_root,
+                scientific_artifacts_root=scientific_artifacts_root,
+                provider=llm["provider"],
+                model=llm["model"],
+                api_key_env=llm["api_key_env"],
+                base_url=llm["base_url"],
+                prompt_style="naive",
+                snippet_radius=app.state.snippet_radius,
+                run_coverage=not app.state.skip_coverage,
+                skip_existing=not no_skip_existing,
+                prompt_output=prompt_output,
+            )
+        except SystemExit as exc:
+            if exc.code == 130:
+                app.console.print("  [yellow]Force stop. Returning to interactive prompt.[/yellow]")
+                return
+            raise
+        except KeyboardInterrupt:
+            app.console.print("  [yellow]Interrupted. Returning to interactive prompt.[/yellow]")
+            return
+
+        write_json(summary_output, summary)
+
+        status_label = "Naive run interrupted" if summary.get("interrupted") else "Naive run complete"
+        app.console.print(f"  [green]\u2713[/green] {status_label}")
+        rendering.render_json_panel(
+            app.console,
+            {
+                "summary_output": str(summary_output),
+                "completed": summary.get("completed_entries", 0),
+                "reused_context": summary.get("reused_context_count", 0),
+            },
+            title="Naive Summary",
+        )
+    finally:
+        reset_shutdown()
+        signal.signal(signal.SIGINT, previous_sigint)
+        if hasattr(signal, "SIGBREAK") and previous_sigbreak is not None:
+            signal.signal(signal.SIGBREAK, previous_sigbreak)
+        pipeline_console.bind_console(previous_console, quiet=previous_quiet)
+
+
+def _study_export(app: "ODCApp", args: str) -> None:
+    tokens = shlex.split(args) if args.strip() else []
+    analysis_path = None
+    output_dir: Path | None = None
+    export_format = "both"
+
+    i = 0
+    while i < len(tokens):
+        token = tokens[i]
+        if token == "--analysis" and i + 1 < len(tokens):
+            analysis_path = tokens[i + 1]; i += 2
+        elif token == "--output-dir" and i + 1 < len(tokens):
+            output_dir = Path(tokens[i + 1]); i += 2
+        elif token == "--format" and i + 1 < len(tokens):
+            export_format = tokens[i + 1]; i += 2
+        else:
+            i += 1
+
+    if not analysis_path:
+        # Try to find the most recent analysis JSON
+        study_dir = Path(".dist") / "study"
+        candidates = sorted(study_dir.glob("analysis_*.json")) if study_dir.is_dir() else []
+        if candidates:
+            analysis_path = str(candidates[-1])
+        else:
+            app.console.print("[red]No analysis JSON found. Run /study analyze first or pass --analysis PATH.[/red]")
+            return
+
+    ap = Path(analysis_path)
+    if not ap.exists():
+        ap = Path(".dist") / "study" / analysis_path
+    if not ap.exists():
+        app.console.print(f"[red]Analysis file not found: {analysis_path}[/red]")
+        return
+
+    from ..results_export import (
+        export_accuracy_table_latex,
+        export_baseline_comparison_latex,
+        export_confusion_matrix_latex,
+        export_per_project_kappa_latex,
+        export_type_distribution_latex,
+        export_all_csv,
+    )
+
+    analysis = json.loads(ap.read_text(encoding="utf-8"))
+    out_dir = output_dir or ap.parent
+
+    written: list[str] = []
+
+    if export_format in ("latex", "both"):
+        latex_dir = out_dir / "latex"
+        latex_dir.mkdir(parents=True, exist_ok=True)
+        tables = [
+            ("type_distribution.tex", export_type_distribution_latex),
+            ("accuracy.tex", export_accuracy_table_latex),
+            ("confusion_matrix.tex", export_confusion_matrix_latex),
+            ("per_project_kappa.tex", export_per_project_kappa_latex),
+        ]
+        if analysis.get("baseline_comparison"):
+            tables.append(("baseline_comparison.tex", export_baseline_comparison_latex))
+        for filename, func in tables:
+            try:
+                content = func(analysis)
+                (latex_dir / filename).write_text(content, encoding="utf-8")
+                written.append(f"latex/{filename}")
+            except Exception as exc:  # noqa: BLE001
+                app.console.print(f"  [yellow]Skipped {filename}: {exc}[/yellow]")
+
+    if export_format in ("csv", "both"):
+        csv_dir = out_dir / "csv"
+        csv_files = export_all_csv(analysis, csv_dir)
+        written.extend(f"csv/{p.name}" for p in csv_files)
+
+    app.console.print(f"  [green]✓[/green] Export complete → {out_dir}")
+    for w in written:
+        app.console.print(f"    {w}")
 
 
 # ---------------------------------------------------------------------------

@@ -41,7 +41,7 @@ flowchart TD
 ```mermaid
 flowchart TD
     A[Load context.json] --> B[Build System Prompt]
-    B --> |"ODC taxonomy with indicators\n+ 7-question diagnostic tree\n+ 5 few-shot examples\n+ scientific debugging protocol\n+ JSON contract schema"| C[Build User Prompt]
+    B --> |"Prompt style determines content:\n• scientific: taxonomy + protocol +\n  7-question tree + 5 few-shots\n• direct: taxonomy + JSON contract\n  + anti-bias rules only"| C[Build User Prompt]
     C --> |"Evidence payload:\n• project/bug/version identity\n• d4j metadata fields\n• bug_info text from d4j info\n• bug_report_description\n• failing_tests + stack traces\n• suspicious_frames\n• production_code_snippets\n• test_code_snippets\n• coverage_summary\n• odc_opener_hints / odc_closer_hints\n• fix_diff_oracle (if post-fix)"| D[Call LLM API]
     D --> E[Parse & Extract JSON]
     E --> F{Valid odc_type?}
@@ -320,7 +320,9 @@ d4j_odc_pipeline/
 ├── odc.py             # ODC type definitions with indicators, boundaries, examples, and family mapping
 ├── models.py          # Data models: BugContext, ClassificationResult, CodeSnippet, StackFrame, Failure, CoverageClass
 ├── parsing.py         # Stack trace parser, JSON extraction from LLM output
-├── comparison.py      # Enhanced comparison: strict/top2/family, semantic distance, evidence asymmetry, divergence patterns, insights
+├── comparison.py      # Enhanced comparison: strict/top2/family, semantic distance, evidence asymmetry, divergence patterns, per-project κ
+├── analysis.py        # Cross-study statistical analysis: type distribution (RQ1.1), Impact vs Type (RQ1.2), semantic gap (RQ3.1), baseline comparison (RQ2.2)
+├── results_export.py  # LaTeX table and CSV export for manuscript/R/SPSS
 ├── multifault.py      # Multi-fault data loader for defects4j-mf: co-existing faults, locations, enrichment
 └── console.py         # Rich terminal output helpers (spinner, panels, tables)
 ```
@@ -338,10 +340,14 @@ d4j_odc_pipeline/
 - Bug report content is fetched from JIRA/GitHub and truncated to 12,000 chars to avoid prompt explosion.
 - ODC family is **always** derived from the canonical `odc.family_for()` mapping — the LLM's `family` field is overwritten to prevent drift.
 - Comparison uses a 4-tier hierarchy: Strict Match > Top-2 Match > Family Match > Cohen's Kappa, giving partial credit for near-misses.
+- **Per-project Kappa** — Cohen's Kappa is computed both globally and per Defects4J project (RQ4.1) to identify project-level reliability variation.
 - Defects4J supports both WSL mode (`DEFECTS4J_PATH_STYLE=wsl`) and native Linux mode (`DEFECTS4J_PATH_STYLE=native`).
 - **Batch runs are resumable** — `checkpoint.json` tracks completed entries; re-running `study-run` skips bugs that finished previously.
 - **Graceful shutdown** — Ctrl+C during `study-run` finishes the current bug, saves checkpoint, and exits cleanly. A second Ctrl+C force-quits.
 - **Standardized output layout** — standalone commands default to `.dist/runs/`, batch studies default to `.dist/study/`.
+- **Prompt style baseline** — the `direct` prompt style (zero-shot, no scientific protocol, no few-shots) serves as the controlled baseline for RQ2.2, isolating the contribution of prompt engineering.
+- **`study-baseline`** reuses `context.json` from the scientific run when `--scientific-artifacts-root` is provided, ensuring both conditions see identical evidence.
+- **`study-export`** generates LaTeX tables and CSV files from analysis JSON, ready for direct inclusion in the JSS manuscript.
 
 ---
 

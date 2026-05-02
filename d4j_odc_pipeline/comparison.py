@@ -460,6 +460,7 @@ class BatchComparisonResult:
     avg_semantic_distance: float = 0.0
     divergence_pattern_counts: dict[str, int] = field(default_factory=dict)
     avg_attribute_concordance: float | None = None
+    per_project_kappa: dict[str, float | None] = field(default_factory=dict)
     per_bug: list[dict[str, Any]] = field(default_factory=list)
     type_confusion_matrix: dict[str, dict[str, int]] = field(default_factory=dict)
 
@@ -636,6 +637,9 @@ def batch_compare(pairs: list[tuple[dict, dict]]) -> BatchComparisonResult:
         [(r.prefix_odc_type, r.postfix_odc_type) for r in results]
     )
 
+    # Per-project Cohen's Kappa (RQ4.1)
+    ppk = compute_per_project_kappa(results)
+
     # Extended aggregate metrics
     avg_dist = sum(r.semantic_distance for r in results) / n
     pattern_counts: dict[str, int] = {}
@@ -661,9 +665,30 @@ def batch_compare(pairs: list[tuple[dict, dict]]) -> BatchComparisonResult:
         avg_semantic_distance=round(avg_dist, 4),
         divergence_pattern_counts=pattern_counts,
         avg_attribute_concordance=round(avg_conc, 4) if avg_conc is not None else None,
+        per_project_kappa=ppk,
         per_bug=[r.to_dict() for r in results],
         type_confusion_matrix=confusion,
     )
+
+
+def compute_per_project_kappa(
+    results: list[ComparisonResult],
+) -> dict[str, float | None]:
+    """Compute Cohen's Kappa for each Defects4J project separately.
+
+    Returns: {"Lang": 0.72, "Math": 0.58, ...}
+    Projects with fewer than 2 bugs return None.
+    """
+    from collections import defaultdict
+    per_project: dict[str, list[tuple[str, str]]] = defaultdict(list)
+    for r in results:
+        per_project[r.project_id].append((r.prefix_odc_type, r.postfix_odc_type))
+
+    ppk: dict[str, float | None] = {}
+    for project in sorted(per_project):
+        kappa = compute_cohens_kappa(per_project[project])
+        ppk[project] = round(kappa, 4) if kappa is not None else None
+    return ppk
 
 
 def compute_cohens_kappa(pairs: list[tuple[str, str]]) -> float | None:
@@ -851,6 +876,20 @@ def _batch_comparison_report(r: BatchComparisonResult) -> list[str]:
         f"| Avg Semantic Distance | {r.avg_semantic_distance:.3f} | — |",
         "",
     ]
+
+    # Per-project Kappa table (RQ4.1)
+    if r.per_project_kappa:
+        lines.extend([
+            "## Per-Project Cohen's Kappa",
+            "",
+            "| Project | κ | Interpretation |",
+            "|---------|---|----------------|",
+        ])
+        for project, pk in sorted(r.per_project_kappa.items()):
+            pk_str = f"{pk:.3f}" if pk is not None else "N/A"
+            pk_interp = _interpret_kappa(pk)
+            lines.append(f"| {project} | {pk_str} | {pk_interp} |")
+        lines.append("")
 
     # Attribute concordance
     if r.avg_attribute_concordance is not None:

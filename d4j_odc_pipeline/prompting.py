@@ -17,6 +17,11 @@ def build_messages(context: BugContext, prompt_style: str) -> list[dict[str, str
 
 
 def _build_system_prompt(prompt_style: str, *, has_fix_diff: bool = False) -> str:
+    # Naive prompt: no ODC taxonomy, no structured labels, no anti-bias rules.
+    # The LLM receives only generic defect-analysis instructions.
+    if prompt_style == "naive":
+        return _build_naive_system_prompt(has_fix_diff=has_fix_diff)
+
     base = [
         "You are an expert software defect analyst specializing in Orthogonal Defect Classification (ODC).",
     ]
@@ -95,8 +100,9 @@ def _build_system_prompt(prompt_style: str, *, has_fix_diff: bool = False) -> st
                 "Work through these questions using the evidence provided, then choose the BEST matching type.",
             ]
         )
-    # Add few-shot examples for both styles
-    base.extend(["", _few_shot_examples()])
+        # Few-shot examples: only included with the scientific protocol to isolate
+        # the prompt engineering contribution for RQ2.2 baseline comparison.
+        base.extend(["", _few_shot_examples()])
     return "\n".join(base)
 
 
@@ -168,6 +174,23 @@ These examples show how to distinguish between ODC types using pre-fix evidence:
 def _build_user_prompt(context: BugContext, prompt_style: str) -> str:
     payload = _context_payload(context, prompt_style)
     evidence_mode = "post-fix (with buggy->fixed diff)" if context.fix_diff else "pre-fix only"
+
+    # Naive prompt: no ODC references in user prompt either.
+    if prompt_style == "naive":
+        rules = [
+            "Classify this bug based on the evidence below.",
+            f"Evidence mode: {evidence_mode}",
+            "",
+            "ANALYSIS RULES:",
+            "- Use ONLY the evidence provided.",
+            "- Examine code snippets carefully to determine the root cause.",
+            "- Focus on WHAT is wrong in the code, not just the symptom.",
+            "- Be specific and technical in your defect type label.",
+        ]
+        if context.fix_diff:
+            rules.append("- Examine the fix diff to see exactly what was changed.")
+        return "\n".join(rules) + "\n\nEvidence:\n" + json.dumps(payload, indent=2)
+
     rules = [
         "Classify this bug into one ODC defect type.",
         f"Evidence mode: {evidence_mode}",
@@ -230,8 +253,9 @@ def _context_payload(context: BugContext, prompt_style: str) -> dict:
             }
         )
 
-    # ── Separate production vs test code snippets ─────────────────────
-    snippet_limit = 8 if prompt_style == "scientific" else 5
+    # Both styles get the same evidence budget to avoid confounds in RQ2.2.
+    # The only difference between scientific and direct is the system prompt.
+    snippet_limit = 8
     prod_count = 0
     test_count = 0
     for snippet in context.code_snippets:
@@ -415,5 +439,60 @@ def _json_contract() -> str:
         '"evidence_used": ["specific evidence items from the input"], '
         '"evidence_gaps": ["missing evidence or ambiguity"], '
         '"alternative_types": [{"type": "ODC type", "why_not_primary": "specific reason based on evidence"}]'
+        "}"
+    )
+
+
+def _build_naive_system_prompt(*, has_fix_diff: bool = False) -> str:
+    """Build a taxonomy-free system prompt for the naive baseline (RQ2.3).
+
+    This prompt intentionally excludes ALL ODC concepts:
+    - No ODC type names or descriptions
+    - No taxonomy guidance or family groupings
+    - No anti-bias rules referencing ODC types
+    - No JSON schema with ODC fields
+    - No scientific debugging protocol or few-shot examples
+
+    The LLM receives only generic defect-analysis instructions and must
+    classify in its own words using a simplified JSON schema.
+    """
+    parts = [
+        "You are a software defect analyst.",
+        "Your job is to analyze a software bug and determine what TYPE of defect it is.",
+    ]
+
+    if has_fix_diff:
+        parts.extend([
+            "",
+            "You have access to both the buggy code evidence AND the actual code change that fixed the bug.",
+            "Use the fix diff to understand the NATURE of the coding error.",
+        ])
+    else:
+        parts.extend([
+            "",
+            "You have access to pre-fix evidence only: failing tests, stack traces, and code snippets.",
+            "Determine the root cause based on the available symptoms and code.",
+        ])
+
+    parts.extend([
+        "",
+        "Focus on the ROOT CAUSE of the defect, not just the observable symptom.",
+        "Be specific and technical — describe the nature of the coding error.",
+        "",
+        "Return only valid JSON matching this schema:",
+        _naive_json_contract(),
+    ])
+    return "\n".join(parts)
+
+
+def _naive_json_contract() -> str:
+    """Simplified JSON contract for naive baseline — no ODC fields."""
+    return (
+        "{"
+        '"defect_type": "a short, specific label for the type of defect (your own words)", '
+        '"confidence": "number between 0 and 100", '
+        '"reasoning_summary": "a paragraph explaining your classification and what evidence supports it", '
+        '"root_cause": "one sentence describing the specific coding error", '
+        '"symptom": "one sentence describing the observable failure"'
         "}"
     )

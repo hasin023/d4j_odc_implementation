@@ -48,7 +48,7 @@ def build_parser() -> argparse.ArgumentParser:
     classify_parser.add_argument("--output", type=Path, default=None, help="Where to write classification JSON. Defaults to same directory as --context.")
     classify_parser.add_argument("--report", type=Path, default=None, help="Markdown report output path. Defaults to same directory as --context.")
     classify_parser.add_argument("--prompt-output", type=Path, help="Optional path to save rendered prompt messages.")
-    classify_parser.add_argument("--prompt-style", choices=["direct", "scientific"], default="scientific")
+    classify_parser.add_argument("--prompt-style", choices=["direct", "scientific", "naive"], default="scientific")
     _add_llm_args(classify_parser, default_provider, default_model)
 
     # ── run ───────────────────────────────────────────────────────────────
@@ -67,7 +67,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--include-fix-diff", action="store_true",
         help="Include the buggy->fixed diff as post-fix oracle evidence (improves accuracy but is not pre-fix).",
     )
-    run_parser.add_argument("--prompt-style", choices=["direct", "scientific"], default="scientific")
+    run_parser.add_argument("--prompt-style", choices=["direct", "scientific", "naive"], default="scientific")
     _add_llm_args(run_parser, default_provider, default_model)
 
     # ── compare ───────────────────────────────────────────────────────────
@@ -159,7 +159,7 @@ def build_parser() -> argparse.ArgumentParser:
                                   help="Root directory for Defects4J checkouts. Defaults to .dist/study/work.")
     study_run_parser.add_argument("--summary-output", type=Path, default=None,
                                   help="Path to write batch execution summary JSON. Defaults to .dist/study/summary.json.")
-    study_run_parser.add_argument("--prompt-style", choices=["direct", "scientific"], default="scientific")
+    study_run_parser.add_argument("--prompt-style", choices=["direct", "scientific", "naive"], default="scientific")
     study_run_parser.add_argument("--snippet-radius", type=int, default=12)
     study_run_parser.add_argument("--skip-coverage", action="store_true")
     study_run_parser.add_argument("--no-skip-existing", action="store_true",
@@ -199,6 +199,67 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Optional Defects4J command prefix. Used to infer expected projects if needed.",
     )
+
+    # ── study-baseline ────────────────────────────────────────────────────
+    study_baseline_parser = subparsers.add_parser(
+        "study-baseline",
+        help="Run baseline (direct prompt) classifications for RQ2.2 comparison.",
+    )
+    study_baseline_parser.add_argument("--manifest", type=Path, required=True,
+                                       help="Path to study manifest JSON.")
+    study_baseline_parser.add_argument("--baseline-root", type=Path, default=None,
+                                       help="Root directory for baseline artifacts. Defaults to .dist/study/baseline_<N>.")
+    study_baseline_parser.add_argument("--work-root", type=Path, default=None,
+                                       help="Root directory for Defects4J checkouts. Defaults to .dist/study/work.")
+    study_baseline_parser.add_argument("--scientific-artifacts-root", type=Path, default=None,
+                                       help="Root of scientific artifacts to reuse context.json from.")
+    study_baseline_parser.add_argument("--summary-output", type=Path, default=None)
+    study_baseline_parser.add_argument("--prompt-style", choices=["direct", "scientific", "naive"], default="direct")
+    study_baseline_parser.add_argument("--snippet-radius", type=int, default=12)
+    study_baseline_parser.add_argument("--skip-coverage", action="store_true")
+    study_baseline_parser.add_argument("--no-skip-existing", action="store_true")
+    study_baseline_parser.add_argument("--prompt-output", action="store_true")
+    study_baseline_parser.add_argument(
+        "--defects4j-cmd", default=None,
+        help="Optional Defects4J command prefix.",
+    )
+    _add_llm_args(study_baseline_parser, default_provider, default_model)
+
+    # ── study-naive ──────────────────────────────────────────────────────
+    study_naive_parser = subparsers.add_parser(
+        "study-naive",
+        help="Run naive (taxonomy-free) classifications for RQ2.3 comparison.",
+    )
+    study_naive_parser.add_argument("--manifest", type=Path, required=True,
+                                     help="Path to study manifest JSON.")
+    study_naive_parser.add_argument("--naive-root", type=Path, default=None,
+                                     help="Root directory for naive artifacts. Defaults to .dist/study/naive_<N>.")
+    study_naive_parser.add_argument("--work-root", type=Path, default=None,
+                                     help="Root directory for Defects4J checkouts. Defaults to .dist/study/work.")
+    study_naive_parser.add_argument("--scientific-artifacts-root", type=Path, default=None,
+                                     help="Root of scientific artifacts to reuse context.json from.")
+    study_naive_parser.add_argument("--summary-output", type=Path, default=None)
+    study_naive_parser.add_argument("--snippet-radius", type=int, default=12)
+    study_naive_parser.add_argument("--skip-coverage", action="store_true")
+    study_naive_parser.add_argument("--no-skip-existing", action="store_true")
+    study_naive_parser.add_argument("--prompt-output", action="store_true")
+    study_naive_parser.add_argument(
+        "--defects4j-cmd", default=None,
+        help="Optional Defects4J command prefix.",
+    )
+    _add_llm_args(study_naive_parser, default_provider, default_model)
+
+    # ── study-export ──────────────────────────────────────────────────────
+    study_export_parser = subparsers.add_parser(
+        "study-export",
+        help="Export analysis results as LaTeX tables and/or CSV files.",
+    )
+    study_export_parser.add_argument("--analysis", type=Path, required=True,
+                                     help="Path to analysis JSON.")
+    study_export_parser.add_argument("--format", choices=["latex", "csv", "both"], default="both",
+                                     dest="export_format")
+    study_export_parser.add_argument("--output-dir", type=Path, default=None,
+                                     help="Output directory for export files. Defaults to same dir as --analysis.")
 
     # ── d4j (Defects4J proxy commands) ────────────────────────────────────
     d4j_parser = subparsers.add_parser(
@@ -286,6 +347,12 @@ def main() -> int:
             return _cmd_study_run(args)
         if args.command == "study-analyze":
             return _cmd_study_analyze(args)
+        if args.command == "study-baseline":
+            return _cmd_study_baseline(args)
+        if args.command == "study-export":
+            return _cmd_study_export(args)
+        if args.command == "study-naive":
+            return _cmd_study_naive(args)
         if args.command == "multifault":
             return _cmd_multifault(args)
         if args.command == "multifault-enrich":
@@ -807,6 +874,178 @@ def _cmd_study_analyze(args: argparse.Namespace) -> int:
         ("Missing projects", ", ".join(summary.get("missing_projects", [])) or "none"),
         ("Type changed", str(summary.get("type_changed_count", 0))),
     ])
+    return 0
+
+
+def _cmd_study_baseline(args: argparse.Namespace) -> int:
+    from .batch import install_signal_handlers, load_manifest, reset_shutdown, run_baseline_from_manifest
+    from .pipeline import write_json
+
+    install_signal_handlers()
+    reset_shutdown()
+
+    # Resolve bare manifest filename under .dist/study/
+    if args.manifest and not args.manifest.parent.parts:
+        args.manifest = Path(".dist") / "study" / args.manifest
+
+    client = Defects4JClient(command=args.defects4j_cmd)
+    manifest = load_manifest(args.manifest)
+    target_bugs = manifest.get("target_bugs", manifest.get("selected_bugs", 0))
+    dist_study = Path(".dist") / "study"
+
+    if args.baseline_root is None:
+        args.baseline_root = dist_study / f"baseline_{target_bugs}"
+    if args.work_root is None:
+        args.work_root = dist_study / "work"
+    if args.summary_output is None:
+        args.summary_output = dist_study / "baseline_summary.json"
+
+    console.header_panel("Study Baseline Configuration", None)
+    console.step(f"Manifest: {args.manifest}")
+    console.step(f"Baseline root: {args.baseline_root}")
+    console.step(f"Prompt style: {args.prompt_style}")
+    console.step(f"Reuse context from: {args.scientific_artifacts_root or '(none — will collect fresh)'}")
+
+    summary = run_baseline_from_manifest(
+        defects4j=client,
+        manifest=manifest,
+        baseline_root=args.baseline_root,
+        work_root=args.work_root,
+        scientific_artifacts_root=args.scientific_artifacts_root,
+        provider=args.provider,
+        model=args.model,
+        api_key_env=args.api_key_env,
+        base_url=args.base_url,
+        prompt_style=args.prompt_style,
+        snippet_radius=args.snippet_radius,
+        run_coverage=not args.skip_coverage,
+        skip_existing=not args.no_skip_existing,
+        prompt_output=args.prompt_output,
+    )
+
+    write_json(args.summary_output, summary)
+
+    status_label = "Baseline run interrupted" if summary.get("interrupted") else "Baseline run complete"
+    console.result_panel(status_label, [
+        ("Summary", str(args.summary_output)),
+        ("Prompt style", summary.get("prompt_style", "")),
+        ("Completed", str(summary.get("completed_entries", 0))),
+        ("Reused context", str(summary.get("reused_context_count", 0))),
+    ])
+    return 0
+
+
+def _cmd_study_naive(args: argparse.Namespace) -> int:
+    from .batch import install_signal_handlers, load_manifest, reset_shutdown, run_baseline_from_manifest
+    from .pipeline import write_json
+
+    install_signal_handlers()
+    reset_shutdown()
+
+    # Resolve bare manifest filename under .dist/study/
+    if args.manifest and not args.manifest.parent.parts:
+        args.manifest = Path(".dist") / "study" / args.manifest
+
+    client = Defects4JClient(command=args.defects4j_cmd)
+    manifest = load_manifest(args.manifest)
+    target_bugs = manifest.get("target_bugs", manifest.get("selected_bugs", 0))
+    dist_study = Path(".dist") / "study"
+
+    if args.naive_root is None:
+        args.naive_root = dist_study / f"naive_{target_bugs}"
+    if args.work_root is None:
+        args.work_root = dist_study / "work"
+    if args.summary_output is None:
+        args.summary_output = dist_study / "naive_summary.json"
+
+    console.header_panel("Study Naive (Taxonomy-Free) Configuration", None)
+    console.step(f"Manifest: {args.manifest}")
+    console.step(f"Naive root: {args.naive_root}")
+    console.step(f"Prompt style: naive (no ODC taxonomy)")
+    console.step(f"Reuse context from: {args.scientific_artifacts_root or '(none — will collect fresh)'}")
+
+    summary = run_baseline_from_manifest(
+        defects4j=client,
+        manifest=manifest,
+        baseline_root=args.naive_root,
+        work_root=args.work_root,
+        scientific_artifacts_root=args.scientific_artifacts_root,
+        provider=args.provider,
+        model=args.model,
+        api_key_env=args.api_key_env,
+        base_url=args.base_url,
+        prompt_style="naive",
+        snippet_radius=args.snippet_radius,
+        run_coverage=not args.skip_coverage,
+        skip_existing=not args.no_skip_existing,
+        prompt_output=args.prompt_output,
+    )
+
+    write_json(args.summary_output, summary)
+
+    status_label = "Naive run interrupted" if summary.get("interrupted") else "Naive run complete"
+    console.result_panel(status_label, [
+        ("Summary", str(args.summary_output)),
+        ("Prompt style", "naive (taxonomy-free)"),
+        ("Completed", str(summary.get("completed_entries", 0))),
+        ("Reused context", str(summary.get("reused_context_count", 0))),
+    ])
+    return 0
+
+
+def _cmd_study_export(args: argparse.Namespace) -> int:
+    import json as json_mod
+    from .results_export import (
+        export_accuracy_table_latex,
+        export_baseline_comparison_latex,
+        export_confusion_matrix_latex,
+        export_per_project_kappa_latex,
+        export_type_distribution_latex,
+        export_all_csv,
+    )
+
+    analysis_path: Path = args.analysis
+    if not analysis_path.exists():
+        console.error_panel("File Not Found", f"Analysis file not found: {analysis_path}")
+        return 1
+
+    analysis = json_mod.loads(analysis_path.read_text(encoding="utf-8"))
+    output_dir = args.output_dir or analysis_path.parent
+
+    written: list[str] = []
+
+    if args.export_format in ("latex", "both"):
+        latex_dir = output_dir / "latex"
+        latex_dir.mkdir(parents=True, exist_ok=True)
+
+        tables = [
+            ("type_distribution.tex", export_type_distribution_latex),
+            ("accuracy.tex", export_accuracy_table_latex),
+            ("confusion_matrix.tex", export_confusion_matrix_latex),
+            ("per_project_kappa.tex", export_per_project_kappa_latex),
+        ]
+        if analysis.get("baseline_comparison"):
+            tables.append(("baseline_comparison.tex", export_baseline_comparison_latex))
+
+        for filename, func in tables:
+            try:
+                content = func(analysis)
+                (latex_dir / filename).write_text(content, encoding="utf-8")
+                written.append(f"latex/{filename}")
+            except Exception as exc:  # noqa: BLE001
+                console.warn(f"Skipped {filename}: {exc}")
+
+    if args.export_format in ("csv", "both"):
+        csv_dir = output_dir / "csv"
+        csv_files = export_all_csv(analysis, csv_dir)
+        written.extend(f"csv/{p.name}" for p in csv_files)
+
+    console.result_panel("Export complete", [
+        ("Output directory", str(output_dir)),
+        ("Files written", str(len(written))),
+    ])
+    for w in written:
+        console.step(f"  {w}")
     return 0
 
 

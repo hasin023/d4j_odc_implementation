@@ -187,9 +187,9 @@ COMMAND_REGISTRY: list[SlashCommandSpec] = [
     # ── Study Commands ──────────────────────────────────────────────────
     SlashCommandSpec(
         name="study",
-        summary="Batch study operations (plan, run, analyze)",
-        argument_hint="<plan|run|analyze> [options]",
-        subcommands=("plan", "run", "analyze"),
+        summary="Batch study operations (plan, run, analyze, baseline, naive, export)",
+        argument_hint="<plan|run|analyze|baseline|naive|export> [options]",
+        subcommands=("plan", "run", "analyze", "baseline", "naive", "export"),
         category="study",
         handler_name="handle_study",
     ),
