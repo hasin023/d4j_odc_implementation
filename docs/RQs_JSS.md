@@ -6,9 +6,9 @@
 
 ---
 
-## **RQ2 — Separating Bug Symptoms from Bug Causes**
+## **RQ2 — Bug Type Coverage of the ODC Taxonomy**
 
-**Question:** Does explicitly separating the ODC defect Impact (the observable symptom, such as a crash or performance degradation) from the ODC defect Type (the root cause, such as a missing guard or incorrect algorithm) lead to more accurate automated triage compared to symptom-only labeling?
+**Question:** Do the seven standard ODC bug types cover all the bugs in Defects4J — or do some bugs actually fall outside those seven types?
 
 ---
 
