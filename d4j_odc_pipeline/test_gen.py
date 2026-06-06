@@ -589,6 +589,38 @@ def _run_single_attempt(
     return compilation_success, compilation_error, fails_on_buggy, buggy_stdout, buggy_stderr
 
 
+def _run_postfix_attempt(
+    java_source: str,
+    context_postfix: BugContext,
+    d4j: Defects4JClient,
+    package_name: str,
+    class_name: str,
+    method_name: str,
+) -> tuple[bool | None, str, str]:
+    """
+    Write, compile, and run the test on the fixed version.
+
+    Returns (passes_on_fixed, fixed_stdout, fixed_stderr).
+    Passes_on_fixed is None if compilation fails.
+    """
+    postfix_work_dir = context_postfix.work_dir
+    test_src_dir = context_postfix.exports.get("dir.src.tests", "src/test/java")
+    bin_tests_dir = context_postfix.exports.get("dir.bin.tests", "")
+    passes_on_fixed: bool | None = None
+    fixed_stdout = fixed_stderr = ""
+    try:
+        write_test_file(java_source, postfix_work_dir, test_src_dir, class_name, package_name)
+        compiled, _ = compile_version(d4j, postfix_work_dir)
+        if compiled:
+            test_passed, fixed_stdout, fixed_stderr = run_generated_test(
+                d4j, postfix_work_dir, class_name, method_name
+            )
+            passes_on_fixed = test_passed
+    finally:
+        _cleanup_generated_test(postfix_work_dir, test_src_dir, bin_tests_dir, class_name, package_name)
+    return passes_on_fixed, fixed_stdout, fixed_stderr
+
+
 # ---------------------------------------------------------------------------
 # Self-correction loop
 # ---------------------------------------------------------------------------
@@ -615,6 +647,23 @@ def _build_refine_feedback(
             "Return ONLY the corrected complete Java source file."
         )
 
+    if reason == "oracle_fail":
+        return (
+            "Your test correctly FAILS on the buggy version — good! "
+            "However, it also FAILS on the fixed version. "
+            "A valid regression test must PASS after the bug is fixed.\n\n"
+            "This means one of the following:\n"
+            "  - Your assertion expects the wrong value for the fixed behaviour, or\n"
+            "  - Your test exercises a code path that produces an error in both versions.\n\n"
+            "Revise your test so that it:\n"
+            "  1. Still FAILS on the buggy version (keep probing the defective behaviour)\n"
+            "  2. PASSES on the fixed version (the assertion must match correct post-fix output)\n\n"
+            "Check the bug report for clues about what the correct behaviour should be "
+            "after the fix is applied.\n\n"
+            f"Keep package `{package_name}` and class name `{class_name}`.\n"
+            "Return ONLY the revised complete Java source file."
+        )
+
     # reason == "passed_on_buggy"
     return (
         "Your test compiled and ran successfully, but it **passed** on the buggy version "
@@ -638,35 +687,57 @@ def refine_test_generation(
     client: LLMClient,
     d4j: Defects4JClient,
     max_iterations: int = 3,
+    context_postfix: BugContext | None = None,
 ) -> "TestGenResult":
     """
     Self-correction loop for test generation.
 
-    If the initial result already has fails_on_buggy=True, returns it unchanged.
-    Otherwise, iterates up to max_iterations times:
-      1. Builds a feedback message (compile error or "passed on buggy")
-      2. Appends it to the conversation after the LLM's prior response
-      3. Calls the LLM again
-      4. Compiles and runs on the buggy version
-      5. Stops if fails_on_buggy=True or iterations exhausted
+    Iterates up to max_iterations times to fix three failure modes in priority order:
+      1. compile_failed   — test does not compile
+      2. passed_on_buggy  — test passes on the buggy version (wrong direction)
+      3. oracle_fail      — test fails on both buggy AND fixed versions (requires context_postfix)
 
-    Oracle integrity: feedback never contains expected values or trigger names.
-    passes_on_fixed is not re-evaluated during refinement (requires postfix checkout).
+    Stops as soon as oracle_match=True (fails buggy AND passes fixed) or iterations exhausted.
+    If context_postfix is not provided, stops after achieving fails_on_buggy=True.
+
+    Oracle integrity: feedback never contains expected:<X> values or trigger method names.
     """
     result = initial_result
 
-    if result.fails_on_buggy is True:
-        return result  # already successful — nothing to do
+    # Determine if we're already done
+    if context_postfix:
+        if result.oracle_match is True:
+            return result
+    else:
+        if result.fails_on_buggy is True:
+            return result
 
     original_messages = build_test_gen_prompt(context_prefix, result.prompt_style)
     package_name, class_name = infer_package_and_class(context_prefix)
     history: list[dict] = list(result.refine_history)
 
-    for iteration in range(1, max_iterations + 1):
-        if result.fails_on_buggy is True:
-            break
+    # Carry forward postfix results from the initial attempt
+    passes_on_fixed: bool | None = result.passes_on_fixed
+    fixed_stdout: str = result.fixed_stdout
+    fixed_stderr: str = result.fixed_stderr
 
-        reason = "compile_failed" if not result.compilation_success else "passed_on_buggy"
+    for iteration in range(1, max_iterations + 1):
+        # Stop condition
+        if context_postfix:
+            if result.oracle_match is True:
+                break
+        else:
+            if result.fails_on_buggy is True:
+                break
+
+        # Determine failure mode in priority order
+        if not result.compilation_success:
+            reason = "compile_failed"
+        elif result.fails_on_buggy is not True:
+            reason = "passed_on_buggy"
+        else:
+            reason = "oracle_fail"  # fails buggy but also fails fixed
+
         feedback = _build_refine_feedback(result, reason, context_prefix)
 
         messages = original_messages + [
@@ -682,11 +753,21 @@ def refine_test_generation(
         compilation_error: str | None = None
         fails_on_buggy: bool | None = None
         buggy_stdout = buggy_stderr = ""
+        passes_on_fixed = None
+        fixed_stdout = fixed_stderr = ""
 
         if java_source:
             compilation_success, compilation_error, fails_on_buggy, buggy_stdout, buggy_stderr = (
                 _run_single_attempt(java_source, context_prefix, d4j, package_name, class_name, method_name)
             )
+            # Evaluate on fixed version if fault detection is achieved and postfix is available
+            if fails_on_buggy is True and context_postfix and Path(context_postfix.work_dir).is_dir():
+                passes_on_fixed, fixed_stdout, fixed_stderr = _run_postfix_attempt(
+                    java_source, context_postfix, d4j, package_name, class_name, method_name
+                )
+
+        oracle_match: bool | None = (True if (fails_on_buggy is True and passes_on_fixed is True) else
+                                     False if (fails_on_buggy is not None or passes_on_fixed is not None) else None)
 
         history.append({
             "iteration": iteration,
@@ -694,6 +775,7 @@ def refine_test_generation(
             "java_source": java_source,
             "compilation_success": compilation_success,
             "fails_on_buggy": fails_on_buggy,
+            "passes_on_fixed": passes_on_fixed,
         })
 
         # Carry all original ground-truth fields; update only the attempt-specific fields
@@ -713,8 +795,8 @@ def refine_test_generation(
             compilation_success=compilation_success,
             compilation_error=compilation_error,
             fails_on_buggy=fails_on_buggy,
-            passes_on_fixed=None,   # not re-evaluated during refinement
-            oracle_match=None,
+            passes_on_fixed=passes_on_fixed,
+            oracle_match=oracle_match,
             trigger_methods=result.trigger_methods,
             trigger_test_source=result.trigger_test_source,
             method_name_match=result.method_name_match,
@@ -722,8 +804,8 @@ def refine_test_generation(
             modified_class=result.modified_class,
             buggy_stdout=buggy_stdout,
             buggy_stderr=buggy_stderr,
-            fixed_stdout="",
-            fixed_stderr="",
+            fixed_stdout=fixed_stdout,
+            fixed_stderr=fixed_stderr,
             notes=result.notes,
             refine_iterations=iteration,
             refine_history=history,

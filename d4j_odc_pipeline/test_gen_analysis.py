@@ -114,7 +114,10 @@ def compute_aggregate_metrics(results: list[TestGenResult]) -> dict[str, Any]:
 
     # Refinement loop metrics
     refined_used = [r for r in results if r.refine_iterations > 0]
-    refined_success = [r for r in refined_used if r.fails_on_buggy is True]
+    # Maintained fault detection through refinement (did not regress)
+    refined_fault_kept = [r for r in refined_used if r.fails_on_buggy is True]
+    # Actually achieved oracle_match through refinement
+    refined_oracle_match = [r for r in refined_used if r.oracle_match is True]
     avg_iters = (
         round(sum(r.refine_iterations for r in refined_used) / len(refined_used), 2)
         if refined_used else 0.0
@@ -135,8 +138,10 @@ def compute_aggregate_metrics(results: list[TestGenResult]) -> dict[str, Any]:
         "class_targeting_rate": rate(class_targeted, total),
         "refinement_used_count": len(refined_used),
         "refinement_used_rate": rate(len(refined_used), total),
-        "refined_success_count": len(refined_success),
-        "refined_success_rate": rate(len(refined_success), len(refined_used)),
+        "refined_fault_kept_count": len(refined_fault_kept),
+        "refined_fault_kept_rate": rate(len(refined_fault_kept), len(refined_used)),
+        "refined_oracle_match_count": len(refined_oracle_match),
+        "refined_oracle_match_rate": rate(len(refined_oracle_match), len(refined_used)),
         "avg_refine_iterations": avg_iters,
         "per_project": per_project,
         "per_style": per_style,
@@ -157,7 +162,8 @@ def generate_report(metrics: dict[str, Any], results: list[TestGenResult]) -> st
         f"- **Method name match rate**: {metrics['method_name_match_rate']:.0%}",
         f"- **Modified class targeted rate**: {metrics['class_targeting_rate']:.0%}",
         f"- **Refinement used**: {metrics['refinement_used_count']} ({metrics['refinement_used_rate']:.0%})",
-        f"- **Refined success rate** (of those refined): {metrics['refined_success_rate']:.0%}",
+        f"- **Fault detection kept through refinement**: {metrics['refined_fault_kept_count']} ({metrics['refined_fault_kept_rate']:.0%} of refined)",
+        f"- **Oracle match achieved through refinement**: {metrics['refined_oracle_match_count']} ({metrics['refined_oracle_match_rate']:.0%} of refined)",
         f"- **Avg refine iterations** (when used): {metrics['avg_refine_iterations']}",
         "",
     ]

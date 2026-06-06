@@ -38,6 +38,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--include-fix-diff", action="store_true",
         help="Include the buggy->fixed diff as post-fix oracle evidence (improves accuracy but is not pre-fix).",
     )
+    collect_parser.add_argument(
+        "--postfix", action="store_true",
+        help="Collect the fixed (postfix) version instead of the buggy version. "
+             "Used to prepare the postfix context.json needed for test-gen oracle evaluation.",
+    )
 
     # ── classify ─────────────────────────────────────────────────────────
     classify_parser = subparsers.add_parser(
@@ -467,7 +472,8 @@ def main() -> int:
 
 def _cmd_collect(args: argparse.Namespace) -> int:
     client = Defects4JClient(command=args.defects4j_cmd)
-    mode_suffix = "postfix" if args.include_fix_diff else "prefix"
+    is_postfix = getattr(args, "postfix", False)
+    mode_suffix = "postfix" if (args.include_fix_diff or is_postfix) else "prefix"
     # Default work-dir to work/<project>_<bug>_<mode>
     if args.work_dir is None:
         args.work_dir = Path("work") / f"{args.project}_{args.bug}_{mode_suffix}"
@@ -483,6 +489,7 @@ def _cmd_collect(args: argparse.Namespace) -> int:
         snippet_radius=args.snippet_radius,
         run_coverage=not args.skip_coverage,
         include_fix_diff=args.include_fix_diff,
+        fixed=is_postfix,
     )
     return 0
 
@@ -1267,11 +1274,19 @@ def _cmd_test_gen(args: argparse.Namespace) -> int:
     result = run_test_generation(context_prefix, context_postfix, client, d4j, args.prompt_style)
 
     # Self-correction loop (--refine)
-    if getattr(args, "refine", False) and result.fails_on_buggy is not True:
+    _needs_refine = (
+        result.oracle_match is not True if context_postfix else result.fails_on_buggy is not True
+    )
+    if getattr(args, "refine", False) and _needs_refine:
         from .test_gen import refine_test_generation
         max_iter = getattr(args, "max_refine_iterations", 3)
-        console.step(f"Refine mode: result did not fail on buggy — running up to {max_iter} correction(s)")
-        result = refine_test_generation(result, context_prefix, client, d4j, max_iterations=max_iter)
+        reason_label = "oracle not matched" if context_postfix else "did not fail on buggy"
+        console.step(f"Refine mode: {reason_label} — running up to {max_iter} correction(s)")
+        result = refine_test_generation(
+            result, context_prefix, client, d4j,
+            max_iterations=max_iter,
+            context_postfix=context_postfix,
+        )
 
     # Save artifacts
     result_path = output_dir / "test_gen_result.json"
@@ -1390,10 +1405,17 @@ def _cmd_test_gen_batch(args: argparse.Namespace) -> int:
             result = run_test_generation(context_prefix, context_postfix, client, d4j, args.prompt_style)
 
             # Self-correction loop (--refine)
-            if getattr(args, "refine", False) and result.fails_on_buggy is not True:
+            _needs_refine = (
+                result.oracle_match is not True if context_postfix else result.fails_on_buggy is not True
+            )
+            if getattr(args, "refine", False) and _needs_refine:
                 from .test_gen import refine_test_generation
                 max_iter = getattr(args, "max_refine_iterations", 3)
-                result = refine_test_generation(result, context_prefix, client, d4j, max_iterations=max_iter)
+                result = refine_test_generation(
+                    result, context_prefix, client, d4j,
+                    max_iterations=max_iter,
+                    context_postfix=context_postfix,
+                )
 
             bug_output_dir.mkdir(parents=True, exist_ok=True)
             write_json(result_path, result.to_dict())

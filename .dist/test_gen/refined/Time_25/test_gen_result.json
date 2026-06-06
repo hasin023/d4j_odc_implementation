@@ -1,0 +1,60 @@
+{
+  "project_id": "Time",
+  "bug_id": 25,
+  "prefix_work_dir": "work\\Time_25_prefix",
+  "postfix_work_dir": "work\\Time_25_postfix",
+  "model": "gemini-3.1-flash-lite",
+  "provider": "gemini",
+  "created_at": "2026-06-06T20:14:26+00:00",
+  "prompt_style": "full",
+  "generated_class_name": "LLMGeneratedTest",
+  "generated_method_name": "testDateTimeZone_getOffsetFromLocal_AmbiguousDST",
+  "generated_test_code": "package org.joda.time;\n\nimport org.junit.Test;\nimport static org.junit.Assert.assertEquals;\n\npublic class LLMGeneratedTest {\n\n    @Test\n    public void testDateTimeZone_getOffsetFromLocal_AmbiguousDST() {\n        // The bug report states: \"The behaviour during DST overlaps is now defined \n        // to always return the earlier instant which is normally known as daylight or summer time.\"\n        // In the case of America/Los_Angeles on 2009-11-01, the overlap is between \n        // 01:00 and 02:00. The earlier instant is the one in Daylight Time (-07:00).\n        \n        DateTimeZone zone = DateTimeZone.forID(\"America/Los_Angeles\");\n        \n        // Constructing a DateTime at 1:30 AM on the day of the fall transition.\n        // The constructor uses getOffsetFromLocal internally.\n        // The fix ensures that for an ambiguous time, the earlier offset (Daylight, -07:00) is chosen.\n        DateTime dt = new DateTime(2009, 11, 1, 1, 30, 0, 0, zone);\n        \n        // The fixed behavior is to return the earlier instant (Daylight, -07:00).\n        // The bug was that it was returning the later instant (-08:00).\n        // -07:00 is -25200000 ms.\n        // Note: The offset is -07:00, which is -25200000 ms.\n        assertEquals(\"Should return the offset for the earlier (Daylight) instant (-07:00)\", \n                     -25200000, zone.getOffsetFromLocal(dt.getMillis()));\n        assertEquals(\"2009-11-01T01:30:00.000-07:00\", dt.toString());\n    }\n}",
+  "raw_llm_response": "package org.joda.time;\n\nimport org.junit.Test;\nimport static org.junit.Assert.assertEquals;\n\npublic class LLMGeneratedTest {\n\n    @Test\n    public void testDateTimeZone_getOffsetFromLocal_AmbiguousDST() {\n        // The bug report states: \"The behaviour during DST overlaps is now defined \n        // to always return the earlier instant which is normally known as daylight or summer time.\"\n        // In the case of America/Los_Angeles on 2009-11-01, the overlap is between \n        // 01:00 and 02:00. The earlier instant is the one in Daylight Time (-07:00).\n        \n        DateTimeZone zone = DateTimeZone.forID(\"America/Los_Angeles\");\n        \n        // Constructing a DateTime at 1:30 AM on the day of the fall transition.\n        // The constructor uses getOffsetFromLocal internally.\n        // The fix ensures that for an ambiguous time, the earlier offset (Daylight, -07:00) is chosen.\n        DateTime dt = new DateTime(2009, 11, 1, 1, 30, 0, 0, zone);\n        \n        // The fixed behavior is to return the earlier instant (Daylight, -07:00).\n        // The bug was that it was returning the later instant (-08:00).\n        // -07:00 is -25200000 ms.\n        // Note: The offset is -07:00, which is -25200000 ms.\n        assertEquals(\"Should return the offset for the earlier (Daylight) instant (-07:00)\", \n                     -25200000, zone.getOffsetFromLocal(dt.getMillis()));\n        assertEquals(\"2009-11-01T01:30:00.000-07:00\", dt.toString());\n    }\n}",
+  "compilation_success": true,
+  "compilation_error": "",
+  "fails_on_buggy": true,
+  "passes_on_fixed": false,
+  "oracle_match": false,
+  "trigger_methods": [
+    "org.joda.time.TestDateTimeZoneCutover::test_DateTime_constructor_Moscow_Autumn",
+    "org.joda.time.TestDateTimeZoneCutover::test_getOffsetFromLocal_Moscow_Autumn_overlap_mins",
+    "org.joda.time.TestDateTimeZoneCutover::test_getOffsetFromLocal_Moscow_Autumn"
+  ],
+  "trigger_test_source": "// Source: org.joda.time.TestDateTimeZoneCutover::test_DateTime_constructor_Moscow_Autumn\n    public void test_DateTime_constructor_Moscow_Autumn() {\n        DateTime dt = new DateTime(2007, 10, 28, 2, 30, ZONE_MOSCOW);\n        assertEquals(\"2007-10-28T02:30:00.000+04:00\", dt.toString());\n    }\n\n// Source: org.joda.time.TestDateTimeZoneCutover::test_getOffsetFromLocal_Moscow_Autumn_overlap_mins\n    public void test_getOffsetFromLocal_Moscow_Autumn_overlap_mins() {\n        for (int min = 0; min < 60; min++) {\n            if (min < 10) {\n                doTest_getOffsetFromLocal(10, 28, 2, min, \"2007-10-28T02:0\" + min + \":00.000+04:00\", ZONE_MOSCOW);\n            } else {\n                doTest_getOffsetFromLocal(10, 28, 2, min, \"2007-10-28T02:\" + min + \":00.000+04:00\", ZONE_MOSCOW);\n            }\n        }\n    }\n\n// Source: org.joda.time.TestDateTimeZoneCutover::test_getOffsetFromLocal_Moscow_Autumn\n    public void test_getOffsetFromLocal_Moscow_Autumn() {\n        doTest_getOffsetFromLocal(10, 28, 0, 0, \"2007-10-28T00:00:00.000+04:00\", ZONE_MOSCOW);\n        doTest_getOffsetFromLocal(10, 28, 0,30, \"2007-10-28T00:30:00.000+04:00\", ZONE_MOSCOW);\n        doTest_getOffsetFromLocal(10, 28, 1, 0, \"2007-10-28T01:00:00.000+04:00\", ZONE_MOSCOW);\n        doTest_getOffsetFromLocal(10, 28, 1,30, \"2007-10-28T01:30:00.000+04:00\", ZONE_MOSCOW);\n        \n        doTest_getOffsetFromLocal(10, 28, 2, 0, \"2007-10-28T02:00:00.000+04:00\", ZONE_MOSCOW);\n        doTest_getOffsetFromLocal(10, 28, 2,30, \"2007-10-28T02:30:00.000+04:00\", ZONE_MOSCOW);\n        doTest_getOffsetFromLocal(10, 28, 2,30,59,999, \"2007-10-28T02:30:59.999+04:00\", ZONE_MOSCOW);\n        doTest_getOffsetFromLocal(10, 28, 2,59,59,998, \"2007-10-28T02:59:59.998+04:00\", ZONE_MOSCOW);\n        doTest_getOffsetFromLocal(10, 28, 2,59,59,999, \"2007-10-28T02:59:59.999+04:00\", ZONE_MOSCOW);\n        \n        doTest_getOffsetFromLocal(10, 28, 3, 0, \"2007-10-28T03:00:00.000+03:00\", ZONE_MOSCOW);\n        doTest_getOffsetFromLocal(10, 28, 3,30, \"2007-10-28T03:30:00.000+03:00\", ZONE_MOSCOW);\n        doTest_getOffsetFromLocal(10, 28, 4, 0, \"2007-10-28T04:00:00.000+03:00\", ZONE_MOSCOW);\n        doTest_getOffsetFromLocal(10, 28, 5, 0, \"2007-10-28T05:00:00.000+03:00\", ZONE_MOSCOW);\n        doTest_getOffsetFromLocal(10, 28, 6, 0, \"2007-10-28T06:00:00.000+03:00\", ZONE_MOSCOW);\n        doTest_getOffsetFromLocal(10, 28, 7, 0, \"2007-10-28T07:00:00.000+03:00\", ZONE_MOSCOW);\n        doTest_getOffsetFromLocal(10, 28, 8, 0, \"2007-10-28T08:00:00.000+03:00\", ZONE_MOSCOW);\n    }",
+  "method_name_match": false,
+  "trigger_class_targeted": true,
+  "modified_class": "org.joda.time.DateTimeZone",
+  "buggy_stdout": "Failing tests: 1\n  - LLMGeneratedTest\n",
+  "buggy_stderr": "Running ant (compile.tests)................................................ OK\nRunning ant (run.dev.tests)................................................ OK\n",
+  "fixed_stdout": "Failing tests: 1\n  - LLMGeneratedTest\n",
+  "fixed_stderr": "Running ant (compile.tests)................................................ OK\nRunning ant (run.dev.tests)................................................ OK\n",
+  "notes": [],
+  "refine_iterations": 3,
+  "refine_history": [
+    {
+      "iteration": 1,
+      "reason": "oracle_fail",
+      "java_source": "package org.joda.time;\n\nimport org.junit.Test;\nimport static org.junit.Assert.assertEquals;\n\npublic class LLMGeneratedTest {\n\n    @Test\n    public void testDateTimeZone_getOffsetFromLocal_AmbiguousDST() {\n        // The bug report states: \"The behaviour during DST overlaps is now defined \n        // to always return the earlier instant which is normally known as daylight or summer time.\"\n        // In the case of America/Los_Angeles on 2009-11-01, the overlap is between \n        // 01:00 and 02:00. The earlier instant is the one in Daylight Time (-07:00).\n        \n        DateTimeZone zone = DateTimeZone.forID(\"America/Los_Angeles\");\n        \n        // Constructing a DateTime at 1:30 AM on the day of the fall transition.\n        // The constructor uses getOffsetFromLocal internally.\n        DateTime dt = new DateTime(2009, 11, 1, 1, 30, 0, 0, zone);\n        \n        // The fixed behavior is to return the earlier instant (Daylight, -07:00).\n        // If the bug is present, it might return the later instant (-08:00).\n        assertEquals(\"Should return the offset for the earlier (Daylight) instant (-07:00)\", \n                     -25200000, dt.getZone().getOffset(dt.getMillis()));\n        assertEquals(\"2009-11-01T01:30:00.000-07:00\", dt.toString());\n    }\n}",
+      "compilation_success": true,
+      "fails_on_buggy": true,
+      "passes_on_fixed": false
+    },
+    {
+      "iteration": 2,
+      "reason": "oracle_fail",
+      "java_source": "package org.joda.time;\n\nimport org.junit.Test;\nimport static org.junit.Assert.assertEquals;\n\npublic class LLMGeneratedTest {\n\n    @Test\n    public void testDateTimeZone_getOffsetFromLocal_AmbiguousDST() {\n        // The bug report states: \"The behaviour during DST overlaps is now defined \n        // to always return the earlier instant which is normally known as daylight or summer time.\"\n        // In the case of America/Los_Angeles on 2009-11-01, the overlap is between \n        // 01:00 and 02:00. The earlier instant is the one in Daylight Time (-07:00).\n        \n        DateTimeZone zone = DateTimeZone.forID(\"America/Los_Angeles\");\n        \n        // Constructing a DateTime at 1:30 AM on the day of the fall transition.\n        // The constructor uses getOffsetFromLocal internally.\n        // The fix ensures that for an ambiguous time, the earlier offset (Daylight, -07:00) is chosen.\n        DateTime dt = new DateTime(2009, 11, 1, 1, 30, 0, 0, zone);\n        \n        // The fixed behavior is to return the earlier instant (Daylight, -07:00).\n        // The bug was that it was returning the later instant (-08:00).\n        // -07:00 is -25200000 ms.\n        assertEquals(\"Should return the offset for the earlier (Daylight) instant (-07:00)\", \n                     -25200000, dt.getZone().getOffset(dt.getMillis()));\n        assertEquals(\"2009-11-01T01:30:00.000-07:00\", dt.toString());\n    }\n}",
+      "compilation_success": true,
+      "fails_on_buggy": true,
+      "passes_on_fixed": false
+    },
+    {
+      "iteration": 3,
+      "reason": "oracle_fail",
+      "java_source": "package org.joda.time;\n\nimport org.junit.Test;\nimport static org.junit.Assert.assertEquals;\n\npublic class LLMGeneratedTest {\n\n    @Test\n    public void testDateTimeZone_getOffsetFromLocal_AmbiguousDST() {\n        // The bug report states: \"The behaviour during DST overlaps is now defined \n        // to always return the earlier instant which is normally known as daylight or summer time.\"\n        // In the case of America/Los_Angeles on 2009-11-01, the overlap is between \n        // 01:00 and 02:00. The earlier instant is the one in Daylight Time (-07:00).\n        \n        DateTimeZone zone = DateTimeZone.forID(\"America/Los_Angeles\");\n        \n        // Constructing a DateTime at 1:30 AM on the day of the fall transition.\n        // The constructor uses getOffsetFromLocal internally.\n        // The fix ensures that for an ambiguous time, the earlier offset (Daylight, -07:00) is chosen.\n        DateTime dt = new DateTime(2009, 11, 1, 1, 30, 0, 0, zone);\n        \n        // The fixed behavior is to return the earlier instant (Daylight, -07:00).\n        // The bug was that it was returning the later instant (-08:00).\n        // -07:00 is -25200000 ms.\n        // Note: The offset is -07:00, which is -25200000 ms.\n        assertEquals(\"Should return the offset for the earlier (Daylight) instant (-07:00)\", \n                     -25200000, zone.getOffsetFromLocal(dt.getMillis()));\n        assertEquals(\"2009-11-01T01:30:00.000-07:00\", dt.toString());\n    }\n}",
+      "compilation_success": true,
+      "fails_on_buggy": true,
+      "passes_on_fixed": false
+    }
+  ]
+}

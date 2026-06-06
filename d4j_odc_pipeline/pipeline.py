@@ -24,8 +24,9 @@ def collect_bug_context(
     snippet_radius: int = 12,
     run_coverage: bool = True,
     include_fix_diff: bool = False,
+    fixed: bool = False,
 ) -> BugContext:
-    version_id = f"{bug_id}b"
+    version_id = f"{bug_id}f" if fixed else f"{bug_id}b"
 
     console.header_panel(
         f"Collecting bug context: {project_id}-{bug_id}",
@@ -213,7 +214,7 @@ def collect_bug_context(
             console.warn("Could not collect fix diff")
             context.notes.append("Fix diff requested but could not be collected.")
 
-    console.step(f"Writing context → {output_path}")
+    console.step(f"Writing context -> {output_path}")
     write_json(output_path, context.to_dict())
 
     total_snippets_prod = len(code_snippets) - len(test_snippets)

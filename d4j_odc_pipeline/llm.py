@@ -83,6 +83,12 @@ class LLMClient:
             return self._complete_gemini(messages)
         return self._complete_openai_compatible(messages)
 
+    def complete_text(self, messages: list[dict[str, str]]) -> str:
+        """Complete a request expecting plain text (not JSON-schema-constrained) output."""
+        if self.settings.provider == "gemini":
+            return self._complete_gemini_text(messages)
+        return self._complete_openai_compatible(messages)
+
     def _complete_openai_compatible(self, messages: list[dict[str, str]]) -> str:
         payload = {
             "model": self.settings.model,
@@ -106,6 +112,36 @@ class LLMClient:
             return data["choices"][0]["message"]["content"]
         except (KeyError, IndexError, TypeError) as exc:
             raise LLMError(f"Unexpected LLM response shape: {raw}") from exc
+
+    def _complete_gemini_text(self, messages: list[dict[str, str]]) -> str:
+        payload: dict[str, object] = {
+            "contents": _gemini_contents(messages),
+            "generationConfig": {"temperature": self.settings.temperature},
+        }
+        system_instruction = _gemini_system_instruction(messages)
+        if system_instruction:
+            payload["system_instruction"] = {"parts": [{"text": system_instruction}]}
+        request = urllib.request.Request(
+            url=f"{self.settings.base_url}/models/{self.settings.model}:generateContent",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "x-goog-api-key": self.settings.api_key,
+                "User-Agent": _USER_AGENT,
+            },
+            method="POST",
+        )
+        raw = _urlopen_json(request)
+        data = json.loads(raw)
+        try:
+            parts = data["candidates"][0]["content"]["parts"]
+            text_parts = [part.get("text", "") for part in parts if isinstance(part, dict)]
+            combined = "\n".join(part for part in text_parts if part).strip()
+            if combined:
+                return combined
+        except (KeyError, IndexError, TypeError):
+            pass
+        raise LLMError(f"Unexpected Gemini response shape: {raw}")
 
     def _complete_gemini(self, messages: list[dict[str, str]]) -> str:
         payload: dict[str, object] = {

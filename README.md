@@ -4,6 +4,8 @@ A research pipeline that collects pre-fix bug evidence from [Defects4J](https://
 
 The pipeline follows a **Scientific Debugging** methodology — observation → hypothesis → prediction → experiment → conclusion — to classify each bug into one of 7 ODC defect types with grounded, code-level reasoning. A `direct` (zero-shot) baseline prompt style is also available for controlled evaluation.
 
+A companion paper ("Can an LLM Write the Missing Test?") extends the pipeline: given only a pre-fix `context.json`, an LLM generates a JUnit 4 regression test that is automatically compiled, run against the buggy version (must fail), and run against the fixed version (must pass) via Defects4J — producing per-bug and aggregate accuracy metrics benchmarked against the ground-truth trigger tests.
+
 The default way to use the tool is now the interactive CLI: launch `d4j-odc` (or `python -m d4j_odc_pipeline`) with no arguments, then work from the `odc>` shell using slash commands such as `/run`, `/study plan`, and `/show classification`. The original argument-based command style is still supported for scripts, CI, notebooks, and existing workflows. Any old invocation like `python -m d4j_odc_pipeline run ...` remains valid.
 
 For large-scale evaluation, the CLI also supports batch-study commands: `/study plan`, `/study run`, `/study analyze`, `/study baseline`, and `/study export` in interactive mode, or `study-plan`, `study-run`, `study-analyze`, `study-baseline`, and `study-export` in script mode.
@@ -103,6 +105,11 @@ Backwards-compatible script-mode commands:
 | `multifault`           | Query multi-fault co-existence data                  |
 | `multifault-enrich`    | Enrich classification with multi-fault context       |
 | `d4j pids\|bids\|info` | Defects4J proxy commands                             |
+| `collect --postfix`    | Collect fixed (postfix) version context.json — required for oracle evaluation |
+| `test-gen`             | Generate a JUnit 4 test from a prefix `context.json` and evaluate against buggy + fixed versions |
+| `test-gen` `--refine`  | Same, with self-correction loop (up to N iterations; handles compile errors, wrong direction, oracle mismatches) |
+| `test-gen-batch`       | Batch test generation over a study artifacts directory |
+| `test-gen-analyze`     | Aggregate metrics, markdown report, and CSV from a test-gen results directory |
 
 Most parameters have **smart defaults** in both modes. See [docs/USAGE.md](docs/USAGE.md) for tab completion, file pickers, session persistence, and full command examples.
 
@@ -114,34 +121,53 @@ Most parameters have **smart defaults** in both modes. See [docs/USAGE.md](docs/
 .dist/
 ├── runs/                              # Standalone commands (run, collect, classify)
 │   ├── Lang_1_prefix/
-│   │   ├── context.json
+│   │   ├── context.json              # includes test_class_sources field (oracle-safe)
 │   │   ├── classification.json
 │   │   └── report.md
-│   └── Lang_1_postfix/
-│       └── ...
-└── study/                             # Batch commands (study-plan, study-run, study-analyze)
-    ├── manifest_68.json
-    ├── summary.json
-    ├── analysis_68.json
-    ├── analysis_68.md
-    ├── baseline_summary.json
-    ├── artifacts_68/
-    │   ├── prefix/
-    │   ├── postfix/
-    │   └── checkpoint.json
-    ├── baseline_68/                   # Baseline (direct prompt) classifications
-    │   ├── Lang_1_prefix/
-    │   │   ├── classification.json
-    │   │   └── report.md
-    │   └── checkpoint.json
-    ├── latex/                         # LaTeX table exports (study-export)
-    │   ├── type_distribution.tex
-    │   ├── accuracy.tex
-    │   ├── confusion_matrix.tex
-    │   └── per_project_kappa.tex
-    └── csv/                           # CSV exports for R/SPSS (study-export)
-        ├── per_bug_comparison.csv
-        └── type_distribution.csv
+│   └── Lang_1_postfix/               # fixed version; use: collect --postfix
+│       └── context.json
+├── study/                             # Batch commands (study-plan, study-run, study-analyze)
+│   ├── manifest_68.json
+│   ├── summary.json
+│   ├── analysis_68.json
+│   ├── analysis_68.md
+│   ├── baseline_summary.json
+│   ├── artifacts_68/
+│   │   ├── prefix/
+│   │   ├── postfix/
+│   │   └── checkpoint.json
+│   ├── baseline_68/                   # Baseline (direct prompt) classifications
+│   │   ├── Lang_1_prefix/
+│   │   │   ├── classification.json
+│   │   │   └── report.md
+│   │   └── checkpoint.json
+│   ├── latex/                         # LaTeX table exports (study-export)
+│   │   ├── type_distribution.tex
+│   │   ├── accuracy.tex
+│   │   ├── confusion_matrix.tex
+│   │   └── per_project_kappa.tex
+│   └── csv/                           # CSV exports for R/SPSS (study-export)
+│       ├── per_bug_comparison.csv
+│       └── type_distribution.csv
+└── test_gen/                          # Sub-thesis: test generation (test-gen, test-gen-batch)
+    ├── baseline/                      # No refinement (--prompt-style full)
+    │   ├── Lang_1/
+    │   │   ├── test_gen_result.json
+    │   │   ├── generated_test.java
+    │   │   └── test_gen_report.md
+    │   └── aggregate/
+    │       ├── test_gen_analysis.json
+    │       ├── test_gen_summary.md
+    │       └── test_gen_results.csv
+    └── refined/                       # With self-correction loop (--refine)
+        ├── Lang_1/
+        │   ├── test_gen_result.json   # includes refine_iterations + refine_history
+        │   ├── generated_test.java
+        │   └── test_gen_report.md
+        └── aggregate/
+            ├── test_gen_analysis.json
+            ├── test_gen_summary.md
+            └── test_gen_results.csv
 ```
 
 ---
@@ -150,22 +176,24 @@ Most parameters have **smart defaults** in both modes. See [docs/USAGE.md](docs/
 
 ```bash
 d4j_odc_pipeline/
-├── cli.py             # CLI entrypoint and script-mode command dispatch
-├── interactive/       # REPL app, slash commands, completion, session state
-├── pipeline.py        # Core orchestration
-├── batch.py           # Batch manifest, execution, baseline runner, analysis
-├── defects4j.py       # Defects4J wrapper
-├── llm.py             # LLM provider abstraction
-├── prompting.py       # Prompt engineering (scientific + direct baseline)
-├── odc.py             # ODC taxonomy
-├── models.py          # Data models
-├── parsing.py         # Stack trace + JSON parsing
-├── comparison.py      # Evaluation metrics + per-project Kappa
-├── analysis.py        # Cross-study statistical analysis (RQ1–RQ4)
-├── results_export.py  # LaTeX table + CSV export for manuscript
-├── multifault.py      # Multi-fault data loader
-├── web_fetch.py       # Bug report fetcher
-└── console.py         # Rich output helpers
+├── cli.py                # CLI entrypoint and script-mode command dispatch
+├── interactive/          # REPL app, slash commands, completion, session state
+├── pipeline.py           # Core orchestration
+├── batch.py              # Batch manifest, execution, baseline runner, analysis
+├── defects4j.py          # Defects4J wrapper
+├── llm.py                # LLM provider abstraction
+├── prompting.py          # Prompt engineering (scientific + direct baseline)
+├── odc.py                # ODC taxonomy
+├── models.py             # Data models
+├── parsing.py            # Stack trace + JSON parsing
+├── comparison.py         # Evaluation metrics + per-project Kappa
+├── analysis.py           # Cross-study statistical analysis (RQ1–RQ4)
+├── results_export.py     # LaTeX table + CSV export for manuscript
+├── multifault.py         # Multi-fault data loader
+├── web_fetch.py          # Bug report fetcher
+├── console.py            # Rich output helpers
+├── test_gen.py           # Sub-thesis: LLM test generation, compile/run/cleanup, trigger-test comparison
+└── test_gen_analysis.py  # Sub-thesis: batch metrics, per-project/per-style breakdown, CSV export
 ```
 
 ---
