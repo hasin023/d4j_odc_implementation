@@ -261,6 +261,73 @@ def build_parser() -> argparse.ArgumentParser:
     study_export_parser.add_argument("--output-dir", type=Path, default=None,
                                      help="Output directory for export files. Defaults to same dir as --analysis.")
 
+    # ── test-gen ────────────────────────────────────────────────────────────
+    tg_parser = subparsers.add_parser(
+        "test-gen",
+        help="Generate a JUnit 4 test from a bug report and evaluate it on both versions.",
+    )
+    tg_parser.add_argument("--prefix-context", type=Path, required=True,
+                           help="Path to prefix (buggy) context.json.")
+    tg_parser.add_argument("--postfix-context", type=Path, default=None,
+                           help="Path to postfix (fixed) context.json. Optional — if omitted, 'passes on fixed' evaluation is skipped.")
+    tg_parser.add_argument("--prompt-style", choices=["full", "report_only", "code_only"], default="full")
+    tg_parser.add_argument("--output-dir", type=Path, default=None,
+                           help="Directory to write results. Defaults to .dist/test_gen/<Project>_<Bug>/.")
+    tg_parser.add_argument(
+        "--defects4j-cmd", default=None,
+        help="Optional Defects4J command prefix.",
+    )
+    tg_parser.add_argument(
+        "--refine", action="store_true",
+        help="Enable self-correction loop: if the generated test passes on the buggy version, "
+             "feed the LLM feedback and ask it to revise (up to --max-refine-iterations times).",
+    )
+    tg_parser.add_argument(
+        "--max-refine-iterations", type=int, default=3, metavar="N",
+        help="Maximum number of self-correction iterations (default: 3). Only used with --refine.",
+    )
+    _add_llm_args(tg_parser, default_provider, default_model)
+
+    # ── test-gen-batch ──────────────────────────────────────────────────────
+    tgb_parser = subparsers.add_parser(
+        "test-gen-batch",
+        help="Batch test generation over a directory of prefix/postfix context.json pairs.",
+    )
+    tgb_parser.add_argument("--artifacts-dir", type=Path, required=True,
+                            help="Root directory containing *_prefix/ and *_postfix/ subdirectories.")
+    tgb_parser.add_argument("--prompt-style", choices=["full", "report_only", "code_only"], default="full")
+    tgb_parser.add_argument("--output-dir", type=Path, default=None,
+                            help="Directory to write results. Defaults to .dist/test_gen/.")
+    tgb_parser.add_argument("--no-skip-existing", action="store_true",
+                            help="Re-run even when test_gen_result.json already exists.")
+    tgb_parser.add_argument(
+        "--defects4j-cmd", default=None,
+        help="Optional Defects4J command prefix.",
+    )
+    tgb_parser.add_argument(
+        "--refine", action="store_true",
+        help="Enable self-correction loop for each bug.",
+    )
+    tgb_parser.add_argument(
+        "--max-refine-iterations", type=int, default=3, metavar="N",
+        help="Maximum self-correction iterations per bug (default: 3). Only used with --refine.",
+    )
+    _add_llm_args(tgb_parser, default_provider, default_model)
+
+    # ── test-gen-analyze ────────────────────────────────────────────────────
+    tga_parser = subparsers.add_parser(
+        "test-gen-analyze",
+        help="Aggregate and report metrics from test-gen results.",
+    )
+    tga_parser.add_argument("--results-dir", type=Path, default=None,
+                            help="Directory containing test_gen_result.json files. Defaults to .dist/test_gen/.")
+    tga_parser.add_argument("--output", type=Path, default=None,
+                            help="Path to write aggregate JSON. Defaults to .dist/test_gen/aggregate/test_gen_analysis.json.")
+    tga_parser.add_argument("--report", type=Path, default=None,
+                            help="Path to write markdown report. Defaults alongside --output.")
+    tga_parser.add_argument("--export-csv", action="store_true",
+                            help="Also export a flat CSV for statistical analysis.")
+
     # ── d4j (Defects4J proxy commands) ────────────────────────────────────
     d4j_parser = subparsers.add_parser(
         "d4j",
@@ -357,6 +424,12 @@ def main() -> int:
             return _cmd_multifault(args)
         if args.command == "multifault-enrich":
             return _cmd_multifault_enrich(args)
+        if args.command == "test-gen":
+            return _cmd_test_gen(args)
+        if args.command == "test-gen-batch":
+            return _cmd_test_gen_batch(args)
+        if args.command == "test-gen-analyze":
+            return _cmd_test_gen_analyze(args)
         if args.command == "d4j":
             return _cmd_d4j(args)
     except Defects4JError as exc:
@@ -1135,6 +1208,313 @@ def _d4j_info(client: Defects4JClient, args: argparse.Namespace) -> int:
         print(info_text)
 
     return 0
+
+
+# ---------------------------------------------------------------------------
+# Test generation command handlers (ICSEA sub-paper)
+# ---------------------------------------------------------------------------
+
+def _cmd_test_gen(args: argparse.Namespace) -> int:
+    import json as json_mod
+    from .defects4j import Defects4JClient
+    from .llm import LLMClient
+    from .models import BugContext
+    from .pipeline import write_json
+    from .test_gen import run_test_generation
+
+    prefix_path: Path = args.prefix_context
+
+    if not prefix_path.exists():
+        console.error_panel("File Not Found", f"Prefix context not found: {prefix_path}")
+        return 1
+
+    context_prefix = BugContext.from_dict(json_mod.loads(prefix_path.read_text(encoding="utf-8")))
+
+    context_postfix = None
+    postfix_path: Path | None = args.postfix_context
+    if postfix_path is not None:
+        if not postfix_path.exists():
+            console.error_panel("File Not Found", f"Postfix context not found: {postfix_path}")
+            return 1
+        context_postfix = BugContext.from_dict(json_mod.loads(postfix_path.read_text(encoding="utf-8")))
+
+    output_dir = args.output_dir or (
+        Path(".dist") / "test_gen" / f"{context_prefix.project_id}_{context_prefix.bug_id}"
+    )
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    client = LLMClient.from_env(
+        provider=args.provider,
+        model=args.model,
+        api_key_env=args.api_key_env,
+        base_url=args.base_url,
+    )
+    d4j = Defects4JClient(command=args.defects4j_cmd)
+
+    console.header_panel(
+        f"Test Generation: {context_prefix.project_id}-{context_prefix.bug_id}",
+        f"Prompt style: {args.prompt_style} | Model: {args.model}",
+    )
+
+    if getattr(args, "dry_run", False):
+        from .test_gen import build_test_gen_prompt
+        messages = build_test_gen_prompt(context_prefix, args.prompt_style)
+        prompt_path = output_dir / "prompt.json"
+        write_json(prompt_path, messages)
+        console.step(f"Dry run — prompt written to {prompt_path}")
+        return 0
+
+    result = run_test_generation(context_prefix, context_postfix, client, d4j, args.prompt_style)
+
+    # Self-correction loop (--refine)
+    if getattr(args, "refine", False) and result.fails_on_buggy is not True:
+        from .test_gen import refine_test_generation
+        max_iter = getattr(args, "max_refine_iterations", 3)
+        console.step(f"Refine mode: result did not fail on buggy — running up to {max_iter} correction(s)")
+        result = refine_test_generation(result, context_prefix, client, d4j, max_iterations=max_iter)
+
+    # Save artifacts
+    result_path = output_dir / "test_gen_result.json"
+    write_json(result_path, result.to_dict())
+    console.step(f"Result JSON -> {result_path}")
+
+    if result.generated_test_code:
+        java_path = output_dir / "generated_test.java"
+        java_path.write_text(result.generated_test_code, encoding="utf-8")
+        console.step(f"Generated Java -> {java_path}")
+
+    # Markdown report
+    report_path = output_dir / "test_gen_report.md"
+    _write_single_test_gen_report(result, report_path)
+    console.step(f"Report -> {report_path}")
+
+    oracle_str = "PASS" if result.oracle_match else ("FAIL" if result.oracle_match is False else "N/A")
+    panel_rows = [
+        ("Prompt style", result.prompt_style),
+        ("Compiled", "Yes" if result.compilation_success else f"No — {result.compilation_error or ''}"),
+        ("Fails on buggy", str(result.fails_on_buggy) if result.fails_on_buggy is not None else "N/A"),
+        ("Passes on fixed", str(result.passes_on_fixed) if result.passes_on_fixed is not None else "N/A"),
+        ("Oracle match", oracle_str),
+        ("Method name match", str(result.method_name_match)),
+        ("Modified class targeted", str(result.trigger_class_targeted)),
+    ]
+    if result.refine_iterations > 0:
+        panel_rows.append(("Refine iterations", str(result.refine_iterations)))
+    console.result_panel(f"Test Generation: {result.project_id}-{result.bug_id}", panel_rows)
+    for note in result.notes:
+        console.warn(note)
+    return 0
+
+
+def _cmd_test_gen_batch(args: argparse.Namespace) -> int:
+    import json as json_mod
+    from .defects4j import Defects4JClient
+    from .llm import LLMClient
+    from .models import BugContext
+    from .pipeline import write_json
+    from .test_gen import run_test_generation
+    from .test_gen_analysis import compute_aggregate_metrics, generate_report
+
+    artifacts_dir: Path = args.artifacts_dir
+    if not artifacts_dir.is_dir():
+        console.error_panel("Directory Not Found", f"Artifacts directory not found: {artifacts_dir}")
+        return 1
+
+    output_dir = args.output_dir or Path(".dist") / "test_gen"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    skip_existing = not args.no_skip_existing
+    client = LLMClient.from_env(
+        provider=args.provider,
+        model=args.model,
+        api_key_env=args.api_key_env,
+        base_url=args.base_url,
+    )
+    d4j = Defects4JClient(command=args.defects4j_cmd)
+
+    # Auto-discover prefix/postfix pairs
+    prefix_dirs: dict[str, Path] = {}
+    for child in sorted(artifacts_dir.rglob("context.json")):
+        parent = child.parent
+        name = parent.name
+        if name.endswith("_prefix"):
+            key = name[:-7]
+            prefix_dirs[key] = child
+
+    pairs: list[tuple[str, Path, Path]] = []
+    for child in sorted(artifacts_dir.rglob("context.json")):
+        parent = child.parent
+        name = parent.name
+        if name.endswith("_postfix"):
+            key = name[:-8]
+            if key in prefix_dirs:
+                pairs.append((key, prefix_dirs[key], child))
+
+    if not pairs:
+        console.warn("No matching prefix/postfix context.json pairs found.")
+        return 1
+
+    console.header_panel(
+        f"Batch Test Generation: {len(pairs)} bug(s)",
+        f"Prompt style: {args.prompt_style} | Output: {output_dir}",
+    )
+
+    all_results = []
+    completed = skipped = failed = 0
+
+    for key, prefix_ctx_path, postfix_ctx_path in pairs:
+        bug_output_dir = output_dir / key
+        result_path = bug_output_dir / "test_gen_result.json"
+
+        if skip_existing and result_path.exists():
+            console.step(f"[skip] {key}")
+            skipped += 1
+            try:
+                data = json_mod.loads(result_path.read_text(encoding="utf-8"))
+                from .test_gen_analysis import _result_from_dict
+                all_results.append(_result_from_dict(data))
+            except Exception:
+                pass
+            continue
+
+        try:
+            context_prefix = BugContext.from_dict(json_mod.loads(prefix_ctx_path.read_text(encoding="utf-8")))
+            context_postfix = BugContext.from_dict(json_mod.loads(postfix_ctx_path.read_text(encoding="utf-8")))
+
+            if not Path(context_postfix.work_dir).is_dir():
+                console.warn(f"[skip] {key} — postfix work_dir missing: {context_postfix.work_dir}")
+                failed += 1
+                continue
+
+            console.step(f"[run] {key}")
+            result = run_test_generation(context_prefix, context_postfix, client, d4j, args.prompt_style)
+
+            # Self-correction loop (--refine)
+            if getattr(args, "refine", False) and result.fails_on_buggy is not True:
+                from .test_gen import refine_test_generation
+                max_iter = getattr(args, "max_refine_iterations", 3)
+                result = refine_test_generation(result, context_prefix, client, d4j, max_iterations=max_iter)
+
+            bug_output_dir.mkdir(parents=True, exist_ok=True)
+            write_json(result_path, result.to_dict())
+            if result.generated_test_code:
+                (bug_output_dir / "generated_test.java").write_text(result.generated_test_code, encoding="utf-8")
+            _write_single_test_gen_report(result, bug_output_dir / "test_gen_report.md")
+
+            all_results.append(result)
+            completed += 1
+
+        except KeyboardInterrupt:
+            console.warn("Interrupted — saving partial results.")
+            break
+        except Exception as exc:
+            console.warn(f"[error] {key}: {exc}")
+            failed += 1
+
+    # Aggregate
+    if all_results:
+        from .test_gen_analysis import compute_aggregate_metrics, generate_report, export_csv
+        metrics = compute_aggregate_metrics(all_results)
+        agg_dir = output_dir / "aggregate"
+        agg_dir.mkdir(parents=True, exist_ok=True)
+        write_json(agg_dir / "test_gen_analysis.json", metrics)
+        (agg_dir / "test_gen_summary.md").write_text(generate_report(metrics, all_results), encoding="utf-8")
+        export_csv(all_results, agg_dir / "test_gen_results.csv")
+        console.step(f"Aggregate written -> {agg_dir}")
+
+    console.result_panel("Batch Test Generation complete", [
+        ("Completed", str(completed)),
+        ("Skipped (existing)", str(skipped)),
+        ("Failed", str(failed)),
+        ("Total", str(len(pairs))),
+    ])
+    return 0
+
+
+def _cmd_test_gen_analyze(args: argparse.Namespace) -> int:
+    from .pipeline import write_json
+    from .test_gen_analysis import compute_aggregate_metrics, export_csv, generate_report, load_results
+
+    results_dir = args.results_dir or Path(".dist") / "test_gen"
+    if not results_dir.is_dir():
+        console.error_panel("Directory Not Found", f"Results directory not found: {results_dir}")
+        return 1
+
+    agg_dir = results_dir / "aggregate"
+
+    output_path = args.output or agg_dir / "test_gen_analysis.json"
+    report_path = args.report or agg_dir / "test_gen_summary.md"
+
+    results = load_results(results_dir)
+    if not results:
+        console.warn(f"No test_gen_result.json files found under {results_dir}")
+        return 1
+
+    metrics = compute_aggregate_metrics(results)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    write_json(output_path, metrics)
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text(generate_report(metrics, results), encoding="utf-8")
+    console.step(f"Analysis JSON -> {output_path}")
+    console.step(f"Report -> {report_path}")
+
+    if args.export_csv:
+        csv_path = output_path.parent / "test_gen_results.csv"
+        export_csv(results, csv_path)
+        console.step(f"CSV -> {csv_path}")
+
+    console.result_panel("Test Generation Analysis", [
+        ("Total results", str(metrics["total"])),
+        ("Compilation rate", f"{metrics['compilation_rate']:.0%}"),
+        ("Fault detection rate", f"{metrics['fault_detection_rate']:.0%}"),
+        ("Oracle pass rate", f"{metrics['oracle_pass_rate']:.0%}"),
+        ("Method name match rate", f"{metrics['method_name_match_rate']:.0%}"),
+        ("Class targeting rate", f"{metrics['class_targeting_rate']:.0%}"),
+    ])
+    return 0
+
+
+def _write_single_test_gen_report(result: object, path: Path) -> None:
+    from .test_gen import TestGenResult
+    assert isinstance(result, TestGenResult)
+    r = result
+    lines = [
+        f"# Test Generation Report: {r.project_id}-{r.bug_id}",
+        "",
+        f"- **Prompt style**: {r.prompt_style}",
+        f"- **Model**: {r.model} ({r.provider})",
+        f"- **Generated class**: {r.generated_class_name}",
+        f"- **Generated method**: {r.generated_method_name}",
+        "",
+        "## Results",
+        "",
+        f"- Compiled: {'Yes' if r.compilation_success else 'No'}",
+    ]
+    if r.compilation_error:
+        lines.append(f"  - Error: `{r.compilation_error[:200]}`")
+    lines += [
+        f"- Fails on buggy version: {r.fails_on_buggy}",
+        f"- Passes on fixed version: {r.passes_on_fixed}",
+        f"- Oracle match (fail+pass): {r.oracle_match}",
+        "",
+        "## Ground Truth Comparison",
+        "",
+        f"- Trigger methods: {', '.join(r.trigger_methods) or '(none)'}",
+        f"- Method name match: {r.method_name_match}",
+        f"- Modified class targeted (`{r.modified_class}`): {r.trigger_class_targeted}",
+        "",
+    ]
+    if r.notes:
+        lines += ["## Notes", ""]
+        for note in r.notes:
+            lines.append(f"- {note}")
+        lines.append("")
+    if r.trigger_test_source:
+        lines += ["## Actual Defects4J Trigger Test (Ground Truth)", "", "```java", r.trigger_test_source, "```", ""]
+    if r.generated_test_code:
+        lines += ["## Generated Test", "", "```java", r.generated_test_code, "```", ""]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines), encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------

@@ -90,6 +90,10 @@ def collect_bug_context(
         exports = defects4j.export_properties(work_dir, DEFAULT_EXPORT_PROPERTIES)
     console.step("Properties exported", detail=f"{len(exports)} properties")
 
+    with console.timed_step("Reading trigger test class sources"):
+        test_class_sources = _collect_test_class_sources(exports, work_dir)
+    console.step(f"Trigger test class sources: {len(test_class_sources)}")
+
     notes: list[str] = []
     notes.append(f"Compilation exit code: {compile_result.returncode}")
     notes.append(f"Test exit code on buggy version: {test_result.returncode}")
@@ -187,6 +191,7 @@ def collect_bug_context(
         notes=notes,
         bug_info=bug_info,
         bug_report_content=bug_report_content,
+        test_class_sources=test_class_sources,
     )
 
     # ── Collect fix diff (optional, post-fix oracle) ──────────────────
@@ -575,6 +580,42 @@ def _resolve_java_file(source_dirs: list[Path], frame: StackFrame) -> Path | Non
             if matches:
                 return matches[0]
     return None
+
+
+# ---------------------------------------------------------------------------
+# Test class source collection (for oracle-clean LLM prompts)
+# ---------------------------------------------------------------------------
+
+def _collect_test_class_sources(exports: dict[str, str], work_dir: Path) -> dict[str, str]:
+    """Read the full source of every trigger test class from the checked-out tree.
+
+    Stores raw source keyed by FQN. test_gen.py strips trigger method bodies at
+    prompt-build time — this function only reads and stores.
+    """
+    trigger_raw = exports.get("tests.trigger", "")
+    test_src_dir = exports.get("dir.src.tests", "src/test/java")
+
+    sources: dict[str, str] = {}
+    seen: set[str] = set()
+
+    for entry in re.split(r"[,\n]+", trigger_raw):
+        entry = entry.strip()
+        if "::" not in entry:
+            continue
+        class_fqn = entry.split("::")[0]
+        if class_fqn in seen:
+            continue
+        seen.add(class_fqn)
+
+        rel_path = class_fqn.replace(".", "/") + ".java"
+        java_file = work_dir / test_src_dir / rel_path
+        if java_file.exists():
+            try:
+                sources[class_fqn] = java_file.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                pass
+
+    return sources
 
 
 # ---------------------------------------------------------------------------

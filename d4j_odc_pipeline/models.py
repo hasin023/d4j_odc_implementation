@@ -75,6 +75,10 @@ class BugContext:
     bug_info: str = ""
     bug_report_content: str = ""
     fix_diff: str = ""
+    # Full raw source of trigger test classes, keyed by FQN.
+    # Collected at checkout time; used by test_gen to show infrastructure
+    # (constants, helpers) while stripping trigger test bodies from the LLM prompt.
+    test_class_sources: dict[str, str] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -123,6 +127,7 @@ class BugContext:
             bug_info=str(data.get("bug_info", "")),
             bug_report_content=str(data.get("bug_report_content", "")),
             fix_diff=str(data.get("fix_diff", "")),
+            test_class_sources=dict(data.get("test_class_sources", {})),
         )
 
 
