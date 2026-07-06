@@ -50,7 +50,8 @@ def handle_config(app: "ODCApp", args: str) -> None:
         "model": ("model", str),
         "skip-coverage": ("skip_coverage", lambda v: v.lower() in ("true", "1", "yes")),
         "include-fix-diff": ("include_fix_diff", lambda v: v.lower() in ("true", "1", "yes")),
-        "prompt-style": ("prompt_style", str),
+        "taxonomy": ("taxonomy", str),
+        "reasoning": ("reasoning", str),
         "snippet-radius": ("snippet_radius", int),
     }
     if key not in config_map:
@@ -308,14 +309,16 @@ def handle_classify(app: "ODCApp", args: str) -> None:
             return
     from ..pipeline import classify_bug_context, load_context, write_markdown_report
     context = load_context(path)
+    from ..odc import condition_tag
+    tag = condition_tag(app.state.taxonomy, app.state.reasoning)
     out_dir = path.parent
-    cls_output = out_dir / "classification.json"
-    report_output = out_dir / "report.md"
+    cls_output = out_dir / f"classification.{tag}.json"
+    report_output = out_dir / f"report.{tag}.md"
     llm = _get_llm_kwargs(app)
     app.console.print(f"  [cyan]Classifying with {llm['provider']}...[/cyan]")
     with app.console.status("  Classifying with LLM...", spinner="dots"):
         classification = classify_bug_context(
-            context=context, prompt_style=app.state.prompt_style,
+            context=context, taxonomy=app.state.taxonomy, reasoning=app.state.reasoning,
             output_path=cls_output, prompt_output_path=None, **llm,
         )
     write_markdown_report(context=context, classification=classification, output_path=report_output)
@@ -341,9 +344,11 @@ def handle_run(app: "ODCApp", args: str) -> None:
     client = _get_client(app)
     work_dir = Path("work") / f"{project}_{bug}_{mode}"
     run_dir = Path(".dist") / "runs" / f"{project}_{bug}_{mode}"
+    from ..odc import condition_tag
+    tag = condition_tag(app.state.taxonomy, app.state.reasoning)
     ctx_out = run_dir / "context.json"
-    cls_out = run_dir / "classification.json"
-    rpt_out = run_dir / "report.md"
+    cls_out = run_dir / f"classification.{tag}.json"
+    rpt_out = run_dir / f"report.{tag}.md"
     llm = _get_llm_kwargs(app)
     app.console.print(f"  [cyan]Running {project}-{bug} ({mode}) with {llm['provider']}...[/cyan]")
     with app.console.status("  Collecting bug evidence...", spinner="dots"):
@@ -357,7 +362,7 @@ def handle_run(app: "ODCApp", args: str) -> None:
     app.console.print("  [green]✓[/green] Collection complete")
     with app.console.status("  Classifying with LLM...", spinner="dots"):
         classification = classify_bug_context(
-            context=context, prompt_style=app.state.prompt_style,
+            context=context, taxonomy=app.state.taxonomy, reasoning=app.state.reasoning,
             output_path=cls_out, prompt_output_path=None, **llm,
         )
     write_markdown_report(context=context, classification=classification, output_path=rpt_out)
@@ -703,7 +708,8 @@ def _study_run(app: "ODCApp", args: str) -> None:
                 model=llm["model"],
                 api_key_env=llm["api_key_env"],
                 base_url=llm["base_url"],
-                prompt_style=app.state.prompt_style,
+                taxonomy=app.state.taxonomy,
+                reasoning=app.state.reasoning,
                 snippet_radius=app.state.snippet_radius,
                 run_coverage=not app.state.skip_coverage,
                 skip_existing=not no_skip_existing,
@@ -914,7 +920,7 @@ def _study_baseline(app: "ODCApp", args: str) -> None:
         return
 
     from .. import console as pipeline_console
-    from ..batch import install_signal_handlers, load_manifest, reset_shutdown, run_baseline_from_manifest
+    from ..batch import install_signal_handlers, load_manifest, reset_shutdown, run_condition_from_manifest
     from ..pipeline import write_json
 
     previous_console = pipeline_console.get_console()
@@ -932,33 +938,30 @@ def _study_baseline(app: "ODCApp", args: str) -> None:
         target_bugs = manifest.get("target_bugs", manifest.get("selected_bugs", 0))
         dist_study = Path(".dist") / "study"
 
-        if baseline_root is None:
-            baseline_root = dist_study / f"baseline_{target_bugs}"
+        artifacts_root = baseline_root or (dist_study / f"artifacts_{target_bugs}")
         if work_root is None:
             work_root = dist_study / "work"
         if summary_output is None:
-            summary_output = dist_study / "baseline_summary.json"
+            summary_output = dist_study / "classify_summary.closed-zero.json"
 
         llm = _get_llm_kwargs(app)
-        app.console.print(f"  [cyan]Running baseline from {mp.name}...[/cyan]")
-        app.console.print(f"  [dim]Baseline root  -> {baseline_root}[/dim]")
-        app.console.print(f"  [dim]Prompt style   -> direct[/dim]")
-        if scientific_artifacts_root:
-            app.console.print(f"  [dim]Reuse context  -> {scientific_artifacts_root}[/dim]")
+        app.console.print(f"  [cyan]Running closed-zero condition from {mp.name}...[/cyan]")
+        app.console.print(f"  [dim]Artifacts root -> {artifacts_root}[/dim]")
+        app.console.print("  [dim]Condition      -> closed-zero (was: baseline/direct)[/dim]")
         app.console.print("  [dim]Ctrl+C once for graceful stop, twice to force stop.[/dim]")
 
         try:
-            summary = run_baseline_from_manifest(
+            summary = run_condition_from_manifest(
                 defects4j=client,
                 manifest=manifest,
-                baseline_root=baseline_root,
+                artifacts_root=artifacts_root,
                 work_root=work_root,
-                scientific_artifacts_root=scientific_artifacts_root,
                 provider=llm["provider"],
                 model=llm["model"],
                 api_key_env=llm["api_key_env"],
                 base_url=llm["base_url"],
-                prompt_style="direct",
+                taxonomy="closed",
+                reasoning="zero",
                 snippet_radius=app.state.snippet_radius,
                 run_coverage=not app.state.skip_coverage,
                 skip_existing=not no_skip_existing,
@@ -1042,7 +1045,7 @@ def _study_naive(app: "ODCApp", args: str) -> None:
         return
 
     from .. import console as pipeline_console
-    from ..batch import install_signal_handlers, load_manifest, reset_shutdown, run_baseline_from_manifest
+    from ..batch import install_signal_handlers, load_manifest, reset_shutdown, run_condition_from_manifest
     from ..pipeline import write_json
 
     previous_console = pipeline_console.get_console()
@@ -1060,33 +1063,30 @@ def _study_naive(app: "ODCApp", args: str) -> None:
         target_bugs = manifest.get("target_bugs", manifest.get("selected_bugs", 0))
         dist_study = Path(".dist") / "study"
 
-        if naive_root is None:
-            naive_root = dist_study / f"naive_{target_bugs}"
+        artifacts_root = naive_root or (dist_study / f"artifacts_{target_bugs}")
         if work_root is None:
             work_root = dist_study / "work"
         if summary_output is None:
-            summary_output = dist_study / "naive_summary.json"
+            summary_output = dist_study / "classify_summary.free-zero.json"
 
         llm = _get_llm_kwargs(app)
-        app.console.print(f"  [cyan]Running naive (taxonomy-free) from {mp.name}...[/cyan]")
-        app.console.print(f"  [dim]Naive root     -> {naive_root}[/dim]")
-        app.console.print(f"  [dim]Prompt style   -> naive (no ODC taxonomy)[/dim]")
-        if scientific_artifacts_root:
-            app.console.print(f"  [dim]Reuse context  -> {scientific_artifacts_root}[/dim]")
+        app.console.print(f"  [cyan]Running free-zero condition from {mp.name}...[/cyan]")
+        app.console.print(f"  [dim]Artifacts root -> {artifacts_root}[/dim]")
+        app.console.print("  [dim]Condition      -> free-zero (was: naive/taxonomy-free)[/dim]")
         app.console.print("  [dim]Ctrl+C once for graceful stop, twice to force stop.[/dim]")
 
         try:
-            summary = run_baseline_from_manifest(
+            summary = run_condition_from_manifest(
                 defects4j=client,
                 manifest=manifest,
-                baseline_root=naive_root,
+                artifacts_root=artifacts_root,
                 work_root=work_root,
-                scientific_artifacts_root=scientific_artifacts_root,
                 provider=llm["provider"],
                 model=llm["model"],
                 api_key_env=llm["api_key_env"],
                 base_url=llm["base_url"],
-                prompt_style="naive",
+                taxonomy="free",
+                reasoning="zero",
                 snippet_radius=app.state.snippet_radius,
                 run_coverage=not app.state.skip_coverage,
                 skip_existing=not no_skip_existing,

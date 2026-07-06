@@ -56,7 +56,7 @@ The use of Cohen’s Kappa is the academic standard for measuring inter-rater re
 
 ## **Emulating Scientific Debugging through Large Language Models**
 
-To prevent the LLM from hallucinating or generating transient, inconsistent ODC labels, the proposed pipeline employs a strict prompting strategy based on Andreas Zeller's scientific debugging methodology. Introduced in his seminal 2009 text _Why Programs Fail_, scientific debugging formalizes the inherently chaotic debugging process into a rigorous, verifiable loop: Hypothesize, Observe, Predict, Examine, and Conclude.
+To prevent the LLM from hallucinating or generating transient, inconsistent ODC labels, the proposed pipeline employs a strict prompting strategy based on Andreas Zeller's scientific debugging methodology. Introduced in his seminal 2009 text _Why Programs Fail_, scientific debugging formalizes the inherently chaotic debugging process into a rigorous, verifiable loop. At the process level (Zeller, _Why Programs Fail_, Ch. 6) it begins by observing the failure: Observe → Hypothesize → Predict → Experiment → Conclude. Within each iteration of an AutoSD-style loop (Kang et al., Fig. 1), the initial failure observation is given as input, and each cycle then runs Hypothesis → Prediction → Experiment → Observation (the experiment's result) → Conclusion. The two orderings are consistent: "observe" names the initial failure symptoms in the former and the experimental result in the latter.
 
 ### **The AutoSD Framework and Cognitive Emulation**
 
@@ -68,7 +68,7 @@ By adopting this scientific debugging protocol, the proposed ODC pipeline ensure
 
 ### **Toward Agentic Debugging Frameworks**
 
-The user query notes that the current implementation utilizes a single hypothesize-observe loop, with aspirations to evolve into a fully agentic framework. This trajectory is perfectly aligned with the vanguard of 2025–2026 software engineering research.
+The user query notes that the current implementation utilizes a single-pass observe–hypothesize prompt, with aspirations to evolve into a fully agentic framework. This trajectory is perfectly aligned with the vanguard of 2025–2026 software engineering research.
 
 Recent publications have introduced systems like InspectCoder and ChatDBG, which transition from static prompting into dynamic, multi-agent frameworks. InspectCoder, for example, utilizes a dual-agent architecture consisting of a "Program Inspector" that interactively probes the runtime environment, and a "Patch Coder" that synthesizes fixes based on the inspector's dynamic findings. Similarly, the Debug2Fix framework introduces a specialized debugging subagent that orchestrates actual debugger tools (like JDB) to gather complex runtime states. Highlighting this agentic future in the manuscript's "Future Work" section will demonstrate that the proposed ODC pipeline is situated at the forefront of the autonomous software engineering revolution.
 
@@ -93,7 +93,7 @@ Reviewers at JSS will inherently look for baselines against which to compare the
 **Actionable Steps:**
 
 - Establish a baseline using a traditional machine learning algorithm (e.g., a Support Vector Machine trained via TF-IDF on the Defects4J bug reports) or a zero-shot LLM prompt that lacks the scientific debugging framework.
-- By comparing the sophisticated "Hypothesize-Observe-Conclude" pipeline against these rudimentary baselines, the manuscript will quantitatively prove the value of the prompting architecture, demonstrating that the scientific methodology reduces hallucinations.
+- By comparing the sophisticated "Observe–Hypothesize–Conclude" pipeline against these rudimentary baselines, the manuscript will quantitatively prove the value of the prompting architecture, demonstrating that the scientific methodology reduces hallucinations.
 
 ### **Phase 3: Executing the 4-Tier Evaluation and Statistical Testing**
 

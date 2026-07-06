@@ -44,7 +44,9 @@ class SessionState:
     # ── pipeline settings ────────────────────────────────────────────────
     skip_coverage: bool = True
     include_fix_diff: bool = False
-    prompt_style: str = "scientific"
+    prompt_style: str = "scientific"  # retired; kept so old session files load
+    taxonomy: str = "open"
+    reasoning: str = "scientific"
     snippet_radius: int = 12
 
     # ── last-result references ───────────────────────────────────────────

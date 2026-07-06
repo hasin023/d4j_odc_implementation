@@ -5,9 +5,20 @@ import re
 from pathlib import Path
 
 from .defects4j import DEFAULT_EXPORT_PROPERTIES, DEFAULT_QUERY_FIELDS, Defects4JClient
-from .llm import LLMClient, LLMError
+from .llm import LLMClient, LLMError, classification_response_schema, naive_response_schema
 from .models import BugContext, ClassificationResult, CodeSnippet, StackFrame, ensure_parent, utc_now_iso
-from .odc import ODC_TYPE_NAMES, family_for
+from .odc import (
+    DEFAULT_REASONING,
+    DEFAULT_TAXONOMY,
+    ODC_TYPE_NAMES,
+    OTHER_TYPE_NAME,
+    REASONING_LEVELS,
+    TAXONOMY_FREE,
+    TAXONOMY_MODES,
+    allowed_type_names,
+    family_for,
+    legacy_prompt_style,
+)
 from .parsing import extract_json_object
 from .prompting import build_messages
 from .web_fetch import fetch_bug_report
@@ -231,7 +242,6 @@ def collect_bug_context(
 def classify_bug_context(
     *,
     context: BugContext,
-    prompt_style: str,
     output_path: Path,
     provider: str,
     model: str,
@@ -239,14 +249,20 @@ def classify_bug_context(
     base_url: str | None = None,
     prompt_output_path: Path | None = None,
     dry_run: bool = False,
+    taxonomy: str = DEFAULT_TAXONOMY,
+    reasoning: str = DEFAULT_REASONING,
 ) -> ClassificationResult | None:
+    if taxonomy not in TAXONOMY_MODES:
+        raise ValueError(f"Unknown taxonomy: {taxonomy!r} (expected one of {TAXONOMY_MODES})")
+    if reasoning not in REASONING_LEVELS:
+        raise ValueError(f"Unknown reasoning level: {reasoning!r} (expected one of {REASONING_LEVELS})")
     console.header_panel(
         f"Classifying: {context.project_id}-{context.bug_id}",
-        f"Provider: {provider}  •  Model: {model}  •  Style: {prompt_style}",
+        f"Provider: {provider}  •  Model: {model}  •  Taxonomy: {taxonomy}  •  Reasoning: {reasoning}",
     )
 
-    with console.timed_step(f"Building prompt ({prompt_style})"):
-        messages = build_messages(context, prompt_style)
+    with console.timed_step(f"Building prompt ({taxonomy}-{reasoning})"):
+        messages = build_messages(context, taxonomy, reasoning)
 
     if prompt_output_path:
         ensure_parent(prompt_output_path)
@@ -268,17 +284,25 @@ def classify_bug_context(
             api_key_env=api_key_env,
             base_url=base_url,
         )
-        raw_response = client.complete(messages)
+        raw_response = client.complete(
+            messages,
+            response_schema=(
+                naive_response_schema()
+                if taxonomy == TAXONOMY_FREE
+                else classification_response_schema(taxonomy)
+            ),
+        )
 
     console.step("Parsing LLM response...")
     payload = extract_json_object(raw_response)
     result = _validate_classification_payload(
         payload=payload,
         context=context,
-        prompt_style=prompt_style,
         model=model,
         provider=provider,
         raw_response=raw_response,
+        taxonomy=taxonomy,
+        reasoning=reasoning,
     )
 
     console.step(f"Writing classification → {output_path}")
@@ -288,6 +312,9 @@ def classify_bug_context(
     review_text = "Yes" if result.needs_human_review else "No"
 
     optional_rows: list[tuple[str, str]] = []
+    if result.odc_type == OTHER_TYPE_NAME:
+        optional_rows.append(("Nearest Type", result.nearest_type or "—"))
+        optional_rows.append(("Other Confidence", f"{result.other_confidence:.2f}" if result.other_confidence is not None else "—"))
     if result.target:
         optional_rows.append(("Target", result.target))
     if result.qualifier:
@@ -791,11 +818,13 @@ def _validate_classification_payload(
     *,
     payload: dict,
     context: BugContext,
-    prompt_style: str,
     model: str,
     provider: str,
     raw_response: str,
+    taxonomy: str = DEFAULT_TAXONOMY,
+    reasoning: str = DEFAULT_REASONING,
 ) -> ClassificationResult:
+    prompt_style = legacy_prompt_style(taxonomy, reasoning)
     def _opt_text(value: object) -> str | None:
         if value is None:
             return None
@@ -808,9 +837,9 @@ def _validate_classification_payload(
         return [str(item).strip() for item in value if str(item).strip()]
 
     odc_type = payload.get("odc_type")
-    # Naive prompt style: free-form labels, no ODC validation (RQ2.3).
+    # Free taxonomy: free-form labels, no ODC validation.
     # The raw defect_type is stored in odc_type for unified artifact schema.
-    if prompt_style == "naive":
+    if taxonomy == TAXONOMY_FREE:
         free_label = str(payload.get("defect_type", payload.get("odc_type", "unknown"))).strip()
         confidence = float(payload.get("confidence", 0.0))
         # Naive confidence is 0-100 scale; normalize to 0-1 for consistency.
@@ -845,11 +874,41 @@ def _validate_classification_payload(
             inferred_triggers=[],
             inferred_impact=[],
             evidence_mode="post-fix" if context.fix_diff else "pre-fix",
+            reasoning=reasoning,
+            taxonomy_mode=taxonomy,
             raw_response=raw_response,
         )
 
-    if odc_type not in ODC_TYPE_NAMES:
-        raise LLMError(f"Invalid or missing odc_type in LLM output: {odc_type!r}")
+    if odc_type not in allowed_type_names(taxonomy):
+        raise LLMError(
+            f"Invalid or missing odc_type in LLM output: {odc_type!r} "
+            f"(taxonomy: {taxonomy})"
+        )
+
+    # RQ2 open mode: "Other" is only valid with its three mandatory fields.
+    # This prevents lazy escapes and preserves analytical value (nearest_type
+    # keeps the bug partially placeable in the distribution).
+    other_justification: str | None = None
+    nearest_type: str | None = None
+    other_confidence: float | None = None
+    is_other = odc_type == OTHER_TYPE_NAME
+    if is_other:
+        other_justification = _opt_text(payload.get("other_justification"))
+        nearest_type = _opt_text(payload.get("nearest_type"))
+        raw_other_confidence = payload.get("other_confidence")
+        if not other_justification:
+            raise LLMError("odc_type is 'Other' but other_justification is missing or empty")
+        if nearest_type not in ODC_TYPE_NAMES:
+            raise LLMError(
+                f"odc_type is 'Other' but nearest_type {nearest_type!r} is not one of the 7 ODC types"
+            )
+        try:
+            other_confidence = min(1.0, max(0.0, float(raw_other_confidence)))
+        except (TypeError, ValueError):
+            raise LLMError(
+                f"odc_type is 'Other' but other_confidence {raw_other_confidence!r} is not a number"
+            ) from None
+
     confidence = float(payload.get("confidence", 0.0))
     confidence = min(1.0, max(0.0, confidence))
     return ClassificationResult(
@@ -861,9 +920,10 @@ def _validate_classification_payload(
         provider=provider,
         created_at=utc_now_iso(),
         odc_type=odc_type,
-        family=family_for(odc_type),  # Always use canonical mapping, never trust LLM
+        family=family_for(odc_type),  # Always use canonical mapping, never trust LLM ("Other" -> None)
         confidence=confidence,
-        needs_human_review=bool(payload.get("needs_human_review", False)),
+        # "Other" is a strong claim of a taxonomy gap; always route it to human review.
+        needs_human_review=bool(payload.get("needs_human_review", False)) or is_other,
         observation_summary=str(payload.get("observation_summary", "")).strip(),
         hypothesis=str(payload.get("hypothesis", "")).strip(),
         prediction=str(payload.get("prediction", "")).strip(),
@@ -884,5 +944,10 @@ def _validate_classification_payload(
         inferred_triggers=_opt_list(payload.get("inferred_triggers")),
         inferred_impact=_opt_list(payload.get("inferred_impact")),
         evidence_mode="post-fix" if context.fix_diff else "pre-fix",
+        reasoning=reasoning,
+        taxonomy_mode=taxonomy,
+        other_justification=other_justification,
+        nearest_type=nearest_type,
+        other_confidence=other_confidence,
         raw_response=raw_response,
     )

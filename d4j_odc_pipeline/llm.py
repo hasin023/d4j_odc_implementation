@@ -78,9 +78,14 @@ class LLMClient:
             )
         )
 
-    def complete(self, messages: list[dict[str, str]]) -> str:
+    def complete(
+        self,
+        messages: list[dict[str, str]],
+        *,
+        response_schema: dict | None = None,
+    ) -> str:
         if self.settings.provider == "gemini":
-            return self._complete_gemini(messages)
+            return self._complete_gemini(messages, response_schema=response_schema)
         return self._complete_openai_compatible(messages)
 
     def _complete_openai_compatible(self, messages: list[dict[str, str]]) -> str:
@@ -107,13 +112,18 @@ class LLMClient:
         except (KeyError, IndexError, TypeError) as exc:
             raise LLMError(f"Unexpected LLM response shape: {raw}") from exc
 
-    def _complete_gemini(self, messages: list[dict[str, str]]) -> str:
+    def _complete_gemini(
+        self,
+        messages: list[dict[str, str]],
+        *,
+        response_schema: dict | None = None,
+    ) -> str:
         payload: dict[str, object] = {
             "contents": _gemini_contents(messages),
             "generationConfig": {
                 "temperature": self.settings.temperature,
                 "responseMimeType": "application/json",
-                "responseJsonSchema": classification_response_schema(),
+                "responseJsonSchema": response_schema or classification_response_schema(),
             },
         }
         system_instruction = _gemini_system_instruction(messages)
@@ -178,11 +188,46 @@ def default_model_for_provider(provider: str, fallback: str) -> str:
     return fallback
 
 
-def classification_response_schema() -> dict:
+def naive_response_schema() -> dict:
+    """JSON schema for free-taxonomy (own-words) classification responses.
+
+    Matches prompting._naive_json_contract. Previously the Gemini path forced
+    the ODC schema even for the naive prompt; free taxonomy now gets its own.
+    """
+    return {
+        "type": "object",
+        "properties": {
+            "defect_type": {"type": "string"},
+            "confidence": {"type": "number"},
+            "reasoning_summary": {"type": "string"},
+            "root_cause": {"type": "string"},
+            "symptom": {"type": "string"},
+        },
+        "required": ["defect_type", "confidence", "reasoning_summary", "root_cause", "symptom"],
+    }
+
+
+def classification_response_schema(taxonomy_mode: str = "closed") -> dict:
+    """JSON schema for the classification response.
+
+    In open taxonomy mode (RQ2 coverage study) three extra fields are added
+    for the "Other" escape label. They are nullable here; the requirement
+    that they be present when odc_type == "Other" is enforced in
+    pipeline._validate_classification_payload, keeping the schema
+    perturbation between the closed and open passes minimal.
+    """
+    other_properties: dict[str, dict] = {}
+    if taxonomy_mode == "open":
+        other_properties = {
+            "other_justification": {"type": ["string", "null"]},
+            "nearest_type": {"type": ["string", "null"]},
+            "other_confidence": {"type": ["number", "null"]},
+        }
     return {
         "type": "object",
         "properties": {
             "odc_type": {"type": "string"},
+            **other_properties,
             "family": {"type": ["string", "null"]},
             "target": {"type": ["string", "null"]},
             "qualifier": {"type": ["string", "null"]},

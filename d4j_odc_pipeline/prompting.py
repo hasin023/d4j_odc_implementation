@@ -3,24 +3,52 @@ from __future__ import annotations
 import json
 
 from .models import BugContext
-from .odc import ODC_TYPE_NAMES, taxonomy_markdown
+from .odc import (
+    DEFAULT_REASONING,
+    DEFAULT_TAXONOMY,
+    REASONING_SCIENTIFIC,
+    REASONING_ZERO,
+    TAXONOMY_CLOSED,
+    TAXONOMY_FREE,
+    TAXONOMY_OPEN,
+    allowed_type_names,
+    taxonomy_markdown,
+)
 
 
-def build_messages(context: BugContext, prompt_style: str) -> list[dict[str, str]]:
+def build_messages(
+    context: BugContext,
+    taxonomy: str = DEFAULT_TAXONOMY,
+    reasoning: str = DEFAULT_REASONING,
+) -> list[dict[str, str]]:
+    """Build the LLM messages for one classification condition.
+
+    The condition is the (taxonomy, reasoning) coordinate — see odc.py for the
+    level definitions. The retired preset names map as:
+    naive = free×zero, direct = closed×zero, scientific = closed×scientific.
+    """
     has_fix_diff = bool(context.fix_diff)
-    system_prompt = _build_system_prompt(prompt_style, has_fix_diff=has_fix_diff)
-    user_prompt = _build_user_prompt(context, prompt_style)
+    system_prompt = _build_system_prompt(
+        taxonomy=taxonomy, reasoning=reasoning, has_fix_diff=has_fix_diff
+    )
+    user_prompt = _build_user_prompt(context, taxonomy=taxonomy, reasoning=reasoning)
     return [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_prompt},
     ]
 
 
-def _build_system_prompt(prompt_style: str, *, has_fix_diff: bool = False) -> str:
-    # Naive prompt: no ODC taxonomy, no structured labels, no anti-bias rules.
-    # The LLM receives only generic defect-analysis instructions.
-    if prompt_style == "naive":
-        return _build_naive_system_prompt(has_fix_diff=has_fix_diff)
+def _build_system_prompt(
+    *,
+    taxonomy: str,
+    reasoning: str,
+    has_fix_diff: bool = False,
+) -> str:
+    # Free taxonomy: no ODC types, no structured labels, no anti-bias rules.
+    # The LLM answers in its own words (simplified JSON contract).
+    if taxonomy == TAXONOMY_FREE:
+        return _build_free_system_prompt(has_fix_diff=has_fix_diff, reasoning=reasoning)
+    taxonomy_mode = taxonomy
 
     base = [
         "You are an expert software defect analyst specializing in Orthogonal Defect Classification (ODC).",
@@ -54,12 +82,12 @@ def _build_system_prompt(prompt_style: str, *, has_fix_diff: bool = False) -> st
         "- Read the code snippets carefully. The type of fix needed determines the ODC type.",
         "- Do not use benchmark familiarity, project reputation, or hidden fix knowledge.",
         "",
-        taxonomy_markdown(),
+        taxonomy_markdown(taxonomy_mode),
         "",
         "Return only valid JSON matching this schema:",
-        _json_contract(),
+        _json_contract(taxonomy_mode),
     ])
-    if prompt_style == "scientific":
+    if reasoning == REASONING_SCIENTIFIC:
         base.extend(
             [
                 "",
@@ -171,12 +199,18 @@ These examples show how to distinguish between ODC types using pre-fix evidence:
 **NOT Algorithm/Method**: There's no wrong computation — there is no computation for this capability."""
 
 
-def _build_user_prompt(context: BugContext, prompt_style: str) -> str:
-    payload = _context_payload(context, prompt_style)
+def _build_user_prompt(
+    context: BugContext,
+    *,
+    taxonomy: str,
+    reasoning: str,
+) -> str:
+    payload = _context_payload(context)
     evidence_mode = "post-fix (with buggy->fixed diff)" if context.fix_diff else "pre-fix only"
+    taxonomy_mode = taxonomy
 
-    # Naive prompt: no ODC references in user prompt either.
-    if prompt_style == "naive":
+    # Free taxonomy: no ODC references in user prompt either.
+    if taxonomy == TAXONOMY_FREE:
         rules = [
             "Classify this bug based on the evidence below.",
             f"Evidence mode: {evidence_mode}",
@@ -201,14 +235,20 @@ def _build_user_prompt(context: BugContext, prompt_style: str) -> str:
         "- Consider: Is the root cause a missing CHECK, a wrong VALUE, a wrong COMPUTATION, a BOUNDARY mismatch, or truly MISSING functionality?",
         "- If code snippets show existing logic producing wrong results, this is usually NOT 'Function/Class/Object'.",
         "- If evidence is incomplete, lower confidence and set needs_human_review=true.",
-        "- The output odc_type must be one of: " + ", ".join(ODC_TYPE_NAMES),
+        "- The output odc_type must be one of: " + ", ".join(allowed_type_names(taxonomy_mode)),
     ]
+    if taxonomy_mode == TAXONOMY_OPEN:
+        rules.append(
+            "- 'Other' is a LAST RESORT: only when the root-cause mechanism fits none of the 7 ODC "
+            "types. Uncertainty or incomplete evidence is NOT a reason to choose Other. If you choose "
+            "Other, you MUST fill other_justification, nearest_type, and other_confidence."
+        )
     if context.fix_diff:
         rules.append("- CAREFULLY examine the fix_diff_oracle to see exactly what was changed. The nature of the change determines the ODC type.")
     return "\n".join(rules) + "\n\nEvidence:\n" + json.dumps(payload, indent=2)
 
 
-def _context_payload(context: BugContext, prompt_style: str) -> dict:
+def _context_payload(context: BugContext) -> dict:
     # Filter metadata — exclude hidden oracles
     filtered_metadata = {key: value for key, value in context.metadata.items() if key != "classes.modified"}
 
@@ -417,10 +457,18 @@ def _build_odc_mapping_hints(context: BugContext) -> tuple[dict, dict]:
     return opener_hints, closer_hints
 
 
-def _json_contract() -> str:
+def _json_contract(taxonomy_mode: str = TAXONOMY_CLOSED) -> str:
+    other_fields = ""
+    if taxonomy_mode == TAXONOMY_OPEN:
+        other_fields = (
+            '"other_justification": "REQUIRED if odc_type is Other: why each of the 7 ODC types fails, citing evidence (else omit)", '
+            '"nearest_type": "REQUIRED if odc_type is Other: the closest of the 7 ODC types (else omit)", '
+            '"other_confidence": "REQUIRED if odc_type is Other: number 0-1, confidence that this is a true taxonomy gap (else omit)", '
+        )
     return (
         "{"
         '"odc_type": "one of the allowed ODC types", '
+        + other_fields +
         '"family": "Control and Data Flow or Structural", '
         '"target": "Design/Code (optional; closer attribute)", '
         '"qualifier": "Missing or Incorrect or Extraneous (optional; closer attribute)", '
@@ -443,23 +491,34 @@ def _json_contract() -> str:
     )
 
 
-def _build_naive_system_prompt(*, has_fix_diff: bool = False) -> str:
-    """Build a taxonomy-free system prompt for the naive baseline (RQ2.3).
+def _build_free_system_prompt(*, has_fix_diff: bool = False, reasoning: str = REASONING_ZERO) -> str:
+    """Build a taxonomy-free system prompt (the 'free' taxonomy level).
 
     This prompt intentionally excludes ALL ODC concepts:
     - No ODC type names or descriptions
     - No taxonomy guidance or family groupings
     - No anti-bias rules referencing ODC types
     - No JSON schema with ODC fields
-    - No scientific debugging protocol or few-shot examples
+    - No diagnostic decision tree or ODC few-shot examples
 
-    The LLM receives only generic defect-analysis instructions and must
-    classify in its own words using a simplified JSON schema.
+    free×zero is the old 'naive' baseline (RQ4 anchor). free×scientific adds
+    the scientific-method protocol WITHOUT any taxonomy — the interaction-
+    effect control cell: the LLM follows the method but answers in its own
+    words. Both use the simplified JSON contract.
     """
     parts = [
         "You are a software defect analyst.",
         "Your job is to analyze a software bug and determine what TYPE of defect it is.",
     ]
+
+    if reasoning == REASONING_SCIENTIFIC:
+        parts.extend([
+            "",
+            _scientific_debugging_instructions(),
+            "",
+            "In Step 5 (CONCLUDE), state the defect type in your own words — be specific "
+            "and technical about the root-cause mechanism.",
+        ])
 
     if has_fix_diff:
         parts.extend([

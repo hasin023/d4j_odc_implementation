@@ -61,8 +61,7 @@ Primary CLI modes:
 - `study-plan`: generate a balanced bug manifest for large-scale batch studies
 - `study-run`: execute prefix + postfix runs for every bug in a study manifest (with checkpoint/resume and graceful Ctrl+C)
 - `study-analyze`: cross-artifact analysis over prefix/postfix study outputs
-- `study-baseline`: run baseline (direct prompt) classifications for RQ2.2 comparison
-- `study-naive`: run naive (taxonomy-free) classifications for RQ2.3 comparison
+- `study-classify`: run ONE classification condition (`--taxonomy` x `--reasoning` y) over the manifest, prefix-only, writing condition-tagged files into the SAME bug folders and reusing `context.json`; when run with `--taxonomy open` and a closed pass exists in the tree, auto-writes `taxonomy_coverage_<N>.json` (escape/coverage rates, taxonomy-shift kappa, KL divergence, escape audit list). Replaces the tombstoned `study-baseline`/`study-naive`/`study-coverage`.
 - `study-export`: export analysis results as LaTeX tables and CSV files
 - `multifault`: query multi-fault co-existence data from defects4j-mf
 - `multifault-enrich`: enrich an existing classification JSON with multi-fault context
@@ -73,9 +72,8 @@ The filesystem is the main contract:
 - `.dist/runs/` contains outputs from standalone commands (`collect`, `run`, `classify`)
 - `.dist/study/` contains outputs from batch commands (`study-run`, `study-analyze`)
 - `.dist/study/artifacts_<N>/` has `prefix/` and `postfix/` subdirectories for paired runs (N = target_bugs)
-- `.dist/study/baseline_<N>/` has `<bug>_prefix/` subdirectories for baseline (direct prompt) classifications
-- `.dist/study/naive_<N>/` has `<bug>_prefix/` subdirectories for naive (taxonomy-free) classifications
-- `.dist/study/checkpoint.json` tracks progress for resumable batch runs
+- All classification conditions write into the SAME bug folders under `artifacts_<N>/{prefix,postfix}/` as condition-tagged files (`classification.<taxonomy>-<reasoning>.json`); the old `baseline_<N>/`, `naive_<N>/`, `coverage_<N>/` parallel roots are retired
+- `.dist/study/artifacts_<N>/checkpoint.pairs.<tag>.json` (study-run) and `checkpoint.prefix.<tag>.json` (study-classify) track progress for resumable batch runs, one per condition
 - `.dist/study/latex/` and `.dist/study/csv/` contain exported tables from `study-export`
 - `work/` contains checked-out Defects4J projects (for standalone runs, named `<project>_<bug>_prefix` or `_postfix`)
 - `.dist/study/work/` contains checkouts for batch runs
@@ -184,7 +182,7 @@ Sequence:
 Important behavior:
 
 - `build_messages()` always returns exactly two messages: one `system`, one `user`.
-- There are three prompt styles: `scientific`, `direct` (zero-shot baseline), and `naive` (taxonomy-free baseline).
+- Every classification is a coordinate of two condition variables: `taxonomy` (free = own words | closed = 7 ODC types | open = 7 + Other; default open) and `reasoning` (zero = zero-shot | scientific = protocol + tree + examples; default scientific; agentic reserved). Retired presets map: naive = free×zero, direct = closed×zero, scientific = closed×scientific. `--prompt-style` is tombstoned.
 - `scientific` includes: taxonomy guidance, JSON contract text, anti-bias rules, scientific debugging protocol, 7-question diagnostic tree, and 5 few-shot examples.
 - `direct` includes: taxonomy guidance, JSON contract text, and anti-bias rules only. No protocol, no diagnostic tree, no few-shots. This is the controlled baseline for RQ2.2.
 - `naive` includes: no ODC taxonomy, no type names, no anti-bias rules. The LLM classifies in its own words using a simplified JSON schema (`defect_type`, `confidence`, `reasoning_summary`). This is the baseline for RQ2.3.
@@ -232,8 +230,7 @@ Owns the CLI surface:
 - `study-plan`
 - `study-run`
 - `study-analyze`
-- `study-baseline`
-- `study-naive`
+- `study-classify`
 - `study-export`
 - `multifault`
 - `multifault-enrich`
@@ -251,10 +248,10 @@ Important details:
 - `study-run` reads `target_bugs` from the manifest and defaults `--artifacts-root` to `.dist/study/artifacts_<target_bugs>/`.
 - `study-run --manifest` and `study-analyze --manifest` resolve bare filenames under `.dist/study/`.
 - `study-analyze` defaults `--prefix-dir`, `--postfix-dir`, `--output`, `--report` using the manifest's `target_bugs`.
-- `study-baseline` defaults `--baseline-root` to `.dist/study/baseline_<target_bugs>/`.
-- `study-baseline --scientific-artifacts-root` reuses `context.json` from scientific runs for evidence parity.
-- `study-naive` defaults `--naive-root` to `.dist/study/naive_<target_bugs>/`.
-- `study-naive --scientific-artifacts-root` reuses `context.json` from scientific runs for evidence parity.
+- `study-classify` defaults `--artifacts-root` to `.dist/study/artifacts_<target_bugs>/` and writes into the SAME bug folders as `study-run` (bug-centric layout: all conditions beside one shared `context.json`, which is reused when present and never rewritten).
+- Classification/report filenames are ALWAYS condition-tagged: `classification.<taxonomy>-<reasoning>.json`, `report.<tag>.md`. Checkpoints are per condition: `checkpoint.pairs.<tag>.json` (study-run) / `checkpoint.prefix.<tag>.json` (study-classify).
+- `study-analyze` and `compare-batch` default to the closed-scientific condition (the paired baseline), NOT the CLI-wide open default — pass `--taxonomy/--reasoning` to analyze another condition.
+- Taxonomy modes: `classify`/`run` accept `--taxonomy closed|open` (default `closed`). Open mode adds the "Other" escape label; when chosen, `classification.json` carries mandatory `other_justification`, `nearest_type`, `other_confidence`, plus `taxonomy_mode`, and `needs_human_review` is forced true. "Other" has no family (`family_for` returns None).
 - `study-export` writes LaTeX tables to `<output-dir>/latex/` and CSV files to `<output-dir>/csv/`.
 - `multifault-enrich --output` defaults to `classification_enriched.json` alongside the input file.
 - `study-run` installs SIGINT/SIGBREAK signal handlers for graceful Ctrl+C shutdown.
@@ -270,7 +267,7 @@ Key responsibilities:
 - Batch execution with paired prefix/postfix runs (`run_batch_from_manifest`)
 - Baseline execution with prefix-only direct-prompt runs (`run_baseline_from_manifest`)
 - Signal handling: SIGINT sets a shutdown flag; checked at every loop iteration and between collect/classify steps
-- Checkpoint persistence: `checkpoint.json` written after each entry; loaded on restart to skip completed entries
+- Checkpoint persistence: `checkpoint.pairs.<tag>.json` / `checkpoint.prefix.<tag>.json` written after each entry; loaded on restart to skip completed entries
 - Manifest hash: SHA-256 of sorted entry keys detects stale checkpoints from different manifests
 - Progress bar: Rich progress bar showing current bug and completion count
 - Cross-artifact analysis (`analyze_batch_artifacts`): discovers prefix/postfix pairs, computes transition matrices, identifies divergence patterns
@@ -279,7 +276,7 @@ Important behavior:
 
 - First Ctrl+C sets a flag and prints a warning; the current bug finishes, then the loop exits.
 - Second Ctrl+C raises `SystemExit(130)` for immediate termination.
-- `checkpoint.json` uses a manifest hash to detect when the manifest has changed; stale checkpoints are ignored.
+- Checkpoint files use a manifest hash to detect when the manifest has changed; stale checkpoints are ignored.
 - `skip_existing=True` (default) skips entries where all 3 output files exist, independent of checkpoint.
 
 ### `pipeline.py`
@@ -774,6 +771,9 @@ These are the main places future agents get misled:
 10. `compare-batch` only finds pairs when directory names line up after stripping optional `_prefix` and `_postfix` suffixes.
 11. Folder names in `work/` and `artifacts/` are not reliable indicators of buggy/fixed or pre-fix/post-fix status. Trust JSON fields and Defects4J config files instead.
 12. Coverage parsing is best-effort. Even after a coverage command runs, parsed coverage may still be empty.
+13. **Scientific debugging has two valid orderings — do not mix them.** Process level (Zeller, *Why Programs Fail*, Ch. 6; the single-shot prompt): Observe → Hypothesize → Predict → Experiment/Examine → Conclude — the failure is observed first, and `prompting.py::_scientific_debugging_instructions` is the reference. Loop-iteration level (AutoSD, Kang et al. EMSE 2024, Fig. 1): the failure observation is the *prompt input*, and each iteration runs Hypothesis → Prediction → Experiment → Observation (the experiment's result) → Conclusion. The historical error to avoid propagating: "Hypothesize, Observe, Predict, Examine, Conclude" (initial symptom examination placed *after* hypothesizing) — that matches neither source.
+14. **`iut_submissions/` is FROZEN** — pre-defense deliverables exactly as submitted. Never edit anything under it. Its `report/main.tex` (~lines 332, 351-352) contains the wrong step order described above; this is a known, deliberately preserved historical error. Do not fix it in place and do not copy wording from it into new material.
+15. **`.dist/` is NOT uniformly gitignored.** `.dist/study/artifacts/` (unnumbered) is the **committed preliminary dataset** — ~35 prefix bug folders with old untagged filenames, kept via a `.gitignore` negation (`!.dist/study/artifacts/**`); it backs the pre-defense results (73.5% strict / 94.1% top-2 / 97.1% family on 34 pairs). Treat like `iut_submissions/`: never delete, never rerun into it, never rename its files to the tagged scheme. Several `.dist/runs/` bug folders are also git-tracked. Regenerable/ignored: `.dist/study/artifacts_<N>/` (current studies), `.dist/test_tmp_batch/` (pytest debris — delete anytime).
 
 ## 12. Safe Working Conventions for Future Agents
 
@@ -837,7 +837,7 @@ python -m d4j_odc_pipeline multifault-enrich --classification .\artifacts\Lang_1
 python -m d4j_odc_pipeline study-plan --target-bugs 68
 python -m d4j_odc_pipeline study-run --manifest manifest_68.json --skip-coverage
 python -m d4j_odc_pipeline study-analyze --manifest manifest_68.json
-python -m d4j_odc_pipeline study-baseline --manifest manifest_68.json --scientific-artifacts-root .\.dist\study\artifacts_68
+python -m d4j_odc_pipeline study-classify --manifest manifest_68.json --taxonomy closed --reasoning zero
 python -m d4j_odc_pipeline study-export --analysis .\.dist\study\analysis_68.json
 ```
 

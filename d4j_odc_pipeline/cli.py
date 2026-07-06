@@ -48,7 +48,7 @@ def build_parser() -> argparse.ArgumentParser:
     classify_parser.add_argument("--output", type=Path, default=None, help="Where to write classification JSON. Defaults to same directory as --context.")
     classify_parser.add_argument("--report", type=Path, default=None, help="Markdown report output path. Defaults to same directory as --context.")
     classify_parser.add_argument("--prompt-output", type=Path, help="Optional path to save rendered prompt messages.")
-    classify_parser.add_argument("--prompt-style", choices=["direct", "scientific", "naive"], default="scientific")
+    _add_condition_args(classify_parser)
     _add_llm_args(classify_parser, default_provider, default_model)
 
     # ── run ───────────────────────────────────────────────────────────────
@@ -67,7 +67,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--include-fix-diff", action="store_true",
         help="Include the buggy->fixed diff as post-fix oracle evidence (improves accuracy but is not pre-fix).",
     )
-    run_parser.add_argument("--prompt-style", choices=["direct", "scientific", "naive"], default="scientific")
+    _add_condition_args(run_parser)
     _add_llm_args(run_parser, default_provider, default_model)
 
     # ── compare ───────────────────────────────────────────────────────────
@@ -97,6 +97,14 @@ def build_parser() -> argparse.ArgumentParser:
                               help="Path to write batch comparison JSON.")
     batch_parser.add_argument("--report", type=Path,
                               help="Optional markdown batch report.")
+    batch_parser.add_argument(
+        "--taxonomy", choices=["free", "closed", "open"], default="closed",
+        help="Condition to compare (default closed — the paired baseline condition).",
+    )
+    batch_parser.add_argument(
+        "--reasoning", choices=["zero", "scientific"], default="scientific",
+        help="Condition to compare (default scientific).",
+    )
 
     # ── multifault ──────────────────────────────────────────────────────
     mf_parser = subparsers.add_parser(
@@ -159,7 +167,7 @@ def build_parser() -> argparse.ArgumentParser:
                                   help="Root directory for Defects4J checkouts. Defaults to .dist/study/work.")
     study_run_parser.add_argument("--summary-output", type=Path, default=None,
                                   help="Path to write batch execution summary JSON. Defaults to .dist/study/summary.json.")
-    study_run_parser.add_argument("--prompt-style", choices=["direct", "scientific", "naive"], default="scientific")
+    _add_condition_args(study_run_parser)
     study_run_parser.add_argument("--snippet-radius", type=int, default=12)
     study_run_parser.add_argument("--skip-coverage", action="store_true")
     study_run_parser.add_argument("--no-skip-existing", action="store_true",
@@ -188,6 +196,15 @@ def build_parser() -> argparse.ArgumentParser:
                                       help="Path to write analysis JSON. Defaults to .dist/study/analysis_<N>.json.")
     study_analyze_parser.add_argument("--report", type=Path, default=None,
                                       help="Markdown analysis report. Defaults to .dist/study/analysis_<N>.md.")
+    study_analyze_parser.add_argument(
+        "--taxonomy", choices=["free", "closed", "open"], default="closed",
+        help="Condition to analyze. Default CLOSED (not the CLI-wide open default): "
+             "the paired prefix/postfix analysis (RQ5) is defined on the closed baseline.",
+    )
+    study_analyze_parser.add_argument(
+        "--reasoning", choices=["zero", "scientific"], default="scientific",
+        help="Condition to analyze (default scientific).",
+    )
     study_analyze_parser.add_argument("--manifest", type=Path,
                                       help="Optional manifest JSON to derive expected projects.")
     study_analyze_parser.add_argument("--expected-projects", nargs="+",
@@ -200,54 +217,32 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional Defects4J command prefix. Used to infer expected projects if needed.",
     )
 
-    # ── study-baseline ────────────────────────────────────────────────────
-    study_baseline_parser = subparsers.add_parser(
-        "study-baseline",
-        help="Run baseline (direct prompt) classifications for RQ2.2 comparison.",
+    # ── study-classify ────────────────────────────────────────────────────
+    study_classify_parser = subparsers.add_parser(
+        "study-classify",
+        help="Run ONE classification condition (--taxonomy x --reasoning y) over the manifest, "
+             "prefix-only, reusing existing context.json evidence. Replaces the removed "
+             "study-baseline/study-naive/study-coverage commands.",
     )
-    study_baseline_parser.add_argument("--manifest", type=Path, required=True,
+    study_classify_parser.add_argument("--manifest", type=Path, required=True,
                                        help="Path to study manifest JSON.")
-    study_baseline_parser.add_argument("--baseline-root", type=Path, default=None,
-                                       help="Root directory for baseline artifacts. Defaults to .dist/study/baseline_<N>.")
-    study_baseline_parser.add_argument("--work-root", type=Path, default=None,
+    study_classify_parser.add_argument("--artifacts-root", type=Path, default=None,
+                                       help="Shared artifacts tree. Defaults to .dist/study/artifacts_<N>.")
+    study_classify_parser.add_argument("--work-root", type=Path, default=None,
                                        help="Root directory for Defects4J checkouts. Defaults to .dist/study/work.")
-    study_baseline_parser.add_argument("--scientific-artifacts-root", type=Path, default=None,
-                                       help="Root of scientific artifacts to reuse context.json from.")
-    study_baseline_parser.add_argument("--summary-output", type=Path, default=None)
-    study_baseline_parser.add_argument("--prompt-style", choices=["direct", "scientific", "naive"], default="direct")
-    study_baseline_parser.add_argument("--snippet-radius", type=int, default=12)
-    study_baseline_parser.add_argument("--skip-coverage", action="store_true")
-    study_baseline_parser.add_argument("--no-skip-existing", action="store_true")
-    study_baseline_parser.add_argument("--prompt-output", action="store_true")
-    study_baseline_parser.add_argument(
+    study_classify_parser.add_argument("--summary-output", type=Path, default=None,
+                                       help="Defaults to .dist/study/classify_summary.<tag>.json.")
+    _add_condition_args(study_classify_parser)
+    study_classify_parser.add_argument("--snippet-radius", type=int, default=12)
+    study_classify_parser.add_argument("--skip-coverage", action="store_true")
+    study_classify_parser.add_argument("--no-skip-existing", action="store_true")
+    study_classify_parser.add_argument("--prompt-output", action="store_true")
+    study_classify_parser.add_argument(
         "--defects4j-cmd", default=None,
         help="Optional Defects4J command prefix.",
     )
-    _add_llm_args(study_baseline_parser, default_provider, default_model)
+    _add_llm_args(study_classify_parser, default_provider, default_model)
 
-    # ── study-naive ──────────────────────────────────────────────────────
-    study_naive_parser = subparsers.add_parser(
-        "study-naive",
-        help="Run naive (taxonomy-free) classifications for RQ2.3 comparison.",
-    )
-    study_naive_parser.add_argument("--manifest", type=Path, required=True,
-                                     help="Path to study manifest JSON.")
-    study_naive_parser.add_argument("--naive-root", type=Path, default=None,
-                                     help="Root directory for naive artifacts. Defaults to .dist/study/naive_<N>.")
-    study_naive_parser.add_argument("--work-root", type=Path, default=None,
-                                     help="Root directory for Defects4J checkouts. Defaults to .dist/study/work.")
-    study_naive_parser.add_argument("--scientific-artifacts-root", type=Path, default=None,
-                                     help="Root of scientific artifacts to reuse context.json from.")
-    study_naive_parser.add_argument("--summary-output", type=Path, default=None)
-    study_naive_parser.add_argument("--snippet-radius", type=int, default=12)
-    study_naive_parser.add_argument("--skip-coverage", action="store_true")
-    study_naive_parser.add_argument("--no-skip-existing", action="store_true")
-    study_naive_parser.add_argument("--prompt-output", action="store_true")
-    study_naive_parser.add_argument(
-        "--defects4j-cmd", default=None,
-        help="Optional Defects4J command prefix.",
-    )
-    _add_llm_args(study_naive_parser, default_provider, default_model)
 
     # ── study-export ──────────────────────────────────────────────────────
     study_export_parser = subparsers.add_parser(
@@ -308,6 +303,42 @@ def _add_llm_args(parser: argparse.ArgumentParser, default_provider: str, defaul
     parser.add_argument("--dry-run", action="store_true", help="Render the prompt but skip the LLM call.")
 
 
+class _PromptStyleTombstone(argparse.Action):
+    """--prompt-style was removed in the two-variable refactor."""
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        parser.error(
+            "--prompt-style was removed. Use the two condition variables instead:\n"
+            "  --taxonomy free|closed|open   (naive=free, direct/scientific=closed)\n"
+            "  --reasoning zero|scientific   (naive/direct=zero, scientific=scientific)"
+        )
+
+
+def _add_condition_args(parser: argparse.ArgumentParser) -> None:
+    """The two experimental-condition variables (see odc.py for level docs)."""
+    parser.add_argument(
+        "--taxonomy", choices=["free", "closed", "open"], default="open",
+        help="Label space: free = own words (no taxonomy); closed = the 7 ODC types; "
+             "open = 7 + 'Other' escape category (default).",
+    )
+    parser.add_argument(
+        "--reasoning", choices=["zero", "scientific"], default="scientific",
+        help="Scientific-method enforcement: zero = absent (zero-shot); "
+             "scientific = narrated protocol + diagnostic tree + examples (default).",
+    )
+    parser.add_argument("--prompt-style", action=_PromptStyleTombstone, help=argparse.SUPPRESS)
+
+
+# Removed commands and their new spellings. Checked in main() BEFORE argparse
+# runs, so any flags after the dead name still produce the redirect message
+# (argparse's REMAINDER can't swallow leading --options).
+_TOMBSTONED_COMMANDS = {
+    "study-baseline": "study-classify --manifest <m> --taxonomy closed --reasoning zero",
+    "study-naive": "study-classify --manifest <m> --taxonomy free --reasoning zero",
+    "study-coverage": "study-classify --manifest <m> --taxonomy open --reasoning scientific",
+}
+
+
 def main() -> int:
     load_dotenv()
 
@@ -315,6 +346,16 @@ def main() -> int:
     if len(sys.argv) == 1:
         from .interactive import launch_repl
         return launch_repl()
+
+    # Tombstoned commands: refuse to run, print the new invocation.
+    if sys.argv[1] in _TOMBSTONED_COMMANDS:
+        replacement = _TOMBSTONED_COMMANDS[sys.argv[1]]
+        print(
+            f"error: '{sys.argv[1]}' was removed in the two-variable refactor.\n"
+            f"Use:   {replacement}",
+            file=sys.stderr,
+        )
+        return 2
 
     parser = build_parser()
     args = parser.parse_args()
@@ -347,12 +388,10 @@ def main() -> int:
             return _cmd_study_run(args)
         if args.command == "study-analyze":
             return _cmd_study_analyze(args)
-        if args.command == "study-baseline":
-            return _cmd_study_baseline(args)
+        if args.command == "study-classify":
+            return _cmd_study_classify(args)
         if args.command == "study-export":
             return _cmd_study_export(args)
-        if args.command == "study-naive":
-            return _cmd_study_naive(args)
         if args.command == "multifault":
             return _cmd_multifault(args)
         if args.command == "multifault-enrich":
@@ -415,16 +454,19 @@ def _cmd_collect(args: argparse.Namespace) -> int:
 
 
 def _cmd_classify(args: argparse.Namespace) -> int:
+    from .odc import condition_tag
+
     context = load_context(args.context)
-    # Default output/report to same directory as the context file
+    tag = condition_tag(args.taxonomy, args.reasoning)
+    # Default output/report to same directory as the context file, tagged by
+    # condition so no two conditions can ever overwrite each other.
     context_dir = args.context.parent
     if args.output is None:
-        args.output = context_dir / "classification.json"
+        args.output = context_dir / f"classification.{tag}.json"
     if args.report is None:
-        args.report = context_dir / "report.md"
+        args.report = context_dir / f"report.{tag}.md"
     classification = classify_bug_context(
         context=context,
-        prompt_style=args.prompt_style,
         output_path=args.output,
         provider=args.provider,
         model=args.model,
@@ -432,6 +474,8 @@ def _cmd_classify(args: argparse.Namespace) -> int:
         base_url=args.base_url,
         prompt_output_path=args.prompt_output,
         dry_run=args.dry_run,
+        taxonomy=args.taxonomy,
+        reasoning=args.reasoning,
     )
     if args.report:
         write_markdown_report(context=context, classification=classification, output_path=args.report)
@@ -439,8 +483,12 @@ def _cmd_classify(args: argparse.Namespace) -> int:
 
 
 def _cmd_run(args: argparse.Namespace) -> int:
+    from .odc import condition_tag
+
     client = Defects4JClient(command=args.defects4j_cmd)
-    # Default outputs to .dist/runs/<project>_<bug>_<mode>/
+    tag = condition_tag(args.taxonomy, args.reasoning)
+    # Default outputs to .dist/runs/<project>_<bug>_<mode>/ with tagged
+    # classification/report filenames (context.json is shared, untagged).
     mode_suffix = "postfix" if args.include_fix_diff else "prefix"
     run_dir = Path(".dist") / "runs" / f"{args.project}_{args.bug}_{mode_suffix}"
     # Default work-dir to work/<project>_<bug>_<mode>
@@ -449,22 +497,26 @@ def _cmd_run(args: argparse.Namespace) -> int:
     if args.context_output is None:
         args.context_output = run_dir / "context.json"
     if args.classification_output is None:
-        args.classification_output = run_dir / "classification.json"
+        args.classification_output = run_dir / f"classification.{tag}.json"
     if args.report is None:
-        args.report = run_dir / "report.md"
-    context = collect_bug_context(
-        defects4j=client,
-        project_id=args.project,
-        bug_id=args.bug,
-        work_dir=args.work_dir,
-        output_path=args.context_output,
-        snippet_radius=args.snippet_radius,
-        run_coverage=not args.skip_coverage,
-        include_fix_diff=args.include_fix_diff,
-    )
+        args.report = run_dir / f"report.{tag}.md"
+    # Reuse existing evidence: collect only when context.json is missing.
+    if args.context_output.exists():
+        console.step(f"Reusing existing context -> {args.context_output}")
+        context = load_context(args.context_output)
+    else:
+        context = collect_bug_context(
+            defects4j=client,
+            project_id=args.project,
+            bug_id=args.bug,
+            work_dir=args.work_dir,
+            output_path=args.context_output,
+            snippet_radius=args.snippet_radius,
+            run_coverage=not args.skip_coverage,
+            include_fix_diff=args.include_fix_diff,
+        )
     classification = classify_bug_context(
         context=context,
-        prompt_style=args.prompt_style,
         output_path=args.classification_output,
         provider=args.provider,
         model=args.model,
@@ -472,6 +524,8 @@ def _cmd_run(args: argparse.Namespace) -> int:
         base_url=args.base_url,
         prompt_output_path=args.prompt_output,
         dry_run=args.dry_run,
+        taxonomy=args.taxonomy,
+        reasoning=args.reasoning,
     )
     write_markdown_report(context=context, classification=classification, output_path=args.report)
     return 0
@@ -529,16 +583,19 @@ def _cmd_compare_batch(args: argparse.Namespace) -> int:
         console.error_panel("Directory Not Found", f"Post-fix directory not found: {postfix_dir}")
         return 1
 
-    # Auto-discover matching pairs
-    # Expected: prefix_dir/ProjectName_BugId_prefix/classification.json
-    #           postfix_dir/ProjectName_BugId_postfix/classification.json
+    # Auto-discover matching pairs for the requested condition
+    # Expected: prefix_dir/ProjectName_BugId_prefix/classification.<tag>.json
+    #           postfix_dir/ProjectName_BugId_postfix/classification.<tag>.json
+    from .odc import condition_tag
+
+    classification_name = f"classification.{condition_tag(args.taxonomy, args.reasoning)}.json"
     pairs: list[tuple[dict, dict]] = []
     matched_bugs: list[str] = []
 
     prefix_files: dict[str, Path] = {}
     for child in sorted(prefix_dir.iterdir()):
         if child.is_dir():
-            cls_file = child / "classification.json"
+            cls_file = child / classification_name
             if cls_file.exists():
                 key = child.name
                 if key.endswith("_prefix"):
@@ -547,7 +604,7 @@ def _cmd_compare_batch(args: argparse.Namespace) -> int:
 
     for child in sorted(postfix_dir.iterdir()):
         if child.is_dir():
-            cls_file = child / "classification.json"
+            cls_file = child / classification_name
             if cls_file.exists():
                 key = child.name
                 if key.endswith("_postfix"):
@@ -779,7 +836,8 @@ def _cmd_study_run(args: argparse.Namespace) -> int:
         model=args.model,
         api_key_env=args.api_key_env,
         base_url=args.base_url,
-        prompt_style=args.prompt_style,
+        taxonomy=args.taxonomy,
+        reasoning=args.reasoning,
         snippet_radius=args.snippet_radius,
         run_coverage=not args.skip_coverage,
         skip_existing=not args.no_skip_existing,
@@ -790,6 +848,7 @@ def _cmd_study_run(args: argparse.Namespace) -> int:
 
     status_label = "Study run interrupted (checkpoint saved)" if summary.get("interrupted") else "Study run complete"
     console.result_panel(status_label, [
+        ("Condition", summary.get("condition_tag", "")),
         ("Summary", str(args.summary_output)),
         ("Total entries", str(summary.get("total_entries", 0))),
         ("Completed", str(summary.get("completed_entries", 0))),
@@ -854,6 +913,8 @@ def _cmd_study_analyze(args: argparse.Namespace) -> int:
         prefix_dir=args.prefix_dir,
         postfix_dir=args.postfix_dir,
         expected_projects=expected_projects,
+        taxonomy=args.taxonomy,
+        reasoning=args.reasoning,
     )
 
     if args.require_all_projects and summary.get("missing_projects"):
@@ -877,8 +938,16 @@ def _cmd_study_analyze(args: argparse.Namespace) -> int:
     return 0
 
 
-def _cmd_study_baseline(args: argparse.Namespace) -> int:
-    from .batch import install_signal_handlers, load_manifest, reset_shutdown, run_baseline_from_manifest
+def _cmd_study_classify(args: argparse.Namespace) -> int:
+    """Run ONE classification condition over the manifest (prefix-only).
+
+    Writes classification.<tag>.json / report.<tag>.md into the shared
+    bug folders under artifacts_root/prefix/, reusing context.json evidence.
+    When the condition is open-taxonomy and the closed pass exists in the
+    same tree, the RQ2 coverage metrics are computed automatically.
+    """
+    from .batch import install_signal_handlers, load_manifest, reset_shutdown, run_condition_from_manifest
+    from .odc import condition_tag
     from .pipeline import write_json
 
     install_signal_handlers()
@@ -892,31 +961,31 @@ def _cmd_study_baseline(args: argparse.Namespace) -> int:
     manifest = load_manifest(args.manifest)
     target_bugs = manifest.get("target_bugs", manifest.get("selected_bugs", 0))
     dist_study = Path(".dist") / "study"
+    tag = condition_tag(args.taxonomy, args.reasoning)
 
-    if args.baseline_root is None:
-        args.baseline_root = dist_study / f"baseline_{target_bugs}"
+    if args.artifacts_root is None:
+        args.artifacts_root = dist_study / f"artifacts_{target_bugs}"
     if args.work_root is None:
         args.work_root = dist_study / "work"
     if args.summary_output is None:
-        args.summary_output = dist_study / "baseline_summary.json"
+        args.summary_output = dist_study / f"classify_summary.{tag}.json"
 
-    console.header_panel("Study Baseline Configuration", None)
+    console.header_panel("Study Classify Configuration", None)
     console.step(f"Manifest: {args.manifest}")
-    console.step(f"Baseline root: {args.baseline_root}")
-    console.step(f"Prompt style: {args.prompt_style}")
-    console.step(f"Reuse context from: {args.scientific_artifacts_root or '(none — will collect fresh)'}")
+    console.step(f"Artifacts: {args.artifacts_root}")
+    console.step(f"Condition: {tag}  (taxonomy: {args.taxonomy}, reasoning: {args.reasoning})")
 
-    summary = run_baseline_from_manifest(
+    summary = run_condition_from_manifest(
         defects4j=client,
         manifest=manifest,
-        baseline_root=args.baseline_root,
+        artifacts_root=args.artifacts_root,
         work_root=args.work_root,
-        scientific_artifacts_root=args.scientific_artifacts_root,
         provider=args.provider,
         model=args.model,
         api_key_env=args.api_key_env,
         base_url=args.base_url,
-        prompt_style=args.prompt_style,
+        taxonomy=args.taxonomy,
+        reasoning=args.reasoning,
         snippet_radius=args.snippet_radius,
         run_coverage=not args.skip_coverage,
         skip_existing=not args.no_skip_existing,
@@ -925,71 +994,41 @@ def _cmd_study_baseline(args: argparse.Namespace) -> int:
 
     write_json(args.summary_output, summary)
 
-    status_label = "Baseline run interrupted" if summary.get("interrupted") else "Baseline run complete"
-    console.result_panel(status_label, [
+    # ── RQ2 metrics: auto-compute when this was the open pass and the
+    #    closed pass exists in the same tree ─────────────────────────────
+    coverage_metrics = None
+    prefix_dir = args.artifacts_root / "prefix"
+    if args.taxonomy == "open" and prefix_dir.exists():
+        closed_files = list(prefix_dir.glob(f"*/classification.closed-{args.reasoning}.json"))
+        if closed_files:
+            from .analysis import compute_coverage_metrics
+
+            coverage_metrics = compute_coverage_metrics(
+                prefix_dir=prefix_dir, reasoning=args.reasoning
+            )
+            analysis_path = dist_study / f"taxonomy_coverage_{target_bugs}.json"
+            write_json(analysis_path, coverage_metrics)
+            console.step(f"Taxonomy coverage metrics written -> {analysis_path}")
+        else:
+            console.warn(
+                "No closed-pass files found in the same tree — skipping RQ2 metrics "
+                f"(run: study-run --manifest {args.manifest.name} --taxonomy closed first)."
+            )
+
+    status_label = "Condition run interrupted" if summary.get("interrupted") else "Condition run complete"
+    rows = [
+        ("Condition", tag),
         ("Summary", str(args.summary_output)),
-        ("Prompt style", summary.get("prompt_style", "")),
         ("Completed", str(summary.get("completed_entries", 0))),
         ("Reused context", str(summary.get("reused_context_count", 0))),
-    ])
-    return 0
-
-
-def _cmd_study_naive(args: argparse.Namespace) -> int:
-    from .batch import install_signal_handlers, load_manifest, reset_shutdown, run_baseline_from_manifest
-    from .pipeline import write_json
-
-    install_signal_handlers()
-    reset_shutdown()
-
-    # Resolve bare manifest filename under .dist/study/
-    if args.manifest and not args.manifest.parent.parts:
-        args.manifest = Path(".dist") / "study" / args.manifest
-
-    client = Defects4JClient(command=args.defects4j_cmd)
-    manifest = load_manifest(args.manifest)
-    target_bugs = manifest.get("target_bugs", manifest.get("selected_bugs", 0))
-    dist_study = Path(".dist") / "study"
-
-    if args.naive_root is None:
-        args.naive_root = dist_study / f"naive_{target_bugs}"
-    if args.work_root is None:
-        args.work_root = dist_study / "work"
-    if args.summary_output is None:
-        args.summary_output = dist_study / "naive_summary.json"
-
-    console.header_panel("Study Naive (Taxonomy-Free) Configuration", None)
-    console.step(f"Manifest: {args.manifest}")
-    console.step(f"Naive root: {args.naive_root}")
-    console.step(f"Prompt style: naive (no ODC taxonomy)")
-    console.step(f"Reuse context from: {args.scientific_artifacts_root or '(none — will collect fresh)'}")
-
-    summary = run_baseline_from_manifest(
-        defects4j=client,
-        manifest=manifest,
-        baseline_root=args.naive_root,
-        work_root=args.work_root,
-        scientific_artifacts_root=args.scientific_artifacts_root,
-        provider=args.provider,
-        model=args.model,
-        api_key_env=args.api_key_env,
-        base_url=args.base_url,
-        prompt_style="naive",
-        snippet_radius=args.snippet_radius,
-        run_coverage=not args.skip_coverage,
-        skip_existing=not args.no_skip_existing,
-        prompt_output=args.prompt_output,
-    )
-
-    write_json(args.summary_output, summary)
-
-    status_label = "Naive run interrupted" if summary.get("interrupted") else "Naive run complete"
-    console.result_panel(status_label, [
-        ("Summary", str(args.summary_output)),
-        ("Prompt style", "naive (taxonomy-free)"),
-        ("Completed", str(summary.get("completed_entries", 0))),
-        ("Reused context", str(summary.get("reused_context_count", 0))),
-    ])
+    ]
+    if coverage_metrics:
+        rows.extend([
+            ("Coverage rate", str(coverage_metrics.get("coverage_rate"))),
+            ("Escape rate", str(coverage_metrics.get("escape_rate"))),
+            ("Shift kappa (8-cat)", str(coverage_metrics["taxonomy_shift"].get("cohens_kappa_8cat"))),
+        ])
+    console.result_panel(status_label, rows)
     return 0
 
 

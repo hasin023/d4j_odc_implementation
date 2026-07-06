@@ -6,7 +6,7 @@ The pipeline follows a **Scientific Debugging** methodology — observation → 
 
 The default way to use the tool is now the interactive CLI: launch `d4j-odc` (or `python -m d4j_odc_pipeline`) with no arguments, then work from the `odc>` shell using slash commands such as `/run`, `/study plan`, and `/show classification`. The original argument-based command style is still supported for scripts, CI, notebooks, and existing workflows. Any old invocation like `python -m d4j_odc_pipeline run ...` remains valid.
 
-For large-scale evaluation, the CLI also supports batch-study commands: `/study plan`, `/study run`, `/study analyze`, `/study baseline`, and `/study export` in interactive mode, or `study-plan`, `study-run`, `study-analyze`, `study-baseline`, and `study-export` in script mode.
+For large-scale evaluation, the CLI supports batch-study commands: `study-plan`, `study-run`, `study-classify`, `study-analyze`, and `study-export`. Every classification is a coordinate of two condition variables — `--taxonomy free|closed|open` (default open) and `--reasoning zero|scientific` (default scientific) — and output files are always condition-tagged (`classification.<taxonomy>-<reasoning>.json`).
 
 For multi-fault analysis, the pipeline integrates with [defects4j-mf](https://github.com/DCallaz/defects4j-mf) data via the `multifault` and `multifault-enrich` commands.
 
@@ -46,7 +46,7 @@ python -m d4j_odc_pipeline run --project Lang --bug 1 --skip-coverage
 python -m d4j_odc_pipeline study-plan --target-bugs 68
 python -m d4j_odc_pipeline study-run --manifest manifest_68.json --skip-coverage
 python -m d4j_odc_pipeline study-analyze --manifest manifest_68.json
-python -m d4j_odc_pipeline study-baseline --manifest manifest_68.json
+python -m d4j_odc_pipeline study-classify --manifest manifest_68.json --taxonomy closed --reasoning zero
 python -m d4j_odc_pipeline study-export --analysis .dist/study/analysis_68.json
 ```
 
@@ -98,7 +98,7 @@ Backwards-compatible script-mode commands:
 | `study-plan`           | Generate a balanced bug manifest for batch studies   |
 | `study-run`            | Execute paired prefix/postfix runs from a manifest   |
 | `study-analyze`        | Cross-artifact analysis over study outputs           |
-| `study-baseline`       | Run baseline (direct) classifications for comparison |
+| `study-classify`       | Run ONE condition (--taxonomy x --reasoning y) over the manifest, prefix-only, reusing contexts; auto-computes RQ2 coverage metrics for the open pass |
 | `study-export`         | Export analysis results as LaTeX tables and CSV      |
 | `multifault`           | Query multi-fault co-existence data                  |
 | `multifault-enrich`    | Enrich classification with multi-fault context       |

@@ -155,6 +155,16 @@ class ClassificationResult:
     inferred_triggers: list[str] = field(default_factory=list)
     inferred_impact: list[str] = field(default_factory=list)
     evidence_mode: str = "pre-fix"
+    # Condition variables. taxonomy_mode: "free" (own words) | "closed"
+    # (7 types) | "open" (7 + Other). reasoning: "zero" | "scientific" |
+    # "agentic". prompt_style holds the retired preset name for legacy
+    # readers (naive/direct/scientific). The other_* fields are only
+    # populated when odc_type == "Other" in open mode.
+    reasoning: str = "scientific"
+    taxonomy_mode: str = "closed"
+    other_justification: str | None = None
+    nearest_type: str | None = None
+    other_confidence: float | None = None
     raw_response: str | None = None
 
     def to_dict(self) -> dict[str, Any]:

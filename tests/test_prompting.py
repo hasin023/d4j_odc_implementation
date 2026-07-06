@@ -33,7 +33,7 @@ def _make_context(**kwargs) -> BugContext:
 class PromptingTests(unittest.TestCase):
     def test_prompt_excludes_hidden_oracle(self) -> None:
         context = _make_context()
-        messages = build_messages(context, "scientific")
+        messages = build_messages(context, "closed", "scientific")
         combined = "\n".join(message["content"] for message in messages)
         self.assertIn("tests.trigger", combined)
         self.assertNotIn("org.example.Hidden", combined)
@@ -44,7 +44,7 @@ class PromptingTests(unittest.TestCase):
 
     def test_direct_excludes_scientific_protocol(self) -> None:
         context = _make_context()
-        messages = build_messages(context, "direct")
+        messages = build_messages(context, "closed", "zero")
         system = messages[0]["content"]
         self.assertNotIn("Scientific Debugging Protocol", system)
         self.assertNotIn("Step 1 — OBSERVE", system)
@@ -52,7 +52,7 @@ class PromptingTests(unittest.TestCase):
 
     def test_direct_excludes_diagnostic_tree(self) -> None:
         context = _make_context()
-        messages = build_messages(context, "direct")
+        messages = build_messages(context, "closed", "zero")
         system = messages[0]["content"]
         self.assertNotIn("Classification Decision Process", system)
         self.assertNotIn("Is a condition/guard/validation missing or wrong?", system)
@@ -60,7 +60,7 @@ class PromptingTests(unittest.TestCase):
 
     def test_direct_excludes_few_shot_examples(self) -> None:
         context = _make_context()
-        messages = build_messages(context, "direct")
+        messages = build_messages(context, "closed", "zero")
         system = messages[0]["content"]
         self.assertNotIn("Classification Examples", system)
         self.assertNotIn("Example 1: Checking", system)
@@ -68,7 +68,7 @@ class PromptingTests(unittest.TestCase):
 
     def test_direct_includes_odc_taxonomy(self) -> None:
         context = _make_context()
-        messages = build_messages(context, "direct")
+        messages = build_messages(context, "closed", "zero")
         system = messages[0]["content"]
         self.assertIn("Algorithm/Method", system)
         self.assertIn("Checking", system)
@@ -77,7 +77,7 @@ class PromptingTests(unittest.TestCase):
 
     def test_direct_includes_json_contract(self) -> None:
         context = _make_context()
-        messages = build_messages(context, "direct")
+        messages = build_messages(context, "closed", "zero")
         system = messages[0]["content"]
         self.assertIn('"odc_type"', system)
         self.assertIn('"confidence"', system)
@@ -85,7 +85,7 @@ class PromptingTests(unittest.TestCase):
 
     def test_direct_includes_anti_bias_rules(self) -> None:
         context = _make_context()
-        messages = build_messages(context, "direct")
+        messages = build_messages(context, "closed", "zero")
         system = messages[0]["content"]
         self.assertIn("Do NOT default to", system)
         self.assertIn("Do not use benchmark familiarity", system)
@@ -94,7 +94,7 @@ class PromptingTests(unittest.TestCase):
 
     def test_scientific_includes_protocol(self) -> None:
         context = _make_context()
-        messages = build_messages(context, "scientific")
+        messages = build_messages(context, "closed", "scientific")
         system = messages[0]["content"]
         self.assertIn("Scientific Debugging Protocol", system)
         self.assertIn("Classification Decision Process", system)
@@ -105,8 +105,8 @@ class PromptingTests(unittest.TestCase):
     def test_user_payload_identical_between_styles(self) -> None:
         """Both prompt styles must produce the same user payload (identical evidence)."""
         context = _make_context()
-        sci_user = build_messages(context, "scientific")[1]["content"]
-        dir_user = build_messages(context, "direct")[1]["content"]
+        sci_user = build_messages(context, "closed", "scientific")[1]["content"]
+        dir_user = build_messages(context, "closed", "zero")[1]["content"]
         self.assertEqual(sci_user, dir_user)
 
     # ── Naive style tests (RQ2.3) ─────────────────────────────────────
@@ -114,7 +114,7 @@ class PromptingTests(unittest.TestCase):
     def test_naive_excludes_odc_taxonomy(self) -> None:
         """Naive prompt must not contain any ODC type names or taxonomy."""
         context = _make_context()
-        messages = build_messages(context, "naive")
+        messages = build_messages(context, "free", "zero")
         system = messages[0]["content"]
         # No ODC type names at all
         self.assertNotIn("Algorithm/Method", system)
@@ -130,14 +130,14 @@ class PromptingTests(unittest.TestCase):
 
     def test_naive_excludes_anti_bias_rules(self) -> None:
         context = _make_context()
-        messages = build_messages(context, "naive")
+        messages = build_messages(context, "free", "zero")
         system = messages[0]["content"]
         self.assertNotIn("Do NOT default to", system)
         self.assertNotIn("Do not use benchmark familiarity", system)
 
     def test_naive_excludes_scientific_protocol(self) -> None:
         context = _make_context()
-        messages = build_messages(context, "naive")
+        messages = build_messages(context, "free", "zero")
         system = messages[0]["content"]
         self.assertNotIn("Scientific Debugging Protocol", system)
         self.assertNotIn("Classification Decision Process", system)
@@ -146,7 +146,7 @@ class PromptingTests(unittest.TestCase):
     def test_naive_excludes_odc_json_contract(self) -> None:
         """Naive prompt uses a simplified JSON schema without ODC fields."""
         context = _make_context()
-        messages = build_messages(context, "naive")
+        messages = build_messages(context, "free", "zero")
         system = messages[0]["content"]
         self.assertNotIn('"odc_type"', system)
         self.assertNotIn('"family"', system)
@@ -156,7 +156,7 @@ class PromptingTests(unittest.TestCase):
     def test_naive_includes_simplified_schema(self) -> None:
         """Naive prompt includes its own simplified JSON schema."""
         context = _make_context()
-        messages = build_messages(context, "naive")
+        messages = build_messages(context, "free", "zero")
         system = messages[0]["content"]
         self.assertIn('"defect_type"', system)
         self.assertIn('"confidence"', system)
@@ -165,7 +165,7 @@ class PromptingTests(unittest.TestCase):
     def test_naive_user_prompt_excludes_odc_references(self) -> None:
         """Naive user prompt must not reference ODC type names."""
         context = _make_context()
-        messages = build_messages(context, "naive")
+        messages = build_messages(context, "free", "zero")
         user = messages[1]["content"]
         self.assertNotIn("odc_type must be one of", user)
         self.assertNotIn("Algorithm/Method", user)
@@ -174,8 +174,8 @@ class PromptingTests(unittest.TestCase):
         """Naive prompt evidence payload has same structure as scientific/direct."""
         import json
         context = _make_context()
-        naive_user = build_messages(context, "naive")[1]["content"]
-        sci_user = build_messages(context, "scientific")[1]["content"]
+        naive_user = build_messages(context, "free", "zero")[1]["content"]
+        sci_user = build_messages(context, "closed", "scientific")[1]["content"]
         # Both should contain the same evidence JSON (after the rules header)
         naive_json = naive_user.split("Evidence:\n", 1)[1]
         sci_json = sci_user.split("Evidence:\n", 1)[1]

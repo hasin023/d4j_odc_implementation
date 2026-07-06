@@ -619,3 +619,151 @@ def compute_taxonomy_grounding_metrics(
         "naive_odc_mapping": naive_analysis["odc_mapping"],
     }
 
+
+
+# ---------------------------------------------------------------------------
+# RQ2 (coverage study): closed-vs-open taxonomy metrics
+# ---------------------------------------------------------------------------
+
+def compute_coverage_metrics(
+    *,
+    prefix_dir: "Path | None" = None,
+    reasoning: str = "scientific",
+    closed_prefix_dir: "Path | None" = None,
+    open_prefix_dir: "Path | None" = None,
+) -> dict[str, Any]:
+    """Compute the RQ2 coverage metrics from a closed pass (7 types) and an
+    open pass (7 + Other) over the same manifest.
+
+    Preferred usage (bug-centric layout): pass ``prefix_dir`` — ONE tree whose
+    bug folders each hold both ``classification.closed-<reasoning>.json`` and
+    ``classification.open-<reasoning>.json`` beside context.json.
+
+    Legacy usage (old parallel-roots layout with untagged classification.json):
+    pass ``closed_prefix_dir`` + ``open_prefix_dir`` instead.
+
+    Only bugs present in BOTH passes enter the paired metrics (kappa, KL);
+    escape metrics use all open-pass bugs.
+
+    Returns a dict with:
+    - coverage_rate / escape_rate (+ per-project escape rates)
+    - taxonomy_shift: Cohen's kappa between the two passes (8-category),
+      plus kappa restricted to non-escaped bugs (7-category stability)
+    - distribution_divergence: KL divergence (both directions, with additive
+      smoothing) between the closed and open label distributions
+    - escaped_bugs: audit list feeding the False Escape Rate manual review
+    """
+    import json as _json
+    import math
+    from pathlib import Path  # noqa: F401 (typing convenience)
+
+    from .comparison import compute_cohens_kappa
+    from .odc import OTHER_TYPE_NAME
+
+    def _load_runs(root, filename: str) -> dict[str, dict[str, Any]]:
+        runs: dict[str, dict[str, Any]] = {}
+        if not root or not root.exists():
+            return runs
+        for run_dir in sorted(root.iterdir()):
+            payload_path = run_dir / filename
+            if not run_dir.is_dir() or not payload_path.exists():
+                continue
+            key = run_dir.name.removesuffix("_prefix")
+            try:
+                runs[key] = _json.loads(payload_path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+        return runs
+
+    if prefix_dir is not None:
+        closed_runs = _load_runs(prefix_dir, f"classification.closed-{reasoning}.json")
+        open_runs = _load_runs(prefix_dir, f"classification.open-{reasoning}.json")
+    else:
+        closed_runs = _load_runs(closed_prefix_dir, "classification.json")
+        open_runs = _load_runs(open_prefix_dir, "classification.json")
+
+    # ── Escape metrics (open pass only) ─────────────────────────────────
+    total_open = len(open_runs)
+    escaped_bugs: list[dict[str, Any]] = []
+    per_project_totals: Counter[str] = Counter()
+    per_project_escapes: Counter[str] = Counter()
+    for key, payload in open_runs.items():
+        project = str(payload.get("project_id", key.split("_")[0]))
+        per_project_totals[project] += 1
+        if payload.get("odc_type") == OTHER_TYPE_NAME:
+            per_project_escapes[project] += 1
+            escaped_bugs.append({
+                "bug_key": key,
+                "project_id": project,
+                "nearest_type": payload.get("nearest_type"),
+                "other_confidence": payload.get("other_confidence"),
+                "other_justification": payload.get("other_justification"),
+                "closed_pass_type": (closed_runs.get(key) or {}).get("odc_type"),
+                # Manual audit fields for the False Escape Rate: a human marks
+                # each escape as a true taxonomy gap or an LLM error.
+                "audit_is_true_gap": None,
+                "audit_notes": None,
+            })
+    escape_count = len(escaped_bugs)
+    escape_rate = (escape_count / total_open) if total_open else None
+    per_project_escape_rate = {
+        project: round(per_project_escapes[project] / count, 4)
+        for project, count in sorted(per_project_totals.items())
+        if count
+    }
+
+    # ── Paired taxonomy-shift metrics ────────────────────────────────────
+    paired_keys = sorted(set(closed_runs) & set(open_runs))
+    pairs = [
+        (str(closed_runs[k].get("odc_type")), str(open_runs[k].get("odc_type")))
+        for k in paired_keys
+    ]
+    shift_kappa = compute_cohens_kappa(pairs) if len(pairs) >= 2 else None
+    non_escape_pairs = [(a, b) for a, b in pairs if b != OTHER_TYPE_NAME]
+    stability_kappa = (
+        compute_cohens_kappa(non_escape_pairs) if len(non_escape_pairs) >= 2 else None
+    )
+    shifted = [
+        {"bug_key": k, "closed": a, "open": b}
+        for k, (a, b) in zip(paired_keys, pairs)
+        if a != b
+    ]
+
+    # ── Distribution divergence (KL, additive smoothing) ────────────────
+    def _distribution(labels: list[str], support: list[str], alpha: float = 0.5) -> list[float]:
+        counts = Counter(labels)
+        total = sum(counts.values()) + alpha * len(support)
+        return [(counts.get(label, 0) + alpha) / total for label in support]
+
+    support = ODC_TYPE_NAMES + [OTHER_TYPE_NAME]
+    closed_labels = [a for a, _ in pairs]
+    open_labels = [b for _, b in pairs]
+    kl_closed_to_open = kl_open_to_closed = None
+    if pairs:
+        p = _distribution(closed_labels, support)
+        q = _distribution(open_labels, support)
+        kl_closed_to_open = round(sum(pi * math.log2(pi / qi) for pi, qi in zip(p, q)), 4)
+        kl_open_to_closed = round(sum(qi * math.log2(qi / pi) for pi, qi in zip(p, q)), 4)
+
+    return {
+        "total_open_pass_bugs": total_open,
+        "total_paired_bugs": len(pairs),
+        "escape_count": escape_count,
+        "escape_rate": round(escape_rate, 4) if escape_rate is not None else None,
+        "coverage_rate": round(1 - escape_rate, 4) if escape_rate is not None else None,
+        "per_project_escape_rate": per_project_escape_rate,
+        "taxonomy_shift": {
+            "cohens_kappa_8cat": round(shift_kappa, 4) if shift_kappa is not None else None,
+            "cohens_kappa_non_escaped": round(stability_kappa, 4) if stability_kappa is not None else None,
+            "shifted_count": len(shifted),
+            "shift_rate": round(len(shifted) / len(pairs), 4) if pairs else None,
+            "shifted_bugs": shifted,
+        },
+        "distribution_divergence": {
+            "kl_closed_to_open_bits": kl_closed_to_open,
+            "kl_open_to_closed_bits": kl_open_to_closed,
+            "smoothing": "additive (alpha=0.5) over the 8-label support",
+        },
+        "escaped_bugs": escaped_bugs,
+        "false_escape_rate": None,  # computed after the manual audit of escaped_bugs
+    }

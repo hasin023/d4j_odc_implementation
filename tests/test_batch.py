@@ -124,7 +124,7 @@ class BatchAnalysisTests(unittest.TestCase):
     @staticmethod
     def _write_case(case_dir: Path, *, classification: dict) -> None:
         case_dir.mkdir(parents=True, exist_ok=True)
-        (case_dir / "classification.json").write_text(
+        (case_dir / "classification.closed-scientific.json").write_text(
             json.dumps(classification, indent=2),
             encoding="utf-8",
         )
@@ -151,7 +151,7 @@ class BatchAnalysisTests(unittest.TestCase):
             ),
             encoding="utf-8",
         )
-        (case_dir / "report.md").write_text(
+        (case_dir / "report.closed-scientific.md").write_text(
             "# Report\n\n## ODC Result\n- ODC Type: sample\n- Confidence: sample\n",
             encoding="utf-8",
         )
@@ -277,7 +277,7 @@ class BatchResumeTests(unittest.TestCase):
         temp_root = self._scratch_dir("resume_checkpoint_skip")
         artifacts_root = temp_root / "artifacts"
         work_root = temp_root / "work"
-        checkpoint_path = artifacts_root / "checkpoint.json"
+        checkpoint_path = artifacts_root / "checkpoint.pairs.closed-scientific.json"
         first_run_calls: list[tuple[str, str, int, str]] = []
         second_run_calls: list[tuple[str, str, int, str]] = []
         shutdown_once = {"done": False}
@@ -338,7 +338,8 @@ class BatchResumeTests(unittest.TestCase):
                 model="test-model",
                 api_key_env=None,
                 base_url=None,
-                prompt_style="scientific",
+                taxonomy="closed",
+                reasoning="scientific",
             )
 
             checkpoint_after_first = json.loads(checkpoint_path.read_text(encoding="utf-8"))
@@ -354,7 +355,8 @@ class BatchResumeTests(unittest.TestCase):
                 model="test-model",
                 api_key_env=None,
                 base_url=None,
-                prompt_style="scientific",
+                taxonomy="closed",
+                reasoning="scientific",
             )
 
         checkpoint_after_second = json.loads(checkpoint_path.read_text(encoding="utf-8"))
@@ -380,7 +382,7 @@ class BatchResumeTests(unittest.TestCase):
         temp_root = self._scratch_dir("resume_partial_bug")
         artifacts_root = temp_root / "artifacts"
         work_root = temp_root / "work"
-        checkpoint_path = artifacts_root / "checkpoint.json"
+        checkpoint_path = artifacts_root / "checkpoint.pairs.closed-scientific.json"
         first_run_calls: list[tuple[str, str, int, str]] = []
         second_run_calls: list[tuple[str, str, int, str]] = []
         shutdown_once = {"done": False}
@@ -441,7 +443,8 @@ class BatchResumeTests(unittest.TestCase):
                 model="test-model",
                 api_key_env=None,
                 base_url=None,
-                prompt_style="scientific",
+                taxonomy="closed",
+                reasoning="scientific",
             )
 
             checkpoint_after_first = json.loads(checkpoint_path.read_text(encoding="utf-8"))
@@ -457,7 +460,8 @@ class BatchResumeTests(unittest.TestCase):
                 model="test-model",
                 api_key_env=None,
                 base_url=None,
-                prompt_style="scientific",
+                taxonomy="closed",
+                reasoning="scientific",
             )
 
         checkpoint_after_second = json.loads(checkpoint_path.read_text(encoding="utf-8"))

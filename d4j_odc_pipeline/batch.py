@@ -11,6 +11,7 @@ from typing import Any
 from .comparison import compare_classifications
 from .defects4j import Defects4JClient
 from .models import ensure_parent, utc_now_iso
+from .odc import DEFAULT_REASONING, DEFAULT_TAXONOMY, condition_tag
 from .pipeline import (
     classify_bug_context,
     collect_bug_context,
@@ -218,7 +219,8 @@ def run_batch_from_manifest(
     model: str,
     api_key_env: str | None,
     base_url: str | None,
-    prompt_style: str,
+    taxonomy: str = DEFAULT_TAXONOMY,
+    reasoning: str = DEFAULT_REASONING,
     snippet_radius: int = 12,
     run_coverage: bool = False,
     skip_existing: bool = True,
@@ -228,12 +230,14 @@ def run_batch_from_manifest(
     if not entries:
         raise ValueError("Manifest contains no entries.")
 
+    tag = condition_tag(taxonomy, reasoning)
+
     ensure_parent(artifacts_root / "placeholder.json")
     ensure_parent(work_root / "placeholder.txt")
 
     # ── Checkpoint setup ──────────────────────────────────────────────
     manifest_hash = _compute_manifest_hash(entries)
-    checkpoint_path = artifacts_root / "checkpoint.json"
+    checkpoint_path = artifacts_root / f"checkpoint.pairs.{tag}.json"
     completed_keys = _load_checkpoint(checkpoint_path, manifest_hash)
 
     records: list[dict[str, Any]] = []
@@ -320,9 +324,9 @@ def run_batch_from_manifest(
                 run_artifacts_dir = artifacts_root / evidence_mode / run_name
                 run_work_dir = work_root / evidence_mode / f"{project_id}_{bug_id}b"
                 context_path = run_artifacts_dir / "context.json"
-                classification_path = run_artifacts_dir / "classification.json"
-                report_path = run_artifacts_dir / "report.md"
-                prompt_path = run_artifacts_dir / "prompt.json" if prompt_output else None
+                classification_path = run_artifacts_dir / f"classification.{tag}.json"
+                report_path = run_artifacts_dir / f"report.{tag}.md"
+                prompt_path = run_artifacts_dir / f"prompt.{tag}.json" if prompt_output else None
 
                 status_key = f"{evidence_mode}_status"
                 path_key = f"{evidence_mode}_paths"
@@ -342,16 +346,25 @@ def run_batch_from_manifest(
                     continue
 
                 try:
-                    context = collect_bug_context(
-                        defects4j=defects4j,
-                        project_id=project_id,
-                        bug_id=bug_id,
-                        work_dir=run_work_dir,
-                        output_path=context_path,
-                        snippet_radius=snippet_radius,
-                        run_coverage=run_coverage,
-                        include_fix_diff=include_fix_diff,
-                    )
+                    # Evidence is collected once per bug per evidence mode and
+                    # shared by every condition: reuse an existing context.json
+                    # instead of re-running Defects4J.
+                    if context_path.exists():
+                        from .pipeline import load_context
+
+                        context = load_context(context_path)
+                        record[f"{evidence_mode}_reused_context"] = True
+                    else:
+                        context = collect_bug_context(
+                            defects4j=defects4j,
+                            project_id=project_id,
+                            bug_id=bug_id,
+                            work_dir=run_work_dir,
+                            output_path=context_path,
+                            snippet_radius=snippet_radius,
+                            run_coverage=run_coverage,
+                            include_fix_diff=include_fix_diff,
+                        )
 
                     # Check shutdown between collect and classify
                     if is_shutdown_requested():
@@ -361,7 +374,6 @@ def run_batch_from_manifest(
 
                     classification = classify_bug_context(
                         context=context,
-                        prompt_style=prompt_style,
                         output_path=classification_path,
                         provider=provider,
                         model=model,
@@ -369,6 +381,8 @@ def run_batch_from_manifest(
                         base_url=base_url,
                         prompt_output_path=prompt_path,
                         dry_run=False,
+                        taxonomy=taxonomy,
+                        reasoning=reasoning,
                     )
 
                     if classification is None:
@@ -415,6 +429,9 @@ def run_batch_from_manifest(
 
     summary = {
         "created_at": utc_now_iso(),
+        "taxonomy": taxonomy,
+        "reasoning": reasoning,
+        "condition_tag": tag,
         "manifest_target_bugs": manifest.get("target_bugs"),
         "manifest_selected_bugs": len(entries),
         "total_entries": len(records),
@@ -429,44 +446,48 @@ def run_batch_from_manifest(
     return summary
 
 
-def run_baseline_from_manifest(
+def run_condition_from_manifest(
     *,
     defects4j: Defects4JClient,
     manifest: dict[str, Any],
-    baseline_root: Path,
+    artifacts_root: Path,
     work_root: Path,
-    scientific_artifacts_root: Path | None = None,
     provider: str,
     model: str,
     api_key_env: str | None,
     base_url: str | None,
-    prompt_style: str = "direct",
+    taxonomy: str = DEFAULT_TAXONOMY,
+    reasoning: str = DEFAULT_REASONING,
     snippet_radius: int = 12,
     run_coverage: bool = False,
     skip_existing: bool = True,
     prompt_output: bool = False,
 ) -> dict[str, Any]:
-    """Run baseline (prefix-only) classifications for RQ2.2 comparison.
+    """Run ONE classification condition over the manifest, prefix-only.
 
-    This function runs ONLY prefix classifications using the specified prompt
-    style (default: ``direct``).  When ``scientific_artifacts_root`` is provided
-    and a context.json already exists for a bug, it reuses that context
-    instead of re-collecting evidence — ensuring the baseline sees *exactly*
-    the same evidence as the scientific run.
+    Backs the ``study-classify`` command. Writes tagged files into the SAME
+    bug folders as every other condition (bug-centric layout):
 
-    Output layout:
-        baseline_root/<project>_<bug>_prefix/classification.json
-        baseline_root/<project>_<bug>_prefix/report.md
+        artifacts_root/prefix/<project>_<bug>_prefix/classification.<tag>.json
+        artifacts_root/prefix/<project>_<bug>_prefix/report.<tag>.md
+
+    context.json in each bug folder is reused when present (evidence is
+    collected once and shared by all conditions — this is what makes
+    cross-condition comparisons evidence-identical); it is collected fresh
+    only when missing, and never rewritten.
     """
     entries = list(manifest.get("entries", []))
     if not entries:
         raise ValueError("Manifest contains no entries.")
 
-    ensure_parent(baseline_root / "placeholder.json")
+    tag = condition_tag(taxonomy, reasoning)
+    prefix_root = artifacts_root / "prefix"
+
+    ensure_parent(prefix_root / "placeholder.json")
     ensure_parent(work_root / "placeholder.txt")
 
     manifest_hash = _compute_manifest_hash(entries)
-    checkpoint_path = baseline_root / "checkpoint.json"
+    checkpoint_path = artifacts_root / f"checkpoint.prefix.{tag}.json"
     completed_keys = _load_checkpoint(checkpoint_path, manifest_hash)
 
     records: list[dict[str, Any]] = []
@@ -520,14 +541,14 @@ def run_baseline_from_manifest(
                 progress.advance(task_id)
                 continue
 
-            progress.update(task_id, description=f"[cyan]{bug_key} baseline[/cyan] [{index}/{len(entries)}]")
+            progress.update(task_id, description=f"[cyan]{bug_key} {tag}[/cyan] [{index}/{len(entries)}]")
 
             run_name = f"{bug_key}_prefix"
-            run_dir = baseline_root / run_name
+            run_dir = prefix_root / run_name
             context_path = run_dir / "context.json"
-            classification_path = run_dir / "classification.json"
-            report_path = run_dir / "report.md"
-            prompt_path = run_dir / "prompt.json" if prompt_output else None
+            classification_path = run_dir / f"classification.{tag}.json"
+            report_path = run_dir / f"report.{tag}.md"
+            prompt_path = run_dir / f"prompt.{tag}.json" if prompt_output else None
 
             record: dict[str, Any] = {
                 "index": index,
@@ -544,16 +565,14 @@ def run_baseline_from_manifest(
                 continue
 
             try:
-                # Reuse context from scientific run if available
+                # Reuse the bug folder's context.json when it exists —
+                # evidence is shared across all conditions.
                 reused_context = False
-                if scientific_artifacts_root:
-                    sci_context = scientific_artifacts_root / "prefix" / run_name / "context.json"
-                    if sci_context.exists():
-                        from .pipeline import load_context
-                        context = load_context(sci_context)
-                        reused_context = True
-
-                if not reused_context:
+                if context_path.exists():
+                    from .pipeline import load_context
+                    context = load_context(context_path)
+                    reused_context = True
+                else:
                     run_work_dir = work_root / f"{project_id}_{bug_id}b"
                     context = collect_bug_context(
                         defects4j=defects4j,
@@ -574,7 +593,6 @@ def run_baseline_from_manifest(
 
                 classification = classify_bug_context(
                     context=context,
-                    prompt_style=prompt_style,
                     output_path=classification_path,
                     provider=provider,
                     model=model,
@@ -582,6 +600,8 @@ def run_baseline_from_manifest(
                     base_url=base_url,
                     prompt_output_path=prompt_path,
                     dry_run=False,
+                    taxonomy=taxonomy,
+                    reasoning=reasoning,
                 )
 
                 if classification is None:
@@ -608,7 +628,9 @@ def run_baseline_from_manifest(
 
     return {
         "created_at": utc_now_iso(),
-        "prompt_style": prompt_style,
+        "taxonomy": taxonomy,
+        "reasoning": reasoning,
+        "condition_tag": tag,
         "manifest_target_bugs": manifest.get("target_bugs"),
         "total_entries": len(records),
         "completed_entries": completed_count,
@@ -625,19 +647,30 @@ def analyze_batch_artifacts(
     prefix_dir: Path,
     postfix_dir: Path,
     expected_projects: list[str] | None = None,
+    taxonomy: str = "closed",
+    reasoning: str = DEFAULT_REASONING,
 ) -> dict[str, Any]:
-    pairs = _discover_pairs(prefix_dir, postfix_dir)
+    """Cross-artifact prefix/postfix analysis for ONE condition.
+
+    Defaults to closed-scientific (NOT the CLI default of open): the paired
+    prefix/postfix analysis (RQ5) is defined on the closed baseline condition.
+    Pass taxonomy/reasoning explicitly to analyze another condition.
+    """
+    tag = condition_tag(taxonomy, reasoning)
+    classification_name = f"classification.{tag}.json"
+    report_name = f"report.{tag}.md"
+    pairs = _discover_pairs(prefix_dir, postfix_dir, classification_name=classification_name)
     rows: list[dict[str, Any]] = []
     transitions: dict[str, dict[str, Any]] = {}
     per_project: dict[str, dict[str, int]] = {}
 
     for key, pair in pairs.items():
-        prefix_cls = _load_json(pair["prefix"] / "classification.json")
-        postfix_cls = _load_json(pair["postfix"] / "classification.json")
+        prefix_cls = _load_json(pair["prefix"] / classification_name)
+        postfix_cls = _load_json(pair["postfix"] / classification_name)
         prefix_ctx = _load_json(pair["prefix"] / "context.json")
         postfix_ctx = _load_json(pair["postfix"] / "context.json")
-        prefix_report = _read_text(pair["prefix"] / "report.md")
-        postfix_report = _read_text(pair["postfix"] / "report.md")
+        prefix_report = _read_text(pair["prefix"] / report_name)
+        postfix_report = _read_text(pair["postfix"] / report_name)
 
         cmp_result = compare_classifications(prefix_cls, postfix_cls)
 
@@ -892,7 +925,12 @@ def write_analysis_markdown(summary: dict[str, Any], output_path: Path) -> None:
     output_path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
 
 
-def _discover_pairs(prefix_dir: Path, postfix_dir: Path) -> dict[str, dict[str, Path]]:
+def _discover_pairs(
+    prefix_dir: Path,
+    postfix_dir: Path,
+    *,
+    classification_name: str = "classification.closed-scientific.json",
+) -> dict[str, dict[str, Path]]:
     if not prefix_dir.is_dir():
         raise ValueError(f"Prefix directory does not exist: {prefix_dir}")
     if not postfix_dir.is_dir():
@@ -902,7 +940,7 @@ def _discover_pairs(prefix_dir: Path, postfix_dir: Path) -> dict[str, dict[str, 
     for child in sorted(prefix_dir.iterdir()):
         if not child.is_dir():
             continue
-        if not (child / "classification.json").exists():
+        if not (child / classification_name).exists():
             continue
         key = child.name[:-7] if child.name.endswith("_prefix") else child.name
         prefix_map[key] = child
@@ -911,7 +949,7 @@ def _discover_pairs(prefix_dir: Path, postfix_dir: Path) -> dict[str, dict[str, 
     for child in sorted(postfix_dir.iterdir()):
         if not child.is_dir():
             continue
-        if not (child / "classification.json").exists():
+        if not (child / classification_name).exists():
             continue
         key = child.name[:-8] if child.name.endswith("_postfix") else child.name
         if key not in prefix_map:
