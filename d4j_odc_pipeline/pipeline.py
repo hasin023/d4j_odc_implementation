@@ -8,16 +8,16 @@ from .defects4j import DEFAULT_EXPORT_PROPERTIES, DEFAULT_QUERY_FIELDS, Defects4
 from .llm import LLMClient, LLMError, classification_response_schema, naive_response_schema
 from .models import BugContext, ClassificationResult, CodeSnippet, StackFrame, ensure_parent, utc_now_iso
 from .odc import (
-    DEFAULT_REASONING,
+    DEFAULT_STRATEGY,
     DEFAULT_TAXONOMY,
     ODC_TYPE_NAMES,
     OTHER_TYPE_NAME,
-    REASONING_LEVELS,
+    STRATEGY_SCIENTIFIC,
     TAXONOMY_FREE,
-    TAXONOMY_MODES,
     allowed_type_names,
     family_for,
     legacy_prompt_style,
+    validate_condition,
 )
 from .parsing import extract_json_object
 from .prompting import build_messages
@@ -250,19 +250,31 @@ def classify_bug_context(
     prompt_output_path: Path | None = None,
     dry_run: bool = False,
     taxonomy: str = DEFAULT_TAXONOMY,
-    reasoning: str = DEFAULT_REASONING,
+    strategy: str = DEFAULT_STRATEGY,
+    self_consistency: int = 1,
+    sampling_temperature: float = 0.7,
 ) -> ClassificationResult | None:
-    if taxonomy not in TAXONOMY_MODES:
-        raise ValueError(f"Unknown taxonomy: {taxonomy!r} (expected one of {TAXONOMY_MODES})")
-    if reasoning not in REASONING_LEVELS:
-        raise ValueError(f"Unknown reasoning level: {reasoning!r} (expected one of {REASONING_LEVELS})")
+    validate_condition(taxonomy, strategy)
+    if self_consistency < 1:
+        raise ValueError("self_consistency must be >= 1")
     console.header_panel(
         f"Classifying: {context.project_id}-{context.bug_id}",
-        f"Provider: {provider}  •  Model: {model}  •  Taxonomy: {taxonomy}  •  Reasoning: {reasoning}",
+        f"Provider: {provider}  •  Model: {model}  •  Taxonomy: {taxonomy}  •  Strategy: {strategy}",
     )
 
-    with console.timed_step(f"Building prompt ({taxonomy}-{reasoning})"):
-        messages = build_messages(context, taxonomy, reasoning)
+    with console.timed_step(f"Building prompt ({taxonomy}-{strategy})"):
+        if strategy == STRATEGY_SCIENTIFIC:
+            # The agentic engine builds its own conversation; this preview is
+            # the loop's system prompt + seed observation (for --prompt-output/--dry-run).
+            from .agent import _agent_system_prompt
+            from .prompting import _context_payload
+
+            messages = [
+                {"role": "system", "content": _agent_system_prompt(taxonomy)},
+                {"role": "user", "content": json.dumps(_context_payload(context), indent=2)},
+            ]
+        else:
+            messages = build_messages(context, taxonomy, strategy)
 
     if prompt_output_path:
         ensure_parent(prompt_output_path)
@@ -272,38 +284,64 @@ def classify_bug_context(
     if dry_run:
         console.warn("Dry run — skipping LLM call")
         console.result_panel("Dry run complete", [
-            ("Prompt style", prompt_style),
+            ("Condition", f"{taxonomy}-{strategy}"),
             ("Prompt saved", str(prompt_output_path) if prompt_output_path else "not saved"),
         ])
         return None
 
-    with console.spinner_step(f"Calling {provider} ({model})"):
-        client = LLMClient.from_env(
-            provider=provider,
+    # Self-consistency (k > 1): draw k independent samples at temperature > 0
+    # and majority-vote the label. consistency_confidence = agreement fraction —
+    # a behavioral confidence estimate, unlike the model's verbalized number.
+    k = self_consistency
+    schema = (
+        naive_response_schema()
+        if taxonomy == TAXONOMY_FREE
+        else classification_response_schema(taxonomy)
+    )
+    client = LLMClient.from_env(
+        provider=provider,
+        model=model,
+        api_key_env=api_key_env,
+        base_url=base_url,
+        temperature=sampling_temperature if k > 1 else 0.0,
+    )
+
+    def _validate(payload: dict, raw: str = "") -> ClassificationResult:
+        return _validate_classification_payload(
+            payload=payload,
+            context=context,
             model=model,
-            api_key_env=api_key_env,
-            base_url=base_url,
-        )
-        raw_response = client.complete(
-            messages,
-            response_schema=(
-                naive_response_schema()
-                if taxonomy == TAXONOMY_FREE
-                else classification_response_schema(taxonomy)
-            ),
+            provider=provider,
+            raw_response=raw,
+            taxonomy=taxonomy,
+            strategy=strategy,
         )
 
-    console.step("Parsing LLM response...")
-    payload = extract_json_object(raw_response)
-    result = _validate_classification_payload(
-        payload=payload,
-        context=context,
-        model=model,
-        provider=provider,
-        raw_response=raw_response,
-        taxonomy=taxonomy,
-        reasoning=reasoning,
-    )
+    samples: list[ClassificationResult] = []
+    total_calls = 0
+    for sample_index in range(1, k + 1):
+        suffix = f" — sample {sample_index}/{k}" if k > 1 else ""
+        if strategy == STRATEGY_SCIENTIFIC:
+            from .agent import run_agentic_classification
+
+            with console.spinner_step(f"Agentic loop via {provider} ({model}){suffix}"):
+                sample = run_agentic_classification(
+                    context=context,
+                    client=client,
+                    taxonomy=taxonomy,
+                    validate_conclusion=lambda p: _validate(p, json.dumps(p)),
+                )
+            total_calls += max(1, len(sample.turns))
+            samples.append(sample)
+        else:
+            with console.spinner_step(f"Calling {provider} ({model}){suffix}"):
+                raw_response = client.complete(messages, response_schema=schema)
+            payload = extract_json_object(raw_response)
+            total_calls += 1
+            samples.append(_validate(payload, raw_response))
+
+    result = _apply_self_consistency(samples)
+    result.llm_calls_used = total_calls
 
     console.step(f"Writing classification → {output_path}")
     write_json(output_path, result.to_dict())
@@ -312,6 +350,12 @@ def classify_bug_context(
     review_text = "Yes" if result.needs_human_review else "No"
 
     optional_rows: list[tuple[str, str]] = []
+    if result.consistency_k > 1:
+        optional_rows.append((
+            "Consistency",
+            f"{result.consistency_confidence:.2f} over {result.consistency_k} samples "
+            f"({', '.join(result.sample_labels)})",
+        ))
     if result.odc_type == OTHER_TYPE_NAME:
         optional_rows.append(("Nearest Type", result.nearest_type or "—"))
         optional_rows.append(("Other Confidence", f"{result.other_confidence:.2f}" if result.other_confidence is not None else "—"))
@@ -814,6 +858,34 @@ def _find_test_assertion_line(failure) -> int | None:
     return None
 
 
+def _apply_self_consistency(samples: list["ClassificationResult"]) -> "ClassificationResult":
+    """Majority-vote over k validated samples (k=1 passes through unchanged).
+
+    The returned result is the FIRST sample carrying the majority label
+    (ties broken by first occurrence), annotated with:
+    - consistency_k, sample_labels
+    - consistency_confidence = majority votes / k
+    - needs_human_review forced True when the label flipped across samples
+      (rule-driven review, per the Phase 3 design).
+    """
+    if len(samples) == 1:
+        return samples[0]
+
+    labels = [sample.odc_type for sample in samples]
+    counts: dict[str, int] = {}
+    for label in labels:
+        counts[label] = counts.get(label, 0) + 1
+    majority_label = max(counts, key=lambda l: (counts[l], -labels.index(l)))
+    representative = next(s for s in samples if s.odc_type == majority_label)
+
+    representative.consistency_k = len(samples)
+    representative.sample_labels = labels
+    representative.consistency_confidence = round(counts[majority_label] / len(samples), 4)
+    if len(counts) > 1:
+        representative.needs_human_review = True
+    return representative
+
+
 def _validate_classification_payload(
     *,
     payload: dict,
@@ -822,9 +894,9 @@ def _validate_classification_payload(
     provider: str,
     raw_response: str,
     taxonomy: str = DEFAULT_TAXONOMY,
-    reasoning: str = DEFAULT_REASONING,
+    strategy: str = DEFAULT_STRATEGY,
 ) -> ClassificationResult:
-    prompt_style = legacy_prompt_style(taxonomy, reasoning)
+    prompt_style = legacy_prompt_style(taxonomy, strategy)
     def _opt_text(value: object) -> str | None:
         if value is None:
             return None
@@ -874,7 +946,7 @@ def _validate_classification_payload(
             inferred_triggers=[],
             inferred_impact=[],
             evidence_mode="post-fix" if context.fix_diff else "pre-fix",
-            reasoning=reasoning,
+            strategy=strategy,
             taxonomy_mode=taxonomy,
             raw_response=raw_response,
         )
@@ -944,7 +1016,7 @@ def _validate_classification_payload(
         inferred_triggers=_opt_list(payload.get("inferred_triggers")),
         inferred_impact=_opt_list(payload.get("inferred_impact")),
         evidence_mode="post-fix" if context.fix_diff else "pre-fix",
-        reasoning=reasoning,
+        strategy=strategy,
         taxonomy_mode=taxonomy,
         other_justification=other_justification,
         nearest_type=nearest_type,

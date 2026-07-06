@@ -628,7 +628,7 @@ def compute_taxonomy_grounding_metrics(
 def compute_coverage_metrics(
     *,
     prefix_dir: "Path | None" = None,
-    reasoning: str = "scientific",
+    strategy: str = "scientific",
     closed_prefix_dir: "Path | None" = None,
     open_prefix_dir: "Path | None" = None,
 ) -> dict[str, Any]:
@@ -636,8 +636,8 @@ def compute_coverage_metrics(
     open pass (7 + Other) over the same manifest.
 
     Preferred usage (bug-centric layout): pass ``prefix_dir`` — ONE tree whose
-    bug folders each hold both ``classification.closed-<reasoning>.json`` and
-    ``classification.open-<reasoning>.json`` beside context.json.
+    bug folders each hold both ``classification.closed-<strategy>.json`` and
+    ``classification.open-<strategy>.json`` beside context.json.
 
     Legacy usage (old parallel-roots layout with untagged classification.json):
     pass ``closed_prefix_dir`` + ``open_prefix_dir`` instead.
@@ -676,8 +676,8 @@ def compute_coverage_metrics(
         return runs
 
     if prefix_dir is not None:
-        closed_runs = _load_runs(prefix_dir, f"classification.closed-{reasoning}.json")
-        open_runs = _load_runs(prefix_dir, f"classification.open-{reasoning}.json")
+        closed_runs = _load_runs(prefix_dir, f"classification.closed-{strategy}.json")
+        open_runs = _load_runs(prefix_dir, f"classification.open-{strategy}.json")
     else:
         closed_runs = _load_runs(closed_prefix_dir, "classification.json")
         open_runs = _load_runs(open_prefix_dir, "classification.json")

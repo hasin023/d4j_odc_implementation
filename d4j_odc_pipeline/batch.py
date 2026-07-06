@@ -11,7 +11,7 @@ from typing import Any
 from .comparison import compare_classifications
 from .defects4j import Defects4JClient
 from .models import ensure_parent, utc_now_iso
-from .odc import DEFAULT_REASONING, DEFAULT_TAXONOMY, condition_tag
+from .odc import DEFAULT_STRATEGY, DEFAULT_TAXONOMY, condition_tag, validate_condition
 from .pipeline import (
     classify_bug_context,
     collect_bug_context,
@@ -220,17 +220,28 @@ def run_batch_from_manifest(
     api_key_env: str | None,
     base_url: str | None,
     taxonomy: str = DEFAULT_TAXONOMY,
-    reasoning: str = DEFAULT_REASONING,
+    strategy: str = DEFAULT_STRATEGY,
     snippet_radius: int = 12,
     run_coverage: bool = False,
     skip_existing: bool = True,
     prompt_output: bool = False,
+    daily_call_budget: int | None = 1400,
+    self_consistency: int = 1,
 ) -> dict[str, Any]:
     entries = list(manifest.get("entries", []))
     if not entries:
         raise ValueError("Manifest contains no entries.")
 
-    tag = condition_tag(taxonomy, reasoning)
+    # Budget guard: stop cleanly (checkpoint + resume message) before burning
+    # into provider rate limits (Gemini free tier ~1,500 requests/day).
+    # <= 0 disables the guard.
+    if daily_call_budget is not None and daily_call_budget <= 0:
+        daily_call_budget = None
+    llm_calls_made = 0
+    budget_reached = False
+
+    validate_condition(taxonomy, strategy)
+    tag = condition_tag(taxonomy, strategy)
 
     ensure_parent(artifacts_root / "placeholder.json")
     ensure_parent(work_root / "placeholder.txt")
@@ -319,6 +330,12 @@ def run_batch_from_manifest(
                     interrupted = True
                     break
 
+                # Budget guard: stop before starting work we can't classify.
+                if daily_call_budget is not None and llm_calls_made >= daily_call_budget:
+                    record[f"{evidence_mode}_status"] = "budget-stopped"
+                    budget_reached = True
+                    break
+
                 run_name = f"{bug_key}_{evidence_mode}"
                 include_fix_diff = evidence_mode == "postfix"
                 run_artifacts_dir = artifacts_root / evidence_mode / run_name
@@ -372,6 +389,7 @@ def run_batch_from_manifest(
                         interrupted = True
                         break
 
+                    llm_calls_made += self_consistency
                     classification = classify_bug_context(
                         context=context,
                         output_path=classification_path,
@@ -382,11 +400,14 @@ def run_batch_from_manifest(
                         prompt_output_path=prompt_path,
                         dry_run=False,
                         taxonomy=taxonomy,
-                        reasoning=reasoning,
+                        strategy=strategy,
+                        self_consistency=self_consistency,
                     )
 
                     if classification is None:
                         raise ValueError("Classification returned None. Disable dry-run for batch execution.")
+                    # Agentic/self-consistency may use more calls than the k pre-charged.
+                    llm_calls_made += max(0, getattr(classification, "llm_calls_used", self_consistency) - self_consistency)
 
                     write_markdown_report(
                         context=context,
@@ -398,9 +419,18 @@ def run_batch_from_manifest(
                     record[status_key] = "failed"
                     record[f"{evidence_mode}_error"] = str(exc)
 
-            # If we broke out of the evidence_mode loop due to shutdown
+            # If we broke out of the evidence_mode loop due to shutdown/budget
             if interrupted:
                 records.append(record)
+                break
+            if budget_reached:
+                records.append(record)
+                _write_checkpoint(checkpoint_path, records, manifest_hash, interrupted=False)
+                console.warn(
+                    f"Daily call budget reached ({llm_calls_made}/{daily_call_budget}) — "
+                    f"stopped cleanly after {index}/{len(entries)} entries. "
+                    "Re-run the same command tomorrow to resume from the checkpoint."
+                )
                 break
 
             # Include pairwise comparison inline when both runs are available.
@@ -430,8 +460,12 @@ def run_batch_from_manifest(
     summary = {
         "created_at": utc_now_iso(),
         "taxonomy": taxonomy,
-        "reasoning": reasoning,
+        "strategy": strategy,
         "condition_tag": tag,
+        "llm_calls_made": llm_calls_made,
+        "self_consistency": self_consistency,
+        "daily_call_budget": daily_call_budget,
+        "budget_reached": budget_reached,
         "manifest_target_bugs": manifest.get("target_bugs"),
         "manifest_selected_bugs": len(entries),
         "total_entries": len(records),
@@ -457,11 +491,13 @@ def run_condition_from_manifest(
     api_key_env: str | None,
     base_url: str | None,
     taxonomy: str = DEFAULT_TAXONOMY,
-    reasoning: str = DEFAULT_REASONING,
+    strategy: str = DEFAULT_STRATEGY,
     snippet_radius: int = 12,
     run_coverage: bool = False,
     skip_existing: bool = True,
     prompt_output: bool = False,
+    daily_call_budget: int | None = 1400,
+    self_consistency: int = 1,
 ) -> dict[str, Any]:
     """Run ONE classification condition over the manifest, prefix-only.
 
@@ -480,8 +516,15 @@ def run_condition_from_manifest(
     if not entries:
         raise ValueError("Manifest contains no entries.")
 
-    tag = condition_tag(taxonomy, reasoning)
+    validate_condition(taxonomy, strategy)
+    tag = condition_tag(taxonomy, strategy)
     prefix_root = artifacts_root / "prefix"
+
+    # Budget guard (see run_batch_from_manifest). <= 0 disables.
+    if daily_call_budget is not None and daily_call_budget <= 0:
+        daily_call_budget = None
+    llm_calls_made = 0
+    budget_reached = False
 
     ensure_parent(prefix_root / "placeholder.json")
     ensure_parent(work_root / "placeholder.txt")
@@ -541,6 +584,16 @@ def run_condition_from_manifest(
                 progress.advance(task_id)
                 continue
 
+            if daily_call_budget is not None and llm_calls_made >= daily_call_budget:
+                budget_reached = True
+                _write_checkpoint(checkpoint_path, records, manifest_hash, interrupted=False)
+                console.warn(
+                    f"Daily call budget reached ({llm_calls_made}/{daily_call_budget}) — "
+                    f"stopped cleanly after {index - 1}/{len(entries)} entries. "
+                    "Re-run the same command tomorrow to resume from the checkpoint."
+                )
+                break
+
             progress.update(task_id, description=f"[cyan]{bug_key} {tag}[/cyan] [{index}/{len(entries)}]")
 
             run_name = f"{bug_key}_prefix"
@@ -591,6 +644,7 @@ def run_condition_from_manifest(
                     records.append(record)
                     break
 
+                llm_calls_made += self_consistency
                 classification = classify_bug_context(
                     context=context,
                     output_path=classification_path,
@@ -601,11 +655,13 @@ def run_condition_from_manifest(
                     prompt_output_path=prompt_path,
                     dry_run=False,
                     taxonomy=taxonomy,
-                    reasoning=reasoning,
+                    strategy=strategy,
+                    self_consistency=self_consistency,
                 )
 
                 if classification is None:
                     raise ValueError("Classification returned None.")
+                llm_calls_made += max(0, getattr(classification, "llm_calls_used", self_consistency) - self_consistency)
 
                 write_markdown_report(
                     context=context,
@@ -629,8 +685,12 @@ def run_condition_from_manifest(
     return {
         "created_at": utc_now_iso(),
         "taxonomy": taxonomy,
-        "reasoning": reasoning,
+        "strategy": strategy,
         "condition_tag": tag,
+        "llm_calls_made": llm_calls_made,
+        "self_consistency": self_consistency,
+        "daily_call_budget": daily_call_budget,
+        "budget_reached": budget_reached,
         "manifest_target_bugs": manifest.get("target_bugs"),
         "total_entries": len(records),
         "completed_entries": completed_count,
@@ -647,16 +707,16 @@ def analyze_batch_artifacts(
     prefix_dir: Path,
     postfix_dir: Path,
     expected_projects: list[str] | None = None,
-    taxonomy: str = "closed",
-    reasoning: str = DEFAULT_REASONING,
+    taxonomy: str = DEFAULT_TAXONOMY,
+    strategy: str = DEFAULT_STRATEGY,
 ) -> dict[str, Any]:
     """Cross-artifact prefix/postfix analysis for ONE condition.
 
-    Defaults to closed-scientific (NOT the CLI default of open): the paired
-    prefix/postfix analysis (RQ5) is defined on the closed baseline condition.
-    Pass taxonomy/reasoning explicitly to analyze another condition.
+    Defaults to the pipeline default condition (open-scientific). Pass
+    taxonomy/strategy explicitly to analyze another condition.
     """
-    tag = condition_tag(taxonomy, reasoning)
+    validate_condition(taxonomy, strategy)
+    tag = condition_tag(taxonomy, strategy)
     classification_name = f"classification.{tag}.json"
     report_name = f"report.{tag}.md"
     pairs = _discover_pairs(prefix_dir, postfix_dir, classification_name=classification_name)
@@ -929,7 +989,7 @@ def _discover_pairs(
     prefix_dir: Path,
     postfix_dir: Path,
     *,
-    classification_name: str = "classification.closed-scientific.json",
+    classification_name: str = "classification.open-scientific.json",
 ) -> dict[str, dict[str, Path]]:
     if not prefix_dir.is_dir():
         raise ValueError(f"Prefix directory does not exist: {prefix_dir}")

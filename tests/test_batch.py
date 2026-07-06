@@ -112,6 +112,8 @@ class BatchAnalysisTests(unittest.TestCase):
                 prefix_dir=prefix_dir,
                 postfix_dir=postfix_dir,
                 expected_projects=["Lang", "Math", "Chart"],
+                taxonomy="closed",
+                strategy="scientific",
             )
 
             self.assertEqual(2, summary["total_pairs"])
@@ -339,7 +341,7 @@ class BatchResumeTests(unittest.TestCase):
                 api_key_env=None,
                 base_url=None,
                 taxonomy="closed",
-                reasoning="scientific",
+                strategy="scientific",
             )
 
             checkpoint_after_first = json.loads(checkpoint_path.read_text(encoding="utf-8"))
@@ -356,7 +358,7 @@ class BatchResumeTests(unittest.TestCase):
                 api_key_env=None,
                 base_url=None,
                 taxonomy="closed",
-                reasoning="scientific",
+                strategy="scientific",
             )
 
         checkpoint_after_second = json.loads(checkpoint_path.read_text(encoding="utf-8"))
@@ -444,7 +446,7 @@ class BatchResumeTests(unittest.TestCase):
                 api_key_env=None,
                 base_url=None,
                 taxonomy="closed",
-                reasoning="scientific",
+                strategy="scientific",
             )
 
             checkpoint_after_first = json.loads(checkpoint_path.read_text(encoding="utf-8"))
@@ -461,7 +463,7 @@ class BatchResumeTests(unittest.TestCase):
                 api_key_env=None,
                 base_url=None,
                 taxonomy="closed",
-                reasoning="scientific",
+                strategy="scientific",
             )
 
         checkpoint_after_second = json.loads(checkpoint_path.read_text(encoding="utf-8"))
@@ -476,3 +478,137 @@ class BatchResumeTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BudgetGuardTests(unittest.TestCase):
+    @staticmethod
+    def _scratch_dir(name: str) -> Path:
+        base = Path(".dist") / "test_tmp_batch" / f"{name}_{uuid.uuid4().hex[:8]}"
+        base.mkdir(parents=True, exist_ok=True)
+        return base
+
+    @staticmethod
+    def _fakes(calls: list):
+        def fake_collect(*, project_id, bug_id, output_path, **kwargs):
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(
+                json.dumps({
+                    "project_id": project_id, "bug_id": bug_id,
+                    "version_id": f"{bug_id}b", "work_dir": "w",
+                    "created_at": "t", "defects4j_command": [],
+                }), encoding="utf-8")
+            return {"project_id": project_id, "bug_id": bug_id}
+
+        def fake_classify(*, context, output_path, **kwargs):
+            pid = context["project_id"] if isinstance(context, dict) else context.project_id
+            bid = context["bug_id"] if isinstance(context, dict) else context.bug_id
+            calls.append((pid, bid, output_path.name))
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(json.dumps({
+                "project_id": pid, "bug_id": bid, "odc_type": "Checking",
+            }), encoding="utf-8")
+            return {"project_id": pid, "bug_id": bid}
+
+        def fake_report(*, context, classification, output_path):
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text("# report", encoding="utf-8")
+
+        return fake_collect, fake_classify, fake_report
+
+    def test_pairs_runner_stops_at_budget_and_resumes(self) -> None:
+        from d4j_odc_pipeline.batch import reset_shutdown, run_batch_from_manifest
+        reset_shutdown()
+        manifest = {"target_bugs": 2, "entries": [
+            {"project_id": "Lang", "bug_id": 1},
+            {"project_id": "Math", "bug_id": 2},
+        ]}
+        temp_root = self._scratch_dir("budget_pairs")
+        calls: list = []
+        fake_collect, fake_classify, fake_report = self._fakes(calls)
+        common = dict(
+            defects4j=_FakeDefects4JClient(),
+            manifest=manifest,
+            artifacts_root=temp_root / "artifacts",
+            work_root=temp_root / "work",
+            provider="gemini", model="m", api_key_env=None, base_url=None,
+            taxonomy="closed", strategy="scientific",
+        )
+        with (
+            patch("d4j_odc_pipeline.batch.collect_bug_context", side_effect=fake_collect),
+            patch("d4j_odc_pipeline.batch.classify_bug_context", side_effect=fake_classify),
+            patch("d4j_odc_pipeline.batch.write_markdown_report", side_effect=fake_report),
+            patch("d4j_odc_pipeline.batch.compare_classifications", return_value=_FakeCompareResult()),
+        ):
+            # 2 bugs x 2 evidence modes = 4 calls needed; budget allows 3
+            first = run_batch_from_manifest(**common, daily_call_budget=3)
+            self.assertTrue(first["budget_reached"])
+            self.assertEqual(3, first["llm_calls_made"])
+            math_record = next(r for r in first["records"] if r.get("bug_key") == "Math_2")
+            self.assertEqual("budget-stopped", math_record["postfix_status"])
+
+            # Resume with fresh budget: only the missing postfix call is made
+            second = run_batch_from_manifest(**common, daily_call_budget=1400)
+            self.assertFalse(second["budget_reached"])
+            self.assertEqual(1, second["llm_calls_made"])
+        self.assertEqual(4, len(calls))
+        shutil.rmtree(temp_root, ignore_errors=True)
+
+    def test_condition_runner_stops_at_budget_and_resumes(self) -> None:
+        from d4j_odc_pipeline.batch import reset_shutdown, run_condition_from_manifest
+        reset_shutdown()
+        manifest = {"target_bugs": 3, "entries": [
+            {"project_id": "Lang", "bug_id": 1},
+            {"project_id": "Math", "bug_id": 2},
+            {"project_id": "Time", "bug_id": 3},
+        ]}
+        temp_root = self._scratch_dir("budget_condition")
+        calls: list = []
+        fake_collect, fake_classify, fake_report = self._fakes(calls)
+        common = dict(
+            defects4j=_FakeDefects4JClient(),
+            manifest=manifest,
+            artifacts_root=temp_root / "artifacts",
+            work_root=temp_root / "work",
+            provider="gemini", model="m", api_key_env=None, base_url=None,
+            taxonomy="open", strategy="scientific",
+        )
+        with (
+            patch("d4j_odc_pipeline.batch.collect_bug_context", side_effect=fake_collect),
+            patch("d4j_odc_pipeline.batch.classify_bug_context", side_effect=fake_classify),
+            patch("d4j_odc_pipeline.batch.write_markdown_report", side_effect=fake_report),
+        ):
+            first = run_condition_from_manifest(**common, daily_call_budget=2)
+            self.assertTrue(first["budget_reached"])
+            self.assertEqual(2, first["llm_calls_made"])
+
+            second = run_condition_from_manifest(**common, daily_call_budget=1400)
+            self.assertFalse(second["budget_reached"])
+            self.assertEqual(1, second["llm_calls_made"])
+        self.assertEqual(3, len(calls))
+        shutil.rmtree(temp_root, ignore_errors=True)
+
+    def test_budget_zero_disables_guard(self) -> None:
+        from d4j_odc_pipeline.batch import reset_shutdown, run_condition_from_manifest
+        reset_shutdown()
+        manifest = {"target_bugs": 2, "entries": [
+            {"project_id": "Lang", "bug_id": 1},
+            {"project_id": "Math", "bug_id": 2},
+        ]}
+        temp_root = self._scratch_dir("budget_disabled")
+        calls: list = []
+        fake_collect, fake_classify, fake_report = self._fakes(calls)
+        with (
+            patch("d4j_odc_pipeline.batch.collect_bug_context", side_effect=fake_collect),
+            patch("d4j_odc_pipeline.batch.classify_bug_context", side_effect=fake_classify),
+            patch("d4j_odc_pipeline.batch.write_markdown_report", side_effect=fake_report),
+        ):
+            summary = run_condition_from_manifest(
+                defects4j=_FakeDefects4JClient(), manifest=manifest,
+                artifacts_root=temp_root / "artifacts", work_root=temp_root / "work",
+                provider="gemini", model="m", api_key_env=None, base_url=None,
+                daily_call_budget=0,
+            )
+        self.assertFalse(summary["budget_reached"])
+        self.assertIsNone(summary["daily_call_budget"])
+        self.assertEqual(2, summary["llm_calls_made"])
+        shutil.rmtree(temp_root, ignore_errors=True)

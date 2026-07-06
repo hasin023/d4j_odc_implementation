@@ -4,34 +4,41 @@ import json
 
 from .models import BugContext
 from .odc import (
-    DEFAULT_REASONING,
-    DEFAULT_TAXONOMY,
-    REASONING_SCIENTIFIC,
-    REASONING_ZERO,
+    STRATEGY_FEW,
+    STRATEGY_ZERO,
     TAXONOMY_CLOSED,
     TAXONOMY_FREE,
     TAXONOMY_OPEN,
     allowed_type_names,
     taxonomy_markdown,
+    validate_condition,
 )
 
 
 def build_messages(
     context: BugContext,
-    taxonomy: str = DEFAULT_TAXONOMY,
-    reasoning: str = DEFAULT_REASONING,
+    taxonomy: str,
+    strategy: str,
 ) -> list[dict[str, str]]:
-    """Build the LLM messages for one classification condition.
+    """Build the single-call LLM messages for one classification condition.
 
-    The condition is the (taxonomy, reasoning) coordinate — see odc.py for the
-    level definitions. The retired preset names map as:
-    naive = free×zero, direct = closed×zero, scientific = closed×scientific.
+    Only the STATIC strategies are built here:
+    - zero (taxonomy-free, no examples — the unstructured baseline)
+    - few  (taxonomy + diagnostic tree + worked examples — the strong static prompt)
+    The 'scientific' strategy (the enforced loop) builds its own conversation
+    in agent.py and never calls this. See docs/condition_model.md.
     """
+    validate_condition(taxonomy, strategy)
+    if strategy not in (STRATEGY_ZERO, STRATEGY_FEW):
+        raise ValueError(
+            f"build_messages only handles static strategies (zero|few); got {strategy!r} — "
+            "the scientific strategy is driven by agent.run_agentic_classification."
+        )
     has_fix_diff = bool(context.fix_diff)
     system_prompt = _build_system_prompt(
-        taxonomy=taxonomy, reasoning=reasoning, has_fix_diff=has_fix_diff
+        taxonomy=taxonomy, strategy=strategy, has_fix_diff=has_fix_diff
     )
-    user_prompt = _build_user_prompt(context, taxonomy=taxonomy, reasoning=reasoning)
+    user_prompt = _build_user_prompt(context, taxonomy=taxonomy, strategy=strategy)
     return [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_prompt},
@@ -41,13 +48,13 @@ def build_messages(
 def _build_system_prompt(
     *,
     taxonomy: str,
-    reasoning: str,
+    strategy: str,
     has_fix_diff: bool = False,
 ) -> str:
-    # Free taxonomy: no ODC types, no structured labels, no anti-bias rules.
+    # zero: no ODC types, no structured labels, no anti-bias rules.
     # The LLM answers in its own words (simplified JSON contract).
-    if taxonomy == TAXONOMY_FREE:
-        return _build_free_system_prompt(has_fix_diff=has_fix_diff, reasoning=reasoning)
+    if strategy == STRATEGY_ZERO:
+        return _build_zero_system_prompt(has_fix_diff=has_fix_diff)
     taxonomy_mode = taxonomy
 
     base = [
@@ -87,50 +94,48 @@ def _build_system_prompt(
         "Return only valid JSON matching this schema:",
         _json_contract(taxonomy_mode),
     ])
-    if reasoning == REASONING_SCIENTIFIC:
-        base.extend(
-            [
-                "",
-                _scientific_debugging_instructions(),
-                "",
-                "## Classification Decision Process",
-                "",
-                "Before classifying, you MUST answer these diagnostic questions in your reasoning:",
-                "",
-                "1. **Is a condition/guard/validation missing or wrong?**",
-                "   → Look for: missing null checks, wrong if-conditions, missing bounds checks, incorrect exception handling.",
-                "   → If YES → strongly consider **Checking**.",
-                "",
-                "2. **Is a specific value, constant, or initialization wrong?**",
-                "   → Look for: wrong default values, wrong constants, wrong variable used in assignment.",
-                "   → If YES and the fix is a value/initialization correction → strongly consider **Assignment/Initialization**.",
-                "",
-                "3. **Is the computational logic or procedure itself wrong?**",
-                "   → Look for: wrong formula, wrong loop logic, wrong sort order, wrong data structure operation.",
-                "   → If YES → strongly consider **Algorithm/Method**.",
-                "",
-                "4. **Is the problem at a component boundary or API interaction?**",
-                "   → Look for: wrong parameter order, type mismatch between caller/callee, contract violation.",
-                "   → If YES → strongly consider **Interface/O-O Messages**.",
-                "",
-                "5. **Does the problem depend on execution order or timing?**",
-                "   → Look for: race conditions, lifecycle ordering, serialization order.",
-                "   → If YES → strongly consider **Timing/Serialization**.",
-                "",
-                "6. **Is the issue centered on associations among procedures/data structures/objects?**",
-                "   → Look for: broken assumptions between related entities that must stay aligned.",
-                "   → If YES → consider **Relationship**.",
-                "",
-                "7. **Does the defect require a formal design-level capability correction?**",
-                "   → Look for: significant capability/class/object/interface structure correction.",
-                "   → If YES → consider **Function/Class/Object**.",
-                "",
-                "Work through these questions using the evidence provided, then choose the BEST matching type.",
-            ]
-        )
-        # Few-shot examples: only included with the scientific protocol to isolate
-        # the prompt engineering contribution for RQ2.2 baseline comparison.
-        base.extend(["", _few_shot_examples()])
+    base.extend(
+        [
+            "",
+            _scientific_debugging_instructions(),
+            "",
+            "## Classification Decision Process",
+            "",
+            "Before classifying, you MUST answer these diagnostic questions in your reasoning:",
+            "",
+            "1. **Is a condition/guard/validation missing or wrong?**",
+            "   → Look for: missing null checks, wrong if-conditions, missing bounds checks, incorrect exception handling.",
+            "   → If YES → strongly consider **Checking**.",
+            "",
+            "2. **Is a specific value, constant, or initialization wrong?**",
+            "   → Look for: wrong default values, wrong constants, wrong variable used in assignment.",
+            "   → If YES and the fix is a value/initialization correction → strongly consider **Assignment/Initialization**.",
+            "",
+            "3. **Is the computational logic or procedure itself wrong?**",
+            "   → Look for: wrong formula, wrong loop logic, wrong sort order, wrong data structure operation.",
+            "   → If YES → strongly consider **Algorithm/Method**.",
+            "",
+            "4. **Is the problem at a component boundary or API interaction?**",
+            "   → Look for: wrong parameter order, type mismatch between caller/callee, contract violation.",
+            "   → If YES → strongly consider **Interface/O-O Messages**.",
+            "",
+            "5. **Does the problem depend on execution order or timing?**",
+            "   → Look for: race conditions, lifecycle ordering, serialization order.",
+            "   → If YES → strongly consider **Timing/Serialization**.",
+            "",
+            "6. **Is the issue centered on associations among procedures/data structures/objects?**",
+            "   → Look for: broken assumptions between related entities that must stay aligned.",
+            "   → If YES → consider **Relationship**.",
+            "",
+            "7. **Does the defect require a formal design-level capability correction?**",
+            "   → Look for: significant capability/class/object/interface structure correction.",
+            "   → If YES → consider **Function/Class/Object**.",
+            "",
+            "Work through these questions using the evidence provided, then choose the BEST matching type.",
+        ]
+    )
+    # Worked classification examples — the "shots" that make this the few-shot strategy.
+    base.extend(["", _few_shot_examples()])
     return "\n".join(base)
 
 
@@ -203,14 +208,14 @@ def _build_user_prompt(
     context: BugContext,
     *,
     taxonomy: str,
-    reasoning: str,
+    strategy: str,
 ) -> str:
     payload = _context_payload(context)
     evidence_mode = "post-fix (with buggy->fixed diff)" if context.fix_diff else "pre-fix only"
     taxonomy_mode = taxonomy
 
-    # Free taxonomy: no ODC references in user prompt either.
-    if taxonomy == TAXONOMY_FREE:
+    # zero-shot: no ODC references in user prompt either.
+    if strategy == STRATEGY_ZERO:
         rules = [
             "Classify this bug based on the evidence below.",
             f"Evidence mode: {evidence_mode}",
@@ -491,34 +496,23 @@ def _json_contract(taxonomy_mode: str = TAXONOMY_CLOSED) -> str:
     )
 
 
-def _build_free_system_prompt(*, has_fix_diff: bool = False, reasoning: str = REASONING_ZERO) -> str:
-    """Build a taxonomy-free system prompt (the 'free' taxonomy level).
+def _build_zero_system_prompt(*, has_fix_diff: bool = False) -> str:
+    """Build the zero-shot system prompt (free taxonomy, no worked examples).
 
     This prompt intentionally excludes ALL ODC concepts:
     - No ODC type names or descriptions
     - No taxonomy guidance or family groupings
     - No anti-bias rules referencing ODC types
     - No JSON schema with ODC fields
-    - No diagnostic decision tree or ODC few-shot examples
+    - No diagnostic decision tree or worked examples
 
-    free×zero is the old 'naive' baseline (RQ4 anchor). free×scientific adds
-    the scientific-method protocol WITHOUT any taxonomy — the interaction-
-    effect control cell: the LLM follows the method but answers in its own
-    words. Both use the simplified JSON contract.
+    This is the unstructured baseline (the retired 'naive' preset): the LLM
+    classifies in its own words using the simplified JSON contract.
     """
     parts = [
         "You are a software defect analyst.",
         "Your job is to analyze a software bug and determine what TYPE of defect it is.",
     ]
-
-    if reasoning == REASONING_SCIENTIFIC:
-        parts.extend([
-            "",
-            _scientific_debugging_instructions(),
-            "",
-            "In Step 5 (CONCLUDE), state the defect type in your own words — be specific "
-            "and technical about the root-cause mechanism.",
-        ])
 
     if has_fix_diff:
         parts.extend([

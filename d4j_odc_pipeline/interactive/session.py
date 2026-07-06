@@ -46,7 +46,8 @@ class SessionState:
     include_fix_diff: bool = False
     prompt_style: str = "scientific"  # retired; kept so old session files load
     taxonomy: str = "open"
-    reasoning: str = "scientific"
+    reasoning: str = "scientific"  # retired token; kept so old session files load
+    strategy: str = "scientific"
     snippet_radius: int = 12
 
     # ── last-result references ───────────────────────────────────────────

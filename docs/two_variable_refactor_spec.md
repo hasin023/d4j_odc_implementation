@@ -1,8 +1,12 @@
 # Two-Variable Refactor Spec (agreed 2026-07-06)
 
-**Status: EXECUTED 2026-07-06.** All items below are implemented and tested
-(87 passed; only the 2 known WSL-path tests fail on native Linux). Kept as the
-decision record. Do NOT re-litigate the decisions below. Phase 1
+> ⚠️ **SUPERSEDED (2026-07-07) by `docs/condition_model.md`** — the reasoning
+> axis described below (`zero|scientific|agentic`) was replaced by the strategy
+> axis (`zero|few|scientific`); the narrated single-shot condition was retired.
+> This file remains as the historical decision record ONLY. Follow
+> `condition_model.md`.
+
+**Status: EXECUTED 2026-07-06, then superseded.** Phase 1
 (open taxonomy, RQ2) is already implemented and tested on top of the OLD naming
 (`--prompt-style` + `--taxonomy`, `study-coverage`); this refactor converts that working
 state to the final two-variable design. All 87 tests pass pre-refactor (2 known

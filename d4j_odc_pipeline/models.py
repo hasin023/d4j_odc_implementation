@@ -155,13 +155,28 @@ class ClassificationResult:
     inferred_triggers: list[str] = field(default_factory=list)
     inferred_impact: list[str] = field(default_factory=list)
     evidence_mode: str = "pre-fix"
-    # Condition variables. taxonomy_mode: "free" (own words) | "closed"
-    # (7 types) | "open" (7 + Other). reasoning: "zero" | "scientific" |
-    # "agentic". prompt_style holds the retired preset name for legacy
-    # readers (naive/direct/scientific). The other_* fields are only
-    # populated when odc_type == "Other" in open mode.
-    reasoning: str = "scientific"
-    taxonomy_mode: str = "closed"
+    # Condition variables — see docs/condition_model.md.
+    # taxonomy_mode: "free" | "closed" | "open".
+    # strategy: "zero" (unstructured baseline) | "few" (static prompt with
+    # taxonomy + worked examples) | "scientific" (the enforced agentic loop).
+    # NOTE: artifacts written before 2026-07-07 carry a "reasoning" field with
+    # different token semantics — see docs/study_execution_log.md.
+    # prompt_style holds the retired preset name for legacy readers.
+    # The other_* fields are only populated when odc_type == "Other" in open mode.
+    strategy: str = "scientific"
+    taxonomy_mode: str = "open"
+    # Self-consistency (Phase 3): k independent samples, majority vote.
+    # consistency_confidence = fraction agreeing with the majority label
+    # (None when k == 1). sample_labels lists every sample's odc_type.
+    consistency_k: int = 1
+    consistency_confidence: float | None = None
+    sample_labels: list[str] = field(default_factory=list)
+    # Agentic engine (--reasoning agentic): full turn transcript
+    # (hypothesis/prediction/action/probe/observation per turn) — the
+    # explainability artifact. llm_calls_used = actual API calls consumed
+    # by this classification (turns x samples; 1 for single-shot k=1).
+    turns: list[dict[str, Any]] = field(default_factory=list)
+    llm_calls_used: int = 1
     other_justification: str | None = None
     nearest_type: str | None = None
     other_confidence: float | None = None

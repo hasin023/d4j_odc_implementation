@@ -156,43 +156,73 @@ ODC_TYPE_NAMES = list(ODC_TYPES)
 OTHER_TYPE_NAME = "Other"
 
 # ── Experimental condition variables ─────────────────────────────────────
-# Every classification is a coordinate (taxonomy, reasoning):
-#   taxonomy  — what label space the LLM may answer in:
-#       free   = no taxonomy; answer in own words        (was: "naive" preset)
+# Every classification is a coordinate (taxonomy, strategy). The authoritative
+# description of this model (levels, valid combinations, rationale, defaults)
+# is docs/condition_model.md — read that before changing anything here.
+#
+#   taxonomy — what label space the LLM may answer in:
+#       free   = no taxonomy; answer in own words
 #       closed = the 7 ODC types, forced choice          (closed-set)
-#       open   = 7 + "Other" escape category             (open-set; RQ2)
-#   reasoning — enforcement depth of the scientific method:
-#       zero       = method absent (zero-shot)           (was: "direct" preset)
-#       scientific = method narrated in one pass         (protocol + tree + examples)
-#       agentic    = method enforced turn-by-turn        (Phase 2)
+#       open   = 7 + "Other" escape category             (open-set; DEFAULT)
+#   strategy — the prompting strategy:
+#       zero       = zero-shot: no taxonomy, no worked examples
+#                    (implies taxonomy=free; the unstructured baseline)
+#       few        = few-shot single call: taxonomy + diagnostic tree +
+#                    worked classification examples (the strong static prompt)
+#       scientific = the enforced scientific loop (agent.py):
+#                    hypothesis→prediction→probe→observation turns (DEFAULT)
+#
+# Valid conditions (5): free-zero, closed-few, open-few,
+#                       closed-scientific, open-scientific.
 TAXONOMY_FREE = "free"
 TAXONOMY_CLOSED = "closed"
 TAXONOMY_OPEN = "open"
 TAXONOMY_MODES = (TAXONOMY_FREE, TAXONOMY_CLOSED, TAXONOMY_OPEN)
 DEFAULT_TAXONOMY = TAXONOMY_OPEN
 
-REASONING_ZERO = "zero"
-REASONING_SCIENTIFIC = "scientific"
-REASONING_AGENTIC = "agentic"
-REASONING_LEVELS = (REASONING_ZERO, REASONING_SCIENTIFIC)  # agentic lands in Phase 2
-DEFAULT_REASONING = REASONING_SCIENTIFIC
+STRATEGY_ZERO = "zero"
+STRATEGY_FEW = "few"
+STRATEGY_SCIENTIFIC = "scientific"
+STRATEGY_LEVELS = (STRATEGY_ZERO, STRATEGY_FEW, STRATEGY_SCIENTIFIC)
+DEFAULT_STRATEGY = STRATEGY_SCIENTIFIC
 
 
-def condition_tag(taxonomy: str, reasoning: str) -> str:
+def validate_condition(taxonomy: str, strategy: str) -> None:
+    """Reject invalid (taxonomy, strategy) combinations.
+
+    - zero is BY DEFINITION taxonomy-free (no label space in the prompt);
+      pairing it with closed/open is contradictory.
+    - few/scientific require a taxonomy to classify into; free would leave
+      them without a label space.
+    """
+    if taxonomy not in TAXONOMY_MODES:
+        raise ValueError(f"Unknown taxonomy: {taxonomy!r} (expected one of {TAXONOMY_MODES})")
+    if strategy not in STRATEGY_LEVELS:
+        raise ValueError(f"Unknown strategy: {strategy!r} (expected one of {STRATEGY_LEVELS})")
+    if strategy == STRATEGY_ZERO and taxonomy != TAXONOMY_FREE:
+        raise ValueError(
+            "strategy 'zero' is taxonomy-free by definition — use --taxonomy free "
+            "(or omit --taxonomy only if you set --strategy few|scientific)."
+        )
+    if strategy != STRATEGY_ZERO and taxonomy == TAXONOMY_FREE:
+        raise ValueError(
+            f"strategy {strategy!r} requires a taxonomy (closed|open); "
+            "taxonomy 'free' is only valid with --strategy zero."
+        )
+
+
+def condition_tag(taxonomy: str, strategy: str) -> str:
     """Filename tag for a condition, e.g. 'open-scientific'.
 
     Used as classification.<tag>.json / report.<tag>.md / checkpoint suffixes.
     Always explicit — there is no untagged default filename."""
-    return f"{taxonomy}-{reasoning}"
+    return f"{taxonomy}-{strategy}"
 
 
-def legacy_prompt_style(taxonomy: str, reasoning: str) -> str:
-    """Map a condition to the retired preset name, kept in artifacts for
-    backward-compatible readers (naive/direct/scientific)."""
+def legacy_prompt_style(taxonomy: str, strategy: str) -> str:
+    """Retired preset name kept in artifacts for old readers."""
     if taxonomy == TAXONOMY_FREE:
         return "naive"
-    if reasoning == REASONING_ZERO:
-        return "direct"
     return "scientific"
 
 

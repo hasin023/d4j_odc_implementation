@@ -1,6 +1,13 @@
 # Classification Engine Plan — RQ2 Open Taxonomy + Agentic Scientific Loop
 
-**Status:** agreed design, pre-implementation (2026-07-06)
+> ⚠️ **PARTIALLY SUPERSEDED (2026-07-07):** the engine design below (probes,
+> loop, confidence, budget) was implemented and is current, BUT the condition
+> naming used here (`--reasoning agentic`, the "narrated scientific" single-shot
+> arm, RQ4's 4-rung ladder) is outdated. The authoritative condition model is
+> `docs/condition_model.md` (taxonomy × strategy; the loop IS the scientific
+> strategy; the narrated arm was retired after the pilot).
+
+**Status:** implemented (2026-07-06); naming superseded 2026-07-07
 **Scope:** the classification half of the pipeline only. Evidence collection is done — all 800+ `context.json` files exist and are **reused as-is; no re-collection**.
 **Companion docs:** `RQ2_ODC_Coverage_Analysis.md` (RQ2 spec), `details_of_RQ2.md` (design defense), `RQs_JSS.md` (RQ list), `eval_defence.md` (pre/post-fix defense).
 

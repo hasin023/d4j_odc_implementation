@@ -2,11 +2,11 @@
 
 A research pipeline that collects pre-fix bug evidence from [Defects4J](https://github.com/rjust/defects4j), classifies it into ODC (**Orthogonal Defect Classification**) defect types using an LLM (Gemini by default, OpenRouter as fallback), and saves machine-readable outputs for evaluation.
 
-The pipeline follows a **Scientific Debugging** methodology — observation → hypothesis → prediction → experiment → conclusion — to classify each bug into one of 7 ODC defect types with grounded, code-level reasoning. A `direct` (zero-shot) baseline prompt style is also available for controlled evaluation.
+The default strategy is an **enforced scientific loop** (AutoSD-inspired): the failure is observed first, then each turn the LLM commits a hypothesis + prediction and either probes the recorded evidence or concludes — with zero-shot and few-shot static strategies available as controlled baselines. See docs/condition_model.md.
 
 The default way to use the tool is now the interactive CLI: launch `d4j-odc` (or `python -m d4j_odc_pipeline`) with no arguments, then work from the `odc>` shell using slash commands such as `/run`, `/study plan`, and `/show classification`. The original argument-based command style is still supported for scripts, CI, notebooks, and existing workflows. Any old invocation like `python -m d4j_odc_pipeline run ...` remains valid.
 
-For large-scale evaluation, the CLI supports batch-study commands: `study-plan`, `study-run`, `study-classify`, `study-analyze`, and `study-export`. Every classification is a coordinate of two condition variables — `--taxonomy free|closed|open` (default open) and `--reasoning zero|scientific` (default scientific) — and output files are always condition-tagged (`classification.<taxonomy>-<reasoning>.json`).
+For large-scale evaluation, the CLI supports batch-study commands: `study-plan`, `study-run`, `study-classify`, `study-analyze`, and `study-export`. Every classification is a coordinate of two condition variables — `--taxonomy free|closed|open` (default open) and `--strategy zero|few|scientific` (default scientific = the enforced hypothesis→probe loop) — see **docs/condition_model.md** (authoritative). Output files are always condition-tagged (`classification.<taxonomy>-<strategy>.json`).
 
 For multi-fault analysis, the pipeline integrates with [defects4j-mf](https://github.com/DCallaz/defects4j-mf) data via the `multifault` and `multifault-enrich` commands.
 
@@ -46,7 +46,7 @@ python -m d4j_odc_pipeline run --project Lang --bug 1 --skip-coverage
 python -m d4j_odc_pipeline study-plan --target-bugs 68
 python -m d4j_odc_pipeline study-run --manifest manifest_68.json --skip-coverage
 python -m d4j_odc_pipeline study-analyze --manifest manifest_68.json
-python -m d4j_odc_pipeline study-classify --manifest manifest_68.json --taxonomy closed --reasoning zero
+python -m d4j_odc_pipeline study-classify --manifest manifest_68.json --taxonomy free --strategy zero
 python -m d4j_odc_pipeline study-export --analysis .dist/study/analysis_68.json
 ```
 
@@ -98,7 +98,7 @@ Backwards-compatible script-mode commands:
 | `study-plan`           | Generate a balanced bug manifest for batch studies   |
 | `study-run`            | Execute paired prefix/postfix runs from a manifest   |
 | `study-analyze`        | Cross-artifact analysis over study outputs           |
-| `study-classify`       | Run ONE condition (--taxonomy x --reasoning y) over the manifest, prefix-only, reusing contexts; auto-computes RQ2 coverage metrics for the open pass |
+| `study-classify`       | Run ONE condition (--taxonomy x --strategy y) over the manifest, prefix-only, reusing contexts; auto-computes RQ2 coverage metrics for the open pass |
 | `study-export`         | Export analysis results as LaTeX tables and CSV      |
 | `multifault`           | Query multi-fault co-existence data                  |
 | `multifault-enrich`    | Enrich classification with multi-fault context       |

@@ -33,7 +33,7 @@ def _make_context(**kwargs) -> BugContext:
 class PromptingTests(unittest.TestCase):
     def test_prompt_excludes_hidden_oracle(self) -> None:
         context = _make_context()
-        messages = build_messages(context, "closed", "scientific")
+        messages = build_messages(context, "closed", "few")
         combined = "\n".join(message["content"] for message in messages)
         self.assertIn("tests.trigger", combined)
         self.assertNotIn("org.example.Hidden", combined)
@@ -42,59 +42,15 @@ class PromptingTests(unittest.TestCase):
 
     # ── Direct style isolation tests ─────────────────────────────────
 
-    def test_direct_excludes_scientific_protocol(self) -> None:
-        context = _make_context()
-        messages = build_messages(context, "closed", "zero")
-        system = messages[0]["content"]
-        self.assertNotIn("Scientific Debugging Protocol", system)
-        self.assertNotIn("Step 1 — OBSERVE", system)
-        self.assertNotIn("Step 5 — CONCLUDE", system)
 
-    def test_direct_excludes_diagnostic_tree(self) -> None:
-        context = _make_context()
-        messages = build_messages(context, "closed", "zero")
-        system = messages[0]["content"]
-        self.assertNotIn("Classification Decision Process", system)
-        self.assertNotIn("Is a condition/guard/validation missing or wrong?", system)
-        self.assertNotIn("strongly consider **Checking**", system)
 
-    def test_direct_excludes_few_shot_examples(self) -> None:
-        context = _make_context()
-        messages = build_messages(context, "closed", "zero")
-        system = messages[0]["content"]
-        self.assertNotIn("Classification Examples", system)
-        self.assertNotIn("Example 1: Checking", system)
-        self.assertNotIn("Example 3: Algorithm/Method", system)
 
-    def test_direct_includes_odc_taxonomy(self) -> None:
-        context = _make_context()
-        messages = build_messages(context, "closed", "zero")
-        system = messages[0]["content"]
-        self.assertIn("Algorithm/Method", system)
-        self.assertIn("Checking", system)
-        self.assertIn("Function/Class/Object", system)
-        self.assertIn("Interface/O-O Messages", system)
 
-    def test_direct_includes_json_contract(self) -> None:
-        context = _make_context()
-        messages = build_messages(context, "closed", "zero")
-        system = messages[0]["content"]
-        self.assertIn('"odc_type"', system)
-        self.assertIn('"confidence"', system)
-        self.assertIn('"reasoning_summary"', system)
 
-    def test_direct_includes_anti_bias_rules(self) -> None:
-        context = _make_context()
-        messages = build_messages(context, "closed", "zero")
-        system = messages[0]["content"]
-        self.assertIn("Do NOT default to", system)
-        self.assertIn("Do not use benchmark familiarity", system)
 
-    # ── Scientific style includes everything ──────────────────────────
-
-    def test_scientific_includes_protocol(self) -> None:
+    def test_few_includes_protocol(self) -> None:
         context = _make_context()
-        messages = build_messages(context, "closed", "scientific")
+        messages = build_messages(context, "closed", "few")
         system = messages[0]["content"]
         self.assertIn("Scientific Debugging Protocol", system)
         self.assertIn("Classification Decision Process", system)
@@ -102,12 +58,15 @@ class PromptingTests(unittest.TestCase):
 
     # ── Evidence parity between styles (RQ2.2 confound control) ──────
 
-    def test_user_payload_identical_between_styles(self) -> None:
-        """Both prompt styles must produce the same user payload (identical evidence)."""
+    def test_user_payload_identical_between_strategies(self) -> None:
+        """few and zero must receive the SAME evidence payload (no evidence confound):
+        only the instructions differ, the Evidence JSON block is byte-identical."""
         context = _make_context()
-        sci_user = build_messages(context, "closed", "scientific")[1]["content"]
-        dir_user = build_messages(context, "closed", "zero")[1]["content"]
-        self.assertEqual(sci_user, dir_user)
+        few_user = build_messages(context, "closed", "few")[1]["content"]
+        zero_user = build_messages(context, "free", "zero")[1]["content"]
+        few_payload = few_user.split("Evidence:\n", 1)[1]
+        zero_payload = zero_user.split("Evidence:\n", 1)[1]
+        self.assertEqual(few_payload, zero_payload)
 
     # ── Naive style tests (RQ2.3) ─────────────────────────────────────
 
@@ -175,7 +134,7 @@ class PromptingTests(unittest.TestCase):
         import json
         context = _make_context()
         naive_user = build_messages(context, "free", "zero")[1]["content"]
-        sci_user = build_messages(context, "closed", "scientific")[1]["content"]
+        sci_user = build_messages(context, "closed", "few")[1]["content"]
         # Both should contain the same evidence JSON (after the rules header)
         naive_json = naive_user.split("Evidence:\n", 1)[1]
         sci_json = sci_user.split("Evidence:\n", 1)[1]

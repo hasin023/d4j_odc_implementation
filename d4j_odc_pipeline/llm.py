@@ -35,6 +35,7 @@ class LLMClient:
         model: str,
         api_key_env: str | None = None,
         base_url: str | None = None,
+        temperature: float = 0.0,
     ) -> "LLMClient":
         provider = provider.strip().lower()
         resolved_api_key_env = api_key_env or default_api_key_env(provider)
@@ -75,6 +76,7 @@ class LLMClient:
                 api_key=api_key,
                 base_url=resolved_base_url.rstrip("/"),
                 default_headers=default_headers,
+                temperature=temperature,
             )
         )
 

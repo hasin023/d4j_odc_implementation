@@ -61,7 +61,7 @@ Primary CLI modes:
 - `study-plan`: generate a balanced bug manifest for large-scale batch studies
 - `study-run`: execute prefix + postfix runs for every bug in a study manifest (with checkpoint/resume and graceful Ctrl+C)
 - `study-analyze`: cross-artifact analysis over prefix/postfix study outputs
-- `study-classify`: run ONE classification condition (`--taxonomy` x `--reasoning` y) over the manifest, prefix-only, writing condition-tagged files into the SAME bug folders and reusing `context.json`; when run with `--taxonomy open` and a closed pass exists in the tree, auto-writes `taxonomy_coverage_<N>.json` (escape/coverage rates, taxonomy-shift kappa, KL divergence, escape audit list). Replaces the tombstoned `study-baseline`/`study-naive`/`study-coverage`.
+- `study-classify`: run ONE classification condition (`--taxonomy` x `--strategy` y) over the manifest, prefix-only, writing condition-tagged files into the SAME bug folders and reusing `context.json`; when run with `--taxonomy open` and a closed pass exists in the tree, auto-writes `taxonomy_coverage_<N>.json` (escape/coverage rates, taxonomy-shift kappa, KL divergence, escape audit list). Replaces the tombstoned `study-baseline`/`study-naive`/`study-coverage`.
 - `study-export`: export analysis results as LaTeX tables and CSV files
 - `multifault`: query multi-fault co-existence data from defects4j-mf
 - `multifault-enrich`: enrich an existing classification JSON with multi-fault context
@@ -72,7 +72,7 @@ The filesystem is the main contract:
 - `.dist/runs/` contains outputs from standalone commands (`collect`, `run`, `classify`)
 - `.dist/study/` contains outputs from batch commands (`study-run`, `study-analyze`)
 - `.dist/study/artifacts_<N>/` has `prefix/` and `postfix/` subdirectories for paired runs (N = target_bugs)
-- All classification conditions write into the SAME bug folders under `artifacts_<N>/{prefix,postfix}/` as condition-tagged files (`classification.<taxonomy>-<reasoning>.json`); the old `baseline_<N>/`, `naive_<N>/`, `coverage_<N>/` parallel roots are retired
+- All classification conditions write into the SAME bug folders under `artifacts_<N>/{prefix,postfix}/` as condition-tagged files (`classification.<taxonomy>-<strategy>.json`); the old `baseline_<N>/`, `naive_<N>/`, `coverage_<N>/` parallel roots are retired
 - `.dist/study/artifacts_<N>/checkpoint.pairs.<tag>.json` (study-run) and `checkpoint.prefix.<tag>.json` (study-classify) track progress for resumable batch runs, one per condition
 - `.dist/study/latex/` and `.dist/study/csv/` contain exported tables from `study-export`
 - `work/` contains checked-out Defects4J projects (for standalone runs, named `<project>_<bug>_prefix` or `_postfix`)
@@ -182,7 +182,7 @@ Sequence:
 Important behavior:
 
 - `build_messages()` always returns exactly two messages: one `system`, one `user`.
-- Every classification is a coordinate of two condition variables: `taxonomy` (free = own words | closed = 7 ODC types | open = 7 + Other; default open) and `reasoning` (zero = zero-shot | scientific = protocol + tree + examples; default scientific; agentic reserved). Retired presets map: naive = free×zero, direct = closed×zero, scientific = closed×scientific. `--prompt-style` is tombstoned.
+- **`docs/condition_model.md` is the single authoritative condition spec.** Two variables: `taxonomy` (free | closed | open; default open) and `strategy` (zero = zero-shot, taxonomy-free by definition | few = static prompt with taxonomy + tree + worked examples | scientific = the enforced loop in agent.py; default scientific). Only 5 valid conditions (validate_condition in odc.py). `--prompt-style` and `--reasoning` are tombstoned. Artifacts written before 2026-07-07 carry old `reasoning` tokens with DIFFERENT semantics ("scientific" meant the narrated single-shot, now retired; "agentic" meant the loop, now called scientific) — never mix old and new artifacts.
 - `scientific` includes: taxonomy guidance, JSON contract text, anti-bias rules, scientific debugging protocol, 7-question diagnostic tree, and 5 few-shot examples.
 - `direct` includes: taxonomy guidance, JSON contract text, and anti-bias rules only. No protocol, no diagnostic tree, no few-shots. This is the controlled baseline for RQ2.2.
 - `naive` includes: no ODC taxonomy, no type names, no anti-bias rules. The LLM classifies in its own words using a simplified JSON schema (`defect_type`, `confidence`, `reasoning_summary`). This is the baseline for RQ2.3.
@@ -250,7 +250,9 @@ Important details:
 - `study-analyze` defaults `--prefix-dir`, `--postfix-dir`, `--output`, `--report` using the manifest's `target_bugs`.
 - `study-classify` defaults `--artifacts-root` to `.dist/study/artifacts_<target_bugs>/` and writes into the SAME bug folders as `study-run` (bug-centric layout: all conditions beside one shared `context.json`, which is reused when present and never rewritten).
 - Classification/report filenames are ALWAYS condition-tagged: `classification.<taxonomy>-<reasoning>.json`, `report.<tag>.md`. Checkpoints are per condition: `checkpoint.pairs.<tag>.json` (study-run) / `checkpoint.prefix.<tag>.json` (study-classify).
-- `study-analyze` and `compare-batch` default to the closed-scientific condition (the paired baseline), NOT the CLI-wide open default — pass `--taxonomy/--reasoning` to analyze another condition.
+- `study-analyze` and `compare-batch` default to the pipeline default condition (open-scientific) — pass `--taxonomy/--strategy` to analyze another condition.
+- `--strategy scientific` (agent.py) runs the enforced scientific loop: each turn commits hypothesis+prediction, then either requests one evidence probe (list_evidence / full_stack_trace / snippet / coverage / bug_report — served from the FULL context.json held-back evidence; no Defects4J, no filesystem) or concludes. Max 6 turns; forced conclusion sets needs_human_review; full transcript persisted in classification.json `turns`; artifacts record `llm_calls_used` and budget accounting uses it.
+- `study-run` and `study-classify` have a budget guard: `--daily-call-budget` (default 1400; 0 disables) stops the run cleanly with a checkpoint before hitting provider daily rate limits (Gemini free ~1,500 RPD); re-running the same command resumes. Summaries record `llm_calls_made` / `budget_reached`.
 - Taxonomy modes: `classify`/`run` accept `--taxonomy closed|open` (default `closed`). Open mode adds the "Other" escape label; when chosen, `classification.json` carries mandatory `other_justification`, `nearest_type`, `other_confidence`, plus `taxonomy_mode`, and `needs_human_review` is forced true. "Other" has no family (`family_for` returns None).
 - `study-export` writes LaTeX tables to `<output-dir>/latex/` and CSV files to `<output-dir>/csv/`.
 - `multifault-enrich --output` defaults to `classification_enriched.json` alongside the input file.

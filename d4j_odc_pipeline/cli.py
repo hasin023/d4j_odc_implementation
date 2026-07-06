@@ -49,6 +49,7 @@ def build_parser() -> argparse.ArgumentParser:
     classify_parser.add_argument("--report", type=Path, default=None, help="Markdown report output path. Defaults to same directory as --context.")
     classify_parser.add_argument("--prompt-output", type=Path, help="Optional path to save rendered prompt messages.")
     _add_condition_args(classify_parser)
+    _add_consistency_arg(classify_parser)
     _add_llm_args(classify_parser, default_provider, default_model)
 
     # ── run ───────────────────────────────────────────────────────────────
@@ -68,6 +69,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Include the buggy->fixed diff as post-fix oracle evidence (improves accuracy but is not pre-fix).",
     )
     _add_condition_args(run_parser)
+    _add_consistency_arg(run_parser)
     _add_llm_args(run_parser, default_provider, default_model)
 
     # ── compare ───────────────────────────────────────────────────────────
@@ -98,12 +100,12 @@ def build_parser() -> argparse.ArgumentParser:
     batch_parser.add_argument("--report", type=Path,
                               help="Optional markdown batch report.")
     batch_parser.add_argument(
-        "--taxonomy", choices=["free", "closed", "open"], default="closed",
-        help="Condition to compare (default closed — the paired baseline condition).",
+        "--taxonomy", choices=["free", "closed", "open"], default="open",
+        help="Condition to compare (default: the pipeline default, open).",
     )
     batch_parser.add_argument(
-        "--reasoning", choices=["zero", "scientific"], default="scientific",
-        help="Condition to compare (default scientific).",
+        "--strategy", choices=["zero", "few", "scientific"], default="scientific",
+        help="Condition to compare (default: the pipeline default, scientific).",
     )
 
     # ── multifault ──────────────────────────────────────────────────────
@@ -168,6 +170,8 @@ def build_parser() -> argparse.ArgumentParser:
     study_run_parser.add_argument("--summary-output", type=Path, default=None,
                                   help="Path to write batch execution summary JSON. Defaults to .dist/study/summary.json.")
     _add_condition_args(study_run_parser)
+    _add_consistency_arg(study_run_parser)
+    _add_budget_arg(study_run_parser)
     study_run_parser.add_argument("--snippet-radius", type=int, default=12)
     study_run_parser.add_argument("--skip-coverage", action="store_true")
     study_run_parser.add_argument("--no-skip-existing", action="store_true",
@@ -197,13 +201,12 @@ def build_parser() -> argparse.ArgumentParser:
     study_analyze_parser.add_argument("--report", type=Path, default=None,
                                       help="Markdown analysis report. Defaults to .dist/study/analysis_<N>.md.")
     study_analyze_parser.add_argument(
-        "--taxonomy", choices=["free", "closed", "open"], default="closed",
-        help="Condition to analyze. Default CLOSED (not the CLI-wide open default): "
-             "the paired prefix/postfix analysis (RQ5) is defined on the closed baseline.",
+        "--taxonomy", choices=["free", "closed", "open"], default="open",
+        help="Condition to analyze (default: the pipeline default, open).",
     )
     study_analyze_parser.add_argument(
-        "--reasoning", choices=["zero", "scientific"], default="scientific",
-        help="Condition to analyze (default scientific).",
+        "--strategy", choices=["zero", "few", "scientific"], default="scientific",
+        help="Condition to analyze (default: the pipeline default, scientific).",
     )
     study_analyze_parser.add_argument("--manifest", type=Path,
                                       help="Optional manifest JSON to derive expected projects.")
@@ -220,7 +223,7 @@ def build_parser() -> argparse.ArgumentParser:
     # ── study-classify ────────────────────────────────────────────────────
     study_classify_parser = subparsers.add_parser(
         "study-classify",
-        help="Run ONE classification condition (--taxonomy x --reasoning y) over the manifest, "
+        help="Run ONE classification condition (--taxonomy x --strategy y) over the manifest, "
              "prefix-only, reusing existing context.json evidence. Replaces the removed "
              "study-baseline/study-naive/study-coverage commands.",
     )
@@ -233,6 +236,8 @@ def build_parser() -> argparse.ArgumentParser:
     study_classify_parser.add_argument("--summary-output", type=Path, default=None,
                                        help="Defaults to .dist/study/classify_summary.<tag>.json.")
     _add_condition_args(study_classify_parser)
+    _add_consistency_arg(study_classify_parser)
+    _add_budget_arg(study_classify_parser)
     study_classify_parser.add_argument("--snippet-radius", type=int, default=12)
     study_classify_parser.add_argument("--skip-coverage", action="store_true")
     study_classify_parser.add_argument("--no-skip-existing", action="store_true")
@@ -303,39 +308,62 @@ def _add_llm_args(parser: argparse.ArgumentParser, default_provider: str, defaul
     parser.add_argument("--dry-run", action="store_true", help="Render the prompt but skip the LLM call.")
 
 
-class _PromptStyleTombstone(argparse.Action):
-    """--prompt-style was removed in the two-variable refactor."""
+class _RetiredFlagTombstone(argparse.Action):
+    """Removed flags print the current condition model and exit."""
 
     def __call__(self, parser, namespace, values, option_string=None):
         parser.error(
-            "--prompt-style was removed. Use the two condition variables instead:\n"
-            "  --taxonomy free|closed|open   (naive=free, direct/scientific=closed)\n"
-            "  --reasoning zero|scientific   (naive/direct=zero, scientific=scientific)"
+            f"{option_string} was removed. The condition model (docs/condition_model.md) is:\n"
+            "  --taxonomy free|closed|open   (default open)\n"
+            "  --strategy zero|few|scientific (default scientific = the enforced loop)\n"
+            "Mapping: naive=free+zero; direct/old-scientific=closed|open + few; "
+            "old-agentic=strategy scientific."
         )
 
 
 def _add_condition_args(parser: argparse.ArgumentParser) -> None:
-    """The two experimental-condition variables (see odc.py for level docs)."""
+    """The two experimental-condition variables (see docs/condition_model.md)."""
     parser.add_argument(
         "--taxonomy", choices=["free", "closed", "open"], default="open",
-        help="Label space: free = own words (no taxonomy); closed = the 7 ODC types; "
-             "open = 7 + 'Other' escape category (default).",
+        help="Label space: free = own words (only valid with --strategy zero); "
+             "closed = the 7 ODC types; open = 7 + 'Other' escape category (default).",
     )
     parser.add_argument(
-        "--reasoning", choices=["zero", "scientific"], default="scientific",
-        help="Scientific-method enforcement: zero = absent (zero-shot); "
-             "scientific = narrated protocol + diagnostic tree + examples (default).",
+        "--strategy", choices=["zero", "few", "scientific"], default="scientific",
+        help="Prompting strategy: zero = zero-shot, no taxonomy, no examples "
+             "(implies --taxonomy free); few = few-shot single call (taxonomy + "
+             "diagnostic tree + worked examples); scientific = the enforced "
+             "hypothesis/prediction/probe loop (default; multiple API calls per bug).",
     )
-    parser.add_argument("--prompt-style", action=_PromptStyleTombstone, help=argparse.SUPPRESS)
+    parser.add_argument("--prompt-style", action=_RetiredFlagTombstone, help=argparse.SUPPRESS)
+    parser.add_argument("--reasoning", action=_RetiredFlagTombstone, help=argparse.SUPPRESS)
+
+
+def _add_consistency_arg(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--self-consistency", type=int, default=1, metavar="K",
+        help="Draw K independent samples (temperature 0.7) and majority-vote the label; "
+             "consistency_confidence = agreement fraction. K>1 multiplies API cost by K. "
+             "Default 1 (single sample, temperature 0).",
+    )
+
+
+def _add_budget_arg(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--daily-call-budget", type=int, default=1400,
+        help="Stop cleanly (checkpoint + resume message) after this many LLM calls, "
+             "before hitting provider daily rate limits (Gemini free tier ~1500 RPD). "
+             "Default 1400. Use 0 to disable.",
+    )
 
 
 # Removed commands and their new spellings. Checked in main() BEFORE argparse
 # runs, so any flags after the dead name still produce the redirect message
 # (argparse's REMAINDER can't swallow leading --options).
 _TOMBSTONED_COMMANDS = {
-    "study-baseline": "study-classify --manifest <m> --taxonomy closed --reasoning zero",
-    "study-naive": "study-classify --manifest <m> --taxonomy free --reasoning zero",
-    "study-coverage": "study-classify --manifest <m> --taxonomy open --reasoning scientific",
+    "study-baseline": "study-classify --manifest <m> --taxonomy free --strategy zero  (see docs/condition_model.md)",
+    "study-naive": "study-classify --manifest <m> --taxonomy free --strategy zero",
+    "study-coverage": "study-classify --manifest <m> --taxonomy open --strategy scientific",
 }
 
 
@@ -457,7 +485,7 @@ def _cmd_classify(args: argparse.Namespace) -> int:
     from .odc import condition_tag
 
     context = load_context(args.context)
-    tag = condition_tag(args.taxonomy, args.reasoning)
+    tag = condition_tag(args.taxonomy, args.strategy)
     # Default output/report to same directory as the context file, tagged by
     # condition so no two conditions can ever overwrite each other.
     context_dir = args.context.parent
@@ -475,7 +503,8 @@ def _cmd_classify(args: argparse.Namespace) -> int:
         prompt_output_path=args.prompt_output,
         dry_run=args.dry_run,
         taxonomy=args.taxonomy,
-        reasoning=args.reasoning,
+        strategy=args.strategy,
+        self_consistency=args.self_consistency,
     )
     if args.report:
         write_markdown_report(context=context, classification=classification, output_path=args.report)
@@ -486,7 +515,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
     from .odc import condition_tag
 
     client = Defects4JClient(command=args.defects4j_cmd)
-    tag = condition_tag(args.taxonomy, args.reasoning)
+    tag = condition_tag(args.taxonomy, args.strategy)
     # Default outputs to .dist/runs/<project>_<bug>_<mode>/ with tagged
     # classification/report filenames (context.json is shared, untagged).
     mode_suffix = "postfix" if args.include_fix_diff else "prefix"
@@ -525,7 +554,8 @@ def _cmd_run(args: argparse.Namespace) -> int:
         prompt_output_path=args.prompt_output,
         dry_run=args.dry_run,
         taxonomy=args.taxonomy,
-        reasoning=args.reasoning,
+        strategy=args.strategy,
+        self_consistency=args.self_consistency,
     )
     write_markdown_report(context=context, classification=classification, output_path=args.report)
     return 0
@@ -588,7 +618,7 @@ def _cmd_compare_batch(args: argparse.Namespace) -> int:
     #           postfix_dir/ProjectName_BugId_postfix/classification.<tag>.json
     from .odc import condition_tag
 
-    classification_name = f"classification.{condition_tag(args.taxonomy, args.reasoning)}.json"
+    classification_name = f"classification.{condition_tag(args.taxonomy, args.strategy)}.json"
     pairs: list[tuple[dict, dict]] = []
     matched_bugs: list[str] = []
 
@@ -837,16 +867,23 @@ def _cmd_study_run(args: argparse.Namespace) -> int:
         api_key_env=args.api_key_env,
         base_url=args.base_url,
         taxonomy=args.taxonomy,
-        reasoning=args.reasoning,
+        strategy=args.strategy,
         snippet_radius=args.snippet_radius,
         run_coverage=not args.skip_coverage,
         skip_existing=not args.no_skip_existing,
         prompt_output=args.prompt_output,
+        daily_call_budget=args.daily_call_budget,
+        self_consistency=args.self_consistency,
     )
 
     write_json(args.summary_output, summary)
 
-    status_label = "Study run interrupted (checkpoint saved)" if summary.get("interrupted") else "Study run complete"
+    if summary.get("budget_reached"):
+        status_label = "Study run paused — daily call budget reached (checkpoint saved; re-run to resume)"
+    elif summary.get("interrupted"):
+        status_label = "Study run interrupted (checkpoint saved)"
+    else:
+        status_label = "Study run complete"
     console.result_panel(status_label, [
         ("Condition", summary.get("condition_tag", "")),
         ("Summary", str(args.summary_output)),
@@ -914,7 +951,7 @@ def _cmd_study_analyze(args: argparse.Namespace) -> int:
         postfix_dir=args.postfix_dir,
         expected_projects=expected_projects,
         taxonomy=args.taxonomy,
-        reasoning=args.reasoning,
+        strategy=args.strategy,
     )
 
     if args.require_all_projects and summary.get("missing_projects"):
@@ -961,7 +998,7 @@ def _cmd_study_classify(args: argparse.Namespace) -> int:
     manifest = load_manifest(args.manifest)
     target_bugs = manifest.get("target_bugs", manifest.get("selected_bugs", 0))
     dist_study = Path(".dist") / "study"
-    tag = condition_tag(args.taxonomy, args.reasoning)
+    tag = condition_tag(args.taxonomy, args.strategy)
 
     if args.artifacts_root is None:
         args.artifacts_root = dist_study / f"artifacts_{target_bugs}"
@@ -973,7 +1010,7 @@ def _cmd_study_classify(args: argparse.Namespace) -> int:
     console.header_panel("Study Classify Configuration", None)
     console.step(f"Manifest: {args.manifest}")
     console.step(f"Artifacts: {args.artifacts_root}")
-    console.step(f"Condition: {tag}  (taxonomy: {args.taxonomy}, reasoning: {args.reasoning})")
+    console.step(f"Condition: {tag}  (taxonomy: {args.taxonomy}, strategy: {args.strategy})")
 
     summary = run_condition_from_manifest(
         defects4j=client,
@@ -985,11 +1022,13 @@ def _cmd_study_classify(args: argparse.Namespace) -> int:
         api_key_env=args.api_key_env,
         base_url=args.base_url,
         taxonomy=args.taxonomy,
-        reasoning=args.reasoning,
+        strategy=args.strategy,
         snippet_radius=args.snippet_radius,
         run_coverage=not args.skip_coverage,
         skip_existing=not args.no_skip_existing,
         prompt_output=args.prompt_output,
+        daily_call_budget=args.daily_call_budget,
+        self_consistency=args.self_consistency,
     )
 
     write_json(args.summary_output, summary)
@@ -998,13 +1037,15 @@ def _cmd_study_classify(args: argparse.Namespace) -> int:
     #    closed pass exists in the same tree ─────────────────────────────
     coverage_metrics = None
     prefix_dir = args.artifacts_root / "prefix"
-    if args.taxonomy == "open" and prefix_dir.exists():
-        closed_files = list(prefix_dir.glob(f"*/classification.closed-{args.reasoning}.json"))
+    if summary.get("budget_reached"):
+        console.warn("Budget pause — skipping RQ2 metrics until the pass completes (resume tomorrow).")
+    elif args.taxonomy == "open" and prefix_dir.exists():
+        closed_files = list(prefix_dir.glob(f"*/classification.closed-{args.strategy}.json"))
         if closed_files:
             from .analysis import compute_coverage_metrics
 
             coverage_metrics = compute_coverage_metrics(
-                prefix_dir=prefix_dir, reasoning=args.reasoning
+                prefix_dir=prefix_dir, strategy=args.strategy
             )
             analysis_path = dist_study / f"taxonomy_coverage_{target_bugs}.json"
             write_json(analysis_path, coverage_metrics)
@@ -1015,7 +1056,12 @@ def _cmd_study_classify(args: argparse.Namespace) -> int:
                 f"(run: study-run --manifest {args.manifest.name} --taxonomy closed first)."
             )
 
-    status_label = "Condition run interrupted" if summary.get("interrupted") else "Condition run complete"
+    if summary.get("budget_reached"):
+        status_label = "Condition run paused — daily call budget reached (checkpoint saved; re-run to resume)"
+    elif summary.get("interrupted"):
+        status_label = "Condition run interrupted"
+    else:
+        status_label = "Condition run complete"
     rows = [
         ("Condition", tag),
         ("Summary", str(args.summary_output)),

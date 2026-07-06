@@ -51,7 +51,7 @@ def handle_config(app: "ODCApp", args: str) -> None:
         "skip-coverage": ("skip_coverage", lambda v: v.lower() in ("true", "1", "yes")),
         "include-fix-diff": ("include_fix_diff", lambda v: v.lower() in ("true", "1", "yes")),
         "taxonomy": ("taxonomy", str),
-        "reasoning": ("reasoning", str),
+        "strategy": ("strategy", str),
         "snippet-radius": ("snippet_radius", int),
     }
     if key not in config_map:
@@ -310,7 +310,7 @@ def handle_classify(app: "ODCApp", args: str) -> None:
     from ..pipeline import classify_bug_context, load_context, write_markdown_report
     context = load_context(path)
     from ..odc import condition_tag
-    tag = condition_tag(app.state.taxonomy, app.state.reasoning)
+    tag = condition_tag(app.state.taxonomy, app.state.strategy)
     out_dir = path.parent
     cls_output = out_dir / f"classification.{tag}.json"
     report_output = out_dir / f"report.{tag}.md"
@@ -318,7 +318,7 @@ def handle_classify(app: "ODCApp", args: str) -> None:
     app.console.print(f"  [cyan]Classifying with {llm['provider']}...[/cyan]")
     with app.console.status("  Classifying with LLM...", spinner="dots"):
         classification = classify_bug_context(
-            context=context, taxonomy=app.state.taxonomy, reasoning=app.state.reasoning,
+            context=context, taxonomy=app.state.taxonomy, strategy=app.state.strategy,
             output_path=cls_output, prompt_output_path=None, **llm,
         )
     write_markdown_report(context=context, classification=classification, output_path=report_output)
@@ -345,7 +345,7 @@ def handle_run(app: "ODCApp", args: str) -> None:
     work_dir = Path("work") / f"{project}_{bug}_{mode}"
     run_dir = Path(".dist") / "runs" / f"{project}_{bug}_{mode}"
     from ..odc import condition_tag
-    tag = condition_tag(app.state.taxonomy, app.state.reasoning)
+    tag = condition_tag(app.state.taxonomy, app.state.strategy)
     ctx_out = run_dir / "context.json"
     cls_out = run_dir / f"classification.{tag}.json"
     rpt_out = run_dir / f"report.{tag}.md"
@@ -362,7 +362,7 @@ def handle_run(app: "ODCApp", args: str) -> None:
     app.console.print("  [green]✓[/green] Collection complete")
     with app.console.status("  Classifying with LLM...", spinner="dots"):
         classification = classify_bug_context(
-            context=context, taxonomy=app.state.taxonomy, reasoning=app.state.reasoning,
+            context=context, taxonomy=app.state.taxonomy, strategy=app.state.strategy,
             output_path=cls_out, prompt_output_path=None, **llm,
         )
     write_markdown_report(context=context, classification=classification, output_path=rpt_out)
@@ -709,7 +709,7 @@ def _study_run(app: "ODCApp", args: str) -> None:
                 api_key_env=llm["api_key_env"],
                 base_url=llm["base_url"],
                 taxonomy=app.state.taxonomy,
-                reasoning=app.state.reasoning,
+                strategy=app.state.strategy,
                 snippet_radius=app.state.snippet_radius,
                 run_coverage=not app.state.skip_coverage,
                 skip_existing=not no_skip_existing,
@@ -942,12 +942,12 @@ def _study_baseline(app: "ODCApp", args: str) -> None:
         if work_root is None:
             work_root = dist_study / "work"
         if summary_output is None:
-            summary_output = dist_study / "classify_summary.closed-zero.json"
+            summary_output = dist_study / "classify_summary.free-zero.json"
 
         llm = _get_llm_kwargs(app)
         app.console.print(f"  [cyan]Running closed-zero condition from {mp.name}...[/cyan]")
         app.console.print(f"  [dim]Artifacts root -> {artifacts_root}[/dim]")
-        app.console.print("  [dim]Condition      -> closed-zero (was: baseline/direct)[/dim]")
+        app.console.print("  [dim]Condition      -> free-zero (zero-shot baseline)[/dim]")
         app.console.print("  [dim]Ctrl+C once for graceful stop, twice to force stop.[/dim]")
 
         try:
@@ -960,8 +960,8 @@ def _study_baseline(app: "ODCApp", args: str) -> None:
                 model=llm["model"],
                 api_key_env=llm["api_key_env"],
                 base_url=llm["base_url"],
-                taxonomy="closed",
-                reasoning="zero",
+                taxonomy="free",
+                strategy="zero",
                 snippet_radius=app.state.snippet_radius,
                 run_coverage=not app.state.skip_coverage,
                 skip_existing=not no_skip_existing,
@@ -1086,7 +1086,7 @@ def _study_naive(app: "ODCApp", args: str) -> None:
                 api_key_env=llm["api_key_env"],
                 base_url=llm["base_url"],
                 taxonomy="free",
-                reasoning="zero",
+                strategy="zero",
                 snippet_radius=app.state.snippet_radius,
                 run_coverage=not app.state.skip_coverage,
                 skip_existing=not no_skip_existing,

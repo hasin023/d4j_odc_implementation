@@ -59,7 +59,7 @@ def _validate(payload: dict, taxonomy_mode: str = "closed"):
         provider="gemini",
         raw_response=json.dumps(payload),
         taxonomy=taxonomy_mode,
-        reasoning="scientific",
+        strategy="few",
     )
 
 
@@ -91,24 +91,24 @@ class OpenTaxonomyPromptTests(unittest.TestCase):
         messages = build_messages(_make_context(), taxonomy, reasoning)
         return "\n".join(message["content"] for message in messages)
 
-    def test_default_condition_is_open_scientific(self) -> None:
-        # The no-args default must be byte-identical to explicit open-scientific
-        # (the user-chosen CLI default), and closed must exclude the Other fields.
-        default_messages = build_messages(_make_context())
-        open_messages = build_messages(_make_context(), "open", "scientific")
-        self.assertEqual(default_messages, open_messages)
-        self.assertNotIn("other_justification", self._combined("closed", "scientific"))
+    def test_closed_few_excludes_other_fields(self) -> None:
+        self.assertNotIn("other_justification", self._combined("closed", "few"))
 
     def test_open_prompt_includes_other_rules(self) -> None:
-        combined = self._combined("open", "scientific")
+        combined = self._combined("open", "few")
         self.assertIn("LAST RESORT", combined)
         self.assertIn("other_justification", combined)
         self.assertIn(", ".join(allowed_type_names("open")), combined)
 
-    def test_open_prompt_zero_reasoning(self) -> None:
-        combined = self._combined("open", "zero")
-        self.assertIn("other_justification", combined)
-        self.assertNotIn("Scientific Debugging Protocol", combined)
+    def test_invalid_conditions_rejected(self) -> None:
+        # zero is taxonomy-free by definition; few/scientific need a taxonomy;
+        # the scientific strategy never builds static messages.
+        with self.assertRaises(ValueError):
+            build_messages(_make_context(), "closed", "zero")
+        with self.assertRaises(ValueError):
+            build_messages(_make_context(), "free", "few")
+        with self.assertRaises(ValueError):
+            build_messages(_make_context(), "open", "scientific")
 
 
 class ResponseSchemaTests(unittest.TestCase):
