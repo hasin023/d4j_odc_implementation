@@ -26,7 +26,7 @@ Measure the empirical coverage of the seven ODC defect types over the Defects4J 
 
 ### 2.2 Pipeline Changes Required
 
-The pipeline already supports a `direct` (zero-shot) baseline mode and a `scientific` (debugging loop) mode. For RQ2, add a **coverage mode** as follows:
+The pipeline supports a full condition model (`--taxonomy free|closed|open` × `--strategy zero|few|scientific`; see docs/condition_model.md). RQ2's coverage mode is already implemented as `--taxonomy open` (adds the "Other" escape label), auto-computing coverage metrics whenever a `--taxonomy closed` pass exists for the same manifest/artifacts-root.
 
 **Prompt modification:** Extend the structured-output schema to allow an eighth label:
 

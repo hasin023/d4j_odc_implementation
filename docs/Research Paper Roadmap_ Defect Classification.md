@@ -68,9 +68,9 @@ By adopting this scientific debugging protocol, the proposed ODC pipeline ensure
 
 ### **Toward Agentic Debugging Frameworks**
 
-The user query notes that the current implementation utilizes a single-pass observe–hypothesize prompt, with aspirations to evolve into a fully agentic framework. This trajectory is perfectly aligned with the vanguard of 2025–2026 software engineering research.
+**Status update (2026-07-07): this is no longer aspirational — it is implemented.** The single-pass observe–hypothesize prompt described above is now only ONE of three strategies (`--strategy few`); the default, production strategy (`--strategy scientific`, implemented in `d4j_odc_pipeline/agent.py`) is a bounded, enforced multi-turn loop: each turn the LLM commits a hypothesis + prediction, then either requests one of five evidence probes (executed by the harness against the recorded `context.json`, not fabricated by the model) or concludes, up to 6 turns, with the full transcript persisted. This is a **tier-1** agentic loop (probes serve already-collected, held-back evidence) — see `docs/classification_engine_plan.md` for the tier-1/tier-2 distinction. Remaining future work is **tier-2**: live-executed probes (`defects4j checkout`/`run_test` at inference time) rather than the loop mechanism itself, which is done.
 
-Recent publications have introduced systems like InspectCoder and ChatDBG, which transition from static prompting into dynamic, multi-agent frameworks. InspectCoder, for example, utilizes a dual-agent architecture consisting of a "Program Inspector" that interactively probes the runtime environment, and a "Patch Coder" that synthesizes fixes based on the inspector's dynamic findings. Similarly, the Debug2Fix framework introduces a specialized debugging subagent that orchestrates actual debugger tools (like JDB) to gather complex runtime states. Highlighting this agentic future in the manuscript's "Future Work" section will demonstrate that the proposed ODC pipeline is situated at the forefront of the autonomous software engineering revolution.
+Recent publications have introduced systems like InspectCoder and ChatDBG, which transition from static prompting into dynamic, multi-agent frameworks. InspectCoder, for example, utilizes a dual-agent architecture consisting of a "Program Inspector" that interactively probes the runtime environment, and a "Patch Coder" that synthesizes fixes based on the inspector's dynamic findings. Similarly, the Debug2Fix framework introduces a specialized debugging subagent that orchestrates actual debugger tools (like JDB) to gather complex runtime states. The manuscript's "Future Work" section should frame the *implemented* tier-1 loop as the foundation already built, with tier-2 live execution as the concrete next step toward the autonomous software engineering frontier these systems represent — not as an unstarted aspiration.
 
 ## **Strategic Roadmap for JSS Manuscript Preparation**
 
@@ -92,8 +92,8 @@ Reviewers at JSS will inherently look for baselines against which to compare the
 
 **Actionable Steps:**
 
-- Establish a baseline using a traditional machine learning algorithm (e.g., a Support Vector Machine trained via TF-IDF on the Defects4J bug reports) or a zero-shot LLM prompt that lacks the scientific debugging framework.
-- By comparing the sophisticated "Observe–Hypothesize–Conclude" pipeline against these rudimentary baselines, the manuscript will quantitatively prove the value of the prompting architecture, demonstrating that the scientific methodology reduces hallucinations.
+- A zero-shot LLM baseline that lacks the scientific debugging framework is **already implemented** (`--taxonomy free --strategy zero`, the `free-zero` condition) — no new baseline engineering is needed here, only running it at scale and reporting the comparison. A traditional ML baseline (e.g., an SVM trained via TF-IDF on the Defects4J bug reports) remains a genuine open step if the manuscript wants a non-LLM comparator too.
+- By comparing the enforced scientific loop (`open-scientific`, the default) against `free-zero` and the intermediate `open-few` static-prompt condition (the RQ4 ladder already defined in `docs/condition_model.md` §7), the manuscript will quantitatively prove the value of the prompting architecture, demonstrating that the scientific methodology reduces hallucinations.
 
 ### **Phase 3: Executing the 4-Tier Evaluation and Statistical Testing**
 
@@ -117,7 +117,7 @@ A highly structured narrative is crucial for Q1 journals. The manuscript should 
 | **4\. Results**                    | Present findings systematically per RQ. Use extensive Markdown tables to display Strict, Top-2, and Family match percentages, alongside Cohen's Kappa scores and Semantic Distances.              |
 | **5\. Discussion & Implications**  | Interpret the results. Articulate the defense of "Evidence Asymmetry" and "Multi-Fault Reality." Discuss how achieving a Family Match validates the operational utility of early, pre-fix triage. |
 | **6\. Threats to Validity**        | Categorize threats into Internal (data leakage, LLM non-determinism), External (generalizability beyond Java/Defects4J), and Construct (subjectivity of ODC mapping, test suite bias).            |
-| **7\. Conclusion & Future Work**   | Summarize the operational value of the pipeline and outline the transition toward fully agentic frameworks (e.g., dual-agent InspectCoder models).                                                |
+| **7\. Conclusion & Future Work**   | Summarize the operational value of the pipeline, including the tier-1 agentic loop already implemented (`agent.py`), and outline tier-2 live-executed probes (dual-agent InspectCoder-style runtime interaction) as the concrete next step.                                                |
 
 ## **Synthesized Conclusions**
 

@@ -2,6 +2,8 @@
 
 This document describes the pipeline's internal architecture, evidence flows, ODC taxonomy, and schema contracts.
 
+> ⚠️ **STALE (pre-2026-07-07).** This document still describes the retired `prompt-style` (scientific/direct/naive) system and shows `classification.json` as an untagged filename. The current classification engine is a two-variable condition model — `--taxonomy free|closed|open` × `--strategy zero|few|scientific` (the `scientific` strategy is the enforced loop implemented in `agent.py`) — and every output filename is condition-tagged (`classification.<taxonomy>-<strategy>.json`, `report.<taxonomy>-<strategy>.md`). See **`docs/condition_model.md`** (authoritative) and **`AGENTS.md`**. The evidence-collection (`collect`) flow and Defects4J-artifact-to-LLM-input mapping in this document remain accurate; only the classification-flow diagrams, prompt-style content, and `classification.json` schema table are stale.
+
 ---
 
 ## Pipeline Architecture
@@ -345,8 +347,8 @@ d4j_odc_pipeline/
 - **Batch runs are resumable** — `checkpoint.json` tracks completed entries; re-running `study-run` skips bugs that finished previously.
 - **Graceful shutdown** — Ctrl+C during `study-run` finishes the current bug, saves checkpoint, and exits cleanly. A second Ctrl+C force-quits.
 - **Standardized output layout** — standalone commands default to `.dist/runs/`, batch studies default to `.dist/study/`.
-- **Prompt style baseline** — the `direct` prompt style (zero-shot, no scientific protocol, no few-shots) serves as the controlled baseline for RQ2.2, isolating the contribution of prompt engineering.
-- **`study-baseline`** reuses `context.json` from the scientific run when `--scientific-artifacts-root` is provided, ensuring both conditions see identical evidence.
+- **Prompt style baseline** — the `direct` prompt style (zero-shot, no scientific protocol, no few-shots) serves as the controlled baseline for RQ2.2, isolating the contribution of prompt engineering. *(stale — see banner above; `direct` is retired, `study-baseline` is tombstoned)*
+- **`study-baseline`** reuses `context.json` from the scientific run when `--scientific-artifacts-root` is provided, ensuring both conditions see identical evidence. *(stale — see banner above; `direct` is retired, `study-baseline` is tombstoned)*
 - **`study-export`** generates LaTeX tables and CSV files from analysis JSON, ready for direct inclusion in the JSS manuscript.
 
 ---

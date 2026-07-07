@@ -2,6 +2,8 @@
 
 This document describes the research methodology used in the Defects4J ODC pipeline, structured around the JSS research questions.
 
+> ⚠️ **STALE (pre-2026-07-07).** "Prompt Strategies" (scientific/direct/naive) and any `baseline_<N>/` artifact layout described below refer to the retired system. The current condition model is `--taxonomy free|closed|open` × `--strategy zero|few|scientific` — see `docs/condition_model.md` (authoritative), including its RQ-mapping table, which supersedes the RQ2.2/RQ2.3 method descriptions below. The RQ questions themselves are still the right questions; only their concrete condition/command references are outdated.
+
 ## Study Design
 
 The study evaluates automated ODC defect type classification using two evidence modes (pre-fix and post-fix) and three prompt strategies (scientific, direct baseline, and naive baseline).

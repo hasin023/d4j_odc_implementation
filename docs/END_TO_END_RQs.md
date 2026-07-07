@@ -1,5 +1,7 @@
 # End-to-End Study Workflow (All RQs)
 
+> ⚠️ **STALE — commands in this walkthrough no longer run.** `study-baseline`, `study-naive`, and `--scientific-artifacts-root` are retired (`study-baseline`/`study-naive` now print a redirect message and exit; see `d4j_odc_pipeline/cli.py`). Use `study-classify --manifest <m> --artifacts-root <root> --taxonomy <free|closed|open> --strategy <zero|few|scientific>` for all ablation/baseline arms, and the recipes in `docs/condition_model.md` §6 for the current end-to-end sequence. The RQ-coverage framing (which step feeds which RQ) is still conceptually right; only the literal commands are stale.
+
 This section walks through every step needed to run a complete study from scratch and produce all analysis + manuscript-ready outputs. The example uses **100 bugs**, but you can substitute any number.
 
 > **Time estimate**: Steps 1–3 are the bulk of the work. Each bug takes ~2–5 minutes (checkout + compile + test + LLM call). For 100 bugs × 2 modes (prefix + postfix) + 100 baseline runs = ~300 runs total. Budget **8–20 hours** depending on network, LLM, and hardware.

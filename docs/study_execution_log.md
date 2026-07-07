@@ -4,6 +4,8 @@ Running record of how classifications were actually executed — commands, envir
 results, and gotchas. Append a section per run so agents and teammates can reproduce
 or resume without re-deriving anything. Newest at the bottom.
 
+> For current condition semantics (taxonomy × strategy) see the 2026-07-07 amendment near the bottom of this file, or docs/condition_model.md directly.
+
 ## Environment (all runs unless noted)
 
 - Provider/model: `gemini` / `gemini-3.1-flash-lite-preview` (from `.env`; free tier ~1,500 RPD)

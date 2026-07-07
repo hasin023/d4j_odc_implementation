@@ -80,7 +80,7 @@ Recommended interactive commands:
 | `/study plan`           | Generate a balanced bug manifest for batch studies   |
 | `/study run`            | Execute paired prefix/postfix runs from a manifest   |
 | `/study analyze`        | Cross-artifact analysis over study outputs           |
-| `/study baseline`       | Run baseline (direct) classifications for comparison |
+| `/study baseline`       | Run the free-zero (unstructured baseline) condition for comparison — an alias for `study-classify --taxonomy free --strategy zero` |
 | `/study export`         | Export analysis results as LaTeX tables and CSV      |
 | `/multifault`           | Query multi-fault co-existence data                  |
 | `/enrich`               | Enrich classification with multi-fault context       |
@@ -115,8 +115,8 @@ Most parameters have **smart defaults** in both modes. See [docs/USAGE.md](docs/
 ├── runs/                              # Standalone commands (run, collect, classify)
 │   ├── Lang_1_prefix/
 │   │   ├── context.json
-│   │   ├── classification.json
-│   │   └── report.md
+│   │   ├── classification.open-scientific.json
+│   │   └── report.open-scientific.md
 │   └── Lang_1_postfix/
 │       └── ...
 └── study/                             # Batch commands (study-plan, study-run, study-analyze)
@@ -124,16 +124,10 @@ Most parameters have **smart defaults** in both modes. See [docs/USAGE.md](docs/
     ├── summary.json
     ├── analysis_68.json
     ├── analysis_68.md
-    ├── baseline_summary.json
     ├── artifacts_68/
     │   ├── prefix/
     │   ├── postfix/
-    │   └── checkpoint.json
-    ├── baseline_68/                   # Baseline (direct prompt) classifications
-    │   ├── Lang_1_prefix/
-    │   │   ├── classification.json
-    │   │   └── report.md
-    │   └── checkpoint.json
+    │   └── checkpoint.pairs.open-scientific.json  # per-condition, study-run
     ├── latex/                         # LaTeX table exports (study-export)
     │   ├── type_distribution.tex
     │   ├── accuracy.tex
@@ -153,10 +147,11 @@ d4j_odc_pipeline/
 ├── cli.py             # CLI entrypoint and script-mode command dispatch
 ├── interactive/       # REPL app, slash commands, completion, session state
 ├── pipeline.py        # Core orchestration
-├── batch.py           # Batch manifest, execution, baseline runner, analysis
+├── batch.py           # Batch manifest generation, paired/condition execution, analysis
 ├── defects4j.py       # Defects4J wrapper
 ├── llm.py             # LLM provider abstraction
-├── prompting.py       # Prompt engineering (scientific + direct baseline)
+├── prompting.py       # Prompt construction: zero/few static prompts + ODC hints
+├── agent.py           # --strategy scientific: the enforced hypothesis→probe loop
 ├── odc.py             # ODC taxonomy
 ├── models.py          # Data models
 ├── parsing.py         # Stack trace + JSON parsing

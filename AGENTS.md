@@ -183,12 +183,11 @@ Important behavior:
 
 - `build_messages()` always returns exactly two messages: one `system`, one `user`.
 - **`docs/condition_model.md` is the single authoritative condition spec.** Two variables: `taxonomy` (free | closed | open; default open) and `strategy` (zero = zero-shot, taxonomy-free by definition | few = static prompt with taxonomy + tree + worked examples | scientific = the enforced loop in agent.py; default scientific). Only 5 valid conditions (validate_condition in odc.py). `--prompt-style` and `--reasoning` are tombstoned. Artifacts written before 2026-07-07 carry old `reasoning` tokens with DIFFERENT semantics ("scientific" meant the narrated single-shot, now retired; "agentic" meant the loop, now called scientific) — never mix old and new artifacts.
-- `scientific` includes: taxonomy guidance, JSON contract text, anti-bias rules, scientific debugging protocol, 7-question diagnostic tree, and 5 few-shot examples.
-- `direct` includes: taxonomy guidance, JSON contract text, and anti-bias rules only. No protocol, no diagnostic tree, no few-shots. This is the controlled baseline for RQ2.2.
-- `naive` includes: no ODC taxonomy, no type names, no anti-bias rules. The LLM classifies in its own words using a simplified JSON schema (`defect_type`, `confidence`, `reasoning_summary`). This is the baseline for RQ2.3.
-- All three styles receive identical user evidence payloads (same snippet budget of 8) to avoid confounding comparisons. The naive user payload omits ODC-specific hints.
+- `build_messages()` only handles the two static strategies: `few` (`prompting.py::_build_system_prompt`) includes taxonomy guidance, JSON contract text, anti-bias rules, the scientific debugging protocol text, 7-question diagnostic tree, and 5 few-shot examples — this is the full content of the old narrated "scientific" single-shot, renamed (see `condition_model.md` §3). `zero` (taxonomy-free by definition; only valid with `--taxonomy free`) includes no ODC taxonomy, no type names, no anti-bias rules — the LLM classifies in its own words using a simplified JSON schema (`defect_type`, `confidence`, `reasoning_summary`).
+- `scientific` never calls `build_messages` — it's the enforced loop in `agent.py` (see §5.4/§6 below), with its own system prompt and per-turn schema.
+- `zero` and `few` receive identical user evidence payloads (same snippet budget of 8) to avoid confounding comparisons. The `zero` user payload omits ODC-specific hints.
 - The user payload separates `production_code_snippets` and `test_code_snippets`.
-- For `scientific` and `direct`, the payload includes `odc_opener_hints` and `odc_closer_hints`. The `naive` payload omits these.
+- For `few`, the payload includes `odc_opener_hints` and `odc_closer_hints`. The `zero` payload omits these.
 - If `context.fix_diff` is present, the payload also includes `fix_diff_oracle` and the evidence mode becomes `post-fix`.
 - Gemini uses a response JSON schema. OpenRouter and `openai-compatible` use chat completions plus post-hoc parsing.
 - `dry_run=True` skips the LLM call and returns `None`.
@@ -249,11 +248,11 @@ Important details:
 - `study-run --manifest` and `study-analyze --manifest` resolve bare filenames under `.dist/study/`.
 - `study-analyze` defaults `--prefix-dir`, `--postfix-dir`, `--output`, `--report` using the manifest's `target_bugs`.
 - `study-classify` defaults `--artifacts-root` to `.dist/study/artifacts_<target_bugs>/` and writes into the SAME bug folders as `study-run` (bug-centric layout: all conditions beside one shared `context.json`, which is reused when present and never rewritten).
-- Classification/report filenames are ALWAYS condition-tagged: `classification.<taxonomy>-<reasoning>.json`, `report.<tag>.md`. Checkpoints are per condition: `checkpoint.pairs.<tag>.json` (study-run) / `checkpoint.prefix.<tag>.json` (study-classify).
+- Classification/report filenames are ALWAYS condition-tagged: `classification.<taxonomy>-<strategy>.json`, `report.<taxonomy>-<strategy>.md`. Checkpoints are per condition: `checkpoint.pairs.<tag>.json` (study-run) / `checkpoint.prefix.<tag>.json` (study-classify) — keyed by `(artifacts_root, tag)`, NOT by manifest name (see the manifest/artifacts-root gotcha in §7).
 - `study-analyze` and `compare-batch` default to the pipeline default condition (open-scientific) — pass `--taxonomy/--strategy` to analyze another condition.
 - `--strategy scientific` (agent.py) runs the enforced scientific loop: each turn commits hypothesis+prediction, then either requests one evidence probe (list_evidence / full_stack_trace / snippet / coverage / bug_report — served from the FULL context.json held-back evidence; no Defects4J, no filesystem) or concludes. Max 6 turns; forced conclusion sets needs_human_review; full transcript persisted in classification.json `turns`; artifacts record `llm_calls_used` and budget accounting uses it.
 - `study-run` and `study-classify` have a budget guard: `--daily-call-budget` (default 1400; 0 disables) stops the run cleanly with a checkpoint before hitting provider daily rate limits (Gemini free ~1,500 RPD); re-running the same command resumes. Summaries record `llm_calls_made` / `budget_reached`.
-- Taxonomy modes: `classify`/`run` accept `--taxonomy closed|open` (default `closed`). Open mode adds the "Other" escape label; when chosen, `classification.json` carries mandatory `other_justification`, `nearest_type`, `other_confidence`, plus `taxonomy_mode`, and `needs_human_review` is forced true. "Other" has no family (`family_for` returns None).
+- Taxonomy modes: `classify`/`run` accept `--taxonomy free|closed|open` (default `open`; `free` is only valid paired with `--strategy zero`). Open mode adds the "Other" escape label; when chosen, `classification.<tag>.json` carries mandatory `other_justification`, `nearest_type`, `other_confidence`, plus `taxonomy_mode`, and `needs_human_review` is forced true. "Other" has no family (`family_for` returns None).
 - `study-export` writes LaTeX tables to `<output-dir>/latex/` and CSV files to `<output-dir>/csv/`.
 - `multifault-enrich --output` defaults to `classification_enriched.json` alongside the input file.
 - `study-run` installs SIGINT/SIGBREAK signal handlers for graceful Ctrl+C shutdown.
@@ -266,8 +265,8 @@ Manages large-scale batch workflows.
 Key responsibilities:
 
 - Manifest generation with balanced per-project sampling (`generate_study_manifest`)
-- Batch execution with paired prefix/postfix runs (`run_batch_from_manifest`)
-- Baseline execution with prefix-only direct-prompt runs (`run_baseline_from_manifest`)
+- Batch execution with paired prefix/postfix runs, one condition (`run_batch_from_manifest`)
+- Condition execution, prefix-only, any (taxonomy, strategy) pair, reusing existing contexts (`run_condition_from_manifest`) — backs `study-classify`
 - Signal handling: SIGINT sets a shutdown flag; checked at every loop iteration and between collect/classify steps
 - Checkpoint persistence: `checkpoint.pairs.<tag>.json` / `checkpoint.prefix.<tag>.json` written after each entry; loaded on restart to skip completed entries
 - Manifest hash: SHA-256 of sorted entry keys detects stale checkpoints from different manifests
@@ -349,7 +348,7 @@ Important details:
 - `odc_opener_hints` are inferred heuristically from bug report text, `bug_info`, failure headlines, and stack trace excerpts.
 - `odc_closer_hints` always set `target=Design/Code`, and may add heuristic `qualifier_hint` and `age_hint` when `fix_diff` is available.
 - `source_hint` currently remains `null`.
-- Both `scientific` and `direct` prompt styles use the same production snippet budget of 8 (no confound between evidence and prompt engineering).
+- All strategies (`zero`/`few`/`scientific`) use the same production snippet budget of 8 (no confound between evidence and prompt engineering).
 
 ### `odc.py`
 
@@ -570,7 +569,9 @@ Serialized from `ClassificationResult`. Important top-level fields:
 - `project_id`
 - `bug_id`
 - `version_id`
-- `prompt_style`
+- `taxonomy_mode` — current source of truth for the taxonomy axis (`free`/`closed`/`open`)
+- `strategy` — current source of truth for the strategy axis (`zero`/`few`/`scientific`)
+- `prompt_style` — legacy computed alias (`odc.legacy_prompt_style`) kept for old readers; derive from `taxonomy_mode`/`strategy`, not the other way round
 - `model`
 - `provider`
 - `created_at`
@@ -595,6 +596,9 @@ Serialized from `ClassificationResult`. Important top-level fields:
 - `inferred_impact`
 - `evidence_mode`
 - `raw_response`
+- `other_justification`, `nearest_type`, `other_confidence` — present when `odc_type == "Other"` (`--taxonomy open` escape; see §5.2/§11)
+- `consistency_k`, `consistency_confidence`, `sample_labels` — present when `--self-consistency k>1` (majority-vote metadata; see §5.2)
+- `turns`, `llm_calls_used` — present for `--strategy scientific`: `turns` is the full hypothesis/prediction/probe/observation transcript, `llm_calls_used` is the call count the budget guard accounts against
 
 Important notes:
 
@@ -775,7 +779,8 @@ These are the main places future agents get misled:
 12. Coverage parsing is best-effort. Even after a coverage command runs, parsed coverage may still be empty.
 13. **Scientific debugging has two valid orderings — do not mix them.** Process level (Zeller, *Why Programs Fail*, Ch. 6; the single-shot prompt): Observe → Hypothesize → Predict → Experiment/Examine → Conclude — the failure is observed first, and `prompting.py::_scientific_debugging_instructions` is the reference. Loop-iteration level (AutoSD, Kang et al. EMSE 2024, Fig. 1): the failure observation is the *prompt input*, and each iteration runs Hypothesis → Prediction → Experiment → Observation (the experiment's result) → Conclusion. The historical error to avoid propagating: "Hypothesize, Observe, Predict, Examine, Conclude" (initial symptom examination placed *after* hypothesizing) — that matches neither source.
 14. **`iut_submissions/` is FROZEN** — pre-defense deliverables exactly as submitted. Never edit anything under it. Its `report/main.tex` (~lines 332, 351-352) contains the wrong step order described above; this is a known, deliberately preserved historical error. Do not fix it in place and do not copy wording from it into new material.
-15. **`.dist/` is NOT uniformly gitignored.** `.dist/study/artifacts/` (unnumbered) is the **committed preliminary dataset** — ~35 prefix bug folders with old untagged filenames, kept via a `.gitignore` negation (`!.dist/study/artifacts/**`); it backs the pre-defense results (73.5% strict / 94.1% top-2 / 97.1% family on 34 pairs). Treat like `iut_submissions/`: never delete, never rerun into it, never rename its files to the tagged scheme. Several `.dist/runs/` bug folders are also git-tracked. Regenerable/ignored: `.dist/study/artifacts_<N>/` (current studies), `.dist/test_tmp_batch/` (pytest debris — delete anytime).
+15. **`.dist/` is NOT uniformly gitignored, and the gitignore rule is narrower than the folder names suggest.** `artifacts/` (`.gitignore:41`) matches only a directory literally named `artifacts` — it does NOT match `artifacts_200` or `artifacts_full`. `.dist/study/artifacts/` (unnumbered) is the **committed preliminary dataset** — ~35 prefix bug folders with old untagged filenames, kept via a `.gitignore` negation (`!.dist/study/artifacts/**`); it backs the pre-defense results (73.5% strict / 94.1% top-2 / 97.1% family on 34 pairs). Treat like `iut_submissions/`: never delete, never rerun into it, never rename its files to the tagged scheme. `.dist/study/artifacts_full/` (854+854 pre-collected `context.json`, ~114MB) is ALSO fully git-tracked — deliberately, since `context.json` is the pipeline's biggest bottleneck to regenerate — but its classification/report/checkpoint/summary artifacts are NOT tracked yet by policy (cheap to regenerate; revisit once a full-scale study run exists, not just the 6-bug pilot). Changing what's tracked there is a team judgment call, not an autonomous `.gitignore` fix. `.dist/study/artifacts_200/` is an abandoned early smoke test, legacy. Several `.dist/runs/` bug folders are also git-tracked. Actually regenerable/ignored: `.dist/test_tmp_batch/` (pytest debris — delete anytime), `work/` and `.dist/study/work/` checkouts.
+16. **A manifest is a worklist, not a namespace.** `--artifacts-root` decides *where* output goes; `--manifest` only decides *which bugs this run touches*. Two manifests pointed at the same `--artifacts-root` under the same condition read/write the exact same per-bug files when their bug keys overlap — intentional, since it's what lets every manifest reuse one shared context store (e.g. `manifest_pilot.json`'s 6 bugs are a subset of `artifacts_full`'s 854). The one place manifest identity matters: `checkpoint.{pairs|prefix}.<tag>.json` is keyed by `(artifacts_root, tag)` only, NOT by manifest name — switching manifests under the same root+tag resets resume state ("checkpoint manifest hash mismatch — starting fresh"), though it does not reprocess or destroy already-written classification files (those are separately protected by a file-existence skip-check). Also: `study-run`'s `summary.json` is the only study artifact that is NOT condition-tagged (unlike `classify_summary.<tag>.json`/`checkpoint.*.<tag>.json`/`classification.<tag>.json`) — a second `study-run` under a different condition silently overwrites it.
 
 ## 12. Safe Working Conventions for Future Agents
 
@@ -839,7 +844,7 @@ python -m d4j_odc_pipeline multifault-enrich --classification .\artifacts\Lang_1
 python -m d4j_odc_pipeline study-plan --target-bugs 68
 python -m d4j_odc_pipeline study-run --manifest manifest_68.json --skip-coverage
 python -m d4j_odc_pipeline study-analyze --manifest manifest_68.json
-python -m d4j_odc_pipeline study-classify --manifest manifest_68.json --taxonomy closed --reasoning zero
+python -m d4j_odc_pipeline study-classify --manifest manifest_68.json --taxonomy free --strategy zero
 python -m d4j_odc_pipeline study-export --analysis .\.dist\study\analysis_68.json
 ```
 

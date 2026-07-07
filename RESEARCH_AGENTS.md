@@ -1,5 +1,7 @@
 # RESEARCH_AGENTS.md
 
+> ⚠️ **PARTIALLY STALE (pre-2026-07-07).** This file predates the two-variable condition-model redesign (`docs/condition_model.md`) and was not updated by it. Research framing, ODC background, RQ definitions, and threats-to-validity sections remain valid. Sections describing prompting/LLM methodology, the internal RQ→command mapping, pipeline/module/artifact/output-layout descriptions, "Known Drift", and the roadmap/commands sections describe the **retired** `--prompt-style naive|direct|scientific` / `--reasoning zero|scientific|agentic` system and the retired `study-baseline`/`study-naive` commands. For current implementation truth, use `AGENTS.md` and `docs/condition_model.md` instead of this file's implementation-facing sections.
+
 This file is the full research-and-implementation context map for LLMs working
 on this repository. It combines the theoretical research framing, JSS paper
 strategy, ODC background, research questions, evaluation defence, current
