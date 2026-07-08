@@ -573,50 +573,57 @@ def analyze_naive_labels(
 
 def compute_taxonomy_grounding_metrics(
     *,
-    naive_classifications: list[dict[str, Any]],
-    direct_classifications: list[dict[str, Any]],
-    scientific_classifications: list[dict[str, Any]],
+    tiers: list[tuple[str, list[dict[str, Any]]]],
 ) -> dict[str, Any]:
-    """Compare all three prompt tiers for RQ2.3 taxonomy grounding analysis.
+    """RQ4 ablation ladder: compare an arbitrary, ordered list of condition
+    tiers (e.g. ``[("zero-free", [...]), ("few-open", [...]),
+    ("scientific-open", [...])]``) on vocabulary size, label entropy, and ODC
+    coverage — plus tier-over-tier deltas in ladder order.
 
-    Returns vocabulary size, entropy, and ODC coverage for each tier,
-    plus the improvement from naive→direct (taxonomy effect) and
-    direct→scientific (protocol effect).
+    Each tier is analyzed uniformly via analyze_naive_labels regardless of
+    whether its classifications are taxonomy-free or taxonomy-constrained —
+    it reads whatever labels are present and maps them to the canonical ODC
+    types, so a taxonomy-constrained tier's "vocabulary" naturally comes out
+    at <= 7 unique labels.
     """
-    naive_analysis = analyze_naive_labels(naive_classifications)
+    per_tier: dict[str, dict[str, Any]] = {}
+    for tag, classifications in tiers:
+        analysis = analyze_naive_labels(classifications)
+        per_tier[tag] = {
+            "unique_labels": analysis["unique_labels"],
+            "label_entropy": analysis["label_entropy"],
+            "odc_coverage": analysis["odc_coverage"],
+            "odc_coverage_types": analysis.get("odc_coverage_types", []),
+            "total": analysis["total"],
+            "mapped_distribution": analysis["mapped_distribution"],
+            "label_details": analysis["label_counts"],
+            "odc_mapping": analysis["odc_mapping"],
+        }
 
-    # Direct and scientific use fixed ODC labels — compute their stats for comparison
-    direct_labels = [c.get("odc_type", "") for c in direct_classifications if c.get("odc_type") in ODC_TYPE_NAMES]
-    scientific_labels = [c.get("odc_type", "") for c in scientific_classifications if c.get("odc_type") in ODC_TYPE_NAMES]
+    tier_order = [tag for tag, _ in tiers]
 
-    direct_unique = len(set(direct_labels))
-    scientific_unique = len(set(scientific_labels))
+    tier_deltas: list[dict[str, Any]] = []
+    for prev_tag, cur_tag in zip(tier_order, tier_order[1:]):
+        prev, cur = per_tier[prev_tag], per_tier[cur_tag]
+        tier_deltas.append({
+            "from": prev_tag,
+            "to": cur_tag,
+            "unique_labels_delta": cur["unique_labels"] - prev["unique_labels"],
+            "odc_coverage_delta": cur["odc_coverage"] - prev["odc_coverage"],
+            "entropy_delta": round(cur["label_entropy"] - prev["label_entropy"], 4),
+        })
 
-    # Vocabulary reduction ratio: how much the taxonomy constrains label space
-    naive_unique = naive_analysis["unique_labels"]
-    vocab_reduction = round(1.0 - (7 / naive_unique), 4) if naive_unique > 7 else 0.0
+    # Vocabulary reduction ratio: how much the taxonomy constrains label
+    # space, relative to the first (baseline) tier in the ladder.
+    baseline_unique = per_tier[tier_order[0]]["unique_labels"] if tier_order else 0
+    vocab_reduction = round(1.0 - (7 / baseline_unique), 4) if baseline_unique > 7 else 0.0
 
     return {
-        "naive": {
-            "unique_labels": naive_unique,
-            "label_entropy": naive_analysis["label_entropy"],
-            "odc_coverage": naive_analysis["odc_coverage"],
-            "odc_coverage_types": naive_analysis.get("odc_coverage_types", []),
-            "total": naive_analysis["total"],
-            "mapped_distribution": naive_analysis["mapped_distribution"],
-        },
-        "direct": {
-            "unique_labels": direct_unique,
-            "total": len(direct_labels),
-        },
-        "scientific": {
-            "unique_labels": scientific_unique,
-            "total": len(scientific_labels),
-        },
+        "tier_order": tier_order,
+        "tiers": per_tier,
+        "tier_deltas": tier_deltas,
         "vocabulary_reduction_ratio": vocab_reduction,
-        "taxonomy_constrains_labels": naive_unique > 7,
-        "naive_label_details": naive_analysis["label_counts"],
-        "naive_odc_mapping": naive_analysis["odc_mapping"],
+        "taxonomy_constrains_labels": baseline_unique > 7,
     }
 
 
@@ -676,8 +683,8 @@ def compute_coverage_metrics(
         return runs
 
     if prefix_dir is not None:
-        closed_runs = _load_runs(prefix_dir, f"classification.closed-{strategy}.json")
-        open_runs = _load_runs(prefix_dir, f"classification.open-{strategy}.json")
+        closed_runs = _load_runs(prefix_dir, f"classification.{strategy}-closed.json")
+        open_runs = _load_runs(prefix_dir, f"classification.{strategy}-open.json")
     else:
         closed_runs = _load_runs(closed_prefix_dir, "classification.json")
         open_runs = _load_runs(open_prefix_dir, "classification.json")

@@ -2,7 +2,7 @@
 
 This document describes the pipeline's internal architecture, evidence flows, ODC taxonomy, and schema contracts.
 
-> ⚠️ **STALE (pre-2026-07-07).** This document still describes the retired `prompt-style` (scientific/direct/naive) system and shows `classification.json` as an untagged filename. The current classification engine is a two-variable condition model — `--taxonomy free|closed|open` × `--strategy zero|few|scientific` (the `scientific` strategy is the enforced loop implemented in `agent.py`) — and every output filename is condition-tagged (`classification.<taxonomy>-<strategy>.json`, `report.<taxonomy>-<strategy>.md`). See **`docs/condition_model.md`** (authoritative) and **`AGENTS.md`**. The evidence-collection (`collect`) flow and Defects4J-artifact-to-LLM-input mapping in this document remain accurate; only the classification-flow diagrams, prompt-style content, and `classification.json` schema table are stale.
+> ⚠️ **STALE (pre-2026-07-07).** This document still describes the retired `prompt-style` (scientific/direct/naive) system and shows `classification.json` as an untagged filename. The current classification engine is a two-variable condition model — `--taxonomy free|closed|open` × `--strategy zero|few|scientific` (the `scientific` strategy is the enforced loop implemented in `agent.py`) — and every output filename is condition-tagged (`classification.<strategy>-<taxonomy>.json`, `report.<strategy>-<taxonomy>.md`). See **`docs/condition_model.md`** (authoritative) and **`AGENTS.md`**. The evidence-collection (`collect`) flow and Defects4J-artifact-to-LLM-input mapping in this document remain accurate; only the classification-flow diagrams, prompt-style content, and `classification.json` schema table are stale.
 
 ---
 

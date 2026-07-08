@@ -1,0 +1,59 @@
+{
+  "project_id": "JacksonDatabind",
+  "bug_id": 111,
+  "version_id": "111b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-08T16:50:40+00:00",
+  "odc_type": "Assignment/Initialization",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "When deserializing nested reference types (e.g., AtomicReference<AtomicReference<Integer>>) with a null value, the deserializer incorrectly initializes the inner reference as an empty AtomicReference instead of null, leading to an unexpected object structure and subsequent NullPointerException or assertion failure.",
+  "hypothesis": "The root cause is that the deserializer and the null value provider are not kept in sync during the creation of contextual deserializers. Specifically, the null value provider is not correctly updated or propagated when the deserializer is updated, causing the system to use a default 'empty' initialization instead of the expected null value.",
+  "prediction": "The fix will involve ensuring that the NullValueProvider is correctly copied or updated alongside the value deserializer in the various SettableBeanProperty implementations and the AtomicReferenceDeserializer.",
+  "experiment_rationale": "The bug report explicitly identifies that the deserializer and null value provider are not kept in sync and that the getNull method returns a default object instead of using the contextual null provider. The fix involves synchronizing these components, which is a classic initialization/assignment issue.",
+  "reasoning_summary": "The defect is not a missing guard (Checking) or a procedural logic error (Algorithm/Method). It is a failure to correctly initialize or assign the expected null-handling state for a nested property. The system is using a default 'new AtomicReference()' instead of the correct null-handling provider, which is an Assignment/Initialization error.",
+  "evidence_used": [
+    "Bug report description: 'the getNull method of AtomicReference always returns \"new AtomicReference()\"'",
+    "Bug report description: 'the bean propertyCreator has distinct deserializer and nullProvider... the deserializer of the bean propertyCreator is updated, but not its nullProvider'",
+    "Bug report description: 'value deserializer and null value provider are not kept in sync'"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the getNull method is a procedure, the core issue is that the state (the null provider) is not correctly initialized or synchronized, which is more accurately described as an Assignment/Initialization defect."
+    },
+    {
+      "type": "Interface/O-O Messages",
+      "why_not_primary": "The issue is not a mismatch in the interface contract between components, but rather an internal state synchronization failure within the deserialization logic."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Incorrect",
+  "age": "Base",
+  "source": "Developed In-House",
+  "inferred_activity": "Unit Test",
+  "inferred_triggers": [
+    "Recovery/Exception",
+    "Test Sequencing",
+    "Test Variation"
+  ],
+  "inferred_impact": [
+    "Reliability"
+  ],
+  "evidence_mode": "pre-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Assignment/Initialization\",\n  \"family\": \"Control and Data Flow\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"age\": \"Base\",\n  \"source\": \"Developed In-House\",\n  \"inferred_activity\": \"Unit Test\",\n  \"inferred_triggers\": [\"Recovery/Exception\", \"Test Sequencing\", \"Test Variation\"],\n  \"inferred_impact\": [\"Reliability\"],\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"When deserializing nested reference types (e.g., AtomicReference<AtomicReference<Integer>>) with a null value, the deserializer incorrectly initializes the inner reference as an empty AtomicReference instead of null, leading to an unexpected object structure and subsequent NullPointerException or assertion failure.\",\n  \"hypothesis\": \"The root cause is that the deserializer and the null value provider are not kept in sync during the creation of contextual deserializers. Specifically, the null value provider is not correctly updated or propagated when the deserializer is updated, causing the system to use a default 'empty' initialization instead of the expected null value.\",\n  \"prediction\": \"The fix will involve ensuring that the NullValueProvider is correctly copied or updated alongside the value deserializer in the various SettableBeanProperty implementations and the AtomicReferenceDeserializer.\",\n  \"experiment_rationale\": \"The bug report explicitly identifies that the deserializer and null value provider are not kept in sync and that the getNull method returns a default object instead of using the contextual null provider. The fix involves synchronizing these components, which is a classic initialization/assignment issue.\",\n  \"reasoning_summary\": \"The defect is not a missing guard (Checking) or a procedural logic error (Algorithm/Method). It is a failure to correctly initialize or assign the expected null-handling state for a nested property. The system is using a default 'new AtomicReference()' instead of the correct null-handling provider, which is an Assignment/Initialization error.\",\n  \"evidence_used\": [\n    \"Bug report description: 'the getNull method of AtomicReference always returns \\\"new AtomicReference()\\\"'\",\n    \"Bug report description: 'the bean propertyCreator has distinct deserializer and nullProvider... the deserializer of the bean propertyCreator is updated, but not its nullProvider'\",\n    \"Bug report description: 'value deserializer and null value provider are not kept in sync'\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the getNull method is a procedure, the core issue is that the state (the null provider) is not correctly initialized or synchronized, which is more accurately described as an Assignment/Initialization defect.\"\n    },\n    {\n      \"type\": \"Interface/O-O Messages\",\n      \"why_not_primary\": \"The issue is not a mismatch in the interface contract between components, but rather an internal state synchronization failure within the deserialization logic.\"\n    }\n  ]\n}"
+}

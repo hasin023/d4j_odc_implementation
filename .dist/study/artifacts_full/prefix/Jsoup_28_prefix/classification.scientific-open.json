@@ -1,0 +1,72 @@
+{
+  "project_id": "Jsoup",
+  "bug_id": 28,
+  "version_id": "28b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-08T16:58:23+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.95,
+  "needs_human_review": false,
+  "observation_summary": "The failing tests demonstrate that Jsoup's unescape logic incorrectly converts substrings like '&num', '&int', and '&angst' into characters, even when they are not valid, terminated HTML entities. This causes data corruption in URLs and plain text.",
+  "hypothesis": "The Entities.unescape method incorrectly identifies and replaces substrings that resemble HTML entities even when they are not valid, terminated entities (e.g., missing the trailing semicolon). This behavior is too aggressive for general text and URL parsing, leading to spurious decodes.",
+  "prediction": "The implementation of Entities.unescape will show a pattern-matching logic that greedily consumes characters following an ampersand without verifying the presence of a terminating semicolon or validating the entity against a strict list of known entities.",
+  "experiment_rationale": "The evidence from the failing tests and the bug report clearly points to an over-eager validation/parsing logic in the entity unescaping process. The issue is fundamentally about missing a guard or validation check (the semicolon or strict entity lookup) that distinguishes valid entities from plain text.",
+  "reasoning_summary": "The bug is a classic 'Checking' defect where the parser fails to correctly validate the boundary conditions of an HTML entity. By not enforcing the presence of a semicolon or strict matching, the code incorrectly treats arbitrary text as entities.",
+  "evidence_used": [
+    "bug_report",
+    "failing_tests",
+    "snippet"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the implementation is procedural, the core failure is the lack of a proper validation check (guard) for entity termination, which is the definition of a Checking defect."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The entity unescaping logic in Jsoup is too aggressive, incorrectly identifying substrings that look like HTML entities (e.g., '&num', '&int') within URLs or plain text and replacing them with their corresponding characters, even when they are not valid, terminated HTML entities.",
+      "prediction": "The code responsible for unescaping (likely in org.jsoup.nodes.Entities) will be found to lack a check for whether an entity is properly terminated (e.g., by a semicolon) or if it is part of a context where unescaping should not occur, such as within a URL query string.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "org.jsoup.nodes.Entities"
+      },
+      "observation_summary": [
+        "snippets"
+      ]
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The Entities.unescape method incorrectly identifies and replaces substrings that resemble HTML entities even when they are not valid, terminated entities (e.g., missing the trailing semicolon). This behavior is too aggressive for general text and URL parsing, leading to spurious decodes.",
+      "prediction": "The implementation of Entities.unescape will show a pattern-matching logic that greedily consumes characters following an ampersand without verifying the presence of a terminating semicolon or validating the entity against a strict list of known entities.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Checking"
+    }
+  ],
+  "llm_calls_used": 2,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"confidence\": 0.95, \"needs_human_review\": false, \"observation_summary\": \"The failing tests demonstrate that Jsoup's unescape logic incorrectly converts substrings like '&num', '&int', and '&angst' into characters, even when they are not valid, terminated HTML entities. This causes data corruption in URLs and plain text.\", \"hypothesis\": \"The Entities.unescape method incorrectly identifies and replaces substrings that resemble HTML entities even when they are not valid, terminated entities (e.g., missing the trailing semicolon). This behavior is too aggressive for general text and URL parsing, leading to spurious decodes.\", \"prediction\": \"The implementation of Entities.unescape will show a pattern-matching logic that greedily consumes characters following an ampersand without verifying the presence of a terminating semicolon or validating the entity against a strict list of known entities.\", \"experiment_rationale\": \"The evidence from the failing tests and the bug report clearly points to an over-eager validation/parsing logic in the entity unescaping process. The issue is fundamentally about missing a guard or validation check (the semicolon or strict entity lookup) that distinguishes valid entities from plain text.\", \"reasoning_summary\": \"The bug is a classic 'Checking' defect where the parser fails to correctly validate the boundary conditions of an HTML entity. By not enforcing the presence of a semicolon or strict matching, the code incorrectly treats arbitrary text as entities.\", \"evidence_used\": [\"bug_report\", \"failing_tests\", \"snippet\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"While the implementation is procedural, the core failure is the lack of a proper validation check (guard) for entity termination, which is the definition of a Checking defect.\"}]}"
+}

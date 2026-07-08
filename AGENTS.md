@@ -59,9 +59,10 @@ Primary CLI modes:
 - `compare`: compare one pre-fix classification with one post-fix classification
 - `compare-batch`: compare many pre-fix/post-fix pairs
 - `study-plan`: generate a balanced bug manifest for large-scale batch studies
-- `study-run`: execute prefix + postfix runs for every bug in a study manifest (with checkpoint/resume and graceful Ctrl+C)
-- `study-analyze`: cross-artifact analysis over prefix/postfix study outputs
-- `study-classify`: run ONE classification condition (`--taxonomy` x `--strategy` y) over the manifest, prefix-only, writing condition-tagged files into the SAME bug folders and reusing `context.json`; when run with `--taxonomy open` and a closed pass exists in the tree, auto-writes `taxonomy_coverage_<N>.json` (escape/coverage rates, taxonomy-shift kappa, KL divergence, escape audit list). Replaces the tombstoned `study-baseline`/`study-naive`/`study-coverage`.
+- `study-run`: execute prefix + postfix runs for every bug in a study manifest, for ONE condition (`--taxonomy` x `--strategy`, any of the 5 valid combos — with checkpoint/resume and graceful Ctrl+C). Replaces the tombstoned `study-baseline`/`study-naive`/`study-coverage`/`study-classify`.
+- `study-drift`: cross-artifact prefix/postfix drift analysis over study outputs for ONE condition (RQ1/RQ3/RQ5). Renamed from `study-analyze` (tombstoned).
+- `study-escape`: RQ2 taxonomy-coverage/escape-rate metrics between the closed and open passes of one `--strategy`, writing `taxonomy_coverage_<N>.json`. Needs both passes already produced by `study-run`.
+- `study-ladder`: RQ4 ablation-ladder metrics (vocabulary size / entropy / ODC coverage) across an ordered `--tags` list of condition tags, prefix-only, writing `taxonomy_grounding_<N>.json`.
 - `study-export`: export analysis results as LaTeX tables and CSV files
 - `multifault`: query multi-fault co-existence data from defects4j-mf
 - `multifault-enrich`: enrich an existing classification JSON with multi-fault context
@@ -70,10 +71,10 @@ Primary CLI modes:
 The filesystem is the main contract:
 
 - `.dist/runs/` contains outputs from standalone commands (`collect`, `run`, `classify`)
-- `.dist/study/` contains outputs from batch commands (`study-run`, `study-analyze`)
+- `.dist/study/` contains outputs from batch commands (`study-run`, `study-drift`, `study-escape`, `study-ladder`)
 - `.dist/study/artifacts_<N>/` has `prefix/` and `postfix/` subdirectories for paired runs (N = target_bugs)
-- All classification conditions write into the SAME bug folders under `artifacts_<N>/{prefix,postfix}/` as condition-tagged files (`classification.<taxonomy>-<strategy>.json`); the old `baseline_<N>/`, `naive_<N>/`, `coverage_<N>/` parallel roots are retired
-- `.dist/study/artifacts_<N>/checkpoint.pairs.<tag>.json` (study-run) and `checkpoint.prefix.<tag>.json` (study-classify) track progress for resumable batch runs, one per condition
+- All classification conditions write into the SAME bug folders under `artifacts_<N>/{prefix,postfix}/` as condition-tagged files (`classification.<strategy>-<taxonomy>.json`); the old `baseline_<N>/`, `naive_<N>/`, `coverage_<N>/` parallel roots are retired
+- `.dist/study/artifacts_<N>/checkpoint.pairs.<tag>.json` (study-run) tracks progress for resumable batch runs, one per condition — the old `checkpoint.prefix.<tag>.json` scheme (study-classify) is gone along with the command
 - `.dist/study/latex/` and `.dist/study/csv/` contain exported tables from `study-export`
 - `work/` contains checked-out Defects4J projects (for standalone runs, named `<project>_<bug>_prefix` or `_postfix`)
 - `.dist/study/work/` contains checkouts for batch runs
@@ -101,7 +102,7 @@ Tracked authored files:
 - `d4j_odc_pipeline/multifault.py`: pure-Python loader/querier for defects4j-mf multi-fault JSON data
 - `d4j_odc_pipeline/batch.py`: batch manifest generation, batch execution with checkpoint/resume, baseline runner, signal handling, progress bar, and cross-artifact analysis
 - `d4j_odc_pipeline/web_fetch.py`: bug report retrieval from GitHub, JIRA, or generic pages
-- `d4j_odc_pipeline/analysis.py`: cross-study statistical analysis: type distribution (RQ1.1), Impact vs Type (RQ1.2), baseline comparison (RQ2.2), semantic gap (RQ3.1), per-type P/R/F1 (RQ2.1)
+- `d4j_odc_pipeline/analysis.py`: cross-study statistical analysis: type distribution (RQ1), coverage/escape-rate metrics (RQ2, `compute_coverage_metrics`), per-type P/R/F1 (RQ3, `compute_per_type_metrics`), taxonomy-grounding ablation ladder (RQ4, `compute_taxonomy_grounding_metrics`, generic over N tiers as of 2026-07-08)
 - `d4j_odc_pipeline/results_export.py`: LaTeX table and CSV export for manuscript/R/SPSS
 - `d4j_odc_pipeline/console.py`: Rich-based console helpers
 - `tests/test_batch.py`: batch manifest generation, analysis, signal handling, and checkpoint persistence tests
@@ -113,10 +114,10 @@ Tracked authored files:
 - `tests/test_analysis.py`: analysis module tests — type distribution, chi-squared, Impact vs Type, per-type metrics, baseline comparison, semantic gap
 - `tests/test_url_fetch.py`: live integration script with top-level network calls
 - `README.md`: usage and setup doc
-- `Eval Defence.md`: complete scientific defence for pre-fix/post-fix evaluation methodology
-- `odc_doc.md`: IBM ODC reference material
-- `thesis_plan.md`: research/background context
-- `docs/METHODOLOGY.md`: research methodology, RQ structure, evaluation framework, statistical tests
+- **`docs/JSS_HANDOFF.md`: start here for anything paper-drafting or research-results related** — Pipeline/Analysis/RQs/RQ-results in one place, current as of 2026-07-09, with explicit pointers to which of the docs below are current vs stale
+- `docs/eval_defence.md`: complete scientific defence for pre-fix/post-fix evaluation methodology (current)
+- `docs/odc_doc.md`: IBM ODC reference material (current)
+- `docs/RQs_JSS.md`: canonical RQ1-RQ5 wording (current — do not use `docs/METHODOLOGY.md`'s RQ1.1/RQ2.1-style numbering, it's stale/self-flagged)
 - `pyproject.toml`: packaging and pytest config
 - `requirements.txt`: runtime dependencies
 - `.env.example`: sample environment configuration
@@ -228,8 +229,9 @@ Owns the CLI surface:
 - `compare-batch`
 - `study-plan`
 - `study-run`
-- `study-analyze`
-- `study-classify`
+- `study-drift`
+- `study-escape`
+- `study-ladder`
 - `study-export`
 - `multifault`
 - `multifault-enrich`
@@ -245,13 +247,13 @@ Important details:
 - `collect --output` defaults to `.dist/runs/<project>_<bug>_<mode>/context.json` when omitted.
 - `study-plan --output` defaults to `.dist/study/manifest_<target_bugs>.json`.
 - `study-run` reads `target_bugs` from the manifest and defaults `--artifacts-root` to `.dist/study/artifacts_<target_bugs>/`.
-- `study-run --manifest` and `study-analyze --manifest` resolve bare filenames under `.dist/study/`.
-- `study-analyze` defaults `--prefix-dir`, `--postfix-dir`, `--output`, `--report` using the manifest's `target_bugs`.
-- `study-classify` defaults `--artifacts-root` to `.dist/study/artifacts_<target_bugs>/` and writes into the SAME bug folders as `study-run` (bug-centric layout: all conditions beside one shared `context.json`, which is reused when present and never rewritten).
-- Classification/report filenames are ALWAYS condition-tagged: `classification.<taxonomy>-<strategy>.json`, `report.<taxonomy>-<strategy>.md`. Checkpoints are per condition: `checkpoint.pairs.<tag>.json` (study-run) / `checkpoint.prefix.<tag>.json` (study-classify) — keyed by `(artifacts_root, tag)`, NOT by manifest name (see the manifest/artifacts-root gotcha in §7).
-- `study-analyze` and `compare-batch` default to the pipeline default condition (open-scientific) — pass `--taxonomy/--strategy` to analyze another condition.
+- `study-run --manifest` and `study-drift --manifest` resolve bare filenames under `.dist/study/`.
+- `study-drift` defaults `--prefix-dir`, `--postfix-dir`, `--output`, `--report` using the manifest's `target_bugs`.
+- `study-escape`/`study-ladder` default `--prefix-dir` to `.dist/study/artifacts_<target_bugs>/prefix` (via `--manifest`) and read the SAME bug folders `study-run` wrote into (bug-centric layout: all conditions beside one shared `context.json`).
+- Classification/report filenames are ALWAYS condition-tagged: `classification.<strategy>-<taxonomy>.json`, `report.<strategy>-<taxonomy>.md`. Checkpoints are per condition: `checkpoint.pairs.<tag>.json` (study-run) — keyed by `(artifacts_root, tag)`, NOT by manifest name (see the manifest/artifacts-root gotcha in §7).
+- `study-drift` and `compare-batch` default to the pipeline default condition (scientific-open) — pass `--taxonomy/--strategy` to analyze another condition.
 - `--strategy scientific` (agent.py) runs the enforced scientific loop: each turn commits hypothesis+prediction, then either requests one evidence probe (list_evidence / full_stack_trace / snippet / coverage / bug_report — served from the FULL context.json held-back evidence; no Defects4J, no filesystem) or concludes. Max 6 turns; forced conclusion sets needs_human_review; full transcript persisted in classification.json `turns`; artifacts record `llm_calls_used` and budget accounting uses it.
-- `study-run` and `study-classify` have a budget guard: `--daily-call-budget` (default 1400; 0 disables) stops the run cleanly with a checkpoint before hitting provider daily rate limits (Gemini free ~1,500 RPD); re-running the same command resumes. Summaries record `llm_calls_made` / `budget_reached`.
+- `study-run` has a budget guard: `--daily-call-budget` (default 1400; 0 disables) stops the run cleanly with a checkpoint before hitting provider daily rate limits (Gemini free ~1,500 RPD); re-running the same command resumes. Summaries record `llm_calls_made` / `budget_reached`.
 - Taxonomy modes: `classify`/`run` accept `--taxonomy free|closed|open` (default `open`; `free` is only valid paired with `--strategy zero`). Open mode adds the "Other" escape label; when chosen, `classification.<tag>.json` carries mandatory `other_justification`, `nearest_type`, `other_confidence`, plus `taxonomy_mode`, and `needs_human_review` is forced true. "Other" has no family (`family_for` returns None).
 - `study-export` writes LaTeX tables to `<output-dir>/latex/` and CSV files to `<output-dir>/csv/`.
 - `multifault-enrich --output` defaults to `classification_enriched.json` alongside the input file.
@@ -265,13 +267,13 @@ Manages large-scale batch workflows.
 Key responsibilities:
 
 - Manifest generation with balanced per-project sampling (`generate_study_manifest`)
-- Batch execution with paired prefix/postfix runs, one condition (`run_batch_from_manifest`)
-- Condition execution, prefix-only, any (taxonomy, strategy) pair, reusing existing contexts (`run_condition_from_manifest`) — backs `study-classify`
+- Batch execution with paired prefix/postfix runs, one condition (`run_batch_from_manifest`) — backs `study-run`, any of the 5 valid conditions
 - Signal handling: SIGINT sets a shutdown flag; checked at every loop iteration and between collect/classify steps
-- Checkpoint persistence: `checkpoint.pairs.<tag>.json` / `checkpoint.prefix.<tag>.json` written after each entry; loaded on restart to skip completed entries
+- Checkpoint persistence: `checkpoint.pairs.<tag>.json` written after each entry; loaded on restart to skip completed entries
 - Manifest hash: SHA-256 of sorted entry keys detects stale checkpoints from different manifests
 - Progress bar: Rich progress bar showing current bug and completion count
-- Cross-artifact analysis (`analyze_batch_artifacts`): discovers prefix/postfix pairs, computes transition matrices, identifies divergence patterns
+- Cross-artifact drift analysis (`analyze_batch_artifacts`): discovers prefix/postfix pairs, computes transition matrices, identifies divergence patterns, plus RQ1 (`type_distribution_prefix`, via `compute_type_distribution`), RQ3 (`strict_match_count/rate`, `cohens_kappa`, `per_type_metrics`, `type_confusion_matrix`), and RQ5 (`per_project_kappa`) — backs `study-drift`. These three were previously computed by standalone functions in `analysis.py`/`comparison.py` that existed and were tested but were never called from this path — `study-drift` + `study-export` silently produced empty/wrong tables (confirmed 2026-07-08 against real pilot data) until wired in here.
+- Ladder discovery (`discover_ladder`): collects `classification.<tag>.json` across bug folders for an arbitrary list of condition tags in ONE prefix dir (vs `_discover_pairs`' one tag across two dirs) — feeds `compute_taxonomy_grounding_metrics` (analysis.py), backs `study-ladder`
 
 Important behavior:
 
@@ -324,10 +326,11 @@ Supported provider strings:
 Important details:
 
 - default API key env vars are provider-specific
+- **API key rotation**: `<PROVIDER>_API_KEYS` (e.g. `GEMINI_API_KEYS`, comma-separated) rotates across multiple keys, taking priority over the singular `<PROVIDER>_API_KEY`. Resolved **per-request**, not per-`LLMClient` construction — a module-level `itertools.cycle`, cached by env var name (`_key_rotation_cycles`), is shared across every `LLMClient` built against that env var, so rotation advances continuously across the whole process (not per-bug, not per-turn — a single bug's `--strategy scientific` loop turns and separate bugs' single calls all draw from the same rotating pool). Only actually multiplies quota if the keys belong to separate provider accounts/projects, not multiple keys under one account.
 - OpenRouter can attach `HTTP-Referer` and `X-OpenRouter-Title`
 - OpenRouter currently uses the same `/chat/completions` transport path as the generic OpenAI-compatible client
 - Gemini uses `generateContent` plus `responseJsonSchema`
-- transient 429/500/502/503 and network errors are retried with exponential backoff
+- transient 429/500/502/503 and network errors are retried with exponential backoff — this is the ONLY rate-limit handling; there is no proactive RPM/TPM pacing (only the daily `--daily-call-budget` guard in `batch.py`)
 - invalid JSON payloads and invalid `odc_type` values are **not** retried
 
 ### `prompting.py`
@@ -843,8 +846,10 @@ python -m d4j_odc_pipeline multifault --project Lang --bug 1
 python -m d4j_odc_pipeline multifault-enrich --classification .\artifacts\Lang_1\classification.json
 python -m d4j_odc_pipeline study-plan --target-bugs 68
 python -m d4j_odc_pipeline study-run --manifest manifest_68.json --skip-coverage
-python -m d4j_odc_pipeline study-analyze --manifest manifest_68.json
-python -m d4j_odc_pipeline study-classify --manifest manifest_68.json --taxonomy free --strategy zero
+python -m d4j_odc_pipeline study-drift --manifest manifest_68.json
+python -m d4j_odc_pipeline study-run --manifest manifest_68.json --taxonomy free --strategy zero --skip-coverage
+python -m d4j_odc_pipeline study-escape --manifest manifest_68.json --strategy scientific
+python -m d4j_odc_pipeline study-ladder --manifest manifest_68.json --tags zero-free,few-open,scientific-open
 python -m d4j_odc_pipeline study-export --analysis .\.dist\study\analysis_68.json
 ```
 
@@ -887,7 +892,7 @@ To improve evaluation:
 
 For implementation work, start with `pipeline.py`, then follow the call chain into `prompting.py`, `models.py`, `llm.py`, `defects4j.py`, and `comparison.py`.
 
-For methodology questions, use `odc.py`, `odc_doc.md`, `docs/METHODOLOGY.md`, and the scientific-debugging instructions plus ODC mapping hints in `prompting.py`.
+For methodology or RQ questions, start at `docs/JSS_HANDOFF.md` — it points to the current methodology docs and explicitly flags which ones (including `docs/METHODOLOGY.md`) are stale and why. Otherwise: `odc.py`, `docs/odc_doc.md`, and the scientific-debugging instructions plus ODC mapping hints in `prompting.py`.
 
 For filesystem/output questions, trust current dataclasses and writers over historical artifact examples.
 

@@ -15,7 +15,7 @@ Every classification is a coordinate `(taxonomy, strategy)`:
 | `--strategy` | `zero` — zero-shot: no taxonomy, no worked examples (the unstructured baseline) · `few` — few-shot single call: taxonomy + diagnostic decision tree + 5 worked classification examples (the strong static prompt) · `scientific` — the enforced scientific loop (`agent.py`): hypothesis → prediction → probe → observation turns over held-back `context.json` evidence, max 6 turns, full transcript persisted | **`scientific`** |
 
 **The default pipeline — for BOTH prefix and postfix evidence — is
-`open-scientific`.**
+`scientific-open`.**
 
 ## 2. Valid conditions (5, not 9)
 
@@ -24,11 +24,11 @@ space), and `few`/`scientific` need a label space to classify into. The CLI
 enforces this (`odc.validate_condition`):
 
 ```
-free-zero            the unstructured baseline (retired name: "naive")
-closed-few           taxonomy forced-choice, strong static prompt
-open-few             taxonomy + escape hatch, strong static prompt
-closed-scientific    forced-choice, enforced loop
-open-scientific      escape hatch, enforced loop     ← THE DEFAULT
+zero-free            the unstructured baseline (retired name: "naive")
+few-closed           taxonomy forced-choice, strong static prompt
+few-open             taxonomy + escape hatch, strong static prompt
+scientific-closed    forced-choice, enforced loop
+scientific-open      escape hatch, enforced loop     ← THE DEFAULT
 ```
 
 Invalid and rejected: `closed-zero`, `open-zero`, `free-few`, `free-scientific`.
@@ -41,7 +41,8 @@ Invalid and rejected: `closed-zero`, `open-zero`, `free-few`, `free-scientific`.
 | `--reasoning zero\|scientific\|agentic` | "scientific" meant *narrated* single-shot — a level the pilot showed adds nothing (0/6 label changes vs zero-shot with taxonomy) | tombstoned flag; see §4 |
 | the **narrated single-shot "scientific"** condition | narration ≠ the method; only *enforcement* changed answers (pilot: 2/6, both toward the oracle) | its full prompt (protocol text + tree + examples) **lives on as the `few` strategy** — it is the strongest static baseline, and the name is now accurate (it literally contains few-shot worked examples) |
 | the `direct` cell (taxonomy, no examples) | redundant middle rung; pilot: identical answers to the full static prompt | dropped |
-| `study-baseline` / `study-naive` / `study-coverage` | one command per condition doesn't scale | `study-classify --taxonomy X --strategy Y` |
+| `study-baseline` / `study-naive` / `study-coverage` | one command per condition doesn't scale | `study-run --taxonomy X --strategy Y` |
+| `study-classify` (2026-07: prefix-only shortcut sibling to `study-run`) | had no remaining purpose once `study-run` was used for every condition (prefix+postfix, "for free" relative to what study-classify did); its RQ2 trigger and the dead RQ4 ladder engine needed real homes anyway | `study-run` for the classification itself; `study-escape` (RQ2) and `study-ladder` (RQ4) for the analyses that used to live inside its CLI handler |
 
 ## 4. Rationale (the justifications to cite)
 
@@ -72,7 +73,7 @@ Invalid and rejected: `closed-zero`, `open-zero`, `free-few`, `free-scientific`.
 
 ## 5. Artifacts
 
-- Filenames: `classification.<taxonomy>-<strategy>.json`, `report.<tag>.md`,
+- Filenames: `classification.<strategy>-<taxonomy>.json`, `report.<tag>.md`,
   `checkpoint.{pairs|prefix}.<tag>.json` — always explicit, all conditions
   side by side in the bug folder next to the shared read-only `context.json`.
 - Result fields: `taxonomy_mode`, `strategy`, plus `turns`/`llm_calls_used`
@@ -85,28 +86,38 @@ mix them with new runs; regenerate instead. See `docs/study_execution_log.md`.
 
 ## 6. Study recipes
 
+`study-classify` was retired 2026-07 (tombstoned, redirects to `study-run`).
+Every condition — including the RQ4 ablation arms — now goes through
+`study-run` (prefix+postfix, any of the 5 valid conditions via
+`--taxonomy`/`--strategy`), reusing the same `--artifacts-root` so evidence
+(`context.json`) is shared across conditions. RQ2 and RQ4's cross-condition
+analyses are their own commands, `study-escape` and `study-ladder`, rather
+than a side effect of a classification command.
+
 ```bash
-# The default pipeline: paired prefix+postfix, open-scientific
+# The default pipeline: paired prefix+postfix, scientific-open
 python -m d4j_odc_pipeline study-run      --manifest m.json --artifacts-root <root>
 
-# RQ2 comparison pass (closed) + auto coverage metrics happen via:
+# RQ2 comparison pass: run the closed pass too, then compare closed vs open
 python -m d4j_odc_pipeline study-run      --manifest m.json --artifacts-root <root> --taxonomy closed
-python -m d4j_odc_pipeline study-classify --manifest m.json --artifacts-root <root> --taxonomy open   # if closed ran first
+python -m d4j_odc_pipeline study-escape   --prefix-dir <root>/prefix --strategy scientific
 
-# Ablation arms (prefix-only, reuse contexts)
-python -m d4j_odc_pipeline study-classify --manifest m.json --artifacts-root <root> --taxonomy free   --strategy zero
-python -m d4j_odc_pipeline study-classify --manifest m.json --artifacts-root <root> --taxonomy open   --strategy few
+# RQ4 ablation ladder: run each rung (prefix+postfix; only prefix is used by
+# the ladder, but running both means the same data also feeds RQ1/RQ3/RQ5)
+python -m d4j_odc_pipeline study-run      --manifest m.json --artifacts-root <root> --taxonomy free --strategy zero
+python -m d4j_odc_pipeline study-run      --manifest m.json --artifacts-root <root> --taxonomy open --strategy few
+python -m d4j_odc_pipeline study-ladder   --prefix-dir <root>/prefix --tags zero-free,few-open,scientific-open
 
-# Analysis defaults to the pipeline default condition (open-scientific)
-python -m d4j_odc_pipeline study-analyze  --prefix-dir <root>/prefix --postfix-dir <root>/postfix
+# Drift analysis defaults to the pipeline default condition (scientific-open)
+python -m d4j_odc_pipeline study-drift    --prefix-dir <root>/prefix --postfix-dir <root>/postfix
 ```
 
 ## 7. RQ mapping (core questions unchanged; operationalization current)
 
-| RQ (core question) | Conditions consumed |
-|---|---|
-| RQ1 type distribution | `open-scientific` prefix (the honest 8-bin distribution) |
-| RQ2 taxonomy coverage | `closed-*` vs `open-*` passes (escape rate, shift-κ, KL, escape audit) |
-| RQ3 pre-fix accuracy | prefix vs the `open-scientific` postfix reference |
-| RQ4 what does structure contribute | `free-zero` → `open-few` → `open-scientific` ladder |
-| RQ5 pre/post divergence | prefix vs postfix under `open-scientific` |
+| RQ (core question) | Conditions consumed | Command |
+|---|---|---|
+| RQ1 type distribution | `scientific-open` prefix (the honest 8-bin distribution) | `study-drift` (or `study-run`'s inline stats) |
+| RQ2 taxonomy coverage | `closed-*` vs `open-*` passes, same strategy (escape rate, shift-κ, KL, escape audit) | `study-escape` |
+| RQ3 pre-fix accuracy | prefix vs the `scientific-open` postfix reference | `study-drift` |
+| RQ4 what does structure contribute | `zero-free` → `few-open` → `scientific-open` ladder (or any tag sequence) | `study-ladder` |
+| RQ5 pre/post divergence | prefix vs postfix under `scientific-open` (or any condition) | `study-drift` |

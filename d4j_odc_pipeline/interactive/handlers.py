@@ -570,16 +570,22 @@ def handle_study(app: "ODCApp", args: str) -> None:
         _study_plan(app, sub_args)
     elif sub == "run":
         _study_run(app, sub_args)
-    elif sub == "analyze":
-        _study_analyze(app, sub_args)
+    elif sub == "drift":
+        _study_drift(app, sub_args)
     elif sub == "baseline":
         _study_baseline(app, sub_args)
     elif sub == "naive":
         _study_naive(app, sub_args)
+    elif sub == "escape":
+        _study_escape(app, sub_args)
+    elif sub == "ladder":
+        _study_ladder(app, sub_args)
     elif sub == "export":
         _study_export(app, sub_args)
     else:
-        app.console.print("[yellow]Usage: /study <plan|run|analyze|baseline|naive|export> [options][/yellow]")
+        app.console.print(
+            "[yellow]Usage: /study <plan|run|drift|baseline|naive|escape|ladder|export> [options][/yellow]"
+        )
 
 
 def _study_plan(app: "ODCApp", args: str) -> None:
@@ -752,7 +758,7 @@ def _study_run(app: "ODCApp", args: str) -> None:
         pipeline_console.bind_console(previous_console, quiet=previous_quiet)
 
 
-def _study_analyze(app: "ODCApp", args: str) -> None:
+def _study_drift(app: "ODCApp", args: str) -> None:
     tokens = shlex.split(args) if args.strip() else []
     manifest_path = None
     prefix_dir: Path | None = None
@@ -920,7 +926,7 @@ def _study_baseline(app: "ODCApp", args: str) -> None:
         return
 
     from .. import console as pipeline_console
-    from ..batch import install_signal_handlers, load_manifest, reset_shutdown, run_condition_from_manifest
+    from ..batch import install_signal_handlers, load_manifest, reset_shutdown, run_batch_from_manifest
     from ..pipeline import write_json
 
     previous_console = pipeline_console.get_console()
@@ -942,16 +948,16 @@ def _study_baseline(app: "ODCApp", args: str) -> None:
         if work_root is None:
             work_root = dist_study / "work"
         if summary_output is None:
-            summary_output = dist_study / "classify_summary.free-zero.json"
+            summary_output = dist_study / "summary.json"
 
         llm = _get_llm_kwargs(app)
-        app.console.print(f"  [cyan]Running closed-zero condition from {mp.name}...[/cyan]")
+        app.console.print(f"  [cyan]Running free-zero condition (prefix+postfix) from {mp.name}...[/cyan]")
         app.console.print(f"  [dim]Artifacts root -> {artifacts_root}[/dim]")
         app.console.print("  [dim]Condition      -> free-zero (zero-shot baseline)[/dim]")
         app.console.print("  [dim]Ctrl+C once for graceful stop, twice to force stop.[/dim]")
 
         try:
-            summary = run_condition_from_manifest(
+            summary = run_batch_from_manifest(
                 defects4j=client,
                 manifest=manifest,
                 artifacts_root=artifacts_root,
@@ -985,7 +991,9 @@ def _study_baseline(app: "ODCApp", args: str) -> None:
             {
                 "summary_output": str(summary_output),
                 "completed": summary.get("completed_entries", 0),
-                "reused_context": summary.get("reused_context_count", 0),
+                "prefix_ok": summary.get("prefix_ok", 0),
+                "postfix_ok": summary.get("postfix_ok", 0),
+                "paired_for_compare": summary.get("paired_for_compare", 0),
             },
             title="Baseline Summary",
         )
@@ -1045,7 +1053,7 @@ def _study_naive(app: "ODCApp", args: str) -> None:
         return
 
     from .. import console as pipeline_console
-    from ..batch import install_signal_handlers, load_manifest, reset_shutdown, run_condition_from_manifest
+    from ..batch import install_signal_handlers, load_manifest, reset_shutdown, run_batch_from_manifest
     from ..pipeline import write_json
 
     previous_console = pipeline_console.get_console()
@@ -1067,16 +1075,16 @@ def _study_naive(app: "ODCApp", args: str) -> None:
         if work_root is None:
             work_root = dist_study / "work"
         if summary_output is None:
-            summary_output = dist_study / "classify_summary.free-zero.json"
+            summary_output = dist_study / "summary.json"
 
         llm = _get_llm_kwargs(app)
-        app.console.print(f"  [cyan]Running free-zero condition from {mp.name}...[/cyan]")
+        app.console.print(f"  [cyan]Running free-zero condition (prefix+postfix) from {mp.name}...[/cyan]")
         app.console.print(f"  [dim]Artifacts root -> {artifacts_root}[/dim]")
         app.console.print("  [dim]Condition      -> free-zero (was: naive/taxonomy-free)[/dim]")
         app.console.print("  [dim]Ctrl+C once for graceful stop, twice to force stop.[/dim]")
 
         try:
-            summary = run_condition_from_manifest(
+            summary = run_batch_from_manifest(
                 defects4j=client,
                 manifest=manifest,
                 artifacts_root=artifacts_root,
@@ -1110,7 +1118,9 @@ def _study_naive(app: "ODCApp", args: str) -> None:
             {
                 "summary_output": str(summary_output),
                 "completed": summary.get("completed_entries", 0),
-                "reused_context": summary.get("reused_context_count", 0),
+                "prefix_ok": summary.get("prefix_ok", 0),
+                "postfix_ok": summary.get("postfix_ok", 0),
+                "paired_for_compare": summary.get("paired_for_compare", 0),
             },
             title="Naive Summary",
         )
@@ -1120,6 +1130,163 @@ def _study_naive(app: "ODCApp", args: str) -> None:
         if hasattr(signal, "SIGBREAK") and previous_sigbreak is not None:
             signal.signal(signal.SIGBREAK, previous_sigbreak)
         pipeline_console.bind_console(previous_console, quiet=previous_quiet)
+
+
+def _resolve_study_target_bugs(manifest_path: str | None) -> tuple[Path | None, "int | str"]:
+    """Resolve a bare --manifest under .dist/study/ and return (path, target_bugs)."""
+    if not manifest_path:
+        return None, ""
+    mp = Path(manifest_path)
+    if not mp.exists():
+        mp = Path(".dist") / "study" / manifest_path
+    if not mp.exists():
+        return None, ""
+    from ..batch import load_manifest
+
+    manifest = load_manifest(mp)
+    return mp, manifest.get("target_bugs", manifest.get("selected_bugs", ""))
+
+
+def _study_escape(app: "ODCApp", args: str) -> None:
+    """RQ2: taxonomy-coverage/escape-rate metrics between the closed and open
+    passes of one strategy. Needs both passes already produced by /study run."""
+    tokens = shlex.split(args) if args.strip() else []
+    manifest_path = None
+    prefix_dir: Path | None = None
+    output_path: Path | None = None
+    strategy = "scientific"
+
+    i = 0
+    while i < len(tokens):
+        token = tokens[i]
+        if token == "--manifest" and i + 1 < len(tokens):
+            manifest_path = tokens[i + 1]; i += 2
+        elif token == "--prefix-dir" and i + 1 < len(tokens):
+            prefix_dir = Path(tokens[i + 1]); i += 2
+        elif token == "--strategy" and i + 1 < len(tokens):
+            strategy = tokens[i + 1]; i += 2
+        elif token == "--output" and i + 1 < len(tokens):
+            output_path = Path(tokens[i + 1]); i += 2
+        else:
+            i += 1
+
+    if not manifest_path and prefix_dir is None:
+        manifests = discover_manifests()
+        if manifests:
+            picked = pick_file_interactive(manifests, title="Select study manifest")
+            if picked:
+                manifest_path = str(picked)
+
+    _, target_bugs = _resolve_study_target_bugs(manifest_path)
+    dist_study = Path(".dist") / "study"
+    if prefix_dir is None:
+        artifacts_folder = f"artifacts_{target_bugs}" if target_bugs else "artifacts"
+        prefix_dir = dist_study / artifacts_folder / "prefix"
+    if output_path is None:
+        suffix = f"_{target_bugs}" if target_bugs else ""
+        output_path = dist_study / f"taxonomy_coverage{suffix}.json"
+
+    if not prefix_dir.exists():
+        app.console.print(f"[red]Prefix directory not found: {prefix_dir}[/red]")
+        return
+
+    closed_files = list(prefix_dir.glob(f"*/classification.{strategy}-closed.json"))
+    open_files = list(prefix_dir.glob(f"*/classification.{strategy}-open.json"))
+    if not closed_files or not open_files:
+        app.console.print(
+            f"[red]Need both closed and open passes for --strategy {strategy} in {prefix_dir}. "
+            f"Run /study run --taxonomy closed --strategy {strategy} and "
+            f"/study run --taxonomy open --strategy {strategy} first.[/red]"
+        )
+        return
+
+    from ..analysis import compute_coverage_metrics
+    from ..pipeline import write_json
+
+    coverage = compute_coverage_metrics(prefix_dir=prefix_dir, strategy=strategy)
+    write_json(output_path, coverage)
+    app.console.print("  [green]✓[/green] RQ2 coverage metrics written")
+    rendering.render_json_panel(
+        app.console,
+        {
+            "output": str(output_path),
+            "coverage_rate": coverage.get("coverage_rate"),
+            "escape_rate": coverage.get("escape_rate"),
+            "shift_kappa_8cat": coverage.get("taxonomy_shift", {}).get("cohens_kappa_8cat"),
+        },
+        title="Coverage Summary",
+    )
+
+
+def _study_ladder(app: "ODCApp", args: str) -> None:
+    """RQ4: ablation-ladder metrics (vocabulary/entropy/ODC coverage) across
+    an ordered list of condition tags, prefix-only."""
+    tokens = shlex.split(args) if args.strip() else []
+    manifest_path = None
+    prefix_dir: Path | None = None
+    output_path: Path | None = None
+    tags_arg = "zero-free,few-open,scientific-open"
+
+    i = 0
+    while i < len(tokens):
+        token = tokens[i]
+        if token == "--manifest" and i + 1 < len(tokens):
+            manifest_path = tokens[i + 1]; i += 2
+        elif token == "--prefix-dir" and i + 1 < len(tokens):
+            prefix_dir = Path(tokens[i + 1]); i += 2
+        elif token == "--tags" and i + 1 < len(tokens):
+            tags_arg = tokens[i + 1]; i += 2
+        elif token == "--output" and i + 1 < len(tokens):
+            output_path = Path(tokens[i + 1]); i += 2
+        else:
+            i += 1
+
+    if not manifest_path and prefix_dir is None:
+        manifests = discover_manifests()
+        if manifests:
+            picked = pick_file_interactive(manifests, title="Select study manifest")
+            if picked:
+                manifest_path = str(picked)
+
+    _, target_bugs = _resolve_study_target_bugs(manifest_path)
+    dist_study = Path(".dist") / "study"
+    if prefix_dir is None:
+        artifacts_folder = f"artifacts_{target_bugs}" if target_bugs else "artifacts"
+        prefix_dir = dist_study / artifacts_folder / "prefix"
+    if output_path is None:
+        suffix = f"_{target_bugs}" if target_bugs else ""
+        output_path = dist_study / f"taxonomy_grounding{suffix}.json"
+
+    if not prefix_dir.exists():
+        app.console.print(f"[red]Prefix directory not found: {prefix_dir}[/red]")
+        return
+
+    tags = [t.strip() for t in tags_arg.split(",") if t.strip()]
+    if len(tags) < 2:
+        app.console.print("[red]--tags needs at least 2 comma-separated condition tags.[/red]")
+        return
+
+    from ..analysis import compute_taxonomy_grounding_metrics
+    from ..batch import discover_ladder
+    from ..pipeline import write_json
+
+    ladder_data = discover_ladder(prefix_dir, tags)
+    missing = [tag for tag in tags if not ladder_data[tag]]
+    if missing:
+        app.console.print(f"[yellow]No classification files found for tag(s): {', '.join(missing)}[/yellow]")
+
+    grounding = compute_taxonomy_grounding_metrics(tiers=[(tag, ladder_data[tag]) for tag in tags])
+    write_json(output_path, grounding)
+    app.console.print("  [green]✓[/green] RQ4 ladder metrics written")
+    rendering.render_json_panel(
+        app.console,
+        {
+            "output": str(output_path),
+            "tags": tags,
+            "vocabulary_reduction_ratio": grounding.get("vocabulary_reduction_ratio"),
+        },
+        title="Ladder Summary",
+    )
 
 
 def _study_export(app: "ODCApp", args: str) -> None:
@@ -1147,7 +1314,7 @@ def _study_export(app: "ODCApp", args: str) -> None:
         if candidates:
             analysis_path = str(candidates[-1])
         else:
-            app.console.print("[red]No analysis JSON found. Run /study analyze first or pass --analysis PATH.[/red]")
+            app.console.print("[red]No analysis JSON found. Run /study drift first or pass --analysis PATH.[/red]")
             return
 
     ap = Path(analysis_path)

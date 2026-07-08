@@ -92,8 +92,8 @@ Reviewers at JSS will inherently look for baselines against which to compare the
 
 **Actionable Steps:**
 
-- A zero-shot LLM baseline that lacks the scientific debugging framework is **already implemented** (`--taxonomy free --strategy zero`, the `free-zero` condition) — no new baseline engineering is needed here, only running it at scale and reporting the comparison. A traditional ML baseline (e.g., an SVM trained via TF-IDF on the Defects4J bug reports) remains a genuine open step if the manuscript wants a non-LLM comparator too.
-- By comparing the enforced scientific loop (`open-scientific`, the default) against `free-zero` and the intermediate `open-few` static-prompt condition (the RQ4 ladder already defined in `docs/condition_model.md` §7), the manuscript will quantitatively prove the value of the prompting architecture, demonstrating that the scientific methodology reduces hallucinations.
+- A zero-shot LLM baseline that lacks the scientific debugging framework is **already implemented** (`--taxonomy free --strategy zero`, the `zero-free` condition) — no new baseline engineering is needed here, only running it at scale and reporting the comparison. A traditional ML baseline (e.g., an SVM trained via TF-IDF on the Defects4J bug reports) remains a genuine open step if the manuscript wants a non-LLM comparator too.
+- By comparing the enforced scientific loop (`scientific-open`, the default) against `zero-free` and the intermediate `few-open` static-prompt condition (the RQ4 ladder already defined in `docs/condition_model.md` §7), the manuscript will quantitatively prove the value of the prompting architecture, demonstrating that the scientific methodology reduces hallucinations.
 
 ### **Phase 3: Executing the 4-Tier Evaluation and Statistical Testing**
 

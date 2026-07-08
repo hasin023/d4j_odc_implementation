@@ -262,7 +262,7 @@ def classify_bug_context(
         f"Provider: {provider}  •  Model: {model}  •  Taxonomy: {taxonomy}  •  Strategy: {strategy}",
     )
 
-    with console.timed_step(f"Building prompt ({taxonomy}-{strategy})"):
+    with console.timed_step(f"Building prompt ({strategy}-{taxonomy})"):
         if strategy == STRATEGY_SCIENTIFIC:
             # The agentic engine builds its own conversation; this preview is
             # the loop's system prompt + seed observation (for --prompt-output/--dry-run).
@@ -284,7 +284,7 @@ def classify_bug_context(
     if dry_run:
         console.warn("Dry run — skipping LLM call")
         console.result_panel("Dry run complete", [
-            ("Condition", f"{taxonomy}-{strategy}"),
+            ("Condition", f"{strategy}-{taxonomy}"),
             ("Prompt saved", str(prompt_output_path) if prompt_output_path else "not saved"),
         ])
         return None

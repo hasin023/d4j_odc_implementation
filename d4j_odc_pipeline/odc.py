@@ -212,11 +212,13 @@ def validate_condition(taxonomy: str, strategy: str) -> None:
 
 
 def condition_tag(taxonomy: str, strategy: str) -> str:
-    """Filename tag for a condition, e.g. 'open-scientific'.
+    """Filename tag for a condition, e.g. 'scientific-open'.
 
+    Strategy comes first: it's the primary study axis (zero/few/scientific
+    ladder); taxonomy (closed/open) is the secondary RQ2 escape-rate side-study.
     Used as classification.<tag>.json / report.<tag>.md / checkpoint suffixes.
     Always explicit — there is no untagged default filename."""
-    return f"{taxonomy}-{strategy}"
+    return f"{strategy}-{taxonomy}"
 
 
 def legacy_prompt_style(taxonomy: str, strategy: str) -> str:

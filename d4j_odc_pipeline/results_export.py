@@ -202,37 +202,62 @@ def export_per_project_kappa_latex(analysis: dict[str, Any]) -> str:
 
 
 # ---------------------------------------------------------------------------
+# RQ2: Taxonomy Coverage / Escape Rate (closed vs. open, backs study-escape)
+# ---------------------------------------------------------------------------
+
+def export_coverage_latex(analysis: dict[str, Any]) -> str:
+    """Generate a LaTeX table of RQ2 taxonomy-coverage/escape-rate metrics."""
+    coverage = analysis.get("taxonomy_coverage", analysis)
+
+    lines = _latex_header(
+        "Taxonomy Coverage: Closed vs.\\ Open (RQ2)",
+        "tab:taxonomy_coverage",
+        ["Metric", "Value"],
+    )
+    escape_rate = coverage.get("escape_rate")
+    coverage_rate = coverage.get("coverage_rate")
+    shift = coverage.get("taxonomy_shift", {})
+    divergence = coverage.get("distribution_divergence", {})
+
+    lines += f"Open-Pass Bugs & {coverage.get('total_open_pass_bugs', 0)} \\\\\n"
+    lines += f"Escape Rate & {escape_rate * 100:.1f}\\% \\\\\n" if escape_rate is not None else "Escape Rate & N/A \\\\\n"
+    lines += f"Coverage Rate & {coverage_rate * 100:.1f}\\% \\\\\n" if coverage_rate is not None else "Coverage Rate & N/A \\\\\n"
+    kappa_8cat = shift.get("cohens_kappa_8cat")
+    lines += f"Shift $\\kappa$ (8-cat) & {kappa_8cat:.3f} \\\\\n" if kappa_8cat is not None else "Shift $\\kappa$ (8-cat) & N/A \\\\\n"
+    kl_co = divergence.get("kl_closed_to_open_bits")
+    lines += f"KL(closed $\\Vert$ open) & {kl_co:.3f} bits \\\\\n" if kl_co is not None else "KL(closed $\\Vert$ open) & N/A \\\\\n"
+    lines += _latex_footer()
+    return lines
+
+
+# ---------------------------------------------------------------------------
 # RQ2.3: Taxonomy Grounding Effect
 # ---------------------------------------------------------------------------
 
 def export_taxonomy_grounding_latex(analysis: dict[str, Any]) -> str:
-    """Generate a LaTeX table comparing naive vs direct vs scientific tiers."""
-    grounding = analysis.get("taxonomy_grounding", {})
-    naive = grounding.get("naive", {})
-    direct = grounding.get("direct", {})
-    scientific = grounding.get("scientific", {})
+    """Generate a LaTeX table comparing an arbitrary RQ4 ablation ladder of
+    condition tiers (e.g. zero-free / few-open / scientific-open)."""
+    grounding = analysis.get("taxonomy_grounding", analysis)
+    tier_order: list[str] = grounding.get("tier_order", [])
+    tiers: dict[str, dict[str, Any]] = grounding.get("tiers", {})
 
     lines = _latex_header(
-        "Taxonomy Grounding Effect: Naive vs.\\ Direct vs.\\ Scientific",
+        "Taxonomy Grounding Effect (RQ4 Ablation Ladder)",
         "tab:taxonomy_grounding",
-        ["Metric", "Naive", "Direct", "Scientific"],
+        ["Metric", *tier_order],
     )
-    lines += (
-        f"Unique Labels & {naive.get('unique_labels', 0)} "
-        f"& {direct.get('unique_labels', 0)} "
-        f"& {scientific.get('unique_labels', 0)} \\\\\n"
-    )
-    lines += (
-        f"Label Entropy & {naive.get('label_entropy', 0):.2f} "
-        f"& -- & -- \\\\\n"
-    )
-    lines += (
-        f"ODC Coverage & {naive.get('odc_coverage', 0)}/7 "
-        f"& {direct.get('unique_labels', 0)}/7 "
-        f"& {scientific.get('unique_labels', 0)}/7 \\\\\n"
-    )
+    lines += "Unique Labels & " + " & ".join(
+        str(tiers.get(tag, {}).get("unique_labels", 0)) for tag in tier_order
+    ) + " \\\\\n"
+    lines += "Label Entropy & " + " & ".join(
+        f"{tiers.get(tag, {}).get('label_entropy', 0):.2f}" for tag in tier_order
+    ) + " \\\\\n"
+    lines += "ODC Coverage & " + " & ".join(
+        f"{tiers.get(tag, {}).get('odc_coverage', 0)}/7" for tag in tier_order
+    ) + " \\\\\n"
     vocab_reduction = grounding.get("vocabulary_reduction_ratio", 0)
-    lines += f"Vocab Reduction & \\multicolumn{{3}}{{c}}{{{vocab_reduction * 100:.1f}\\%}} \\\\\n"
+    n = len(tier_order)
+    lines += f"Vocab Reduction & \\multicolumn{{{n}}}{{c}}{{{vocab_reduction * 100:.1f}\\%}} \\\\\n"
     lines += _latex_footer()
     return lines
 

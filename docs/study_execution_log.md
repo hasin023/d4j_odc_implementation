@@ -6,6 +6,8 @@ or resume without re-deriving anything. Newest at the bottom.
 
 > For current condition semantics (taxonomy × strategy) see the 2026-07-07 amendment near the bottom of this file, or docs/condition_model.md directly.
 
+> ⚠️ **STALE COMMAND NAMES (2026-07-08):** `study-classify` and `study-analyze`, used throughout the historical runs below, are retired (tombstoned — they now print a redirect and exit). Every condition now goes through `study-run` (prefix+postfix, any `--taxonomy`/`--strategy`); the old auto-computed RQ2 coverage metrics are now the explicit `study-escape` command, and the RQ4 ladder now has its own `study-ladder` command. See `docs/condition_model.md` §6. This log's historical command blocks are left as-written for reproducibility of what was actually run — do not "fix" them in place.
+
 ## Environment (all runs unless noted)
 
 - Provider/model: `gemini` / `gemini-3.1-flash-lite-preview` (from `.env`; free tier ~1,500 RPD)
@@ -163,3 +165,64 @@ with new runs. To clean stale pilot classifications from the context store:
 find .dist/study/artifacts_full -name "classification.*.json" -delete
 find .dist/study/artifacts_full -name "report.*.md" -delete   # context.json untouched
 ```
+
+---
+
+## 2026-07-08 — Batch/study CLI redesign: `study-classify` retired, `study-escape`/`study-ladder` added
+
+`study-classify` (the prefix-only cost-saving shortcut) was killed — tombstoned,
+redirects to `study-run`. `study-analyze` renamed to `study-drift` (tombstoned
+old name). Two new commands take over what used to be side effects of
+`study-classify`: `study-escape` (RQ2 coverage/escape-rate, closed vs open for
+one strategy) and `study-ladder` (RQ4 ablation ladder, generalized from a
+hardcoded 3-tier `naive/direct/scientific` comparison to an arbitrary ordered
+list of condition tags). Full rationale and command surface: `docs/condition_model.md`
+§6, `AGENTS.md`. Also cleaned 66 stale pre-tag-flip files (old
+`<taxonomy>-<strategy>` naming) out of the 6 pilot bug folders in
+`artifacts_full` — `context.json` untouched.
+
+Re-ran the pilot (`manifest_pilot.json`, 6 bugs) under the new command surface
+to smoke-test end-to-end: `study-run` (scientific-open) → `study-drift`,
+`study-run` (scientific-closed) → `study-escape`, `study-run` (zero-free,
+few-open) → `study-ladder`. All four commands produced correctly-tagged,
+non-empty output. See `docs/JSS_HANDOFF.md` §4 for the actual numbers (pilot
+row of each RQ table).
+
+## 2026-07-09 — `study-drift` wiring fix + 40-bug dev-validation run
+
+**Fix:** `analyze_batch_artifacts` (the engine behind `study-drift`) was
+silently producing empty or wrong tables for RQ1 (type distribution), part of
+RQ3 (per-type P/R/F1, overall Cohen's κ, confusion matrix), and RQ5
+(per-project κ) — the functions existed in `analysis.py`/`comparison.py` and
+were unit-tested, but were never called from this path. Confirmed by direct
+inspection: `accuracy.tex` generated from real pilot data read "Strict Match:
+0/6" when the true value was 5/6. Fixed by wiring `compute_type_distribution`,
+`compute_per_type_metrics`, `compute_per_project_kappa`, `compute_cohens_kappa`,
+and a confusion-matrix build into `analyze_batch_artifacts`'s existing loop
+(uses data it already collects — no new I/O, no change to `study-run`/
+`study-escape`/`study-ladder`). Predates this session's `study-classify`
+redesign; not caused by it. Regression coverage added to
+`tests/test_batch.py`.
+
+**Run:** `study-plan --target-bugs 40 --min-per-project 2 --seed 42` → all 17
+projects covered, 2-3 bugs each. Ran the 4 conditions the 5 RQs require
+(`zero-free`, `few-open`, `scientific-open`, `scientific-closed`; `few-closed`
+skipped, not needed by any current RQ) against `--artifacts-root
+.dist/study/artifacts_full`, then `study-drift`/`study-escape`/`study-ladder`.
+Because these three scan the whole shared prefix/postfix tree rather than
+filtering by manifest (manifest = worklist, not namespace), 4 leftover pilot
+bugs not in `manifest_40.json` were picked up too → **effective n=44**, not 40.
+
+Cost: ~14.4 real LLM calls/bug across the 4 conditions (measured, not
+assumed — scientific strategy averaged 2.5-2.7 calls/classification, well
+under the 6-turn ceiling). Total ≈ 620 calls, ~21 minutes wall-clock, zero
+Defects4J re-collection (context.json already existed for all 44 bugs from
+the pre-collected 854-bug corpus).
+
+Full results table: `docs/JSS_HANDOFF.md` §4. Headline: RQ4's taxonomy-
+grounding effect is now clearly visible (43 unique free-form labels for 44
+bugs collapsing to 4-5 under any taxonomy-constrained condition); RQ5's
+per-project κ is now computable for all 17 projects (was "insufficient data"
+for 4/5 projects at the pilot's n=6). **These are development-validation
+numbers, not final results** — see `docs/JSS_HANDOFF.md`'s status flag before
+citing anything from this run in the manuscript.

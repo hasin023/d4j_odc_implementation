@@ -240,10 +240,10 @@ class TestAnalyzeNaiveLabels(unittest.TestCase):
 
 
 class TestTaxonomyGroundingMetrics(unittest.TestCase):
-    """RQ2.3: 3-tier comparison tests."""
+    """RQ4: generic N-tier ablation-ladder comparison tests."""
 
     def test_vocabulary_comparison(self) -> None:
-        naive = [
+        zero_free = [
             {"odc_type": "missing null check"},
             {"odc_type": "wrong algorithm"},
             {"odc_type": "init error"},
@@ -255,25 +255,50 @@ class TestTaxonomyGroundingMetrics(unittest.TestCase):
             {"odc_type": "bounds overflow"},
             {"odc_type": "wrong formula"},
         ]
-        direct = [_make_cls("L", i, "Checking") for i in range(5)] + [
+        few_open = [_make_cls("L", i, "Checking") for i in range(5)] + [
             _make_cls("L", i, "Algorithm/Method") for i in range(5, 10)
         ]
-        scientific = direct[:]
+        scientific_open = few_open[:]
         result = compute_taxonomy_grounding_metrics(
-            naive_classifications=naive,
-            direct_classifications=direct,
-            scientific_classifications=scientific,
+            tiers=[
+                ("zero-free", zero_free),
+                ("few-open", few_open),
+                ("scientific-open", scientific_open),
+            ],
         )
-        self.assertGreater(result["naive"]["unique_labels"], result["direct"]["unique_labels"])
+        self.assertEqual(["zero-free", "few-open", "scientific-open"], result["tier_order"])
+        self.assertGreater(
+            result["tiers"]["zero-free"]["unique_labels"],
+            result["tiers"]["few-open"]["unique_labels"],
+        )
         self.assertTrue(result["taxonomy_constrains_labels"])
+        self.assertEqual(2, len(result["tier_deltas"]))
+        self.assertEqual("zero-free", result["tier_deltas"][0]["from"])
+        self.assertEqual("few-open", result["tier_deltas"][0]["to"])
 
-    def test_empty_naive(self) -> None:
+    def test_empty_tier(self) -> None:
         result = compute_taxonomy_grounding_metrics(
-            naive_classifications=[],
-            direct_classifications=[],
-            scientific_classifications=[],
+            tiers=[("zero-free", []), ("few-open", [])],
         )
-        self.assertEqual(result["naive"]["unique_labels"], 0)
+        self.assertEqual(result["tiers"]["zero-free"]["unique_labels"], 0)
+
+    def test_generic_over_arbitrary_tier_count(self) -> None:
+        """Not hardcoded to exactly 3 tiers — 2 and 4 should both work."""
+        two_tier = compute_taxonomy_grounding_metrics(
+            tiers=[("a", [{"odc_type": "x"}]), ("b", [{"odc_type": "y"}])],
+        )
+        self.assertEqual(["a", "b"], two_tier["tier_order"])
+
+        four_tier = compute_taxonomy_grounding_metrics(
+            tiers=[
+                ("a", [{"odc_type": "x"}]),
+                ("b", [{"odc_type": "y"}]),
+                ("c", [{"odc_type": "z"}]),
+                ("d", [{"odc_type": "w"}]),
+            ],
+        )
+        self.assertEqual(["a", "b", "c", "d"], four_tier["tier_order"])
+        self.assertEqual(3, len(four_tier["tier_deltas"]))
 
 
 if __name__ == "__main__":

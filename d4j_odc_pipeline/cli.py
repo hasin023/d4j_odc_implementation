@@ -187,67 +187,76 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_llm_args(study_run_parser, default_provider, default_model)
 
-    # ── study-analyze ───────────────────────────────────────────────────
-    study_analyze_parser = subparsers.add_parser(
-        "study-analyze",
-        help="Cross-artifact analysis over prefix/postfix study outputs.",
+    # ── study-drift ──────────────────────────────────────────────────────
+    study_drift_parser = subparsers.add_parser(
+        "study-drift",
+        help="Cross-artifact prefix/postfix drift analysis over study outputs for ONE "
+             "condition (RQ1/RQ3/RQ5). Renamed from study-analyze.",
     )
-    study_analyze_parser.add_argument("--prefix-dir", type=Path, default=None,
-                                      help="Directory containing *_prefix run folders. Defaults to .dist/study/artifacts_<N>/prefix.")
-    study_analyze_parser.add_argument("--postfix-dir", type=Path, default=None,
-                                      help="Directory containing *_postfix run folders. Defaults to .dist/study/artifacts_<N>/postfix.")
-    study_analyze_parser.add_argument("--output", type=Path, default=None,
-                                      help="Path to write analysis JSON. Defaults to .dist/study/analysis_<N>.json.")
-    study_analyze_parser.add_argument("--report", type=Path, default=None,
-                                      help="Markdown analysis report. Defaults to .dist/study/analysis_<N>.md.")
-    study_analyze_parser.add_argument(
+    study_drift_parser.add_argument("--prefix-dir", type=Path, default=None,
+                                    help="Directory containing *_prefix run folders. Defaults to .dist/study/artifacts_<N>/prefix.")
+    study_drift_parser.add_argument("--postfix-dir", type=Path, default=None,
+                                    help="Directory containing *_postfix run folders. Defaults to .dist/study/artifacts_<N>/postfix.")
+    study_drift_parser.add_argument("--output", type=Path, default=None,
+                                    help="Path to write analysis JSON. Defaults to .dist/study/analysis_<N>.json.")
+    study_drift_parser.add_argument("--report", type=Path, default=None,
+                                    help="Markdown analysis report. Defaults to .dist/study/analysis_<N>.md.")
+    study_drift_parser.add_argument(
         "--taxonomy", choices=["free", "closed", "open"], default="open",
         help="Condition to analyze (default: the pipeline default, open).",
     )
-    study_analyze_parser.add_argument(
+    study_drift_parser.add_argument(
         "--strategy", choices=["zero", "few", "scientific"], default="scientific",
         help="Condition to analyze (default: the pipeline default, scientific).",
     )
-    study_analyze_parser.add_argument("--manifest", type=Path,
-                                      help="Optional manifest JSON to derive expected projects.")
-    study_analyze_parser.add_argument("--expected-projects", nargs="+",
-                                      help="Optional explicit expected project list.")
-    study_analyze_parser.add_argument("--require-all-projects", action="store_true",
-                                      help="Fail when analysis does not cover all expected projects.")
-    study_analyze_parser.add_argument(
+    study_drift_parser.add_argument("--manifest", type=Path,
+                                    help="Optional manifest JSON to derive expected projects.")
+    study_drift_parser.add_argument("--expected-projects", nargs="+",
+                                    help="Optional explicit expected project list.")
+    study_drift_parser.add_argument("--require-all-projects", action="store_true",
+                                    help="Fail when analysis does not cover all expected projects.")
+    study_drift_parser.add_argument(
         "--defects4j-cmd",
         default=None,
         help="Optional Defects4J command prefix. Used to infer expected projects if needed.",
     )
 
-    # ── study-classify ────────────────────────────────────────────────────
-    study_classify_parser = subparsers.add_parser(
-        "study-classify",
-        help="Run ONE classification condition (--taxonomy x --strategy y) over the manifest, "
-             "prefix-only, reusing existing context.json evidence. Replaces the removed "
-             "study-baseline/study-naive/study-coverage commands.",
+    # ── study-escape ─────────────────────────────────────────────────────
+    study_escape_parser = subparsers.add_parser(
+        "study-escape",
+        help="RQ2: compute taxonomy-coverage/escape-rate metrics between the closed and open "
+             "passes of one strategy (needs classification.<strategy>-closed.json and "
+             "classification.<strategy>-open.json already present in the prefix dir — "
+             "run study-run for each first).",
     )
-    study_classify_parser.add_argument("--manifest", type=Path, required=True,
-                                       help="Path to study manifest JSON.")
-    study_classify_parser.add_argument("--artifacts-root", type=Path, default=None,
-                                       help="Shared artifacts tree. Defaults to .dist/study/artifacts_<N>.")
-    study_classify_parser.add_argument("--work-root", type=Path, default=None,
-                                       help="Root directory for Defects4J checkouts. Defaults to .dist/study/work.")
-    study_classify_parser.add_argument("--summary-output", type=Path, default=None,
-                                       help="Defaults to .dist/study/classify_summary.<tag>.json.")
-    _add_condition_args(study_classify_parser)
-    _add_consistency_arg(study_classify_parser)
-    _add_budget_arg(study_classify_parser)
-    study_classify_parser.add_argument("--snippet-radius", type=int, default=12)
-    study_classify_parser.add_argument("--skip-coverage", action="store_true")
-    study_classify_parser.add_argument("--no-skip-existing", action="store_true")
-    study_classify_parser.add_argument("--prompt-output", action="store_true")
-    study_classify_parser.add_argument(
-        "--defects4j-cmd", default=None,
-        help="Optional Defects4J command prefix.",
+    study_escape_parser.add_argument("--prefix-dir", type=Path, default=None,
+                                     help="Directory containing *_prefix run folders. Defaults to .dist/study/artifacts_<N>/prefix.")
+    study_escape_parser.add_argument("--manifest", type=Path,
+                                     help="Optional manifest JSON, used to derive default paths via target_bugs.")
+    study_escape_parser.add_argument(
+        "--strategy", choices=["zero", "few", "scientific"], default="scientific",
+        help="Strategy whose closed/open passes to compare (default: scientific).",
     )
-    _add_llm_args(study_classify_parser, default_provider, default_model)
+    study_escape_parser.add_argument("--output", type=Path, default=None,
+                                     help="Path to write coverage JSON. Defaults to .dist/study/taxonomy_coverage_<N>.json.")
 
+    # ── study-ladder ─────────────────────────────────────────────────────
+    study_ladder_parser = subparsers.add_parser(
+        "study-ladder",
+        help="RQ4: compute the ablation ladder (vocabulary size / entropy / ODC coverage) "
+             "across a sequence of condition tags, prefix-only.",
+    )
+    study_ladder_parser.add_argument("--prefix-dir", type=Path, default=None,
+                                     help="Directory containing *_prefix run folders. Defaults to .dist/study/artifacts_<N>/prefix.")
+    study_ladder_parser.add_argument("--manifest", type=Path,
+                                     help="Optional manifest JSON, used to derive default paths via target_bugs.")
+    study_ladder_parser.add_argument(
+        "--tags", type=str, default="zero-free,few-open,scientific-open",
+        help="Comma-separated condition tags, order = ladder order "
+             "(default per docs/condition_model.md §7).",
+    )
+    study_ladder_parser.add_argument("--output", type=Path, default=None,
+                                     help="Path to write grounding JSON. Defaults to .dist/study/taxonomy_grounding_<N>.json.")
 
     # ── study-export ──────────────────────────────────────────────────────
     study_export_parser = subparsers.add_parser(
@@ -361,9 +370,12 @@ def _add_budget_arg(parser: argparse.ArgumentParser) -> None:
 # runs, so any flags after the dead name still produce the redirect message
 # (argparse's REMAINDER can't swallow leading --options).
 _TOMBSTONED_COMMANDS = {
-    "study-baseline": "study-classify --manifest <m> --taxonomy free --strategy zero  (see docs/condition_model.md)",
-    "study-naive": "study-classify --manifest <m> --taxonomy free --strategy zero",
-    "study-coverage": "study-classify --manifest <m> --taxonomy open --strategy scientific",
+    "study-baseline": "study-run --manifest <m> --taxonomy free --strategy zero  (see docs/condition_model.md)",
+    "study-naive": "study-run --manifest <m> --taxonomy free --strategy zero",
+    "study-coverage": "study-escape --strategy scientific  (after study-run for both closed and open passes)",
+    "study-classify": "study-run --manifest <m> --artifacts-root <root> --taxonomy X --strategy Y  "
+                       "(prefix+postfix; RQ2/RQ4 now live in study-escape / study-ladder)",
+    "study-analyze": "study-drift --manifest <m> --taxonomy X --strategy Y  (renamed)",
 }
 
 
@@ -414,10 +426,12 @@ def main() -> int:
             return _cmd_study_plan(args)
         if args.command == "study-run":
             return _cmd_study_run(args)
-        if args.command == "study-analyze":
-            return _cmd_study_analyze(args)
-        if args.command == "study-classify":
-            return _cmd_study_classify(args)
+        if args.command == "study-drift":
+            return _cmd_study_drift(args)
+        if args.command == "study-escape":
+            return _cmd_study_escape(args)
+        if args.command == "study-ladder":
+            return _cmd_study_ladder(args)
         if args.command == "study-export":
             return _cmd_study_export(args)
         if args.command == "multifault":
@@ -898,7 +912,7 @@ def _cmd_study_run(args: argparse.Namespace) -> int:
     return 0
 
 
-def _cmd_study_analyze(args: argparse.Namespace) -> int:
+def _cmd_study_drift(args: argparse.Namespace) -> int:
     from .batch import analyze_batch_artifacts, load_manifest, write_analysis_markdown
     from .pipeline import write_json
 
@@ -975,106 +989,99 @@ def _cmd_study_analyze(args: argparse.Namespace) -> int:
     return 0
 
 
-def _cmd_study_classify(args: argparse.Namespace) -> int:
-    """Run ONE classification condition over the manifest (prefix-only).
+def _resolve_target_bugs(args: argparse.Namespace) -> "int | str":
+    """Shared by study-escape/study-ladder: resolve bare --manifest under
+    .dist/study/ and return its target_bugs (for default filename suffixes)."""
+    from .batch import load_manifest
 
-    Writes classification.<tag>.json / report.<tag>.md into the shared
-    bug folders under artifacts_root/prefix/, reusing context.json evidence.
-    When the condition is open-taxonomy and the closed pass exists in the
-    same tree, the RQ2 coverage metrics are computed automatically.
-    """
-    from .batch import install_signal_handlers, load_manifest, reset_shutdown, run_condition_from_manifest
-    from .odc import condition_tag
-    from .pipeline import write_json
-
-    install_signal_handlers()
-    reset_shutdown()
-
-    # Resolve bare manifest filename under .dist/study/
     if args.manifest and not args.manifest.parent.parts:
         args.manifest = Path(".dist") / "study" / args.manifest
+    if args.manifest and args.manifest.exists():
+        manifest = load_manifest(args.manifest)
+        return manifest.get("target_bugs", manifest.get("selected_bugs", ""))
+    return ""
 
-    client = Defects4JClient(command=args.defects4j_cmd)
-    manifest = load_manifest(args.manifest)
-    target_bugs = manifest.get("target_bugs", manifest.get("selected_bugs", 0))
+
+def _cmd_study_escape(args: argparse.Namespace) -> int:
+    """RQ2: taxonomy-coverage/escape-rate metrics between the closed and open
+    passes of one strategy. Needs both passes already produced by study-run."""
+    from .analysis import compute_coverage_metrics
+    from .pipeline import write_json
+
+    target_bugs = _resolve_target_bugs(args)
     dist_study = Path(".dist") / "study"
-    tag = condition_tag(args.taxonomy, args.strategy)
+    if args.prefix_dir is None:
+        artifacts_folder = f"artifacts_{target_bugs}" if target_bugs else "artifacts"
+        args.prefix_dir = dist_study / artifacts_folder / "prefix"
+    if args.output is None:
+        suffix = f"_{target_bugs}" if target_bugs else ""
+        args.output = dist_study / f"taxonomy_coverage{suffix}.json"
 
-    if args.artifacts_root is None:
-        args.artifacts_root = dist_study / f"artifacts_{target_bugs}"
-    if args.work_root is None:
-        args.work_root = dist_study / "work"
-    if args.summary_output is None:
-        args.summary_output = dist_study / f"classify_summary.{tag}.json"
+    if not args.prefix_dir.exists():
+        console.error_panel("Prefix Directory Not Found", str(args.prefix_dir))
+        return 1
 
-    console.header_panel("Study Classify Configuration", None)
-    console.step(f"Manifest: {args.manifest}")
-    console.step(f"Artifacts: {args.artifacts_root}")
-    console.step(f"Condition: {tag}  (taxonomy: {args.taxonomy}, strategy: {args.strategy})")
+    closed_files = list(args.prefix_dir.glob(f"*/classification.{args.strategy}-closed.json"))
+    open_files = list(args.prefix_dir.glob(f"*/classification.{args.strategy}-open.json"))
+    if not closed_files or not open_files:
+        console.error_panel(
+            "Missing Passes",
+            f"Need both closed and open passes for --strategy {args.strategy} in {args.prefix_dir}.",
+            hint=f"Run study-run --taxonomy closed --strategy {args.strategy} and "
+                 f"study-run --taxonomy open --strategy {args.strategy} first.",
+        )
+        return 1
 
-    summary = run_condition_from_manifest(
-        defects4j=client,
-        manifest=manifest,
-        artifacts_root=args.artifacts_root,
-        work_root=args.work_root,
-        provider=args.provider,
-        model=args.model,
-        api_key_env=args.api_key_env,
-        base_url=args.base_url,
-        taxonomy=args.taxonomy,
-        strategy=args.strategy,
-        snippet_radius=args.snippet_radius,
-        run_coverage=not args.skip_coverage,
-        skip_existing=not args.no_skip_existing,
-        prompt_output=args.prompt_output,
-        daily_call_budget=args.daily_call_budget,
-        self_consistency=args.self_consistency,
-    )
+    coverage = compute_coverage_metrics(prefix_dir=args.prefix_dir, strategy=args.strategy)
+    write_json(args.output, coverage)
 
-    write_json(args.summary_output, summary)
+    console.result_panel("RQ2 coverage metrics written", [
+        ("Output", str(args.output)),
+        ("Coverage rate", str(coverage.get("coverage_rate"))),
+        ("Escape rate", str(coverage.get("escape_rate"))),
+        ("Shift kappa (8-cat)", str(coverage["taxonomy_shift"].get("cohens_kappa_8cat"))),
+    ])
+    return 0
 
-    # ── RQ2 metrics: auto-compute when this was the open pass and the
-    #    closed pass exists in the same tree ─────────────────────────────
-    coverage_metrics = None
-    prefix_dir = args.artifacts_root / "prefix"
-    if summary.get("budget_reached"):
-        console.warn("Budget pause — skipping RQ2 metrics until the pass completes (resume tomorrow).")
-    elif args.taxonomy == "open" and prefix_dir.exists():
-        closed_files = list(prefix_dir.glob(f"*/classification.closed-{args.strategy}.json"))
-        if closed_files:
-            from .analysis import compute_coverage_metrics
 
-            coverage_metrics = compute_coverage_metrics(
-                prefix_dir=prefix_dir, strategy=args.strategy
-            )
-            analysis_path = dist_study / f"taxonomy_coverage_{target_bugs}.json"
-            write_json(analysis_path, coverage_metrics)
-            console.step(f"Taxonomy coverage metrics written -> {analysis_path}")
-        else:
-            console.warn(
-                "No closed-pass files found in the same tree — skipping RQ2 metrics "
-                f"(run: study-run --manifest {args.manifest.name} --taxonomy closed first)."
-            )
+def _cmd_study_ladder(args: argparse.Namespace) -> int:
+    """RQ4: ablation-ladder metrics (vocabulary size / entropy / ODC coverage)
+    across an ordered list of condition tags, prefix-only."""
+    from .analysis import compute_taxonomy_grounding_metrics
+    from .batch import discover_ladder
+    from .pipeline import write_json
 
-    if summary.get("budget_reached"):
-        status_label = "Condition run paused — daily call budget reached (checkpoint saved; re-run to resume)"
-    elif summary.get("interrupted"):
-        status_label = "Condition run interrupted"
-    else:
-        status_label = "Condition run complete"
-    rows = [
-        ("Condition", tag),
-        ("Summary", str(args.summary_output)),
-        ("Completed", str(summary.get("completed_entries", 0))),
-        ("Reused context", str(summary.get("reused_context_count", 0))),
-    ]
-    if coverage_metrics:
-        rows.extend([
-            ("Coverage rate", str(coverage_metrics.get("coverage_rate"))),
-            ("Escape rate", str(coverage_metrics.get("escape_rate"))),
-            ("Shift kappa (8-cat)", str(coverage_metrics["taxonomy_shift"].get("cohens_kappa_8cat"))),
-        ])
-    console.result_panel(status_label, rows)
+    target_bugs = _resolve_target_bugs(args)
+    dist_study = Path(".dist") / "study"
+    if args.prefix_dir is None:
+        artifacts_folder = f"artifacts_{target_bugs}" if target_bugs else "artifacts"
+        args.prefix_dir = dist_study / artifacts_folder / "prefix"
+    if args.output is None:
+        suffix = f"_{target_bugs}" if target_bugs else ""
+        args.output = dist_study / f"taxonomy_grounding{suffix}.json"
+
+    if not args.prefix_dir.exists():
+        console.error_panel("Prefix Directory Not Found", str(args.prefix_dir))
+        return 1
+
+    tags = [t.strip() for t in args.tags.split(",") if t.strip()]
+    if len(tags) < 2:
+        console.error_panel("Invalid Ladder", "--tags needs at least 2 comma-separated condition tags.")
+        return 1
+
+    ladder_data = discover_ladder(args.prefix_dir, tags)
+    missing = [tag for tag in tags if not ladder_data[tag]]
+    if missing:
+        console.warn(f"No classification files found for tag(s): {', '.join(missing)} in {args.prefix_dir}")
+
+    grounding = compute_taxonomy_grounding_metrics(tiers=[(tag, ladder_data[tag]) for tag in tags])
+    write_json(args.output, grounding)
+
+    console.result_panel("RQ4 ladder metrics written", [
+        ("Output", str(args.output)),
+        ("Tags", ", ".join(tags)),
+        ("Vocabulary reduction", str(grounding.get("vocabulary_reduction_ratio"))),
+    ])
     return 0
 
 
@@ -1084,7 +1091,9 @@ def _cmd_study_export(args: argparse.Namespace) -> int:
         export_accuracy_table_latex,
         export_baseline_comparison_latex,
         export_confusion_matrix_latex,
+        export_coverage_latex,
         export_per_project_kappa_latex,
+        export_taxonomy_grounding_latex,
         export_type_distribution_latex,
         export_all_csv,
     )
@@ -1096,6 +1105,22 @@ def _cmd_study_export(args: argparse.Namespace) -> int:
 
     analysis = json_mod.loads(analysis_path.read_text(encoding="utf-8"))
     output_dir = args.output_dir or analysis_path.parent
+
+    # study-escape/study-ladder write standalone sibling files
+    # (taxonomy_coverage<suffix>.json / taxonomy_grounding<suffix>.json,
+    # same <N>-suffix convention as analysis<suffix>.json) — pick them up if
+    # present so their tables get exported alongside the drift analysis.
+    suffix = analysis_path.stem
+    if suffix.startswith("analysis"):
+        suffix = suffix[len("analysis"):]
+    else:
+        suffix = ""
+    coverage_path = analysis_path.parent / f"taxonomy_coverage{suffix}.json"
+    grounding_path = analysis_path.parent / f"taxonomy_grounding{suffix}.json"
+    if coverage_path.exists():
+        analysis["taxonomy_coverage"] = json_mod.loads(coverage_path.read_text(encoding="utf-8"))
+    if grounding_path.exists():
+        analysis["taxonomy_grounding"] = json_mod.loads(grounding_path.read_text(encoding="utf-8"))
 
     written: list[str] = []
 
@@ -1111,6 +1136,10 @@ def _cmd_study_export(args: argparse.Namespace) -> int:
         ]
         if analysis.get("baseline_comparison"):
             tables.append(("baseline_comparison.tex", export_baseline_comparison_latex))
+        if analysis.get("taxonomy_coverage"):
+            tables.append(("taxonomy_coverage.tex", export_coverage_latex))
+        if analysis.get("taxonomy_grounding"):
+            tables.append(("taxonomy_grounding.tex", export_taxonomy_grounding_latex))
 
         for filename, func in tables:
             try:

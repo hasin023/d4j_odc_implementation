@@ -123,10 +123,28 @@ class BatchAnalysisTests(unittest.TestCase):
             self.assertTrue(summary["top3_alternative_match"])
             self.assertTrue(summary["top3_no_common_alternative"])
 
+            # RQ1: type distribution over prefix classifications (both are Checking).
+            self.assertEqual(2, summary["type_distribution_prefix"]["type_counts"].get("Checking"))
+
+            # RQ3: strict-match alias matches type_unchanged (both pairs changed → 0),
+            # per-type precision/recall/F1, overall Cohen's kappa, and confusion matrix.
+            self.assertEqual(0, summary["strict_match_count"])
+            self.assertEqual(summary["type_unchanged_rate"], summary["strict_match_rate"])
+            self.assertIn("Checking", summary["per_type_metrics"])
+            self.assertIsNotNone(summary["cohens_kappa"])
+            self.assertEqual(
+                {"Algorithm/Method": 1, "Relationship": 1},
+                summary["type_confusion_matrix"]["Checking"],
+            )
+
+            # RQ5: per-project kappa is None for projects with < 2 bugs (both here).
+            self.assertIsNone(summary["per_project_kappa"]["Lang"])
+            self.assertIsNone(summary["per_project_kappa"]["Math"])
+
     @staticmethod
     def _write_case(case_dir: Path, *, classification: dict) -> None:
         case_dir.mkdir(parents=True, exist_ok=True)
-        (case_dir / "classification.closed-scientific.json").write_text(
+        (case_dir / "classification.scientific-closed.json").write_text(
             json.dumps(classification, indent=2),
             encoding="utf-8",
         )
@@ -153,7 +171,7 @@ class BatchAnalysisTests(unittest.TestCase):
             ),
             encoding="utf-8",
         )
-        (case_dir / "report.closed-scientific.md").write_text(
+        (case_dir / "report.scientific-closed.md").write_text(
             "# Report\n\n## ODC Result\n- ODC Type: sample\n- Confidence: sample\n",
             encoding="utf-8",
         )
@@ -279,7 +297,7 @@ class BatchResumeTests(unittest.TestCase):
         temp_root = self._scratch_dir("resume_checkpoint_skip")
         artifacts_root = temp_root / "artifacts"
         work_root = temp_root / "work"
-        checkpoint_path = artifacts_root / "checkpoint.pairs.closed-scientific.json"
+        checkpoint_path = artifacts_root / "checkpoint.pairs.scientific-closed.json"
         first_run_calls: list[tuple[str, str, int, str]] = []
         second_run_calls: list[tuple[str, str, int, str]] = []
         shutdown_once = {"done": False}
@@ -384,7 +402,7 @@ class BatchResumeTests(unittest.TestCase):
         temp_root = self._scratch_dir("resume_partial_bug")
         artifacts_root = temp_root / "artifacts"
         work_root = temp_root / "work"
-        checkpoint_path = artifacts_root / "checkpoint.pairs.closed-scientific.json"
+        checkpoint_path = artifacts_root / "checkpoint.pairs.scientific-closed.json"
         first_run_calls: list[tuple[str, str, int, str]] = []
         second_run_calls: list[tuple[str, str, int, str]] = []
         shutdown_once = {"done": False}
@@ -553,62 +571,34 @@ class BudgetGuardTests(unittest.TestCase):
         self.assertEqual(4, len(calls))
         shutil.rmtree(temp_root, ignore_errors=True)
 
-    def test_condition_runner_stops_at_budget_and_resumes(self) -> None:
-        from d4j_odc_pipeline.batch import reset_shutdown, run_condition_from_manifest
-        reset_shutdown()
-        manifest = {"target_bugs": 3, "entries": [
-            {"project_id": "Lang", "bug_id": 1},
-            {"project_id": "Math", "bug_id": 2},
-            {"project_id": "Time", "bug_id": 3},
-        ]}
-        temp_root = self._scratch_dir("budget_condition")
-        calls: list = []
-        fake_collect, fake_classify, fake_report = self._fakes(calls)
-        common = dict(
-            defects4j=_FakeDefects4JClient(),
-            manifest=manifest,
-            artifacts_root=temp_root / "artifacts",
-            work_root=temp_root / "work",
-            provider="gemini", model="m", api_key_env=None, base_url=None,
-            taxonomy="open", strategy="scientific",
+    def test_discover_ladder_collects_each_tag_across_bug_folders(self) -> None:
+        from d4j_odc_pipeline.batch import discover_ladder
+
+        temp_root = self._scratch_dir("discover_ladder")
+        prefix_dir = temp_root / "prefix"
+        bug_a = prefix_dir / "Lang_1_prefix"
+        bug_b = prefix_dir / "Math_2_prefix"
+        bug_a.mkdir(parents=True)
+        bug_b.mkdir(parents=True)
+
+        (bug_a / "classification.zero-free.json").write_text(
+            json.dumps({"odc_type": "Function"}), encoding="utf-8"
         )
-        with (
-            patch("d4j_odc_pipeline.batch.collect_bug_context", side_effect=fake_collect),
-            patch("d4j_odc_pipeline.batch.classify_bug_context", side_effect=fake_classify),
-            patch("d4j_odc_pipeline.batch.write_markdown_report", side_effect=fake_report),
-        ):
-            first = run_condition_from_manifest(**common, daily_call_budget=2)
-            self.assertTrue(first["budget_reached"])
-            self.assertEqual(2, first["llm_calls_made"])
+        (bug_a / "classification.scientific-open.json").write_text(
+            json.dumps({"odc_type": "Function"}), encoding="utf-8"
+        )
+        (bug_b / "classification.zero-free.json").write_text(
+            json.dumps({"odc_type": "Checking"}), encoding="utf-8"
+        )
+        # bug_b has no scientific-open pass — should just be absent, not error.
 
-            second = run_condition_from_manifest(**common, daily_call_budget=1400)
-            self.assertFalse(second["budget_reached"])
-            self.assertEqual(1, second["llm_calls_made"])
-        self.assertEqual(3, len(calls))
+        result = discover_ladder(prefix_dir, ["zero-free", "scientific-open"])
+        self.assertEqual(2, len(result["zero-free"]))
+        self.assertEqual(1, len(result["scientific-open"]))
         shutil.rmtree(temp_root, ignore_errors=True)
 
-    def test_budget_zero_disables_guard(self) -> None:
-        from d4j_odc_pipeline.batch import reset_shutdown, run_condition_from_manifest
-        reset_shutdown()
-        manifest = {"target_bugs": 2, "entries": [
-            {"project_id": "Lang", "bug_id": 1},
-            {"project_id": "Math", "bug_id": 2},
-        ]}
-        temp_root = self._scratch_dir("budget_disabled")
-        calls: list = []
-        fake_collect, fake_classify, fake_report = self._fakes(calls)
-        with (
-            patch("d4j_odc_pipeline.batch.collect_bug_context", side_effect=fake_collect),
-            patch("d4j_odc_pipeline.batch.classify_bug_context", side_effect=fake_classify),
-            patch("d4j_odc_pipeline.batch.write_markdown_report", side_effect=fake_report),
-        ):
-            summary = run_condition_from_manifest(
-                defects4j=_FakeDefects4JClient(), manifest=manifest,
-                artifacts_root=temp_root / "artifacts", work_root=temp_root / "work",
-                provider="gemini", model="m", api_key_env=None, base_url=None,
-                daily_call_budget=0,
-            )
-        self.assertFalse(summary["budget_reached"])
-        self.assertIsNone(summary["daily_call_budget"])
-        self.assertEqual(2, summary["llm_calls_made"])
-        shutil.rmtree(temp_root, ignore_errors=True)
+    def test_discover_ladder_missing_dir_raises(self) -> None:
+        from d4j_odc_pipeline.batch import discover_ladder
+
+        with self.assertRaises(ValueError):
+            discover_ladder(Path("/nonexistent/prefix/dir"), ["zero-free"])

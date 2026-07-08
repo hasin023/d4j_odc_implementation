@@ -1,0 +1,75 @@
+{
+  "project_id": "Jsoup",
+  "bug_id": 12,
+  "version_id": "12b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-08T17:05:47+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The Selector parser throws a SelectorParseException when encountering an attribute selector after a combinator. The 'findElements' method in Selector.java lacks logic to handle the '[' character, which is the start of an attribute selector.",
+  "hypothesis": "The Selector parser fails to correctly handle attribute selectors (like [attr~=regex]) when they follow a combinator because the 'findElements' method does not account for the '[' character as a valid start of an element matcher, causing it to fall through to the 'unhandled' exception block.",
+  "prediction": "The 'findElements' method in Selector.java is missing a conditional check for the '[' character, which is required to initiate attribute selector parsing.",
+  "experiment_rationale": "The stack trace and code snippets confirm that 'findElements' is the entry point for parsing element matchers and it explicitly throws an exception if it doesn't match known prefixes like '#', '.', or specific pseudo-selectors. The missing '[' handling is a classic 'Checking' defect where a valid input path is not validated/handled.",
+  "reasoning_summary": "The code snippet for 'findElements' shows it only checks for '#', '.', and various pseudo-selectors. It does not check for '['. When a query like 'table[class~=x|y]' is processed, the parser reaches the attribute part, but 'findElements' doesn't know how to handle '[', leading to the 'unhandled' exception.",
+  "evidence_used": [
+    "full_stack_trace",
+    "snippet"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The issue is not the complexity of the algorithm, but the missing guard/check for a specific token type."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": "Unit Test",
+  "inferred_triggers": [
+    "Recovery/Exception"
+  ],
+  "inferred_impact": [
+    "Reliability"
+  ],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "closed",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The TokenQueue in Selector.java is not correctly handling the attribute selector syntax (specifically the regex operator '~=') when it appears after a combinator, causing the parser to misinterpret the '[' character or the subsequent tokens.",
+      "prediction": "The TokenQueue or the Selector parsing logic for attribute selectors is missing a check or incorrectly consuming tokens when an attribute selector follows a combinator, leading to an unexpected token error.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "org.jsoup.select.Selector"
+      },
+      "observation_summary": [
+        "snippets"
+      ]
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The Selector parser fails to correctly handle attribute selectors (like [attr~=regex]) when they follow a combinator because the 'findElements' method does not account for the '[' character as a valid start of an element matcher, causing it to fall through to the 'unhandled' exception block.",
+      "prediction": "The 'findElements' method in Selector.java is missing a conditional check for the '[' character, which is required to initiate attribute selector parsing.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Checking"
+    }
+  ],
+  "llm_calls_used": 2,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"target\": \"Design/Code\", \"qualifier\": null, \"age\": null, \"source\": null, \"inferred_activity\": \"Unit Test\", \"inferred_triggers\": [\"Recovery/Exception\"], \"inferred_impact\": [\"Reliability\"], \"confidence\": 0.9, \"needs_human_review\": false, \"observation_summary\": \"The Selector parser throws a SelectorParseException when encountering an attribute selector after a combinator. The 'findElements' method in Selector.java lacks logic to handle the '[' character, which is the start of an attribute selector.\", \"hypothesis\": \"The Selector parser fails to correctly handle attribute selectors (like [attr~=regex]) when they follow a combinator because the 'findElements' method does not account for the '[' character as a valid start of an element matcher, causing it to fall through to the 'unhandled' exception block.\", \"prediction\": \"The 'findElements' method in Selector.java is missing a conditional check for the '[' character, which is required to initiate attribute selector parsing.\", \"experiment_rationale\": \"The stack trace and code snippets confirm that 'findElements' is the entry point for parsing element matchers and it explicitly throws an exception if it doesn't match known prefixes like '#', '.', or specific pseudo-selectors. The missing '[' handling is a classic 'Checking' defect where a valid input path is not validated/handled.\", \"reasoning_summary\": \"The code snippet for 'findElements' shows it only checks for '#', '.', and various pseudo-selectors. It does not check for '['. When a query like 'table[class~=x|y]' is processed, the parser reaches the attribute part, but 'findElements' doesn't know how to handle '[', leading to the 'unhandled' exception.\", \"evidence_used\": [\"full_stack_trace\", \"snippet\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"The issue is not the complexity of the algorithm, but the missing guard/check for a specific token type.\"}]}"
+}

@@ -1,16 +1,20 @@
 from __future__ import annotations
 
+import itertools
 import json
 import os
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
+from typing import Callable, Iterator
 
 _USER_AGENT = "d4j-odc-pipeline/1.0"
 
 
 class LLMError(RuntimeError):
-    pass
+    def __init__(self, message: str, status_code: int | None = None) -> None:
+        super().__init__(message)
+        self.status_code = status_code
 
 
 @dataclass
@@ -23,9 +27,106 @@ class LLMSettings:
     temperature: float = 0.0
 
 
+# Key rotation is resolved fresh per HTTP request (not baked into LLMSettings at
+# construction time), because one LLMClient instance is reused across every turn
+# of a --strategy scientific loop (up to 6 calls), and a fresh LLMClient is built
+# per bug in the batch loop. Per-construction rotation would starve both: a
+# single bug's turns would always share one key, and single-call strategies
+# (zero/few) would always land on key #1 since a new client resets per bug.
+# The cycle is cached at module scope, keyed by the env var it was read from, so
+# rotation advances continuously across the whole process regardless of how many
+# LLMClient instances get built.
+_key_rotation_cycles: dict[str, "Iterator[str]"] = {}
+
+
+def _resolve_api_keys(provider: str, api_key_env: str | None) -> tuple[str, list[str]]:
+    """Resolve the API key(s) for a provider.
+
+    <ENV_VAR>S (e.g. GEMINI_API_KEYS), comma-separated, rotates across
+    multiple keys — useful for spreading a small team's free-tier quota across
+    several accounts. Falls back to the singular <ENV_VAR> for single-key setups
+    (unchanged behavior). Returns (cache_key, keys) where cache_key identifies
+    this env var for the shared rotation cycle.
+    """
+    resolved_singular_env = api_key_env or default_api_key_env(provider)
+    plural_env = f"{resolved_singular_env}S"
+
+    raw_plural = os.environ.get(plural_env)
+    if raw_plural:
+        keys = [key.strip() for key in raw_plural.split(",") if key.strip()]
+        if keys:
+            return plural_env, keys
+
+    singular_key = os.environ.get(resolved_singular_env)
+    if singular_key:
+        return resolved_singular_env, [singular_key]
+
+    raise LLMError(
+        f"Missing API key in environment variable {resolved_singular_env} "
+        f"(or {plural_env} for multiple, comma-separated)."
+    )
+
+
+def _get_key_cycle(cache_key: str, keys: list[str]) -> Iterator[str]:
+    cycle = _key_rotation_cycles.get(cache_key)
+    if cycle is None:
+        cycle = itertools.cycle(keys)
+        _key_rotation_cycles[cache_key] = cycle
+    return cycle
+
+
+_KEY_SPECIFIC_STATUS_CODES = {401, 403, 429}
+
+
 class LLMClient:
-    def __init__(self, settings: LLMSettings) -> None:
+    def __init__(
+        self,
+        settings: LLMSettings,
+        key_cycle: Iterator[str] | None = None,
+        key_pool_size: int = 1,
+    ) -> None:
         self.settings = settings
+        self._key_cycle = key_cycle or itertools.cycle([settings.api_key])
+        self._key_pool_size = max(1, key_pool_size)
+
+    def _next_api_key(self) -> str:
+        return next(self._key_cycle)
+
+    def _request_with_key_failover(
+        self, build_request: Callable[[str], urllib.request.Request]
+    ) -> str:
+        """Build+send a request, failing over to the next key in the rotation
+        pool when a response looks like a problem with THIS key (401/403
+        invalid/revoked, 429 rate-limited) rather than a transient server issue.
+
+        With more than one key available, a 429 fails over to the next key
+        immediately instead of backing off on the same (likely still-limited)
+        key. With only one key, falls back to the original same-key backoff
+        (unchanged behavior) since there is nothing else to try.
+        """
+        from . import console
+
+        last_error: LLMError | None = None
+        for attempt in range(self._key_pool_size):
+            api_key = self._next_api_key()
+            request = build_request(api_key)
+            can_fail_over = attempt < self._key_pool_size - 1
+            # Only let 429 exhaust its own same-key backoff when there is no
+            # other key to fall back to; otherwise fail fast so we can swap.
+            retry_codes = {500, 502, 503} | (set() if can_fail_over else {429})
+            try:
+                return _urlopen_json(request, retry_status_codes=retry_codes)
+            except LLMError as exc:
+                last_error = exc
+                if can_fail_over and exc.status_code in _KEY_SPECIFIC_STATUS_CODES:
+                    console.warn(
+                        f"Key attempt {attempt + 1}/{self._key_pool_size} failed "
+                        f"(status {exc.status_code}) — trying next key."
+                    )
+                    continue
+                raise
+        assert last_error is not None
+        raise last_error
 
     @classmethod
     def from_env(
@@ -38,10 +139,8 @@ class LLMClient:
         temperature: float = 0.0,
     ) -> "LLMClient":
         provider = provider.strip().lower()
-        resolved_api_key_env = api_key_env or default_api_key_env(provider)
-        api_key = os.environ.get(resolved_api_key_env)
-        if not api_key:
-            raise LLMError(f"Missing API key in environment variable {resolved_api_key_env}.")
+        cache_key, keys = _resolve_api_keys(provider, api_key_env)
+        api_key = keys[0]
         default_headers: dict[str, str] = {}
         if provider == "gemini":
             resolved_base_url = (
@@ -77,7 +176,9 @@ class LLMClient:
                 base_url=resolved_base_url.rstrip("/"),
                 default_headers=default_headers,
                 temperature=temperature,
-            )
+            ),
+            key_cycle=_get_key_cycle(cache_key, keys),
+            key_pool_size=len(keys),
         )
 
     def complete(
@@ -96,18 +197,21 @@ class LLMClient:
             "messages": messages,
             "temperature": self.settings.temperature,
         }
-        request = urllib.request.Request(
-            url=f"{self.settings.base_url}/chat/completions",
-            data=json.dumps(payload).encode("utf-8"),
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.settings.api_key}",
-                "User-Agent": _USER_AGENT,
-                **self.settings.default_headers,
-            },
-            method="POST",
-        )
-        raw = _urlopen_json(request)
+
+        def build_request(api_key: str) -> urllib.request.Request:
+            return urllib.request.Request(
+                url=f"{self.settings.base_url}/chat/completions",
+                data=json.dumps(payload).encode("utf-8"),
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {api_key}",
+                    "User-Agent": _USER_AGENT,
+                    **self.settings.default_headers,
+                },
+                method="POST",
+            )
+
+        raw = self._request_with_key_failover(build_request)
         data = json.loads(raw)
         try:
             return data["choices"][0]["message"]["content"]
@@ -134,17 +238,19 @@ class LLMClient:
                 "parts": [{"text": system_instruction}],
             }
 
-        request = urllib.request.Request(
-            url=f"{self.settings.base_url}/models/{self.settings.model}:generateContent",
-            data=json.dumps(payload).encode("utf-8"),
-            headers={
-                "Content-Type": "application/json",
-                "x-goog-api-key": self.settings.api_key,
-                "User-Agent": _USER_AGENT,
-            },
-            method="POST",
-        )
-        raw = _urlopen_json(request)
+        def build_request(api_key: str) -> urllib.request.Request:
+            return urllib.request.Request(
+                url=f"{self.settings.base_url}/models/{self.settings.model}:generateContent",
+                data=json.dumps(payload).encode("utf-8"),
+                headers={
+                    "Content-Type": "application/json",
+                    "x-goog-api-key": api_key,
+                    "User-Agent": _USER_AGENT,
+                },
+                method="POST",
+            )
+
+        raw = self._request_with_key_failover(build_request)
         data = json.loads(raw)
         try:
             parts = data["candidates"][0]["content"]["parts"]
@@ -301,18 +407,21 @@ def _urlopen_json(
     max_retries: int = 5,
     base_delay: float = 2.0,
     max_delay: float = 60.0,
+    retry_status_codes: set[int] | None = None,
 ) -> str:
     """Make an HTTP request with automatic retry on transient failures.
 
-    Retries on 429 (rate limit), 500, 502, 503 (service unavailable) with
-    exponential backoff + jitter.  Non-retryable errors (400, 401, 403, etc.)
-    fail immediately.
+    Retries on the codes in retry_status_codes (default {429, 500, 502, 503})
+    with exponential backoff + jitter. Anything else fails immediately, and
+    every raised LLMError carries .status_code so callers doing multi-key
+    failover (LLMClient._request_with_key_failover) can tell a key-specific
+    problem (401/403/429) from an unrelated one.
     """
     import random
     import time
     from . import console
 
-    _RETRYABLE_STATUS_CODES = {429, 500, 502, 503}
+    _RETRYABLE_STATUS_CODES = retry_status_codes if retry_status_codes is not None else {429, 500, 502, 503}
 
     last_exception: Exception | None = None
 
@@ -325,8 +434,9 @@ def _urlopen_json(
             last_exception = exc
 
             if exc.code not in _RETRYABLE_STATUS_CODES:
-                # Non-retryable error — fail immediately
-                raise LLMError(f"LLM request failed with status {exc.code}: {body}") from exc
+                # Non-retryable (or, for the failover wrapper, deliberately
+                # not-retried-on-this-key) — fail immediately.
+                raise LLMError(f"LLM request failed with status {exc.code}: {body}", status_code=exc.code) from exc
 
             # Check for Retry-After header (some APIs send it with 429)
             retry_after = exc.headers.get("Retry-After") if exc.headers else None
@@ -380,7 +490,8 @@ def _urlopen_json(
         raise LLMError(
             f"LLM request failed after {max_retries} attempts "
             f"(last status: {last_exception.code}). The API may be under heavy load. "
-            f"Try again in a few minutes."
+            f"Try again in a few minutes.",
+            status_code=last_exception.code,
         ) from last_exception
     raise LLMError(f"LLM request failed after {max_retries} attempts: {last_exception}") from last_exception
 

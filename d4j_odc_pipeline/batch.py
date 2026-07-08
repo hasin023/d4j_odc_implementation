@@ -8,7 +8,8 @@ import threading
 from pathlib import Path
 from typing import Any
 
-from .comparison import compare_classifications
+from .analysis import compute_per_type_metrics, compute_type_distribution
+from .comparison import compare_classifications, compute_cohens_kappa, compute_per_project_kappa
 from .defects4j import Defects4JClient
 from .models import ensure_parent, utc_now_iso
 from .odc import DEFAULT_STRATEGY, DEFAULT_TAXONOMY, condition_tag, validate_condition
@@ -480,228 +481,6 @@ def run_batch_from_manifest(
     return summary
 
 
-def run_condition_from_manifest(
-    *,
-    defects4j: Defects4JClient,
-    manifest: dict[str, Any],
-    artifacts_root: Path,
-    work_root: Path,
-    provider: str,
-    model: str,
-    api_key_env: str | None,
-    base_url: str | None,
-    taxonomy: str = DEFAULT_TAXONOMY,
-    strategy: str = DEFAULT_STRATEGY,
-    snippet_radius: int = 12,
-    run_coverage: bool = False,
-    skip_existing: bool = True,
-    prompt_output: bool = False,
-    daily_call_budget: int | None = 1400,
-    self_consistency: int = 1,
-) -> dict[str, Any]:
-    """Run ONE classification condition over the manifest, prefix-only.
-
-    Backs the ``study-classify`` command. Writes tagged files into the SAME
-    bug folders as every other condition (bug-centric layout):
-
-        artifacts_root/prefix/<project>_<bug>_prefix/classification.<tag>.json
-        artifacts_root/prefix/<project>_<bug>_prefix/report.<tag>.md
-
-    context.json in each bug folder is reused when present (evidence is
-    collected once and shared by all conditions — this is what makes
-    cross-condition comparisons evidence-identical); it is collected fresh
-    only when missing, and never rewritten.
-    """
-    entries = list(manifest.get("entries", []))
-    if not entries:
-        raise ValueError("Manifest contains no entries.")
-
-    validate_condition(taxonomy, strategy)
-    tag = condition_tag(taxonomy, strategy)
-    prefix_root = artifacts_root / "prefix"
-
-    # Budget guard (see run_batch_from_manifest). <= 0 disables.
-    if daily_call_budget is not None and daily_call_budget <= 0:
-        daily_call_budget = None
-    llm_calls_made = 0
-    budget_reached = False
-
-    ensure_parent(prefix_root / "placeholder.json")
-    ensure_parent(work_root / "placeholder.txt")
-
-    manifest_hash = _compute_manifest_hash(entries)
-    checkpoint_path = artifacts_root / f"checkpoint.prefix.{tag}.json"
-    completed_keys = _load_checkpoint(checkpoint_path, manifest_hash)
-
-    records: list[dict[str, Any]] = []
-    interrupted = False
-
-    from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, MofNCompleteColumn, TimeElapsedColumn
-
-    con = console.get_console()
-    progress_ctx = Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        MofNCompleteColumn(),
-        TimeElapsedColumn(),
-        console=con,
-        disable=console.is_quiet() or con is None,
-    )
-
-    with progress_ctx as progress:
-        task_id = progress.add_task("Baseline processing", total=len(entries))
-
-        for index, entry in enumerate(entries, start=1):
-            if is_shutdown_requested():
-                console.warn(f"Shutdown requested — stopping after {index - 1}/{len(entries)} entries")
-                interrupted = True
-                break
-
-            project_id = str(entry.get("project_id", "")).strip()
-            bug_id = int(entry.get("bug_id", 0))
-            if not project_id or bug_id <= 0:
-                records.append({
-                    "index": index,
-                    "project_id": project_id,
-                    "bug_id": bug_id,
-                    "status": "invalid-manifest-entry",
-                })
-                progress.advance(task_id)
-                continue
-
-            bug_key = f"{project_id}_{bug_id}"
-
-            if bug_key in completed_keys:
-                progress.update(task_id, description=f"[dim]{bug_key} (checkpoint-skip)[/dim]")
-                records.append({
-                    "index": index,
-                    "project_id": project_id,
-                    "bug_id": bug_id,
-                    "bug_key": bug_key,
-                    "status": "skipped-existing",
-                })
-                progress.advance(task_id)
-                continue
-
-            if daily_call_budget is not None and llm_calls_made >= daily_call_budget:
-                budget_reached = True
-                _write_checkpoint(checkpoint_path, records, manifest_hash, interrupted=False)
-                console.warn(
-                    f"Daily call budget reached ({llm_calls_made}/{daily_call_budget}) — "
-                    f"stopped cleanly after {index - 1}/{len(entries)} entries. "
-                    "Re-run the same command tomorrow to resume from the checkpoint."
-                )
-                break
-
-            progress.update(task_id, description=f"[cyan]{bug_key} {tag}[/cyan] [{index}/{len(entries)}]")
-
-            run_name = f"{bug_key}_prefix"
-            run_dir = prefix_root / run_name
-            context_path = run_dir / "context.json"
-            classification_path = run_dir / f"classification.{tag}.json"
-            report_path = run_dir / f"report.{tag}.md"
-            prompt_path = run_dir / f"prompt.{tag}.json" if prompt_output else None
-
-            record: dict[str, Any] = {
-                "index": index,
-                "project_id": project_id,
-                "bug_id": bug_id,
-                "bug_key": bug_key,
-                "status": "pending",
-            }
-
-            if skip_existing and classification_path.exists() and report_path.exists():
-                record["status"] = "skipped-existing"
-                records.append(record)
-                progress.advance(task_id)
-                continue
-
-            try:
-                # Reuse the bug folder's context.json when it exists —
-                # evidence is shared across all conditions.
-                reused_context = False
-                if context_path.exists():
-                    from .pipeline import load_context
-                    context = load_context(context_path)
-                    reused_context = True
-                else:
-                    run_work_dir = work_root / f"{project_id}_{bug_id}b"
-                    context = collect_bug_context(
-                        defects4j=defects4j,
-                        project_id=project_id,
-                        bug_id=bug_id,
-                        work_dir=run_work_dir,
-                        output_path=context_path,
-                        snippet_radius=snippet_radius,
-                        run_coverage=run_coverage,
-                        include_fix_diff=False,
-                    )
-
-                if is_shutdown_requested():
-                    record["status"] = "interrupted"
-                    interrupted = True
-                    records.append(record)
-                    break
-
-                llm_calls_made += self_consistency
-                classification = classify_bug_context(
-                    context=context,
-                    output_path=classification_path,
-                    provider=provider,
-                    model=model,
-                    api_key_env=api_key_env,
-                    base_url=base_url,
-                    prompt_output_path=prompt_path,
-                    dry_run=False,
-                    taxonomy=taxonomy,
-                    strategy=strategy,
-                    self_consistency=self_consistency,
-                )
-
-                if classification is None:
-                    raise ValueError("Classification returned None.")
-                llm_calls_made += max(0, getattr(classification, "llm_calls_used", self_consistency) - self_consistency)
-
-                write_markdown_report(
-                    context=context,
-                    classification=classification,
-                    output_path=report_path,
-                )
-                record["status"] = "ok"
-                record["reused_context"] = reused_context
-            except Exception as exc:  # noqa: BLE001
-                record["status"] = "failed"
-                record["error"] = str(exc)
-
-            records.append(record)
-            _write_checkpoint(checkpoint_path, records, manifest_hash, interrupted=False)
-            progress.advance(task_id)
-
-    _write_checkpoint(checkpoint_path, records, manifest_hash, interrupted=interrupted)
-
-    completed_count = sum(1 for r in records if r.get("status") in {"ok", "skipped-existing"})
-
-    return {
-        "created_at": utc_now_iso(),
-        "taxonomy": taxonomy,
-        "strategy": strategy,
-        "condition_tag": tag,
-        "llm_calls_made": llm_calls_made,
-        "self_consistency": self_consistency,
-        "daily_call_budget": daily_call_budget,
-        "budget_reached": budget_reached,
-        "manifest_target_bugs": manifest.get("target_bugs"),
-        "total_entries": len(records),
-        "completed_entries": completed_count,
-        "interrupted": interrupted,
-        "ok_count": sum(1 for r in records if r.get("status") == "ok"),
-        "reused_context_count": sum(1 for r in records if r.get("reused_context")),
-        "projects_covered": sorted({str(r.get("project_id", "")) for r in records if r.get("project_id")}),
-        "records": records,
-    }
-
-
 def analyze_batch_artifacts(
     *,
     prefix_dir: Path,
@@ -723,16 +502,22 @@ def analyze_batch_artifacts(
     rows: list[dict[str, Any]] = []
     transitions: dict[str, dict[str, Any]] = {}
     per_project: dict[str, dict[str, int]] = {}
+    prefix_classifications: list[dict[str, Any]] = []
+    type_metric_pairs: list[tuple[dict[str, Any], dict[str, Any]]] = []
+    cmp_results: list[Any] = []
 
     for key, pair in pairs.items():
         prefix_cls = _load_json(pair["prefix"] / classification_name)
         postfix_cls = _load_json(pair["postfix"] / classification_name)
+        prefix_classifications.append(prefix_cls)
+        type_metric_pairs.append((prefix_cls, postfix_cls))
         prefix_ctx = _load_json(pair["prefix"] / "context.json")
         postfix_ctx = _load_json(pair["postfix"] / "context.json")
         prefix_report = _read_text(pair["prefix"] / report_name)
         postfix_report = _read_text(pair["postfix"] / report_name)
 
         cmp_result = compare_classifications(prefix_cls, postfix_cls)
+        cmp_results.append(cmp_result)
 
         prefix_alts = _alternative_type_set(prefix_cls)
         postfix_alts = _alternative_type_set(postfix_cls)
@@ -870,6 +655,22 @@ def analyze_batch_artifacts(
     transitions_changed = dict(sorted(transitions_changed.items(), key=lambda item: item[1]["count"], reverse=True))
     transitions_unchanged = dict(sorted(transitions_unchanged.items(), key=lambda item: item[1]["count"], reverse=True))
 
+    # RQ1 (type distribution), RQ3 (per-type precision/recall/F1 + overall
+    # Cohen's kappa), RQ5 (per-project kappa) — all computed here from data
+    # already gathered in the loop above; previously these existed as
+    # standalone functions but were never wired into study-drift's output.
+    type_distribution = compute_type_distribution(prefix_classifications)
+    per_type_metrics = compute_per_type_metrics(type_metric_pairs)
+    per_project_kappa = compute_per_project_kappa(cmp_results)
+    cohens_kappa = compute_cohens_kappa(
+        [(r.prefix_odc_type, r.postfix_odc_type) for r in cmp_results]
+    ) if len(cmp_results) >= 2 else None
+
+    type_confusion_matrix: dict[str, dict[str, int]] = {}
+    for row in rows:
+        bucket = type_confusion_matrix.setdefault(row["prefix_odc_type"], {})
+        bucket[row["postfix_odc_type"]] = bucket.get(row["postfix_odc_type"], 0) + 1
+
     summary = {
         "created_at": utc_now_iso(),
         "total_pairs": total,
@@ -880,6 +681,10 @@ def analyze_batch_artifacts(
         "type_changed_rate": (type_changed / total) if total else 0.0,
         "type_unchanged_count": type_unchanged,
         "type_unchanged_rate": (type_unchanged / total) if total else 0.0,
+        # Aliases for type_unchanged_count/rate — export functions (RQ3 accuracy
+        # table) read "strict_match_*", matching the ComparisonResult field name.
+        "strict_match_count": type_unchanged,
+        "strict_match_rate": (type_unchanged / total) if total else 0.0,
         "no_alternative_count": len(no_alternative_candidates),
         "no_alternative_rate": (len(no_alternative_candidates) / total) if total else 0.0,
         "no_family_match_count": no_family_match,
@@ -888,7 +693,12 @@ def analyze_batch_artifacts(
         "top2_match_rate": (top2 / total) if total else 0.0,
         "family_match_count": family,
         "family_match_rate": (family / total) if total else 0.0,
+        "cohens_kappa": cohens_kappa,
         "per_project": per_project,
+        "per_project_kappa": per_project_kappa,
+        "type_distribution_prefix": type_distribution,
+        "per_type_metrics": per_type_metrics,
+        "type_confusion_matrix": type_confusion_matrix,
         "type_transitions_changed": transitions_changed,
         "type_transitions_unchanged": transitions_unchanged,
         "top3_alternative_match": alt_candidates,
@@ -989,7 +799,7 @@ def _discover_pairs(
     prefix_dir: Path,
     postfix_dir: Path,
     *,
-    classification_name: str = "classification.open-scientific.json",
+    classification_name: str = "classification.scientific-open.json",
 ) -> dict[str, dict[str, Path]]:
     if not prefix_dir.is_dir():
         raise ValueError(f"Prefix directory does not exist: {prefix_dir}")
@@ -1019,6 +829,29 @@ def _discover_pairs(
             "postfix": child,
         }
     return pairs
+
+
+def discover_ladder(prefix_dir: Path, tags: list[str]) -> dict[str, list[dict[str, Any]]]:
+    """Collect classification.<tag>.json payloads across every bug folder in
+    prefix_dir, for each tag in an ablation ladder (RQ4). Public — called
+    directly by the study-ladder CLI command.
+
+    Unlike _discover_pairs (one tag matched across two directories), this is
+    N tags read from bug folders within a single directory.
+    """
+    if not prefix_dir.is_dir():
+        raise ValueError(f"Prefix directory does not exist: {prefix_dir}")
+
+    result: dict[str, list[dict[str, Any]]] = {tag: [] for tag in tags}
+    for tag in tags:
+        fname = f"classification.{tag}.json"
+        for child in sorted(prefix_dir.iterdir()):
+            if not child.is_dir():
+                continue
+            candidate = child / fname
+            if candidate.exists():
+                result[tag].append(_load_json(candidate))
+    return result
 
 
 def _alternative_type_set(payload: dict[str, Any]) -> set[str]:

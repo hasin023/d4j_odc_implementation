@@ -52,9 +52,11 @@ Type `/help` inside the REPL to see all commands. Here's the full list:
 | Command                                                  | Description                            |
 | -------------------------------------------------------- | -------------------------------------- |
 | `/study plan [--target-bugs N]`                          | Generate balanced bug manifest         |
-| `/study run [--manifest M]`                              | Execute batch paired runs              |
-| `/study analyze [--manifest M] [--require-all-projects]` | Cross-artifact analysis                |
-| `/study baseline [--manifest M]`                         | Run the free-zero (unstructured baseline) condition — alias for `study-classify --taxonomy free --strategy zero` |
+| `/study run [--manifest M]`                              | Execute batch paired runs, one condition |
+| `/study drift [--manifest M] [--require-all-projects]`   | Cross-artifact prefix/postfix drift analysis for one condition (RQ1/RQ3/RQ5); renamed from `/study analyze` |
+| `/study baseline [--manifest M]`                         | Run the zero-free (unstructured baseline) condition, prefix+postfix |
+| `/study escape [--strategy S]`                           | RQ2 taxonomy-coverage/escape-rate metrics (closed vs open, one strategy) |
+| `/study ladder [--tags T1,T2,...]`                       | RQ4 ablation-ladder metrics (vocabulary/entropy/ODC coverage) |
 | `/study export [--analysis PATH] [--format FORMAT]`      | Export results as LaTeX tables and CSV |
 
 #### 🐛 Defects4J Proxy
@@ -189,8 +191,8 @@ odc> /run --project Lang --bug 1          # Collect + classify
 odc> /show classification                 # View result
 odc> /show report                         # View markdown report
 odc> /run --project Lang --bug 1 --postfix  # Run postfix for comparison
-odc> /compare --prefix .dist/runs/Lang_1_prefix/classification.open-scientific.json \
-               --postfix .dist/runs/Lang_1_postfix/classification.open-scientific.json
+odc> /compare --prefix .dist/runs/Lang_1_prefix/classification.scientific-open.json \
+               --postfix .dist/runs/Lang_1_postfix/classification.scientific-open.json
 odc> /bugs                                # See recent bugs
 odc> /status                              # Check session state
 odc> /exit                                # Save and quit
@@ -266,7 +268,7 @@ Sends evidence to the LLM and produces classification + report.
 
 When `--output` and `--report` are omitted, they default to the same directory as `--context`, tagged by condition so no two conditions overwrite each other:
 
-- `classification.<taxonomy>-<strategy>.json` and `report.<taxonomy>-<strategy>.md` alongside `context.json` (e.g. `classification.open-scientific.json` for the default condition)
+- `classification.<strategy>-<taxonomy>.json` and `report.<strategy>-<taxonomy>.md` alongside `context.json` (e.g. `classification.scientific-open.json` for the default condition)
 
 **PowerShell (Windows):**
 
@@ -300,7 +302,7 @@ Runs both `collect` and `classify` in a single command.
 
 - `--work-dir` defaults to `work/<project>_<bug>_prefix` (or `_postfix` with `--include-fix-diff`)
 - All output paths default to `.dist/runs/<project>_<bug>_prefix/` (or `_postfix`)
-- Outputs: `context.json`, `classification.<taxonomy>-<strategy>.json`, `report.<taxonomy>-<strategy>.md`
+- Outputs: `context.json`, `classification.<strategy>-<taxonomy>.json`, `report.<strategy>-<taxonomy>.md`
 
 **PowerShell (Windows):**
 
@@ -430,7 +432,7 @@ python -m d4j_odc_pipeline compare-batch \
   --report ./artifacts/accuracy_report.md
 ```
 
-**Batch naming convention**: directories must be named `<Project>_<Bug>_prefix/` and `<Project>_<Bug>_postfix/`, each containing a `classification.<taxonomy>-<strategy>.json` for the condition requested via `compare-batch --taxonomy/--strategy` (default `open`/`scientific`).
+**Batch naming convention**: directories must be named `<Project>_<Bug>_prefix/` and `<Project>_<Bug>_postfix/`, each containing a `classification.<strategy>-<taxonomy>.json` for the condition requested via `compare-batch --taxonomy/--strategy` (default `open`/`scientific`).
 
 ---
 
@@ -468,7 +470,7 @@ The multi-fault data directory is resolved in order: `--fault-data-dir` CLI argu
 
 ---
 
-## `study-plan`, `study-run`, and `study-analyze` — Large-Scale Batch Workflow
+## `study-plan`, `study-run`, and `study-drift` — Large-Scale Batch Workflow
 
 These commands support large studies (for example, 50-70 bugs) with paired pre-fix/post-fix runs and built-in cross-artifact analysis.
 
@@ -497,7 +499,7 @@ python -m d4j_odc_pipeline study-run `
   --skip-coverage
 
 # Step 3: Analyze (all paths auto-derived from manifest)
-python -m d4j_odc_pipeline study-analyze `
+python -m d4j_odc_pipeline study-drift `
   --manifest manifest_68.json `
   --require-all-projects
 ```
@@ -514,62 +516,55 @@ python -m d4j_odc_pipeline study-run \
   --skip-coverage
 
 # Step 3: Analyze
-python -m d4j_odc_pipeline study-analyze \
+python -m d4j_odc_pipeline study-drift \
   --manifest manifest_68.json \
   --require-all-projects
 ```
 
 ---
 
-## `study-classify` — Run One Condition Over a Manifest
+## `study-escape` and `study-ladder` — Cross-Condition RQ2/RQ4 Analysis
 
-Runs **one** classification condition (`--taxonomy x --strategy y`) over the manifest, prefix-only, reusing existing `context.json` evidence for each bug (it never re-collects if a context already exists). This is the current, live command — it replaced the removed `study-baseline`/`study-naive`/`study-coverage` commands, which now print a redirect message and exit instead of running.
+Every classification condition (including the ablation arms) goes through
+`study-run` — prefix+postfix, reusing the same `--artifacts-root` so
+`context.json` evidence is shared. `study-escape` and `study-ladder` are the
+two cross-condition analyses that consume multiple `study-run` passes
+already sitting in that shared tree. (`study-classify`, the old prefix-only
+shortcut that used to host these as side effects, was retired — `study-run`
+already produces everything it did.)
 
-Output files are written into the **same** bug folders `study-run` uses (`artifacts-root/prefix/<bug>/`), condition-tagged and never overwriting another condition:
+### `study-escape` — RQ2 taxonomy coverage / escape rate
 
-- `classification.<taxonomy>-<strategy>.json` / `report.<taxonomy>-<strategy>.md` — beside the shared `context.json`.
-- `checkpoint.prefix.<taxonomy>-<strategy>.json` — resume state for this condition, written under `--artifacts-root`.
-- `classify_summary.<taxonomy>-<strategy>.json` — the run summary (this one IS condition-tagged, unlike `study-run`'s untagged `summary.json`). Defaults to `.dist/study/classify_summary.<tag>.json`.
-
-When a `--taxonomy open` pass completes and a `--taxonomy closed` pass already exists in the same `--artifacts-root` for the same `--strategy`, the RQ2 coverage metrics are computed automatically (`.dist/study/taxonomy_coverage_<N>.json`) — no extra flag needed.
-
-**PowerShell (Windows):**
-
-```powershell
-# Unstructured baseline condition (free taxonomy implies zero-shot)
-python -m d4j_odc_pipeline study-classify `
-  --manifest manifest_68.json `
-  --artifacts-root .\.dist\study\artifacts_68 `
-  --taxonomy free --strategy zero
-
-# Default condition: open taxonomy + the enforced scientific loop
-python -m d4j_odc_pipeline study-classify `
-  --manifest manifest_68.json `
-  --artifacts-root .\.dist\study\artifacts_68 `
-  --taxonomy open --strategy scientific
-```
-
-**Bash (Ubuntu/Linux/WSL):**
+Compares the `closed` and `open` passes of **one** `--strategy` (both must
+already exist under `--prefix-dir`, produced by two separate `study-run`
+calls). Writes `.dist/study/taxonomy_coverage_<N>.json` — escape rate,
+coverage rate, taxonomy-shift Cohen's kappa, KL divergence, and an escaped-bugs
+audit list.
 
 ```bash
-# Unstructured baseline condition (free taxonomy implies zero-shot)
-python -m d4j_odc_pipeline study-classify \
-  --manifest manifest_68.json \
-  --artifacts-root .dist/study/artifacts_68 \
-  --taxonomy free --strategy zero
+# First, produce both passes:
+python -m d4j_odc_pipeline study-run --manifest manifest_68.json --taxonomy closed --strategy scientific --skip-coverage
+python -m d4j_odc_pipeline study-run --manifest manifest_68.json --taxonomy open   --strategy scientific --skip-coverage
 
-# Closed taxonomy + few-shot (static prompt with taxonomy + worked examples)
-python -m d4j_odc_pipeline study-classify \
-  --manifest manifest_68.json \
-  --artifacts-root .dist/study/artifacts_68 \
-  --taxonomy closed --strategy few
+# Then compare them:
+python -m d4j_odc_pipeline study-escape --manifest manifest_68.json --strategy scientific
+```
 
-# Default condition: open taxonomy + the enforced scientific loop
-# (also auto-computes taxonomy_coverage_68.json if a closed-scientific pass exists)
-python -m d4j_odc_pipeline study-classify \
-  --manifest manifest_68.json \
-  --artifacts-root .dist/study/artifacts_68 \
-  --taxonomy open --strategy scientific
+### `study-ladder` — RQ4 ablation ladder
+
+Compares an ordered `--tags` list of condition tags (prefix-only) on
+vocabulary size, label entropy, and ODC coverage — the taxonomy-grounding
+effect. Default ladder is `zero-free,few-open,scientific-open`
+(docs/condition_model.md §7); pass any list of valid condition tags. Writes
+`.dist/study/taxonomy_grounding_<N>.json`.
+
+```bash
+# Produce each rung first (prefix+postfix; only prefix is used by the ladder):
+python -m d4j_odc_pipeline study-run --manifest manifest_68.json --taxonomy free --strategy zero --skip-coverage
+python -m d4j_odc_pipeline study-run --manifest manifest_68.json --taxonomy open --strategy few  --skip-coverage
+# (scientific-open is already produced by the main study-run pass)
+
+python -m d4j_odc_pipeline study-ladder --manifest manifest_68.json --tags zero-free,few-open,scientific-open
 ```
 
 ---
@@ -609,23 +604,24 @@ python -m d4j_odc_pipeline study-export \
 .dist/study/
 ├── manifest_68.json              # Generated by study-plan
 ├── summary.json                  # Generated by study-run
-├── analysis_68.json              # Generated by study-analyze
-├── analysis_68.md                # Generated by study-analyze
-├── artifacts_68/                 # Generated by study-run / study-classify
+├── analysis_68.json              # Generated by study-drift
+├── analysis_68.md                # Generated by study-drift
+├── taxonomy_coverage_68.json     # Generated by study-escape (RQ2)
+├── taxonomy_grounding_68.json    # Generated by study-ladder (RQ4)
+├── artifacts_68/                 # Generated by study-run (any condition)
 │   ├── prefix/
 │   │   ├── Lang_1_prefix/
 │   │   │   ├── context.json
-│   │   │   ├── classification.open-scientific.json
-│   │   │   └── report.open-scientific.md
+│   │   │   ├── classification.scientific-open.json
+│   │   │   └── report.scientific-open.md
 │   │   └── ...
 │   ├── postfix/
 │   │   ├── Lang_1_postfix/
 │   │   │   ├── context.json
-│   │   │   ├── classification.open-scientific.json
-│   │   │   └── report.open-scientific.md
+│   │   │   ├── classification.scientific-open.json
+│   │   │   └── report.scientific-open.md
 │   │   └── ...
-│   ├── checkpoint.pairs.open-scientific.json    # study-run resume state
-│   └── checkpoint.prefix.open-scientific.json   # study-classify resume state
+│   └── checkpoint.pairs.scientific-open.json    # study-run resume state
 ├── latex/                        # Generated by study-export
 │   ├── type_distribution.tex
 │   ├── accuracy.tex
@@ -682,7 +678,7 @@ python -m d4j_odc_pipeline study-export \
 | `--output`      |   Yes    | Path for comparison JSON output.                    |
 | `--report`      |    No    | Path for human-readable markdown report.            |
 
-### Study parameters (used by `study-plan`, `study-run`, `study-analyze`)
+### Study parameters (used by `study-plan`, `study-run`, `study-drift`)
 
 | Parameter                          | Required | Description                                                                                          |
 | ---------------------------------- | :------: | ---------------------------------------------------------------------------------------------------- |
@@ -701,20 +697,26 @@ python -m d4j_odc_pipeline study-export \
 | `--prefix-dir`                     |    No    | Prefix artifact directory for analysis. Defaults to `.dist/study/artifacts_<N>/prefix`.              |
 | `--postfix-dir`                    |    No    | Postfix artifact directory for analysis. Defaults to `.dist/study/artifacts_<N>/postfix`.            |
 | `--report`                         |    No    | Analysis report path. Defaults to `.dist/study/analysis_<N>.md`.                                     |
-| `--expected-projects`              |    No    | Explicit expected project list for `study-analyze`.                                                  |
-| `--require-all-projects`           |    No    | Enforce full project coverage in `study-run` and `study-analyze`.                                    |
+| `--expected-projects`              |    No    | Explicit expected project list for `study-drift`.                                                    |
+| `--require-all-projects`           |    No    | Enforce full project coverage in `study-run` and `study-drift`.                                      |
 
-### `study-classify` parameters (see also the Study parameters above, which it shares)
+### `study-escape` parameters (RQ2)
 
 | Parameter                     | Required | Description                                                                           |
 | ----------------------------- | :------: | ------------------------------------------------------------------------------------- |
-| `--manifest`                  |   Yes    | Study manifest JSON path.                                                             |
-| `--artifacts-root`            |    No    | Shared artifacts tree. Defaults to `.dist/study/artifacts_<N>`.                       |
-| `--work-root`                 |    No    | Root checkout directory. Defaults to `.dist/study/work`.                              |
-| `--taxonomy` / `--strategy`   |    No    | The condition to run (default `open` + `scientific`). See LLM parameters above.       |
-| `--summary-output`            |    No    | Defaults to `.dist/study/classify_summary.<taxonomy>-<strategy>.json`.                |
-| `--no-skip-existing`          |    No    | Re-run entries even when artifacts exist.                                             |
-| `--prompt-output`             |    No    | Save prompt payloads.                                                                 |
+| `--manifest`                  |    No    | Study manifest JSON, used to derive `--prefix-dir`/`--output` defaults via `target_bugs`. |
+| `--prefix-dir`                |    No    | Prefix artifact directory. Defaults to `.dist/study/artifacts_<N>/prefix`.            |
+| `--strategy`                  |    No    | Strategy whose closed/open passes to compare (default `scientific`).                  |
+| `--output`                    |    No    | Defaults to `.dist/study/taxonomy_coverage_<N>.json`.                                 |
+
+### `study-ladder` parameters (RQ4)
+
+| Parameter                     | Required | Description                                                                           |
+| ----------------------------- | :------: | ------------------------------------------------------------------------------------- |
+| `--manifest`                  |    No    | Study manifest JSON, used to derive `--prefix-dir`/`--output` defaults via `target_bugs`. |
+| `--prefix-dir`                |    No    | Prefix artifact directory. Defaults to `.dist/study/artifacts_<N>/prefix`.            |
+| `--tags`                      |    No    | Comma-separated condition tags, order = ladder order (default `zero-free,few-open,scientific-open`). |
+| `--output`                    |    No    | Defaults to `.dist/study/taxonomy_grounding_<N>.json`.                                |
 
 ### Export parameters (used by `study-export`)
 
@@ -802,13 +804,13 @@ python -m d4j_odc_pipeline classify \
 
 # Step 4: Compare
 python -m d4j_odc_pipeline compare \
-  --prefix ./.dist/runs/Lang_1_prefix/classification.open-scientific.json \
-  --postfix ./.dist/runs/Lang_1_postfix/classification.open-scientific.json \
+  --prefix ./.dist/runs/Lang_1_prefix/classification.scientific-open.json \
+  --postfix ./.dist/runs/Lang_1_postfix/classification.scientific-open.json \
   --output ./.dist/runs/Lang_1_prefix/comparison.json \
   --report ./.dist/runs/Lang_1_prefix/comparison.md
 ```
 
-Both `classification.<taxonomy>-<strategy>.json` and `report.<taxonomy>-<strategy>.md` include an **`evidence_mode`** field (`"pre-fix"` or `"post-fix"`) so you can programmatically compare results.
+Both `classification.<strategy>-<taxonomy>.json` and `report.<strategy>-<taxonomy>.md` include an **`evidence_mode`** field (`"pre-fix"` or `"post-fix"`) so you can programmatically compare results.
 
 > **Note**: The fix diff is clearly labeled in the prompt as "POST-FIX oracle information" so the LLM knows it wouldn't normally be available. The `classes.modified` field remains hidden from the prompt regardless.
 
@@ -820,27 +822,26 @@ Both `classification.<taxonomy>-<strategy>.json` and `report.<taxonomy>-<strateg
 
 | Command scope | Default root   | Example path                                                        |
 | ------------- | -------------- | ------------------------------------------------------------------- |
-| Standalone    | `.dist/runs/`  | `.dist/runs/Lang_1_prefix/classification.open-scientific.json`                      |
-| Batch study   | `.dist/study/` | `.dist/study/artifacts_68/prefix/Lang_1_prefix/classification.open-scientific.json` |
+| Standalone    | `.dist/runs/`  | `.dist/runs/Lang_1_prefix/classification.scientific-open.json`                      |
+| Batch study   | `.dist/study/` | `.dist/study/artifacts_68/prefix/Lang_1_prefix/classification.scientific-open.json` |
 
 ### File Reference
 
 | File                     | Produced by        | Contents                                                                          |
 | ------------------------ | ------------------ | --------------------------------------------------------------------------------- |
 | `context.json`           | `collect` / `run`  | All pre-fix evidence: code snippets, metadata, failures, coverage, bug report     |
-| `classification.<taxonomy>-<strategy>.json` | `classify` / `run` / `study-classify` | ODC type + family + confidence + reasoning chain + optional ODC attribute mapping |
-| `report.<taxonomy>-<strategy>.md`           | `classify` / `run` / `study-classify` | Human-readable bug + classification summary                                       |
+| `classification.<strategy>-<taxonomy>.json` | `classify` / `run` / `study-run` | ODC type + family + confidence + reasoning chain + optional ODC attribute mapping |
+| `report.<strategy>-<taxonomy>.md`           | `classify` / `run` / `study-run` | Human-readable bug + classification summary                                       |
 | `comparison.json`        | `compare`          | Single-pair strict/top2/family match result                                       |
 | `batch_comparison.json`  | `compare-batch`    | Aggregate metrics + confusion matrix + per-bug detail                             |
 | `manifest_*.json`        | `study-plan`       | Balanced bug manifest with all selected project/bug entries                       |
-| `summary.json`           | `study-run`        | Per-entry execution status for prefix/postfix runs (untagged, unlike `study-classify`'s summary) |
-| `classify_summary.<taxonomy>-<strategy>.json` | `study-classify` | Per-entry execution status for that condition's run                        |
-| `checkpoint.pairs.<taxonomy>-<strategy>.json` | `study-run`      | Resume checkpoint: tracks completed bugs for interrupted paired batch runs   |
-| `checkpoint.prefix.<taxonomy>-<strategy>.json` | `study-classify` | Resume checkpoint: tracks completed bugs for interrupted single-condition runs |
-| `analysis.json`          | `study-analyze`    | Cross-artifact study analytics and top-3 divergence buckets                       |
-| `analysis.md`            | `study-analyze`    | Human-readable batch analysis report                                              |
-| `taxonomy_coverage_<N>.json` | `study-classify` | RQ2 coverage metrics, auto-computed when an open pass completes and a closed pass exists |
-| `*.tex`                  | `study-export`     | LaTeX tables (type distribution, accuracy, confusion matrix, per-project kappa)   |
+| `summary.json`           | `study-run`        | Per-entry execution status for prefix/postfix runs (untagged — the only study artifact that isn't) |
+| `checkpoint.pairs.<strategy>-<taxonomy>.json` | `study-run`      | Resume checkpoint: tracks completed bugs for interrupted paired batch runs   |
+| `analysis.json`          | `study-drift`      | Cross-artifact study analytics and top-3 divergence buckets                       |
+| `analysis.md`            | `study-drift`      | Human-readable batch analysis report                                              |
+| `taxonomy_coverage_<N>.json` | `study-escape`  | RQ2 coverage metrics: escape rate, taxonomy-shift kappa, KL divergence, escaped-bugs audit |
+| `taxonomy_grounding_<N>.json` | `study-ladder` | RQ4 ablation-ladder metrics: vocabulary size, entropy, ODC coverage per condition tag |
+| `*.tex`                  | `study-export`     | LaTeX tables (type distribution, accuracy, confusion matrix, per-project kappa, taxonomy coverage/grounding when present) |
 | `*.csv`                  | `study-export`     | CSV files for R/SPSS statistical analysis                                         |
 | `prompt.json`            | `--prompt-output`  | Rendered prompt messages sent to the LLM (system + user)                          |
 | `instrument_classes.txt` | Coverage step      | Classes instrumented for targeted coverage                                        |

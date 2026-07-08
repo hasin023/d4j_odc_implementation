@@ -6,7 +6,7 @@ The default strategy is an **enforced scientific loop** (AutoSD-inspired): the f
 
 The default way to use the tool is now the interactive CLI: launch `d4j-odc` (or `python -m d4j_odc_pipeline`) with no arguments, then work from the `odc>` shell using slash commands such as `/run`, `/study plan`, and `/show classification`. The original argument-based command style is still supported for scripts, CI, notebooks, and existing workflows. Any old invocation like `python -m d4j_odc_pipeline run ...` remains valid.
 
-For large-scale evaluation, the CLI supports batch-study commands: `study-plan`, `study-run`, `study-classify`, `study-analyze`, and `study-export`. Every classification is a coordinate of two condition variables — `--taxonomy free|closed|open` (default open) and `--strategy zero|few|scientific` (default scientific = the enforced hypothesis→probe loop) — see **docs/condition_model.md** (authoritative). Output files are always condition-tagged (`classification.<taxonomy>-<strategy>.json`).
+For large-scale evaluation, the CLI supports batch-study commands: `study-plan`, `study-run`, `study-drift`, `study-escape`, `study-ladder`, and `study-export`. Every classification is a coordinate of two condition variables — `--taxonomy free|closed|open` (default open) and `--strategy zero|few|scientific` (default scientific = the enforced hypothesis→probe loop) — see **docs/condition_model.md** (authoritative). Output files are always condition-tagged (`classification.<strategy>-<taxonomy>.json`).
 
 For multi-fault analysis, the pipeline integrates with [defects4j-mf](https://github.com/DCallaz/defects4j-mf) data via the `multifault` and `multifault-enrich` commands.
 
@@ -34,7 +34,7 @@ odc> /show classification
 
 odc> /study plan --target-bugs 68
 odc> /study run --manifest manifest_68.json
-odc> /study analyze --manifest manifest_68.json
+odc> /study drift --manifest manifest_68.json
 odc> /study baseline --manifest manifest_68.json
 odc> /study export --analysis analysis_68.json
 ```
@@ -45,8 +45,10 @@ Backwards-compatible script mode still works whenever you pass a command:
 python -m d4j_odc_pipeline run --project Lang --bug 1 --skip-coverage
 python -m d4j_odc_pipeline study-plan --target-bugs 68
 python -m d4j_odc_pipeline study-run --manifest manifest_68.json --skip-coverage
-python -m d4j_odc_pipeline study-analyze --manifest manifest_68.json
-python -m d4j_odc_pipeline study-classify --manifest manifest_68.json --taxonomy free --strategy zero
+python -m d4j_odc_pipeline study-drift --manifest manifest_68.json
+python -m d4j_odc_pipeline study-run --manifest manifest_68.json --taxonomy free --strategy zero --skip-coverage
+python -m d4j_odc_pipeline study-escape --manifest manifest_68.json --strategy scientific
+python -m d4j_odc_pipeline study-ladder --manifest manifest_68.json --tags zero-free,few-open,scientific-open
 python -m d4j_odc_pipeline study-export --analysis .dist/study/analysis_68.json
 ```
 
@@ -79,8 +81,10 @@ Recommended interactive commands:
 | `/show report`          | Render the last markdown report in the terminal      |
 | `/study plan`           | Generate a balanced bug manifest for batch studies   |
 | `/study run`            | Execute paired prefix/postfix runs from a manifest   |
-| `/study analyze`        | Cross-artifact analysis over study outputs           |
-| `/study baseline`       | Run the free-zero (unstructured baseline) condition for comparison — an alias for `study-classify --taxonomy free --strategy zero` |
+| `/study drift`          | Cross-artifact prefix/postfix drift analysis for one condition (RQ1/RQ3/RQ5) |
+| `/study baseline`       | Run the zero-free (unstructured baseline) condition for comparison — prefix+postfix, via `run_batch_from_manifest` |
+| `/study escape`         | RQ2 taxonomy-coverage/escape-rate metrics (closed vs open, one strategy) |
+| `/study ladder`         | RQ4 ablation-ladder metrics (vocabulary/entropy/ODC coverage across condition tags) |
 | `/study export`         | Export analysis results as LaTeX tables and CSV      |
 | `/multifault`           | Query multi-fault co-existence data                  |
 | `/enrich`               | Enrich classification with multi-fault context       |
@@ -96,9 +100,10 @@ Backwards-compatible script-mode commands:
 | `compare`              | Compare a pre-fix/post-fix classification pair       |
 | `compare-batch`        | Batch-compare directory of paired classifications    |
 | `study-plan`           | Generate a balanced bug manifest for batch studies   |
-| `study-run`            | Execute paired prefix/postfix runs from a manifest   |
-| `study-analyze`        | Cross-artifact analysis over study outputs           |
-| `study-classify`       | Run ONE condition (--taxonomy x --strategy y) over the manifest, prefix-only, reusing contexts; auto-computes RQ2 coverage metrics for the open pass |
+| `study-run`            | Execute paired prefix/postfix runs from a manifest, for one (--taxonomy x --strategy) condition |
+| `study-drift`          | Cross-artifact prefix/postfix drift analysis for one condition (RQ1/RQ3/RQ5); renamed from `study-analyze` |
+| `study-escape`         | RQ2 taxonomy-coverage/escape-rate metrics between the closed and open passes of one --strategy |
+| `study-ladder`         | RQ4 ablation-ladder metrics (vocabulary/entropy/ODC coverage) across a --tags list of condition tags |
 | `study-export`         | Export analysis results as LaTeX tables and CSV      |
 | `multifault`           | Query multi-fault co-existence data                  |
 | `multifault-enrich`    | Enrich classification with multi-fault context       |
@@ -115,11 +120,11 @@ Most parameters have **smart defaults** in both modes. See [docs/USAGE.md](docs/
 ├── runs/                              # Standalone commands (run, collect, classify)
 │   ├── Lang_1_prefix/
 │   │   ├── context.json
-│   │   ├── classification.open-scientific.json
-│   │   └── report.open-scientific.md
+│   │   ├── classification.scientific-open.json
+│   │   └── report.scientific-open.md
 │   └── Lang_1_postfix/
 │       └── ...
-└── study/                             # Batch commands (study-plan, study-run, study-analyze)
+└── study/                             # Batch commands (study-plan, study-run, study-drift, study-escape, study-ladder)
     ├── manifest_68.json
     ├── summary.json
     ├── analysis_68.json
@@ -127,7 +132,7 @@ Most parameters have **smart defaults** in both modes. See [docs/USAGE.md](docs/
     ├── artifacts_68/
     │   ├── prefix/
     │   ├── postfix/
-    │   └── checkpoint.pairs.open-scientific.json  # per-condition, study-run
+    │   └── checkpoint.pairs.scientific-open.json  # per-condition, study-run
     ├── latex/                         # LaTeX table exports (study-export)
     │   ├── type_distribution.tex
     │   ├── accuracy.tex
