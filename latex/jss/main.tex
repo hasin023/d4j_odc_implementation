@@ -1,0 +1,1198 @@
+\documentclass[final,5p,times,twocolumn,authoryear]{elsarticle}
+
+%% ─── Core packages ───────────────────────────────────────────────────────────
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{url}
+
+%% ─── Typography ──────────────────────────────────────────────────────────────
+\usepackage{microtype}
+\usepackage{xcolor}
+
+%% ─── Tables ──────────────────────────────────────────────────────────────────
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{multirow}
+
+%% ─── Diagrams ────────────────────────────────────────────────────────────────
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,calc,shapes.geometric,fit,backgrounds}
+
+%% ─── Captions ────────────────────────────────────────────────────────────────
+\usepackage{caption}
+\captionsetup{font=small, labelfont={bf,sf}, labelsep=period, skip=6pt}
+
+%% ─── Section headings ────────────────────────────────────────────────────────
+\usepackage{titlesec}
+\titleformat{\section}
+  {\normalfont\bfseries\large}{\thesection.}{0.5em}{}%
+  [\vspace{-2pt}\rule{\linewidth}{0.4pt}\vspace{2pt}]
+\titleformat{\subsection}
+  {\normalfont\bfseries\normalsize}{\thesubsection}{0.5em}{}
+\titleformat{\paragraph}[runin]
+  {\normalfont\bfseries}{}{0pt}{}
+\titlespacing*{\section}{0pt}{10pt plus 2pt minus 2pt}{4pt plus 1pt}
+\titlespacing*{\subsection}{0pt}{7pt plus 1pt}{2pt plus 1pt}
+\titlespacing*{\paragraph}{0pt}{4pt plus 1pt}{0.6em}
+
+%% ─── Hyperref ────────────────────────────────────────────────────────────────
+\usepackage[hidelinks,
+  pdftitle={Orthogonal Defect Classification for Defects4J using an
+            LLM-Driven Scientific Approach},
+  pdfauthor={Hasin Mahtab Alvee, Mohammad Nahiyan Kabir, Md. Sakib Hossain},
+  pdfkeywords={Defects4J, ODC, LLM, Scientific Reasoning, Prompt Engineering,
+               Bug Taxonomy}
+]{hyperref}
+
+%% ─── Lists ───────────────────────────────────────────────────────────────────
+\usepackage{enumitem}
+\setlist[enumerate]{itemsep=1pt, topsep=3pt, parsep=0pt}
+\setlist[itemize]{itemsep=1pt,  topsep=3pt, parsep=0pt}
+\setlist[description]{itemsep=2pt, topsep=3pt, parsep=0pt,
+                      font=\normalfont\bfseries}
+
+%% ─── Convenience macros ──────────────────────────────────────────────────────
+\newcommand{\thead}[1]{\textbf{\textsf{#1}}}
+% Placeholder for every empirical figure pending the confirmatory run (see §7).
+\newcommand{\TBD}{\textcolor{gray}{[TBD]}}
+
+%% ─── Abstract tweak ──────────────────────────────────────────────────────────
+\makeatletter
+\renewenvironment{abstract}{%
+  \global\setbox\absbox=\vbox\bgroup
+  \hsize=\textwidth
+  \def\baselinestretch{1.05}%
+  \noindent\rule{\linewidth}{0.6pt}\par\smallskip
+  \noindent{\footnotesize\bfseries\sffamily Abstract}\par\smallskip
+  \footnotesize}{%
+  \par\smallskip\noindent\rule{\linewidth}{0.4pt}
+  \egroup}
+\makeatother
+
+\journal{Journal of Systems and Software}
+
+%% =============================================================================
+\begin{document}
+
+\begin{frontmatter}
+
+\title{Orthogonal Defect Classification for \textit{Defects4J} using an\\
+       LLM-Driven Scientific Approach}
+
+% \author[iut]{Hasin Mahtab Alvee\corref{cor1}}
+% \ead{hasin.alvee@iut-dhaka.edu}
+
+% \author[iut]{Mohammad Nahiyan Kabir}
+% \ead{nahiyan.swe@iut-dhaka.edu}
+
+% \author[iut]{Md.\ Sakib Hossain}
+% \ead{sakib.hossain@iut-dhaka.edu}
+
+% \cortext[cor1]{Corresponding author.}
+
+\affiliation[iut]{%
+  organization={Department of Computer Science and Engineering,
+                Islamic University of Technology},
+  addressline={Board Bazar, Gazipur},
+  city={Dhaka},
+  postcode={1704},
+  country={Bangladesh}}
+
+%% ─── Abstract ────────────────────────────────────────────────────────────────
+\begin{abstract}
+Defect classification turns isolated bug reports into process-level signals that
+guide debugging strategy, resource allocation, and quality improvement. Despite
+the central role of \textit{Defects4J} as the standard empirical benchmark for
+Java fault studies, no prior work has labelled its full active set with a
+principled, root-cause taxonomy: existing efforts cover only tens to a few
+hundred bugs, rely on structural or patch-shape taxonomies that describe
+\emph{how} a bug manifests rather than \emph{why} it occurred, or depend on
+post-fix code unavailable during real triage.
+
+This paper presents an automated pipeline that classifies \textit{Defects4J}
+bugs into Orthogonal Defect Classification (ODC) Design/Code defect types using
+Large Language Model (LLM) reasoning. Rather than a single prompt, classification
+is organised as a two-variable experimental design: a \emph{taxonomy} axis
+(the model's own words; the seven ODC types as a forced choice; or the seven
+types plus an explicit ``Other'' escape category) crossed with a \emph{strategy}
+axis (an unstructured zero-shot baseline; a strong few-shot static prompt; or an
+enforced, iterative reasoning loop inspired by scientific debugging that commits
+a hypothesis, then probes held-back evidence to confirm or refute it). The open
+escape category makes taxonomy coverage measurable rather than assumed, and the
+enforced loop grounds each decision in evidence the model must actively request.
+Classification runs in two evidence modes, pre-fix (symptoms only) and post-fix
+(with the buggy-to-fixed diff), enabling a self-consistency evaluation without
+ground-truth labels.
+
+We formalise five research questions spanning defect-type distribution, taxonomy
+coverage, four-level classification accuracy, the contribution of each pipeline
+component, and pre-fix/post-fix divergence, and we operationalise each through a
+reproducible study command over a project-balanced sample of the benchmark. A
+development-validation run confirms that the pipeline and its analysis layer
+produce correct, well-formed metrics end to end; a large-scale confirmatory run
+populates the final quantitative results.
+\end{abstract}
+
+\begin{keyword}
+Defects4J \sep
+Orthogonal Defect Classification \sep
+Large Language Models \sep
+Scientific Reasoning \sep
+Bug Taxonomy \sep
+Prompt Engineering \sep
+Empirical Software Engineering
+\end{keyword}
+
+\end{frontmatter}
+
+%% =============================================================================
+\section{Introduction}
+\label{sec:intro}
+
+Software bugs are unavoidable in production systems, but their impact depends
+strongly on how quickly and accurately teams understand their root cause. Defect
+classification turns raw bug reports from isolated incidents into actionable
+process measurements: different defect types call for different debugging
+strategies, resource allocations, and repair approaches
+\citep{catolino2019not,hirsch2022using}. Manual triage remains the gold standard
+but does not scale to large benchmark datasets \citep{andrade2025empirical}.
+
+\textit{Defects4J} \citep{just2014defects4j} is the primary benchmark for
+empirical software-engineering research in Java, providing a large, curated set
+of reproducible bugs across 17 open-source projects. Each bug ships with a rich
+artefact bundle: the original bug report, triggering test cases that expose the
+defect, the buggy and fixed source, and the buggy-to-fixed diff. This makes
+\textit{Defects4J} uniquely suited to automated classification research.
+
+Despite this richness, no study has produced a full, root-cause-oriented semantic
+labelling of the benchmark. Existing classification work falls into three
+categories, each with a structural limitation: control- and data-flow analyses
+that capture \emph{how} bugs manifest syntactically
+\citep{vanderspuy2025anatomy}; patch taxonomies that describe \emph{what}
+developers changed rather than \emph{why} the defect existed
+\citep{sobreira2018dissection}; and small-scale manual inspections that do not
+scale \citep{xuan2017better}.
+
+At the same time, LLMs have shown that code-aware reasoning can classify software
+artefacts competitively when guided by appropriate prompt design
+\citep{colavito2024llm,koyuncu2025exploring,nong2024cot}. Unconstrained LLM
+classification, however, suffers from label drift and hallucination
+\citep{gao2024rcegen}: with no fixed label space, different runs assign
+incompatible categories to the same bug. Pairing LLMs with ODC
+\citep{chillarege1992odc,ibm2013odc} turns classification into a bounded,
+semantically grounded decision problem. Yet a forced fixed schema manufactures
+false certainty for defects that do not fit; we therefore treat the taxonomy's
+own coverage as a measurable quantity by giving the model an explicit escape
+category, so that defects falling outside the seven types become recorded data
+rather than mislabelled forced choices.
+
+\subsection{Research Questions}
+\label{sec:rqs}
+
+This work is organised around five research questions:
+
+\begin{description}
+  \item[RQ1 --- Defect-type distribution across projects.] What is the
+        distribution of ODC defect types across the \textit{Defects4J} benchmark,
+        and does this distribution vary significantly across projects?
+  \item[RQ2 --- Coverage of the ODC taxonomy.] Do the seven standard ODC defect
+        types cover all \textit{Defects4J} bugs, or do some bugs fall outside
+        those seven types?
+  \item[RQ3 --- Classification accuracy.] How well does the LLM-based pipeline,
+        using the enforced scientific reasoning loop and the ODC taxonomy,
+        classify \textit{Defects4J} bugs into the correct defect types under a
+        four-level accuracy evaluation?
+  \item[RQ4 --- Contribution of each component.] How much do the scientific
+        reasoning loop and explicit ODC taxonomy grounding each improve
+        classification accuracy, label consistency, and vocabulary reduction
+        relative to an unstructured LLM baseline?
+  \item[RQ5 --- Effect of seeing the fix.] What is the magnitude and pattern of
+        semantic divergence between pre-fix and post-fix ODC classifications, and
+        how does per-project classification reliability vary across projects?
+\end{description}
+
+RQ1 and RQ2 characterise the dataset and the taxonomy's fit to it; RQ3 measures
+how accurately the default configuration classifies; RQ4 isolates what the
+structured components contribute; and RQ5 quantifies how much the available
+evidence, not just the bug, shapes the assigned type.
+
+\subsection{Contributions}
+\label{sec:contributions}
+
+The main contributions are:
+\begin{itemize}
+  \item A two-variable experimental design for LLM defect classification that
+        separates \emph{what label space} the model uses (taxonomy) from \emph{how
+        it reasons} toward a label (strategy), yielding a small set of
+        controlled, comparable conditions rather than one entangled prompt.
+  \item An open-set formulation of ODC with a mandatory-justification ``Other''
+        escape category, which turns the taxonomy's coverage into a directly
+        measurable escape rate instead of an untested assumption.
+  \item An enforced scientific reasoning loop --- inspired by scientific
+        debugging and adapted from fault \emph{localization} to defect-type
+        \emph{classification} --- in which the model commits a hypothesis and
+        must probe held-back evidence to confirm or refute it, producing an
+        auditable reasoning transcript.
+  \item A dual-mode (pre-fix / post-fix) evidence system that mirrors ODC's
+        opener/closer separation and supports a self-consistency evaluation in
+        the absence of ground-truth labels.
+  \item A reproducible study toolchain (\texttt{study-plan}, \texttt{study-run},
+        \texttt{study-drift}, \texttt{study-escape}, \texttt{study-ladder},
+        \texttt{study-export}) that operationalises all five research questions
+        over project-balanced samples of the benchmark.
+\end{itemize}
+
+%% =============================================================================
+\section{Related Work}
+\label{sec:related}
+
+\subsection{Defects4J Classification Efforts}
+
+Three lines of prior work classify \textit{Defects4J} bugs, each covering a
+different slice of the dataset with a different analytical goal.
+
+Van der Spuy and Fischer \citep{vanderspuy2025anatomy} manually classified 488
+faults using control-flow and data-flow graph abstractions, producing six
+control-flow and two data-flow categories. This structural view reveals how bugs
+change execution paths but cannot recover \emph{why} the bug existed: a missing
+null check and an entirely absent feature can produce identical control-flow
+changes despite fundamentally different root causes.
+
+Sobreira \textit{et al.}\ \citep{sobreira2018dissection} dissected 395 bugs from
+\textit{Defects4J} v1.2, classifying repair actions and patch patterns, and found
+that a large share of patches involve conditional-block changes. Patch shape is
+informative for understanding fixes, but describes what developers changed rather
+than the defect mechanism that made the change necessary.
+
+Xuan \textit{et al.}\ \citep{xuan2017better} manually inspected 50 randomly
+selected bugs to study test-suite quality and fault fixability. The analysis is
+detailed, but the authors themselves note the limited external validity of a
+50-bug sample.
+
+Collectively, these efforts span only tens to a few hundred bugs, anchor their
+taxonomies to code structure or patch operations, and none applies a semantic
+root-cause taxonomy to the full active dataset.
+
+\subsection{LLM-based Defect Classification}
+
+LLMs classify software artefacts effectively when given appropriate constraints.
+Colavito \textit{et al.}\ \citep{colavito2024llm} showed that LLMs classify issue
+reports at accuracy competitive with supervised ML without labelled training
+data, and Koyuncu \citep{koyuncu2025exploring} extended this to fine-grained
+bug-report categorisation using few-shot templates. Earlier automated ODC
+approaches based on SVM and Naive Bayes reached only 77--82\% accuracy and
+struggled with sparse text \citep{huang2011autoodc,thung2012automatic}; LLMs
+sidestep these limits through code-aware reasoning over code, tests, and error
+messages.
+
+Chain-of-thought prompting improves classification by forcing structured
+reasoning \citep{nong2024cot}. Kang \textit{et al.}\ \citep{kang2023autosd}
+adapted this idea to debugging, embedding Zeller's scientific debugging method
+\citep{zeller2009why} into LLM prompts (AutoSD) for explainable fault
+localization. We build on the same iterative hypothesise--predict--experiment
+structure, but repurpose it: our loop does not localize or repair a fault, it
+\emph{classifies} the defect's ODC type, using probes into held-back evidence as
+its experiments. Gao \textit{et al.}\ \citep{gao2024rcegen} likewise showed that
+LLMs can produce ODC-aligned root-cause explanations from reports and stack
+traces given taxonomy guidance. Across these studies, taxonomy-free LLM
+classification remains fragile: without a constraining label space, runs disagree
+on the same bug \citep{koyuncu2025exploring}, and hallucinated labels are most
+common when trace context is missing or ambiguous \citep{gao2024rcegen}.
+
+\subsection{Orthogonal Defect Classification}
+
+ODC was introduced by Chillarege \textit{et al.}\ \citep{chillarege1992odc} as a
+framework that classifies defects using orthogonal (non-overlapping) attributes
+to produce actionable in-process measurements. Its attributes split into two
+phases. \emph{Opener} attributes are recorded at discovery: Activity (the
+development phase underway), Trigger (the condition that exposed the defect), and
+Impact (the user-visible consequence). \emph{Closer} attributes are recorded at
+fix time: Defect Type (the central root-cause category), Target (Design or Code),
+Qualifier (Missing, Incorrect, or Extraneous), Age, and Source.
+
+For Design/Code targets, ODC defines seven defect types in two families. The
+\emph{Control and Data Flow} family comprises \textit{Algorithm/Method} (wrong
+computational logic), \textit{Assignment/Initialization} (wrong value or
+initialisation), \textit{Checking} (missing or wrong validation), and
+\textit{Timing/Serialization} (concurrency or ordering). The \emph{Structural}
+family comprises \textit{Function/Class/Object} (design-level gap),
+\textit{Interface/O-O Messages} (component-boundary issue), and
+\textit{Relationship} (entity-association problem). ODC remains in active use:
+Pan \textit{et al.}\ \citep{pan2024understanding} applied it in 2024 to defects in
+LLM-generated code, showing the taxonomy generalises beyond human-written
+software.
+
+\subsection{Research Gap}
+
+The gap this paper addresses is the absence of a pipeline that is simultaneously
+(i) \emph{context-rich}, grounded in multi-modal \textit{Defects4J} artefacts;
+(ii) \emph{semantic}, classifying by root-cause mechanism rather than syntactic
+pattern; (iii) \emph{coverage-aware}, using an open-set ODC formulation that
+measures rather than assumes taxonomy fit; and (iv) \emph{evaluable without
+ground truth}, through paired pre-fix/post-fix self-consistency comparison.
+
+%% =============================================================================
+\section{Problem Statement}
+\label{sec:problem}
+
+Current \textit{Defects4J} classification work exhibits five specific
+limitations:
+
+\begin{enumerate}
+  \item \textbf{Coverage gap} --- no study has fully labelled the active
+        \textit{Defects4J} set; existing work covers only tens to a few hundred
+        bugs \citep{xuan2017better,vanderspuy2025anatomy,sobreira2018dissection}.
+  \item \textbf{Structural-only labels} --- control-/data-flow analyses capture
+        how bugs manifest syntactically, not why they exist
+        \citep{vanderspuy2025anatomy}.
+  \item \textbf{Patch-focused taxonomies} --- repair-action classification
+        describes fix patterns, not the underlying defect mechanism
+        \citep{sobreira2018dissection}.
+  \item \textbf{Post-fix dependency} --- ML approaches require labelled training
+        data or access to post-fix code, limiting applicability to pre-triage
+        scenarios \citep{thung2012automatic}.
+  \item \textbf{Evaluation scarcity} --- without ODC ground truth, there is no
+        practical evaluation framework for large-scale automated classification
+        \citep{andrade2025empirical}.
+\end{enumerate}
+
+These limitations motivate an overarching question --- \emph{how can we classify
+\textit{Defects4J} bugs into ODC Design/Code defect types from pre-fix evidence
+alone, while also being able to evaluate that classification without
+ground-truth labels?} --- which the five research questions of
+Section~\ref{sec:rqs} decompose into measurable parts. The guiding intuition is
+to treat pre-fix classification as a diagnostic signal (a clinician reasoning
+from symptoms) and post-fix classification as a causal reference (a pathologist
+with biopsy results); agreement between the two indicates semantic stability that
+justifies operational use of the pre-fix signal.
+
+%% =============================================================================
+\section{Proposed Methodology}
+\label{sec:pipeline}
+
+The pipeline has three sequential stages --- evidence collection, LLM-based
+classification, and evaluation through paired comparison --- with classification
+configured by a two-variable experimental design.
+
+\subsection{Architecture Overview}
+
+The pipeline is file-oriented and synchronous, with no database, queue, or
+asynchronous orchestration: the filesystem is the contract between stages. Each
+bug produces a shared, read-only evidence payload (\texttt{context.json}) and one
+condition-tagged classification artefact per configuration
+(\texttt{classification.<strategy>-<taxonomy>.json}), optionally accompanied by a
+human-readable \texttt{report.<tag>.md}; study runs aggregate these into batch
+summaries. A file-based design simplifies failure recovery and external auditing:
+when a run fails midway, the partial context can be inspected and the process
+resumed from the classification stage without repeating evidence collection. The
+pipeline supports Google Gemini (primary, with schema-enforced structured
+output), OpenRouter, and any OpenAI-compatible endpoint.
+
+\subsection{Experimental Design: Condition Variables}
+\label{sec:conditions}
+
+The central design choice is to separate \emph{what label space} the model
+classifies into from \emph{how} it reasons toward a label. Each classification is
+therefore a coordinate of two independent variables:
+
+\begin{description}
+  \item[Taxonomy] the label space the model must use ---
+        \textit{free} (its own words, no fixed taxonomy),
+        \textit{closed} (the seven ODC types as a forced choice), or
+        \textit{open} (the seven types plus an ``Other'' escape category that
+        requires an explicit justification).
+  \item[Strategy] how the model reasons toward the label ---
+        \textit{zero} (a zero-shot prompt with no taxonomy and no examples: the
+        unstructured baseline),
+        \textit{few} (a single-call few-shot prompt bundling the taxonomy, a
+        diagnostic decision tree, and worked examples: the strongest static
+        prompt), or
+        \textit{scientific} (the enforced iterative loop of
+        Section~\ref{sec:strategies}).
+\end{description}
+
+The two axes do not combine freely. A zero-shot prompt contains no label space by
+definition, so \textit{zero} is only meaningful with \textit{free}; conversely
+\textit{few} and \textit{scientific} require a label space and so do not combine
+with \textit{free}. Five conditions are therefore valid, and the CLI enforces
+this (Figure~\ref{fig:conditions}). The default configuration, used for both
+pre-fix and post-fix evidence, is \textbf{\textit{scientific-open}}: an open-set
+taxonomy reasoned over by the enforced loop.
+
+Two design rationales underpin this default. First, \emph{open by default}: bugs
+drawn from arbitrary domains must not be force-fitted into a fixed seven-type
+schema. A forced choice manufactures false certainty, whereas the escape category
+--- with mandatory justification --- keeps each classification honest and makes
+the taxonomy's coverage a measurable escape rate (RQ2); a significant escape mass
+would itself be a finding and the seed of a taxonomy-adaptation study. Second,
+\emph{scientific means the loop}: in preliminary probing, a merely
+\emph{narrated} step-by-step protocol left classifications unchanged relative to
+an unstructured prompt, while the \emph{enforced} loop --- which forces the model
+to commit a prediction and then receive exogenous evidence --- changed a
+meaningful fraction of labels, each time toward the oracle-informed post-fix
+reference. Scientific reasoning is thus treated as something the model must
+\emph{do}, not recite. To keep component comparisons fair, the \textit{few}
+strategy retains the full strength of the best static prompt, so the loop is
+measured against a strong baseline rather than a handicapped one.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  font=\footnotesize,
+  cell/.style={rectangle, rounded corners=2pt, minimum width=2.1cm,
+               minimum height=1.0cm, align=center, draw},
+  valid/.style={cell, fill=blue!6,  draw=blue!45},
+  def/.style={cell,   fill=blue!18, draw=blue!65, very thick},
+  invalid/.style={cell, fill=black!5, draw=black!18, text=black!45},
+  hdr/.style={align=center, font=\footnotesize\bfseries}
+]
+% column headers (taxonomy)
+\node[hdr] at (0,1.15)   {free};
+\node[hdr] at (2.4,1.15) {closed};
+\node[hdr] at (4.8,1.15) {open};
+% row headers (strategy)
+\node[hdr, anchor=east] at (-1.45, 0)    {zero};
+\node[hdr, anchor=east] at (-1.45,-1.15) {few};
+\node[hdr, anchor=east] at (-1.45,-2.30) {scientific};
+% grid
+\node[valid]   at (0,0)      {zero-free};
+\node[invalid] at (2.4,0)    {--};
+\node[invalid] at (4.8,0)    {--};
+\node[invalid] at (0,-1.15)  {--};
+\node[valid]   at (2.4,-1.15){few-\\closed};
+\node[valid]   at (4.8,-1.15){few-\\open};
+\node[invalid] at (0,-2.30)  {--};
+\node[valid]   at (2.4,-2.30){scientific-\\closed};
+\node[def]     at (4.8,-2.30){scientific-\\open};
+\end{tikzpicture}
+\caption{The two-variable condition space (taxonomy $\times$ strategy). Five of
+         the nine cells are valid; the four grey cells are rejected by the CLI
+         because \textit{zero} carries no label space and \textit{free} supplies
+         none. \textit{scientific-open} (bold) is the default for both pre-fix and
+         post-fix evidence.}
+\label{fig:conditions}
+\end{figure}
+
+\subsection{ODC and Defects4J Artefact Mapping}
+\label{sec:mapping}
+
+The pipeline maps \textit{Defects4J} artefacts to ODC attributes following the
+framework's two-phase opener/closer model \citep{chillarege1992odc}, keeping
+subjective discovery data separate from objective repair data. On the
+\emph{opener} (discovery) side, test type maps to Activity, stack-trace runtime
+context maps to Trigger, and bug-report symptoms map to Impact. On the
+\emph{closer} (repair) side, the code diff maps to Defect Type and Qualifier
+(Missing, Incorrect, or Extraneous), and the modified-class list maps to Target
+and Age. This separation is what enables the dual-mode evaluation: pre-fix
+classification uses opener evidence only, while post-fix classification adds
+closer evidence from the fix diff.
+
+\subsection{Evidence Collection}
+\label{sec:collection}
+
+Evidence collection determines what the model can reason about. The collector runs
+the following eight-step sequence per bug:
+
+\begin{enumerate}
+  \item \textbf{Query \textit{Defects4J} metadata} --- bug ID, report URL,
+        buggy/fixed revisions, trigger tests, relevant classes, and the
+        \texttt{classes.modified} list (stored as a hidden oracle).
+  \item \textbf{Fetch bug-report content} --- structured APIs for JIRA/GitHub;
+        HTML text extraction as a fallback for other trackers.
+  \item \textbf{Checkout and compile the buggy version} --- validates
+        reproducibility and provides a base for test execution.
+  \item \textbf{Run failing tests} --- parse output for test names, exception
+        headlines, stack traces, and line-level frames.
+  \item \textbf{Select suspicious frames} --- discard framework (JUnit, TestNG),
+        JDK-internal, and build-tool frames; retain project source frames, capped
+        at 12.
+  \item \textbf{Extract code snippets} --- a $\pm$12-line window around each
+        suspicious frame for production code, and $\pm$18 lines around each
+        failing test method, capped at the first three failing tests.
+  \item \textbf{Optional coverage analysis} --- run \texttt{defects4j coverage}
+        and parse Cobertura XML for line and branch rates on suspicious classes.
+  \item \textbf{Serialise \texttt{context.json}} --- package all evidence, plus
+        hidden-oracle fields (\texttt{classes.modified} and, when enabled, the
+        fix diff), into a structured file.
+\end{enumerate}
+
+A key decision is \emph{hidden-oracle exclusion}: the \texttt{classes.modified}
+list is stored in a separate \texttt{hidden\_oracles} field and excluded from the
+pre-fix prompt, preventing data leakage \citep{rafi2024revisiting}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\columnwidth]{evidence_collection.png}
+\caption{Evidence collection: eight sequential steps from \textit{Defects4J}
+         metadata query through stack-trace filtering to \texttt{context.json}
+         serialisation.}
+\label{fig:evidence_collection}
+\end{figure}
+
+\subsection{Evidence Modes: Pre-fix vs.\ Post-fix}
+\label{sec:modes}
+
+The pipeline operates in two evidence modes that mirror ODC's opener/closer
+split, orthogonally to the condition variables. \textbf{Pre-fix mode} (the
+default) gives the model only symptom-side evidence --- stack traces, test
+failures, error messages, code snippets, and bug-report content --- so it must
+reason about root cause without seeing the fix. This is the operationally
+relevant mode: it is the only evidence available during real triage.
+\textbf{Post-fix mode} (\texttt{--include-fix-diff}) additionally supplies the
+buggy-to-fixed diff as closer-side evidence, serving as the causal reference for
+evaluation. Broad agreement between the two modes indicates that a classification
+is semantically stable.
+
+\subsection{Taxonomy Variants and Output Schema}
+\label{sec:taxonomy}
+
+The taxonomy variable controls the label space and the required output fields.
+Under \textit{closed}, the model must return exactly one of the seven canonical
+ODC Design/Code types. Under \textit{open}, it may instead return ``Other'',
+but only with a mandatory \texttt{other\_justification}, a \texttt{nearest\_type}
+(the closest of the seven), and an \texttt{other\_confidence}; these fields make
+each escape auditable and let RQ2 quantify coverage. Under \textit{free}, the
+model answers in unconstrained natural language, which RQ4 uses to measure the
+vocabulary explosion that a taxonomy is meant to contain. Across all taxonomy-
+constrained conditions the model returns a structured record with
+\texttt{odc\_type}, \texttt{alternative\_types}, \texttt{odc\_family},
+\texttt{confidence}, and a \texttt{reasoning\_trace}, plus optional
+\texttt{error}/\texttt{ambiguity} fields.
+
+\subsection{Classification Strategies}
+\label{sec:strategies}
+
+\paragraph{Zero (unstructured baseline).} The \textit{zero} strategy issues a
+single zero-shot prompt with no taxonomy and no examples. Combined with the
+\textit{free} taxonomy it is the unstructured baseline against which RQ4 measures
+the value added by taxonomy grounding and by the reasoning loop.
+
+\paragraph{Few (strong static prompt).} The \textit{few} strategy assembles one
+call from six complementary components: (1) ODC type definitions with indicator
+patterns, diagnostic examples, and contrastive ``distinguish from'' guidance;
+(2) anti-bias rules that discourage defaulting to the general
+\textit{Function/Class/Object} type; (3) a compact scientific-reasoning
+description; (4) a seven-question diagnostic decision tree, with
+\textit{Function/Class/Object} placed last to force simpler types to be
+considered first \citep{nong2024cot}; (5) the structured JSON output schema of
+Section~\ref{sec:taxonomy}; and (6) five contrastive few-shot examples targeting
+known boundary pairs such as \textit{Checking} vs.\
+\textit{Assignment/Initialization} and \textit{Algorithm/Method} vs.\
+\textit{Function/Class/Object} \citep{koyuncu2025exploring}. This is the strongest
+single-call prompt and the fair baseline for the loop.
+
+\paragraph{Scientific (enforced reasoning loop).} The \textit{scientific}
+strategy replaces narration with an enforced loop, adapted from the AutoSD
+formulation of scientific debugging \citep{kang2023autosd} but directed at
+classification rather than localization. It is important to distinguish two
+levels at which ``scientific debugging'' is described in the literature. At the
+\emph{process} level, Zeller \citep{zeller2009why} presents the method as
+Observe~$\rightarrow$~Hypothesise~$\rightarrow$~Predict~$\rightarrow$~
+Experiment~$\rightarrow$~Conclude, with the failure observed first. At the
+\emph{loop-iteration} level, AutoSD treats the initial failure observation (the
+failing test, error message, and code) as the prompt input, and each iteration
+then runs
+Hypothesis~$\rightarrow$~Prediction~$\rightarrow$~Experiment~$\rightarrow$~
+Observation~$\rightarrow$~Conclusion. Our loop follows the loop-iteration
+ordering:
+
+\begin{enumerate}
+  \item \textbf{Hypothesis} --- from the initial failure observation, propose a
+        candidate ODC root-cause type.
+  \item \textbf{Prediction} --- state what specific code or evidence pattern
+        would be present if that type were the actual cause.
+  \item \textbf{Experiment} --- \emph{probe} the held-back \texttt{context.json}
+        evidence (e.g.\ request a specific code snippet or trace frame) to test
+        the prediction.
+  \item \textbf{Observation} --- read the returned evidence and record whether it
+        confirms or refutes the hypothesis.
+  \item \textbf{Conclusion} --- once evidence is sufficient, commit the ODC type
+        and an explicit reasoning trace; otherwise iterate.
+\end{enumerate}
+
+The loop runs for at most six turns, and the full hypothesis/prediction/probe/
+observation transcript is persisted in the artefact. Because the model must
+commit a prediction before it receives evidence, the loop cannot simply
+rationalise a first guess: the exogenous probe results either support or
+contradict it. This design targets accuracy, transparency, and auditability
+alike, and makes clear that the system \emph{classifies} defects --- it does not
+localize or repair them.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  font=\footnotesize, >={Latex[length=2mm]},
+  node distance=6.5mm,
+  lbox/.style={draw, rounded corners=2pt, align=center, minimum width=3.0cm,
+               minimum height=8mm, fill=blue!6},
+  seed/.style={draw, rounded corners=2pt, align=center, minimum width=3.0cm,
+               minimum height=9mm, fill=black!6},
+  fin/.style={draw, rounded corners=2pt, align=center, minimum width=3.0cm,
+              minimum height=9mm, fill=green!10, draw=green!45!black}
+]
+\node[seed] (s) {Initial failure observation\\{\scriptsize failing test $\cdot$
+                 exception $\cdot$ code}};
+\node[lbox, below=of s] (h) {Hypothesis};
+\node[lbox, below=of h] (p) {Prediction};
+\node[lbox, below=of p] (e) {Experiment\\{\scriptsize probe held-back evidence}};
+\node[lbox, below=of e] (o) {Observation\\{\scriptsize probe result}};
+\node[fin,  below=of o] (c) {Conclusion\\{\scriptsize ODC type + trace}};
+\draw[->] (s) -- (h);
+\draw[->] (h) -- (p);
+\draw[->] (p) -- (e);
+\draw[->] (e) -- (o);
+\draw[->] (o) -- (c) node[midway, right=1pt] {\scriptsize sufficient};
+\draw[->] (o.west) .. controls +(-2.6,0) and +(-2.6,0) .. (h.west)
+      node[pos=0.5, left, align=center]
+      {\scriptsize insufficient\\{\scriptsize (next turn, $\le 6$)}};
+\end{tikzpicture}
+\caption{The enforced scientific reasoning loop (the \textit{scientific}
+         strategy). The initial failure observation seeds the loop; each turn
+         commits a hypothesis and prediction, probes held-back evidence, and
+         records the observation, iterating up to six turns before concluding.}
+\label{fig:loop}
+\end{figure}
+
+\subsection{Classification Validation and Normalisation}
+\label{sec:validation}
+
+After the model responds, a strict validation layer (i) checks that
+\texttt{odc\_type} is one of the canonical seven Design/Code names (or a
+well-formed ``Other'' record under \textit{open}); (ii) clamps confidence to
+$[0,1]$; (iii) \emph{recomputes} the family label from the chosen type rather than
+trusting the model's assignment, which is essential for cross-run consistency;
+and (iv) normalises alternative-type lists, escape fields, and reasoning fields
+for uniform downstream processing. This prevents malformed outputs from silently
+propagating into the evaluation metrics. Figure~\ref{fig:classification_flow}
+shows this post-processing path for the static (\textit{few}) strategy.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\columnwidth]{classification_flow.png}
+\caption{Static (\textit{few}) classification path: prompt construction
+         (context $\to$ system prompt $\to$ user prompt $\to$ LLM call) followed
+         by post-processing and validation (extract JSON $\to$ validate type $\to$
+         canonicalise family $\to$ write outputs). The \textit{scientific}
+         strategy replaces the single call with the loop of
+         Figure~\ref{fig:loop}.}
+\label{fig:classification_flow}
+\end{figure}
+
+\subsection{Evaluation and Analysis}
+\label{sec:eval}
+
+Because \textit{Defects4J} provides no ODC ground-truth labels, precision and
+recall against an oracle cannot be computed directly. RQ3 therefore adopts a
+four-tier self-consistency evaluation comparing pre-fix and post-fix
+classifications of the same bug; this is justified by ODC's own two-phase design,
+where agreement between the opener and closer perspectives indicates a stable
+classification \citep{chillarege1992odc}. The four tiers, in order of strictness,
+are: \textbf{Tier~1 (strict match)}, exact agreement on the primary type;
+\textbf{Tier~2 (top-2 match)}, the pre-fix primary type appears among the
+post-fix alternatives or vice versa; \textbf{Tier~3 (family match)}, both map to
+the same family; and \textbf{Tier~4 (Cohen's~$\kappa$)}, chance-corrected
+inter-rater agreement between the two modes,
+\begin{equation}
+  \kappa = \frac{p_o - p_e}{1 - p_e},
+  \label{eq:kappa}
+\end{equation}
+with $p_o$ the observed agreement and $p_e$ the chance agreement from marginal
+type frequencies. A tiered design is necessary because even trained human ODC
+experts disagree on a substantial minority of cases \citep{chillarege1992odc};
+we interpret $\kappa$ on the standard Landis--Koch scale, where $\kappa \ge 0.61$
+is ``substantial'' \citep{landis1977measurement}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\columnwidth]{eval_framework.png}
+\caption{The four-tier accuracy evaluation used for RQ3: strict match (Tier~1),
+         top-2 match (Tier~2), family match (Tier~3), and Cohen's~$\kappa$
+         (Tier~4).}
+\label{fig:eval_framework}
+\end{figure}
+
+The remaining research questions are operationalised by dedicated analyses over
+the condition-tagged artefacts. Table~\ref{tab:rqmap} summarises which conditions
+each question consumes and which study command computes it.
+
+\begin{table}[H]
+\centering
+\caption{Research questions, the metrics they use, and the study command that
+         computes each.}
+\label{tab:rqmap}
+\setlength{\tabcolsep}{5pt}
+\begin{tabularx}{\columnwidth}{@{}lXl@{}}
+\toprule
+\thead{RQ} & \thead{Metric(s)} & \thead{Command} \\
+\midrule
+RQ1 & ODC type distribution; per-project variation     & \texttt{study-drift}  \\
+RQ2 & Escape rate; coverage rate; closed$\leftrightarrow$open shift-$\kappa$
+                                                        & \texttt{study-escape} \\
+RQ3 & Four-tier: strict / top-2 / family / $\kappa$     & \texttt{study-drift}  \\
+RQ4 & Unique labels; entropy; ODC coverage; vocab.\ reduction
+                                                        & \texttt{study-ladder} \\
+RQ5 & Pre/post drift transitions; per-project $\kappa$  & \texttt{study-drift}  \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+%% =============================================================================
+\section{Implementation}
+\label{sec:implementation}
+
+\subsection{Command-line Interface}
+
+The pipeline is a CLI-driven Python module. Per-bug operations are
+\texttt{collect} (checkout, compile, run tests, extract evidence, serialise
+\texttt{context.json}); \texttt{classify} (build the prompt for a chosen
+\texttt{--taxonomy}/\texttt{--strategy}, query the LLM, validate, and write the
+tagged artefact); \texttt{run} (collect then classify); \texttt{compare} and
+\texttt{compare-batch} (pre-fix/post-fix agreement for a pair or a directory
+tree); and \texttt{d4j} (a proxy for common \textit{Defects4J} operations). The
+study layer scales these to a manifest of bugs with checkpoint/resume:
+
+\begin{itemize}
+  \item \texttt{study-plan} --- generate a project-balanced manifest for a target
+        bug count with a per-project minimum.
+  \item \texttt{study-run} --- classify pre-fix and post-fix for a manifest under
+        \emph{one} condition, reusing a shared evidence store so
+        \texttt{context.json} is collected once and reused across conditions.
+  \item \texttt{study-drift} --- cross-artefact pre-fix/post-fix analysis for one
+        condition, backing RQ1, RQ3, and RQ5.
+  \item \texttt{study-escape} --- RQ2 coverage and escape-rate metrics, comparing
+        the closed and open passes of a strategy.
+  \item \texttt{study-ladder} --- RQ4 ablation-ladder metrics across an ordered
+        list of conditions.
+  \item \texttt{study-export} --- LaTeX tables and CSV for the above.
+\end{itemize}
+
+\subsection{Context File Structure}
+
+Each \texttt{context.json} contains: \texttt{bug\_id}, project name, and report
+URL; failing-test summaries, exception messages, and stack-trace frames;
+production-code and failing-test snippets; optional Cobertura coverage summaries;
+hidden-oracle fields (\texttt{classes.modified} and optional fix diff); and the
+buggy/fixed revision-pair metadata.
+
+\subsection{LLM Provider Layer}
+
+The provider layer supports Gemini, OpenRouter, and any OpenAI-compatible
+endpoint. Gemini enforces a response JSON schema at generation time; all
+providers additionally apply post-hoc JSON extraction and validation. Transient
+HTTP failures (429, 500, 502, 503) are retried with exponential back-off, and
+optional multi-key rotation spreads request load across API keys.
+Provider-specific metadata (model, latency, token and turn counts) is logged for
+reproducibility.
+
+\subsection{Path Normalisation}
+
+Because \textit{Defects4J} is commonly run under WSL on Windows hosts, the
+pipeline normalises path arguments between Windows and WSL formats using lexical
+absolute-path conversion to avoid translation errors during checkout and
+compilation.
+
+\subsection{Study-Level Workflow}
+
+A study proceeds by running each required condition through \texttt{study-run}
+against a shared evidence store, then invoking the matching analysis command:
+
+\begin{enumerate}
+  \item Plan a balanced manifest:
+        \texttt{study-plan --target-bugs N --min-per-project M}.
+  \item Run the default condition (both modes):
+        \texttt{study-run --manifest ... --artifacts-root ...}
+        (\textit{scientific-open}).
+  \item Run the comparison passes needed by RQ2/RQ4 (e.g.\ the closed pass, and
+        the \textit{zero-free}/\textit{few-open} ladder rungs) by re-invoking
+        \texttt{study-run} with different \texttt{--taxonomy}/\texttt{--strategy}.
+  \item Analyse: \texttt{study-drift} (RQ1/RQ3/RQ5),
+        \texttt{study-escape} (RQ2), \texttt{study-ladder} (RQ4), then
+        \texttt{study-export}.
+\end{enumerate}
+
+Because the evidence store is shared, re-running classification under a new
+condition incurs only LLM-call time, never \textit{Defects4J} re-collection.
+
+%% =============================================================================
+\section{Experimental Setup}
+\label{sec:setup}
+
+\subsection{Dataset: Defects4J v2.0}
+
+Experiments use \textit{Defects4J}~v2.0, which provides over 830 active bugs
+across 17 open-source Java projects \citep{just2014defects4j}.
+Table~\ref{tab:projects} lists the projects with approximate per-project active
+counts. From this benchmark we pre-collected a shared evidence corpus of 854
+buggy and 854 fixed \texttt{context.json} payloads spanning all 17 projects; every
+study reuses this corpus, so no manifest triggers fresh \textit{Defects4J}
+checkout or test execution.
+
+\begin{table}[H]
+\centering
+\caption{\textit{Defects4J}~v2.0 projects and approximate active-bug counts.
+         Per-project counts are approximate and version-dependent; the shared
+         evidence corpus covers 854 bugs across these projects.}
+\label{tab:projects}
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{@{}llr@{}}
+\toprule
+\thead{Project} & \thead{Description} & \thead{Bugs} \\
+\midrule
+Chart           & JFreeChart plotting library     & 26  \\
+Cli             & Apache Commons CLI              & 40  \\
+Closure         & Google Closure Compiler         & 174 \\
+Codec           & Apache Commons Codec            & 18  \\
+Collections     & Apache Commons Collections      & 4   \\
+Compress        & Apache Commons Compress         & 47  \\
+Csv             & Apache Commons CSV              & 16  \\
+Gson            & Google Gson                     & 18  \\
+JacksonCore     & Jackson JSON core               & 26  \\
+JacksonDatabind & Jackson data binding            & 112 \\
+JacksonXml      & Jackson XML                     & 6   \\
+Jsoup           & HTML parser                     & 93  \\
+JxPath          & Apache JXPath                   & 22  \\
+Lang            & Apache Commons Lang             & 64  \\
+Math            & Apache Commons Math             & 106 \\
+Mockito         & Mocking framework               & 38  \\
+Time            & Joda-Time                       & 26  \\
+\midrule
+\textbf{Total}  &                                 & \textbf{836} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Execution Environment}
+
+Classifications were executed against the Google Gemini API (model
+\texttt{gemini-3.1-flash-lite-preview}) with schema-enforced structured output.
+\textit{Defects4J} tooling is invoked through WSL for the collection stage, but
+because evidence is reused from the pre-collected corpus, the reported runs
+involve only LLM calls. Commands are scripted and dependency versions pinned for
+reproducibility, and each run records context-reuse counts and per-classification
+turn/call counts.
+
+\subsection{Evidence Collection Configuration}
+
+Stack-frame filtering retains only project source frames, discarding JUnit,
+TestNG, Hamcrest, JDK-internal, and build-tool frames. Production snippets capture
+$\pm$12 lines around each suspicious frame; test snippets capture $\pm$18 lines
+and are limited to the first three failing tests per bug. Coverage analysis is
+optional and focuses on suspicious classes parsed from Cobertura XML.
+
+\subsection{Condition Configuration}
+
+Each research question fixes the taxonomy and strategy it needs
+(Table~\ref{tab:rqmap}). The default \textit{scientific-open} configuration
+supplies RQ1, RQ3, and RQ5; RQ2 additionally runs the \textit{scientific-closed}
+pass; and RQ4 runs the \textit{zero-free} and \textit{few-open} rungs. The
+few-closed condition is valid but is not required by any current question and is
+omitted. All conditions draw on the same evidence corpus and the same prompt
+components described in Section~\ref{sec:strategies}.
+
+\subsection{Study Plan}
+
+Two development-validation runs (a six-bug pilot and a larger balanced sample)
+confirmed that every study command produces correctly tagged, well-formed metrics
+end to end. These runs are not intended to yield the paper's quantitative
+findings. The reported results (Section~\ref{sec:results}) are populated by a
+\emph{confirmatory} run: a project-balanced manifest of 68--100 bugs
+(\texttt{study-plan} with a per-project minimum of four to five, sufficient to
+make per-project $\kappa$ non-degenerate everywhere), classified under the four
+conditions the five questions require.
+
+A multi-fault consideration bounds interpretation. Callaghan
+\citep{callaghan2024mf} reports that real program versions contain an average of
+about 9.2 co-existing faults, so symptom evidence from one fault can contaminate
+the classification of another. The pipeline can query the \texttt{defects4j-mf}
+dataset to flag such cases during analysis.
+
+%% =============================================================================
+\section{Results and Analysis}
+\label{sec:results}
+
+\noindent\emph{The tables in this section are structural placeholders. Every
+numeric cell is marked \TBD{} and is populated only by the confirmatory run of
+Section~\ref{sec:setup}; the development-validation runs are used solely to verify
+that the analysis layer emits correct, well-formed metrics, and their numbers are
+deliberately not reported here.}
+
+\subsection{RQ1 --- Defect-type Distribution}
+
+RQ1 characterises the ODC composition of the benchmark from the pre-fix
+\textit{scientific-open} classifications. Table~\ref{tab:rq1} reports the
+distribution over the seven Design/Code types. The second half of RQ1 --- whether
+the distribution varies significantly across projects --- is tested with a
+$\chi^2$ association once per-project counts are large enough to satisfy its
+minimum expected-count assumption; at smaller per-project samples it is reported
+descriptively.
+
+\begin{table}[H]
+\centering
+\caption{RQ1: distribution of ODC defect types (pre-fix, \textit{scientific-open}).}
+\label{tab:rq1}
+\setlength{\tabcolsep}{8pt}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\thead{ODC type} & \thead{Count} & \thead{Share} \\
+\midrule
+Algorithm/Method            & \TBD & \TBD \\
+Assignment/Initialization   & \TBD & \TBD \\
+Checking                    & \TBD & \TBD \\
+Timing/Serialization        & \TBD & \TBD \\
+Function/Class/Object       & \TBD & \TBD \\
+Interface/O-O Messages      & \TBD & \TBD \\
+Relationship                & \TBD & \TBD \\
+\midrule
+\textbf{Total}              & \TBD & \TBD \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{RQ2 --- Taxonomy Coverage}
+
+RQ2 asks whether the seven ODC types are exhaustive for \textit{Defects4J}. The
+open-set formulation makes this measurable: the \textit{scientific-open} pass may
+route a bug to ``Other'' (with mandatory justification), and the escape rate is
+the share of bugs that do so. We also run the \textit{scientific-closed} pass on
+the same bugs and measure the closed$\leftrightarrow$open shift with Cohen's
+$\kappa$, quantifying how often forcing a choice changes the assigned type.
+Table~\ref{tab:rq2} reports these coverage metrics.
+
+\begin{table}[H]
+\centering
+\caption{RQ2: taxonomy coverage (\textit{scientific-closed} vs.\
+         \textit{scientific-open}).}
+\label{tab:rq2}
+\setlength{\tabcolsep}{8pt}
+\begin{tabular}{@{}lc@{}}
+\toprule
+\thead{Metric} & \thead{Value} \\
+\midrule
+Escape rate (share routed to ``Other'')   & \TBD \\
+Coverage rate (share within the seven types) & \TBD \\
+Closed$\leftrightarrow$open shift-$\kappa$   & \TBD \\
+Bugs whose type shifted                      & \TBD \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{RQ3 --- Classification Accuracy}
+
+RQ3 evaluates accuracy with the four-tier framework of
+Section~\ref{sec:eval}, comparing each pre-fix classification against its
+\textit{scientific-open} post-fix reference. Table~\ref{tab:rq3} reports the four
+tiers. Strict match is the exact-agreement rate; top-2 and family match relax
+agreement to the alternative list and the ODC family respectively; and
+Cohen's~$\kappa$ gives the chance-corrected agreement between the two evidence
+modes, interpreted on the Landis--Koch scale \citep{landis1977measurement}.
+
+\begin{table}[H]
+\centering
+\caption{RQ3: four-tier pre-fix vs.\ post-fix agreement (\textit{scientific-open}).}
+\label{tab:rq3}
+\setlength{\tabcolsep}{7pt}
+\begin{tabular}{@{}llc@{}}
+\toprule
+\thead{Tier} & \thead{Metric} & \thead{Value} \\
+\midrule
+1 & Strict type match     & \TBD \\
+2 & Top-2 match           & \TBD \\
+3 & Family match          & \TBD \\
+4 & Cohen's $\kappa$      & \TBD \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{RQ4 --- Contribution of Each Component}
+
+RQ4 isolates what taxonomy grounding and the reasoning loop each contribute by
+walking an ablation ladder from the unstructured baseline
+(\textit{zero-free}) through the strong static prompt (\textit{few-open}) to the
+enforced loop (\textit{scientific-open}), all pre-fix. For each rung we report the
+number of distinct labels produced, the label entropy, and how many of the seven
+ODC types are exercised; the vocabulary-reduction ratio summarises how sharply a
+taxonomy collapses free-form labels. Table~\ref{tab:rq4} reports the ladder.
+
+\begin{table}[H]
+\centering
+\caption{RQ4: ablation ladder (pre-fix), from unstructured baseline to the
+         enforced loop.}
+\label{tab:rq4}
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\thead{Condition} & \thead{Unique labels} & \thead{Entropy} & \thead{ODC coverage} \\
+\midrule
+zero-free        & \TBD & \TBD & \TBD \\
+few-open         & \TBD & \TBD & \TBD \\
+scientific-open  & \TBD & \TBD & \TBD \\
+\midrule
+\multicolumn{3}{@{}l}{Vocabulary-reduction ratio} & \TBD \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{RQ5 --- Effect of Seeing the Fix}
+
+RQ5 quantifies how much the available evidence, rather than the bug itself,
+shapes the assigned type, and how reliability varies across projects. Globally it
+reuses the pre/post agreement of RQ3; Table~\ref{tab:rq5} adds the per-project
+Cohen's~$\kappa$, which requires at least two bugs per project to be defined and
+is therefore a primary driver of the per-project minimum in the confirmatory
+run's manifest.
+
+\begin{table}[H]
+\centering
+\caption{RQ5: per-project pre-fix/post-fix reliability (Cohen's~$\kappa$,
+         \textit{scientific-open}).}
+\label{tab:rq5}
+\setlength{\tabcolsep}{10pt}
+\begin{tabular}{@{}lc@{}}
+\toprule
+\thead{Project} & \thead{$\kappa$} \\
+\midrule
+Chart & \TBD \\ Cli & \TBD \\ Closure & \TBD \\ Codec & \TBD \\
+Collections & \TBD \\ Compress & \TBD \\ Csv & \TBD \\ Gson & \TBD \\
+JacksonCore & \TBD \\ JacksonDatabind & \TBD \\ JacksonXml & \TBD \\
+Jsoup & \TBD \\ JxPath & \TBD \\ Lang & \TBD \\ Math & \TBD \\
+Mockito & \TBD \\ Time & \TBD \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Interpreting Divergence}
+
+Pre-fix and post-fix classifications are expected to diverge for a minority of
+bugs, for reasons intrinsic to semantic classification rather than pipeline
+error. \textbf{Evidence asymmetry}: pre-fix evidence shows what went wrong
+(symptoms) while post-fix evidence shows what was changed (cause), and one root
+cause can produce several symptoms. \textbf{ODC boundary ambiguity}: some bugs
+legitimately sit near a type boundary --- most often \textit{Checking} vs.\
+\textit{Algorithm/Method}, where a missing guard and a corrected computation
+describe the same defect from two angles. \textbf{Multi-fault contamination}:
+co-existing faults \citep{callaghan2024mf} can inject symptoms from a different
+fault than the one being fixed. The four-tier framework is designed to make this
+structure legible: a gap between strict and family match localises disagreement
+to boundary-adjacent types rather than to unrelated families. A representative
+soft-divergence case study will be populated from the confirmatory run.
+
+%% =============================================================================
+\section{Threats to Validity}
+\label{sec:threats}
+
+\noindent\textbf{Internal validity.}\quad
+LLM output variability is mitigated by fixed prompt templates, low-temperature
+generation where supported, and the strict post-generation validation layer. The
+pipeline records per-classification turn and call counts and supports multi-run
+aggregation and majority-vote (self-consistency) analysis for future robustness
+studies.
+
+\smallskip
+\noindent\textbf{Construct validity.}\quad
+Pre-fix/post-fix agreement is a proxy for correctness, not a direct ground truth;
+\textit{Defects4J} provides no authoritative ODC labels. This strategy is
+justified by ODC's two-phase model but cannot substitute for expert-labelled
+validation, and the heuristic opener/closer mappings remain keyword-based and
+unvalidated by trained assessors.
+
+\smallskip
+\noindent\textbf{External validity.}\quad
+The pipeline is tuned for Java and \textit{Defects4J}; porting to other datasets
+(Bears, BugSwarm) or languages would require new source resolution and trace
+extraction, though the classification logic itself is language-independent.
+
+\smallskip
+\noindent\textbf{Conclusion validity.}\quad
+The quantitative results are produced by a single confirmatory run at the scale of
+Section~\ref{sec:setup}; distributions may shift at full-benchmark scale, and the
+study commands support controlled scaling to the complete dataset.
+
+\smallskip
+\noindent\textbf{Single-provider dependence.}\quad
+All reported classifications use one provider and model
+(\texttt{gemini-3.1-flash-lite-preview}). Results may not transfer to other
+models; multi-model consensus is left to future work.
+
+\smallskip
+\noindent\textbf{Small-sample coverage.}\quad
+The RQ2 escape rate is a lower-variance signal only at scale: at modest $n$ a low
+true escape rate can plausibly yield zero observed escapes by chance, so coverage
+claims are deferred to the confirmatory run.
+
+\smallskip
+\noindent\textbf{Reference-condition sensitivity.}\quad
+The post-fix reference uses the same \textit{scientific-open} configuration as the
+pre-fix arm; a reference-sensitivity check (\textit{few} vs.\ \textit{scientific}
+on the post-fix side) is queued to confirm the reference is robust to this choice.
+
+\smallskip
+\noindent\textbf{Data contamination.}\quad
+LLMs may have seen \textit{Defects4J} bugs during pre-training, especially from
+popular projects. We mitigate this by evaluating pre-fix/post-fix consistency
+rather than absolute correctness, and by retaining full reasoning traces for
+human review.
+
+%% =============================================================================
+\section{Conclusion and Future Work}
+\label{sec:conclusion}
+
+We have presented an automated, evidence-grounded pipeline that classifies
+\textit{Defects4J} bugs into ODC Design/Code defect types using an LLM-driven
+scientific classification approach --- an enforced hypothesis--prediction--probe--
+observation loop inspired by scientific debugging and adapted to classification
+rather than localization. The design's contributions are methodological as much
+as empirical: a two-variable condition space that separates label space from
+reasoning strategy, an open-set ODC formulation that turns taxonomy coverage into
+a measured quantity, and a dual-mode pre-fix/post-fix evaluation that needs no
+ground-truth labels. Together these address the five limitations of prior work:
+full-dataset coverage through scalable automation, semantic root-cause labels
+rather than structural or patch-level ones, pre-fix operation without post-fix
+dependency, controlled oracle leakage, and a self-consistent evaluation
+framework.
+
+We formalised five research questions --- distribution, taxonomy coverage,
+four-level accuracy, component contribution, and pre-fix/post-fix divergence ---
+and built a reproducible study toolchain that computes each from condition-tagged
+artefacts over a shared evidence corpus. Development-validation runs confirm the
+pipeline and its analysis layer produce correct, well-formed metrics end to end;
+the quantitative findings are populated by the confirmatory run described in
+Section~\ref{sec:setup}.
+
+\smallskip
+Future work spans five directions:
+\begin{enumerate}
+  \item \textbf{Full-dataset classification} --- scale to the entire active
+        \textit{Defects4J} set, producing the first complete ODC-labelled version
+        of the benchmark.
+  \item \textbf{Multi-model consensus} --- classify with several LLMs and
+        aggregate by majority vote to reduce single-provider variance
+        \citep{colavito2024llm}.
+  \item \textbf{Validated opener mapping} --- replace keyword-based
+        opener/closer heuristics with validated Activity$\to$Trigger mappings from
+        \textit{Defects4J} test metadata.
+  \item \textbf{ODC-guided repair} --- use classifications to select repair
+        strategies, connecting classification output to automated repair tools
+        (e.g.\ \textit{Checking} bugs to conditional-guard templates)
+        \citep{durieux2018automatic}.
+  \item \textbf{Cross-dataset and cross-language extension} --- adapt the pipeline
+        to other benchmarks and languages, reusing the language-independent
+        classification logic.
+\end{enumerate}
+
+%% ─── Acknowledgements ────────────────────────────────────────────────────────
+\section*{Acknowledgements}
+
+The authors thank their supervisors Lutfun Nahar Lota (Assistant Professor) and
+Ishmam Tashdeed (Lecturer) for their continuous guidance, the Network and Data
+Analysis Group (NDAG) Lab at the Islamic University of Technology for the research
+environment, and the \textit{Defects4J} community for maintaining a reproducible
+benchmark ecosystem.
+
+%% ─── Bibliography ────────────────────────────────────────────────────────────
+\bibliographystyle{elsarticle-harv}
+\bibliography{citations}
+
+\end{document}
