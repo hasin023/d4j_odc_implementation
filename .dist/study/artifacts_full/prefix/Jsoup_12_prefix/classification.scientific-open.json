@@ -5,31 +5,33 @@
   "prompt_style": "scientific",
   "model": "gemini-3.1-flash-lite-preview",
   "provider": "gemini",
-  "created_at": "2026-07-08T16:58:40+00:00",
-  "odc_type": "Checking",
+  "created_at": "2026-07-10T18:38:56+00:00",
+  "odc_type": "Algorithm/Method",
   "family": "Control and Data Flow",
   "confidence": 0.9,
   "needs_human_review": false,
-  "observation_summary": "The Selector parser throws a SelectorParseException when encountering a CSS selector with an attribute regex (e.g., [class~=x|y]) if it is preceded by a combinator. The parser fails to correctly identify and consume the attribute selector token, treating it as an unexpected token.",
-  "hypothesis": "The Selector parser fails because the TokenQueue logic in findElements() or related methods does not correctly handle attribute selectors containing special characters like '|' when they appear after a combinator. The parser expects a specific token structure and fails when it encounters the regex-based attribute selector, which is not being correctly parsed as a single unit.",
-  "prediction": "The issue is in the parsing logic for attribute selectors, likely within the findElements() method or the way it delegates to attribute parsing, which fails to account for the regex syntax when preceded by a combinator.",
-  "experiment_rationale": "The stack trace and code snippets confirm the failure occurs in the Selector parser during tokenization/parsing of the query string. The error 'unexpected token' indicates a failure in the conditional logic that determines how to parse the next part of the selector string.",
-  "reasoning_summary": "The bug is a classic parsing error where the logic for identifying and consuming tokens (specifically attribute selectors with regex) is incomplete or incorrect when the parser state is influenced by a preceding combinator. This is a 'Checking' defect because the parser's conditional logic (the 'if-else' chain in findElements or the main select loop) fails to validate or correctly branch for this specific valid CSS syntax.",
+  "observation_summary": "The CSS selector parser fails when an attribute selector containing a regex operator (e.g., [attr~=val]) follows a combinator. The stack trace points to a failure in 'findElements' when it encounters an unexpected token, which is the remainder of the attribute selector that was incorrectly split during the combinator processing.",
+  "hypothesis": "The TokenQueue's 'consumeToAny' method used in the 'combinator' method is not context-aware regarding CSS attribute selectors. It splits the query string at the '=' character, which is valid inside an attribute selector, causing the parser to misinterpret the remaining part of the selector as an invalid token.",
+  "prediction": "The 'consumeToAny' method in TokenQueue is too aggressive or lacks awareness of nested structures like brackets '[]' in CSS selectors, causing it to break the query string at the first '=' it encounters, even if that '=' is part of an attribute selector.",
+  "experiment_rationale": "The evidence from the stack trace and the code structure confirms that the parser is failing to correctly tokenize the query when a combinator is involved. The 'combinator' method uses 'consumeToAny(combinators)' to extract the sub-query, which is insufficient for complex selectors containing attribute definitions.",
+  "reasoning_summary": "The bug is a procedural error in how the selector string is tokenized when combinators are present. The 'combinator' method relies on a simple 'consumeToAny' call that does not respect the syntax of CSS attribute selectors, leading to an incorrect split of the query string. This is a classic algorithmic flaw in the parsing logic.",
   "evidence_used": [
-    "full_stack_trace",
-    "snippet"
+    "Selector.java:139 (combinator method)",
+    "Selector.java:187 (SelectorParseException location)",
+    "SelectorTest.java:129 (triggering test case)"
   ],
   "evidence_gaps": [],
   "alternative_types": [
     {
-      "type": "Algorithm/Method",
-      "why_not_primary": "While it involves the parsing algorithm, the root cause is the failure to correctly check/validate the token stream for a valid CSS construct, which is more characteristic of a Checking defect."
+      "type": "Checking",
+      "why_not_primary": "While the error is caught by a check, the root cause is the incorrect parsing algorithm used to split the query string."
     }
   ],
   "target": "Design/Code",
   "qualifier": null,
   "age": null,
   "source": null,
+  "impact": "Capability",
   "inferred_activity": null,
   "inferred_triggers": [],
   "inferred_impact": [],
@@ -42,8 +44,8 @@
   "turns": [
     {
       "turn": 1,
-      "hypothesis": "The Selector parser fails to correctly handle attribute selectors containing special characters like '|' when they appear after a combinator because the TokenQueue is not correctly consuming the attribute selector expression, leading to an unexpected token error.",
-      "prediction": "The TokenQueue logic in Selector.java is likely misinterpreting the '|' character within the attribute selector as a delimiter or an invalid token, causing the parser to stop prematurely.",
+      "hypothesis": "The Selector parser fails to correctly handle attribute selectors containing regex operators (like '~=') when they appear after a combinator because the TokenQueue logic for parsing attribute selectors is not being invoked correctly or is misinterpreting the regex operator as a token boundary.",
+      "prediction": "I expect to see that the TokenQueue in Selector.java does not have a specific handler for the '~=' operator within the attribute selector parsing logic, causing it to treat the '=' as a separator and leaving the rest of the regex string ('x|y]') in the queue, which then causes the 'unexpected token' error.",
       "action": "request_evidence",
       "forced": false,
       "probe": {
@@ -56,16 +58,16 @@
     },
     {
       "turn": 2,
-      "hypothesis": "The Selector parser fails because the TokenQueue logic in findElements() or related methods does not correctly handle attribute selectors containing special characters like '|' when they appear after a combinator. The parser expects a specific token structure and fails when it encounters the regex-based attribute selector, which is not being correctly parsed as a single unit.",
-      "prediction": "The issue is in the parsing logic for attribute selectors, likely within the findElements() method or the way it delegates to attribute parsing, which fails to account for the regex syntax when preceded by a combinator.",
+      "hypothesis": "The Selector parser fails because the TokenQueue in the combinator method incorrectly consumes the query string. When a combinator is used, the code calls 'select(subQuery, root)' where 'subQuery' is obtained via 'tq.consumeToAny(combinators)'. If the subQuery contains an attribute selector with a regex operator (e.g., '[class~=x|y]'), the 'consumeToAny' method might be prematurely stopping at the '=' character inside the attribute selector, leaving the rest of the query ('x|y]') to be processed as a new token, which the parser does not recognize, leading to the SelectorParseException.",
+      "prediction": "The 'consumeToAny' method in TokenQueue is too aggressive or lacks awareness of nested structures like brackets '[]' in CSS selectors, causing it to break the query string at the first '=' it encounters, even if that '=' is part of an attribute selector.",
       "action": "conclude",
       "forced": false,
-      "conclusion_odc_type": "Checking"
+      "conclusion_odc_type": "Algorithm/Method"
     }
   ],
   "llm_calls_used": 2,
   "other_justification": null,
   "nearest_type": null,
   "other_confidence": null,
-  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"confidence\": 0.9, \"needs_human_review\": false, \"observation_summary\": \"The Selector parser throws a SelectorParseException when encountering a CSS selector with an attribute regex (e.g., [class~=x|y]) if it is preceded by a combinator. The parser fails to correctly identify and consume the attribute selector token, treating it as an unexpected token.\", \"hypothesis\": \"The Selector parser fails because the TokenQueue logic in findElements() or related methods does not correctly handle attribute selectors containing special characters like '|' when they appear after a combinator. The parser expects a specific token structure and fails when it encounters the regex-based attribute selector, which is not being correctly parsed as a single unit.\", \"prediction\": \"The issue is in the parsing logic for attribute selectors, likely within the findElements() method or the way it delegates to attribute parsing, which fails to account for the regex syntax when preceded by a combinator.\", \"experiment_rationale\": \"The stack trace and code snippets confirm the failure occurs in the Selector parser during tokenization/parsing of the query string. The error 'unexpected token' indicates a failure in the conditional logic that determines how to parse the next part of the selector string.\", \"reasoning_summary\": \"The bug is a classic parsing error where the logic for identifying and consuming tokens (specifically attribute selectors with regex) is incomplete or incorrect when the parser state is influenced by a preceding combinator. This is a 'Checking' defect because the parser's conditional logic (the 'if-else' chain in findElements or the main select loop) fails to validate or correctly branch for this specific valid CSS syntax.\", \"evidence_used\": [\"full_stack_trace\", \"snippet\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"While it involves the parsing algorithm, the root cause is the failure to correctly check/validate the token stream for a valid CSS construct, which is more characteristic of a Checking defect.\"}]}"
+  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"impact\": \"Capability\", \"confidence\": 0.9, \"needs_human_review\": false, \"observation_summary\": \"The CSS selector parser fails when an attribute selector containing a regex operator (e.g., [attr~=val]) follows a combinator. The stack trace points to a failure in 'findElements' when it encounters an unexpected token, which is the remainder of the attribute selector that was incorrectly split during the combinator processing.\", \"hypothesis\": \"The TokenQueue's 'consumeToAny' method used in the 'combinator' method is not context-aware regarding CSS attribute selectors. It splits the query string at the '=' character, which is valid inside an attribute selector, causing the parser to misinterpret the remaining part of the selector as an invalid token.\", \"prediction\": \"The 'consumeToAny' method in TokenQueue is too aggressive or lacks awareness of nested structures like brackets '[]' in CSS selectors, causing it to break the query string at the first '=' it encounters, even if that '=' is part of an attribute selector.\", \"experiment_rationale\": \"The evidence from the stack trace and the code structure confirms that the parser is failing to correctly tokenize the query when a combinator is involved. The 'combinator' method uses 'consumeToAny(combinators)' to extract the sub-query, which is insufficient for complex selectors containing attribute definitions.\", \"reasoning_summary\": \"The bug is a procedural error in how the selector string is tokenized when combinators are present. The 'combinator' method relies on a simple 'consumeToAny' call that does not respect the syntax of CSS attribute selectors, leading to an incorrect split of the query string. This is a classic algorithmic flaw in the parsing logic.\", \"evidence_used\": [\"Selector.java:139 (combinator method)\", \"Selector.java:187 (SelectorParseException location)\", \"SelectorTest.java:129 (triggering test case)\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Checking\", \"why_not_primary\": \"While the error is caught by a check, the root cause is the incorrect parsing algorithm used to split the query string.\"}]}"
 }

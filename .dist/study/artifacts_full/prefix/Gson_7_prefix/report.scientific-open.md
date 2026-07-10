@@ -2,7 +2,7 @@
 
 - Version: `7b`
 - Work directory: `C:\d4j_work\prefix\Gson_7b`
-- Generated: `2026-07-08T16:55:57+00:00`
+- Generated: `2026-07-10T18:37:24+00:00`
 
 ## Failure Summary
 - `com.google.gson.functional.MapTest::testMapDeserializationWithUnquotedLongKeys`: com.google.gson.JsonSyntaxException: java.lang.IllegalStateException: Expected a long but was STRING at line 1 column 2 path $.
@@ -29,4 +29,7 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The failure occurs because the parser encounters an unquoted token (e.g., an integer key in a map) and the logic in JsonReader.nextInt()/nextLong() does not include PEEKED_UNQUOTED in the conditional branch that attempts to parse the value. This is a missing validation/handling case for a specific token type.
+The failure is caused by missing validation logic (a check for PEEKED_UNQUOTED) in the numeric parsing methods of JsonReader. This is a classic 'Checking' defect where the predicate logic is incomplete for the supported input formats.
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Capability`

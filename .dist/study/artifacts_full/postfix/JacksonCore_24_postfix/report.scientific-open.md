@@ -2,7 +2,7 @@
 
 - Version: `24b`
 - Work directory: `C:\d4j_work\postfix\JacksonCore_24b`
-- Generated: `2026-07-08T16:57:03+00:00`
+- Generated: `2026-07-10T18:37:56+00:00`
 
 ## Failure Summary
 - `com.fasterxml.jackson.core.json.async.AsyncNumberCoercionTest::testToLongFailing`: com.fasterxml.jackson.core.JsonParseException: Numeric value (9223372036854775817) out of range of long (-9223372036854775808 - 9223372036854775807)
@@ -28,14 +28,13 @@
 
 ## ODC Result
 - **Evidence Mode**: ⚠️ Post-fix (with buggy->fixed diff)
-- ODC Type: `Checking`
-- Family: `Control and Data Flow`
+- ODC Type: `Function/Class/Object`
+- Family: `Structural`
 - Target: `Design/Code`
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The bug report explicitly states that the goal is to use InputCoercionException for coercion failures instead of JsonParseException. The code analysis confirms that the current implementation uses the generic _reportError method for these failures, which is a classic 'Checking' defect where the validation/error-reporting logic is insufficient for the required contract.
+The bug is a requested design improvement to the exception hierarchy. The existing code uses a generic exception, and the fix introduces a new, more specific exception type to satisfy a requirement for better error metadata. This is a structural change to the API/contract of the error handling mechanism.
 
 ## ODC Attribute Mapping (Optional)
-- Qualifier: `Incorrect`
-- Age: `Base`
+- Impact: `Capability`

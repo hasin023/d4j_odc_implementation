@@ -2,7 +2,7 @@
 
 - Version: `17b`
 - Work directory: `C:\d4j_work\prefix\Chart_17b`
-- Generated: `2026-07-08T16:53:24+00:00`
+- Generated: `2026-07-10T18:35:09+00:00`
 
 ## Failure Summary
 - `org.jfree.data.time.junit.TimeSeriesTests::testBug1832432`: java.lang.IllegalArgumentException: Requires start <= end.
@@ -19,4 +19,7 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The bug is a classic boundary condition error. The code assumes that a TimeSeries always has at least one item when cloning, or that the range [0, -1] is invalid. The fix requires either a check for empty series in clone() or a relaxation of the guard in createCopy() to handle the empty case gracefully.
+The bug is a classic boundary condition error. The code assumes that a valid range must have start <= end, but it fails to account for the case where the range is empty (start=0, end=-1). This is a failure in the validation logic (Checking).
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Reliability`

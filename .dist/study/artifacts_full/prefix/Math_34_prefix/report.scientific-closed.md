@@ -2,7 +2,7 @@
 
 - Version: `34b`
 - Work directory: `C:\d4j_work\prefix\Math_34b`
-- Generated: `2026-07-08T17:06:31+00:00`
+- Generated: `2026-07-10T18:48:14+00:00`
 
 ## Failure Summary
 - `org.apache.commons.math3.genetics.ListPopulationTest::testIterator`: junit.framework.AssertionFailedError: Expected exception: java.lang.UnsupportedOperationException
@@ -18,4 +18,7 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The bug is a classic case of missing encapsulation/validation. The iterator() method should have returned an unmodifiable iterator or the list should have been wrapped. Since the fix involves adding a check or a wrapper to prevent unauthorized modification, it falls under the 'Checking' category (specifically, missing validation of the operation's validity).
+The bug is a classic case of missing validation/guarding of internal state access. The iterator should not allow modification of the underlying collection. Adding an unmodifiable wrapper is a 'Checking' fix as it enforces the contract of the collection's immutability.
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Capability`

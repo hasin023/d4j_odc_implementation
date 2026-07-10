@@ -2,7 +2,7 @@
 
 - Version: `25b`
 - Work directory: `C:\d4j_work\postfix\Closure_25b`
-- Generated: `2026-07-08T17:01:05+00:00`
+- Generated: `2026-07-10T18:41:03+00:00`
 
 ## Failure Summary
 - `com.google.javascript.jscomp.TypeInferenceTest::testBackwardsInferenceNew`: junit.framework.ComparisonFailure: expected:<{[foo: (number|undefined)]}> but was:<{[]}>
@@ -18,4 +18,7 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The bug is a failure to correctly implement the type inference algorithm for constructor calls. The fix involves adding a missing call to `backwardsInferenceFromCallSite` and reordering the traversal of children, which are classic algorithmic/method-level corrections.
+The bug is caused by an incomplete implementation of the type inference algorithm for 'new' expressions. Specifically, the 'traverseNew' method fails to invoke the backwards inference mechanism for constructor arguments, which is required to refine the types of those arguments based on the constructor's parameter types. This is a classic algorithmic/method-level defect where the procedure for handling constructor calls is missing a necessary step.
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Capability`

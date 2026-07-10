@@ -2,7 +2,7 @@
 
 - Version: `25b`
 - Work directory: `C:\d4j_work\prefix\Time_25b`
-- Generated: `2026-07-08T15:55:18+00:00`
+- Generated: `2026-07-10T18:02:33+00:00`
 
 ## Failure Summary
 - `org.joda.time.TestDateTimeZoneCutover::test_DateTime_constructor_Moscow_Autumn`: junit.framework.ComparisonFailure: expected:<...10-28T02:30:00.000+0[4]:00> but was:<...10-28T02:30:00.000+0[3]:00>
@@ -18,10 +18,10 @@
 
 ## ODC Result
 - **Evidence Mode**: ✅ Pre-fix only
-- ODC Type: `Incorrect DST transition handling`
+- ODC Type: `Incorrect Daylight Saving Time (DST) transition handling`
 - Family: `None`
 - Target: `Design/Code`
-- Confidence: `1.0`
+- Confidence: `0.95`
 - Needs Human Review: `False`
 
-The bug occurs during Daylight Saving Time (DST) transitions where a local time is ambiguous (an overlap). The system was inconsistently calculating the UTC offset for these ambiguous times, leading to incorrect results in the DateTime constructor and related methods. The evidence shows that the system was returning an offset that did not match the expected behavior for the Moscow time zone during an autumn transition. The fix involves standardizing the logic in DateTimeZone to consistently return the earlier instant (the daylight/summer time offset) during such overlaps, as confirmed by the developer's notes.
+The failing tests indicate that during a DST transition (specifically the Moscow Autumn transition), the library incorrectly resolves the local time offset. The tests expect a +04:00 offset for a specific local time, but the system returns +03:00. This suggests that the logic within 'getOffsetFromLocal' fails to correctly identify the appropriate offset when a local time exists in an ambiguous period or during a transition, leading to an incorrect UTC conversion.

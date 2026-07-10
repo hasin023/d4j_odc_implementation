@@ -2,7 +2,7 @@
 
 - Version: `17b`
 - Work directory: `C:\d4j_work\prefix\Cli_17b`
-- Generated: `2026-07-08T16:53:42+00:00`
+- Generated: `2026-07-10T18:35:25+00:00`
 
 ## Failure Summary
 - `org.apache.commons.cli.PosixParserTest::testStopBursting`: junit.framework.AssertionFailedError: Confirm  1 extra arg: 2
@@ -12,10 +12,13 @@
 
 ## ODC Result
 - **Evidence Mode**: ✅ Pre-fix only
-- ODC Type: `Checking`
+- ODC Type: `Algorithm/Method`
 - Family: `Control and Data Flow`
 - Target: `Design/Code`
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The bug report explicitly states that the parser does not stop the bursting process when a non-option character is encountered. This is a failure to validate the state (stopAtNonOption) during the iteration process, which falls under the Checking category.
+The bug report and test failure confirm that the parser continues to process tokens when it should stop. This is a procedural logic error in the parsing algorithm.
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Capability`

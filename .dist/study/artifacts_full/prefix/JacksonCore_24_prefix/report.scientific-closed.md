@@ -2,7 +2,7 @@
 
 - Version: `24b`
 - Work directory: `C:\d4j_work\prefix\JacksonCore_24b`
-- Generated: `2026-07-08T17:04:45+00:00`
+- Generated: `2026-07-10T18:46:18+00:00`
 
 ## Failure Summary
 - `com.fasterxml.jackson.core.json.async.AsyncNumberCoercionTest::testToLongFailing`: com.fasterxml.jackson.core.JsonParseException: Numeric value (9223372036854775817) out of range of long (-9223372036854775808 - 9223372036854775807)
@@ -28,15 +28,13 @@
 
 ## ODC Result
 - **Evidence Mode**: ✅ Pre-fix only
-- ODC Type: `Checking`
+- ODC Type: `Algorithm/Method`
 - Family: `Control and Data Flow`
 - Target: `Design/Code`
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The bug is a classic case of missing/incorrect validation logic (specifically, the choice of exception type for a validation failure). The ODC type 'Checking' is appropriate because the issue is about the validation of data (numeric range) and the subsequent error handling mechanism (throwing the correct exception).
+The bug is a failure to use the correct exception type for coercion errors. The fix involves changing the method call from _reportError to _reportInputCoercion, which is a local procedural change.
 
 ## ODC Attribute Mapping (Optional)
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Recovery/Exception, Test Variation`
-- Inferred Impact: `Reliability`
+- Impact: `Capability`

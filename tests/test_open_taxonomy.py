@@ -14,6 +14,7 @@ from d4j_odc_pipeline.models import BugContext
 from d4j_odc_pipeline.odc import (
     ODC_TYPE_NAMES,
     OTHER_TYPE_NAME,
+    allowed_impact_names,
     allowed_type_names,
     family_for,
     taxonomy_markdown,
@@ -191,6 +192,30 @@ class OtherValidationTests(unittest.TestCase):
     def test_closed_mode_result_records_mode(self) -> None:
         result = _validate(_base_payload())
         self.assertEqual(result.taxonomy_mode, "closed")
+
+
+class ImpactValidationTests(unittest.TestCase):
+    """v5.2 §3.3 Impact: single-select, strictly validated like odc_type,
+    but tolerant of absence (providers without schema enforcement may omit
+    it) — see docs/odc_alignment_audit.md §6.1."""
+
+    def test_all_thirteen_categories_plus_unknown_accepted(self) -> None:
+        self.assertEqual(14, len(allowed_impact_names()))
+        for impact in allowed_impact_names():
+            result = _validate(_base_payload(impact=impact))
+            self.assertEqual(result.impact, impact)
+
+    def test_absent_impact_is_none(self) -> None:
+        result = _validate(_base_payload())
+        self.assertIsNone(result.impact)
+
+    def test_invalid_impact_raises(self) -> None:
+        with self.assertRaises(LLMError):
+            _validate(_base_payload(impact="Made Up Impact"))
+
+    def test_blank_impact_treated_as_absent(self) -> None:
+        result = _validate(_base_payload(impact="   "))
+        self.assertIsNone(result.impact)
 
 
 class CoverageMetricsTests(unittest.TestCase):

@@ -2,7 +2,7 @@
 
 - Version: `43b`
 - Work directory: `C:\d4j_work\prefix\Lang_43b`
-- Generated: `2026-07-08T16:51:32+00:00`
+- Generated: `2026-07-10T18:58:31+00:00`
 
 ## Failure Summary
 - `org.apache.commons.lang.text.ExtendedMessageFormatTest::testEscapedQuote_LANG_477`: java.lang.OutOfMemoryError: Java heap space
@@ -15,18 +15,14 @@
 
 ## ODC Result
 - **Evidence Mode**: ✅ Pre-fix only
-- ODC Type: `Algorithm/Method`
+- ODC Type: `Checking`
 - Family: `Control and Data Flow`
 - Target: `Code`
-- Confidence: `0.95`
+- Confidence: `1.0`
 - Needs Human Review: `False`
 
-The defect is an infinite loop caused by a failure to update the parser's state (the ParsePosition) during a specific branch of the parsing algorithm. This is a classic procedural logic error where the iteration strategy is flawed, fitting the Algorithm/Method category perfectly.
+The defect is a classic 'Checking' error where the logic fails to validate/advance the state (the `ParsePosition`) correctly after processing a specific condition (the escaped quote). This missing state update leads to an infinite loop, which is a failure of the control flow logic rather than a design-level capability issue or a simple value assignment error.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Missing`
-- Age: `Base`
-- Source: `Developed In-House`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Test Sequencing`
-- Inferred Impact: `Reliability`
+- Impact: `Reliability`

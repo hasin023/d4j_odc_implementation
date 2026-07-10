@@ -2,7 +2,7 @@
 
 - Version: `2b`
 - Work directory: `C:\d4j_work\prefix\Time_2b`
-- Generated: `2026-07-08T17:00:20+00:00`
+- Generated: `2026-07-10T18:40:26+00:00`
 
 ## Failure Summary
 - `org.joda.time.TestPartial_Basics::testWith_baseAndArgHaveNoRange`: java.lang.IllegalArgumentException: Types array must not contain duplicate: era and year
@@ -19,4 +19,7 @@
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The code in Partial.java (lines 213-237) performs validation on the types array. It assumes that range duration types are always present or can be retrieved. When a field like 'era' is used, its range duration type is null, and the code does not have a guard to handle this, leading to the observed exception.
+The code at lines 222-225 checks if both the previous field and the current field have null range duration types. If they do, it immediately throws an exception claiming they are duplicates. However, 'era' and 'year' both have null range duration types but are not duplicates. The check should verify if the field types are identical, not just if their range duration types are null.
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Capability`

@@ -2,7 +2,7 @@
 
 - Version: `1b`
 - Work directory: `C:\d4j_work\postfix\Csv_1b`
-- Generated: `2026-07-08T16:47:06+00:00`
+- Generated: `2026-07-10T18:53:33+00:00`
 
 ## Failure Summary
 - `org.apache.commons.csv.CSVParserTest::testGetLineNumberWithCR`: junit.framework.AssertionFailedError: expected:<1> but was:<0>
@@ -12,10 +12,10 @@
 
 ## ODC Result
 - **Evidence Mode**: ⚠️ Post-fix (with buggy->fixed diff)
-- ODC Type: `Incorrect line-ending handling logic`
+- ODC Type: `Incorrect line-ending detection logic`
 - Family: `None`
 - Target: `Design/Code`
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The bug was caused by the ExtendedBufferedReader only incrementing the line counter when encountering a newline character ('\n'). This failed to account for files using carriage return ('\r') as a line terminator, which is a valid line separator in many contexts. The fix updates the read() method to increment the line counter when either a '\r' is encountered or a '\n' is encountered that is not preceded by a '\r' (to correctly handle CRLF sequences).
+The bug was caused by the ExtendedBufferedReader only incrementing the line counter when encountering a newline character ('\n'). This failed to account for carriage return ('\r') characters as valid line terminators, which is required for certain CSV formats. The fix updated the read() method to increment the line counter for both '\r' and '\n' (while ensuring that a CRLF sequence is not double-counted by checking the previous character).

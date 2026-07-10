@@ -5,42 +5,35 @@
   "prompt_style": "scientific",
   "model": "gemini-3.1-flash-lite-preview",
   "provider": "gemini",
-  "created_at": "2026-07-08T16:52:55+00:00",
+  "created_at": "2026-07-10T18:59:36+00:00",
   "odc_type": "Algorithm/Method",
   "family": "Control and Data Flow",
-  "confidence": 0.95,
+  "confidence": 1.0,
   "needs_human_review": false,
-  "observation_summary": "The Soundex implementation incorrectly handled the 'HW rule' (where consonants separated by H or W are treated as one), causing incorrect encoding for certain strings like 'yhwdyt'.",
-  "hypothesis": "The original implementation only checked the immediate predecessor for H or W, failing to account for sequences of H/W characters that might separate consonants from the same code group. The fix replaces this limited check with a loop that correctly traverses backwards through H/W characters to find the preceding consonant.",
-  "prediction": "The code will now correctly identify if a consonant with the same mapping code exists before a sequence of H/W characters, returning 0 to ignore the current character as per the Soundex specification.",
-  "experiment_rationale": "The diff shows a complete rewrite of the HW rule logic from a fixed-depth check (index-1, index-2) to a loop-based search (for loop). This is a fundamental change to the procedural logic of the Soundex algorithm.",
-  "reasoning_summary": "The defect is a procedural error in the Soundex algorithm implementation. The fix replaces a flawed, limited-depth check with a correct iterative search algorithm. This fits the 'Algorithm/Method' definition perfectly as it corrects the computational strategy for applying the HW rule.",
+  "observation_summary": "The Soundex implementation failed to correctly handle the 'HW rule', which states that consonants from the same code group separated by H or W should be treated as one. The original implementation only checked the immediate preceding character, failing to account for sequences of H/W characters.",
+  "hypothesis": "The original algorithm incorrectly limited the HW rule check to the immediate predecessor (index-1) and a fixed lookback (index-2), failing to correctly identify if a previous consonant in the same code group was separated by any number of H or W characters.",
+  "prediction": "The fix will replace the fixed-index lookback with a loop that traverses backwards from the current index, checking for the same code group while skipping over H and W characters, and breaking if a different consonant is encountered.",
+  "experiment_rationale": "The provided diff shows the removal of the fixed index-based check (index-1, index-2) and the introduction of a 'for' loop that iterates backwards (i=index-1; i>=0; i--) to find the previous consonant in the same code group, correctly implementing the Soundex HW rule.",
+  "reasoning_summary": "The defect is a procedural error in the Soundex algorithm's implementation of the HW rule. The original code used an incorrect, limited lookback strategy that failed to handle sequences of H/W characters correctly. The fix replaces this logic with a proper iterative search algorithm, which is a classic 'Algorithm/Method' correction.",
   "evidence_used": [
-    "unified_diff",
-    "bug_report_description"
+    "The bug report states: 'a character that is preceded by two characters that are either H or W, is not encoded, regardless of what the last consonant was.'",
+    "The fix diff replaces a fixed-index check with a loop: 'for (int i=index-1 ; i>=0 ; i--) { ... }'"
   ],
   "evidence_gaps": [],
   "alternative_types": [
     {
       "type": "Checking",
-      "why_not_primary": "While the fix involves a condition, the core issue is the logic of the algorithm itself (how it traverses the string to find the previous consonant), not just a missing guard."
-    },
-    {
-      "type": "Function/Class/Object",
-      "why_not_primary": "The fix is a local procedural correction within an existing method, not a design-level capability change."
+      "why_not_primary": "While the fix involves conditional checks, the core issue is the implementation of the Soundex algorithm's logic for handling character sequences, which is a procedural/algorithmic task rather than a simple missing guard."
     }
   ],
-  "target": "Design/Code",
+  "target": "Code",
   "qualifier": "Incorrect",
-  "age": "Base",
+  "age": null,
   "source": null,
-  "inferred_activity": "Unit Test",
-  "inferred_triggers": [
-    "Test Variation"
-  ],
-  "inferred_impact": [
-    "Reliability"
-  ],
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
   "evidence_mode": "post-fix",
   "strategy": "few",
   "taxonomy_mode": "open",
@@ -52,5 +45,5 @@
   "other_justification": null,
   "nearest_type": null,
   "other_confidence": null,
-  "raw_response": "{\n  \"odc_type\": \"Algorithm/Method\",\n  \"family\": \"Control and Data Flow\",\n  \"target\": \"Design/Code\",\n  \"qualifier\": \"Incorrect\",\n  \"age\": \"Base\",\n  \"inferred_activity\": \"Unit Test\",\n  \"inferred_triggers\": [\"Test Variation\"],\n  \"inferred_impact\": [\"Reliability\"],\n  \"confidence\": 0.95,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The Soundex implementation incorrectly handled the 'HW rule' (where consonants separated by H or W are treated as one), causing incorrect encoding for certain strings like 'yhwdyt'.\",\n  \"hypothesis\": \"The original implementation only checked the immediate predecessor for H or W, failing to account for sequences of H/W characters that might separate consonants from the same code group. The fix replaces this limited check with a loop that correctly traverses backwards through H/W characters to find the preceding consonant.\",\n  \"prediction\": \"The code will now correctly identify if a consonant with the same mapping code exists before a sequence of H/W characters, returning 0 to ignore the current character as per the Soundex specification.\",\n  \"experiment_rationale\": \"The diff shows a complete rewrite of the HW rule logic from a fixed-depth check (index-1, index-2) to a loop-based search (for loop). This is a fundamental change to the procedural logic of the Soundex algorithm.\",\n  \"reasoning_summary\": \"The defect is a procedural error in the Soundex algorithm implementation. The fix replaces a flawed, limited-depth check with a correct iterative search algorithm. This fits the 'Algorithm/Method' definition perfectly as it corrects the computational strategy for applying the HW rule.\",\n  \"evidence_used\": [\"unified_diff\", \"bug_report_description\"],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Checking\",\n      \"why_not_primary\": \"While the fix involves a condition, the core issue is the logic of the algorithm itself (how it traverses the string to find the previous consonant), not just a missing guard.\"\n    },\n    {\n      \"type\": \"Function/Class/Object\",\n      \"why_not_primary\": \"The fix is a local procedural correction within an existing method, not a design-level capability change.\"\n    }\n  ]\n}"
+  "raw_response": "{\n  \"odc_type\": \"Algorithm/Method\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Capability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"confidence\": 1.0,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The Soundex implementation failed to correctly handle the 'HW rule', which states that consonants from the same code group separated by H or W should be treated as one. The original implementation only checked the immediate preceding character, failing to account for sequences of H/W characters.\",\n  \"hypothesis\": \"The original algorithm incorrectly limited the HW rule check to the immediate predecessor (index-1) and a fixed lookback (index-2), failing to correctly identify if a previous consonant in the same code group was separated by any number of H or W characters.\",\n  \"prediction\": \"The fix will replace the fixed-index lookback with a loop that traverses backwards from the current index, checking for the same code group while skipping over H and W characters, and breaking if a different consonant is encountered.\",\n  \"experiment_rationale\": \"The provided diff shows the removal of the fixed index-based check (index-1, index-2) and the introduction of a 'for' loop that iterates backwards (i=index-1; i>=0; i--) to find the previous consonant in the same code group, correctly implementing the Soundex HW rule.\",\n  \"reasoning_summary\": \"The defect is a procedural error in the Soundex algorithm's implementation of the HW rule. The original code used an incorrect, limited lookback strategy that failed to handle sequences of H/W characters correctly. The fix replaces this logic with a proper iterative search algorithm, which is a classic 'Algorithm/Method' correction.\",\n  \"evidence_used\": [\n    \"The bug report states: 'a character that is preceded by two characters that are either H or W, is not encoded, regardless of what the last consonant was.'\",\n    \"The fix diff replaces a fixed-index check with a loop: 'for (int i=index-1 ; i>=0 ; i--) { ... }'\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Checking\",\n      \"why_not_primary\": \"While the fix involves conditional checks, the core issue is the implementation of the Soundex algorithm's logic for handling character sequences, which is a procedural/algorithmic task rather than a simple missing guard.\"\n    }\n  ]\n}"
 }

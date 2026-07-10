@@ -1,0 +1,24 @@
+# Defects4J ODC Classification Report: Lang-35
+
+- Version: `35b`
+- Work directory: `C:\d4j_work\prefix\Lang_35b`
+- Generated: `2026-07-10T19:38:59+00:00`
+
+## Failure Summary
+- `org.apache.commons.lang3.ArrayUtilsAddTest::testLANG571`: java.lang.ClassCastException: class [Ljava.lang.Object; cannot be cast to class [Ljava.lang.String; ([Ljava.lang.Object; and [Ljava.lang.String; are in module java.base of loader 'bootstrap')
+
+## Suspicious Frames
+- `org.apache.commons.lang3.ArrayUtilsAddTest.testLANG571` at `ArrayUtilsAddTest.java:232`
+
+## ODC Result
+- **Evidence Mode**: ✅ Pre-fix only
+- ODC Type: `Checking`
+- Family: `Control and Data Flow`
+- Target: `Design/Code`
+- Confidence: `1.0`
+- Needs Human Review: `False`
+
+The bug report explicitly states that the method should throw an IllegalArgumentException when both parameters are null. The failure is caused by the absence of this check, which is a validation/predicate logic issue.
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Capability`

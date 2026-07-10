@@ -2,7 +2,7 @@
 
 - Version: `26b`
 - Work directory: `C:\d4j_work\postfix\Mockito_26b`
-- Generated: `2026-07-08T17:00:03+00:00`
+- Generated: `2026-07-10T18:40:12+00:00`
 
 ## Failure Summary
 - `org.mockito.internal.progress.HandyReturnValuesTest::should_default_values_for_primitive`: java.lang.ClassCastException: class java.lang.Integer cannot be cast to class java.lang.Double (java.lang.Integer and java.lang.Double are in module java.base of loader 'bootstrap')
@@ -21,12 +21,7 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The failure is caused by an incorrect value being stored in a map used for default return values. This is a direct assignment/initialization error.
+The bug is a classic initialization error where the wrong type (Integer) was assigned to a map entry intended for a double primitive. This is a local assignment issue that does not require algorithmic changes or structural design changes.
 
 ## ODC Attribute Mapping (Optional)
-- Qualifier: `Incorrect`
-- Age: `Base`
-- Source: `Internal`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Test Variation`
-- Inferred Impact: `Reliability`
+- Impact: `Capability`

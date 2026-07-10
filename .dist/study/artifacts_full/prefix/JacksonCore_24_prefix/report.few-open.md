@@ -2,7 +2,7 @@
 
 - Version: `24b`
 - Work directory: `C:\d4j_work\prefix\JacksonCore_24b`
-- Generated: `2026-07-08T16:50:31+00:00`
+- Generated: `2026-07-10T18:57:40+00:00`
 
 ## Failure Summary
 - `com.fasterxml.jackson.core.json.async.AsyncNumberCoercionTest::testToLongFailing`: com.fasterxml.jackson.core.JsonParseException: Numeric value (9223372036854775817) out of range of long (-9223372036854775808 - 9223372036854775807)
@@ -34,12 +34,8 @@
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The defect is fundamentally about the validation logic (the 'check') that determines whether a numeric value fits into a target type. The current implementation uses a generic error reporting mechanism (Checking) that is insufficient for the desired API contract. The fix is to refine this validation/checking logic to throw a more specific exception type.
+The defect is classified as Checking because the core issue is the lack of a specific validation check that distinguishes between a syntax error (parse error) and a type coercion error. The current implementation uses a generic error reporting mechanism (JsonParseException) for both cases. The fix requires adding a check or a specialized error-reporting path to handle coercion failures distinctly, which aligns with the ODC definition of Checking (missing or incorrect validation of data).
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Incorrect`
-- Age: `Base`
-- Source: `Developed In-House`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Recovery/Exception, Test Variation`
-- Inferred Impact: `Reliability`
+- Impact: `Serviceability`

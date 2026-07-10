@@ -2,7 +2,7 @@
 
 - Version: `12b`
 - Work directory: `C:\d4j_work\prefix\Jsoup_12b`
-- Generated: `2026-07-08T16:58:40+00:00`
+- Generated: `2026-07-10T18:38:56+00:00`
 
 ## Failure Summary
 - `org.jsoup.select.SelectorTest::testByAttributeRegexCombined`: org.jsoup.select.Selector$SelectorParseException: Could not parse query '=x|y]': unexpected token at '=x|y]'
@@ -17,10 +17,13 @@
 
 ## ODC Result
 - **Evidence Mode**: ✅ Pre-fix only
-- ODC Type: `Checking`
+- ODC Type: `Algorithm/Method`
 - Family: `Control and Data Flow`
 - Target: `Design/Code`
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The bug is a classic parsing error where the logic for identifying and consuming tokens (specifically attribute selectors with regex) is incomplete or incorrect when the parser state is influenced by a preceding combinator. This is a 'Checking' defect because the parser's conditional logic (the 'if-else' chain in findElements or the main select loop) fails to validate or correctly branch for this specific valid CSS syntax.
+The bug is a procedural error in how the selector string is tokenized when combinators are present. The 'combinator' method relies on a simple 'consumeToAny' call that does not respect the syntax of CSS attribute selectors, leading to an incorrect split of the query string. This is a classic algorithmic flaw in the parsing logic.
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Capability`

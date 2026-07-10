@@ -1,0 +1,71 @@
+{
+  "project_id": "Lang",
+  "bug_id": 6,
+  "version_id": "6b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-10T19:35:13+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The CharSequenceTranslator.translate method incorrectly advances the 'pos' index by iterating 'consumed' times and adding the character count of the codepoint at each step, causing an index out of bounds when 'consumed' is greater than 1.",
+  "hypothesis": "The loop in CharSequenceTranslator.translate(CharSequence, Writer) incorrectly increments the 'pos' index when a translator returns a non-zero 'consumed' value. The code iterates 'consumed' times, and in each iteration, it adds the character count of the codepoint at the current 'pos'. If 'consumed' is 1 (representing a single character or a surrogate pair), it should advance 'pos' by the length of that character (1 or 2). However, the current implementation loops 'consumed' times, effectively advancing 'pos' by 'consumed * charCount', which is incorrect if 'consumed' refers to the number of characters processed by the translator.",
+  "prediction": "The loop at lines 94-96 is logically flawed because it treats 'consumed' as a count of codepoints to skip, while it actually represents the number of characters consumed by the translator. When a surrogate pair is processed, 'consumed' is 2, and the loop runs twice, advancing 'pos' by 2+2=4 instead of 2, leading to an index out of bounds.",
+  "experiment_rationale": "The code snippet clearly shows the loop logic at lines 94-96. The variable 'consumed' is used as the loop limit, and inside the loop, 'pos' is incremented by the character count of the codepoint at the current position. This is a clear algorithmic error in how the index is advanced.",
+  "reasoning_summary": "The logic at lines 94-96 is fundamentally incorrect for advancing the index 'pos'. It iterates 'consumed' times, and in each iteration, it adds the character count of the codepoint at the current 'pos'. This results in 'pos' being advanced by more than the number of characters actually consumed by the translator, leading to an index out of bounds error.",
+  "evidence_used": [
+    "CharSequenceTranslator.java snippet"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "The issue is not a missing guard or validation, but an incorrect implementation of the index advancement logic."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "closed",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The loop in CharSequenceTranslator.translate(CharSequence, Writer) incorrectly increments the 'pos' index when a surrogate pair is encountered. Specifically, it calls Character.codePointAt(input, pos) and then Character.charCount(...) to determine the increment. If the translator (e.g., a CSV escaper) has already consumed the surrogate pair, the 'pos' index is advanced by the length of the codepoint, but if the translator did not consume it, the logic at line 95 is redundant or incorrectly calculated, leading to an index out of bounds when the loop continues.",
+      "prediction": "I expect that when a surrogate pair is processed, the 'pos' index is being incremented by 2 (the char count of the surrogate pair) even when the translator has already advanced the position or when the logic incorrectly assumes the current character is a single char, causing 'pos' to exceed the string length.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "CharSequenceTranslator"
+      },
+      "observation_summary": [
+        "snippets"
+      ]
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The loop in CharSequenceTranslator.translate(CharSequence, Writer) incorrectly increments the 'pos' index when a translator returns a non-zero 'consumed' value. The code iterates 'consumed' times, and in each iteration, it adds the character count of the codepoint at the current 'pos'. If 'consumed' is 1 (representing a single character or a surrogate pair), it should advance 'pos' by the length of that character (1 or 2). However, the current implementation loops 'consumed' times, effectively advancing 'pos' by 'consumed * charCount', which is incorrect if 'consumed' refers to the number of characters processed by the translator.",
+      "prediction": "The loop at lines 94-96 is logically flawed because it treats 'consumed' as a count of codepoints to skip, while it actually represents the number of characters consumed by the translator. When a surrogate pair is processed, 'consumed' is 2, and the loop runs twice, advancing 'pos' by 2+2=4 instead of 2, leading to an index out of bounds.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Algorithm/Method"
+    }
+  ],
+  "llm_calls_used": 2,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"impact\": \"Reliability\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The CharSequenceTranslator.translate method incorrectly advances the 'pos' index by iterating 'consumed' times and adding the character count of the codepoint at each step, causing an index out of bounds when 'consumed' is greater than 1.\", \"hypothesis\": \"The loop in CharSequenceTranslator.translate(CharSequence, Writer) incorrectly increments the 'pos' index when a translator returns a non-zero 'consumed' value. The code iterates 'consumed' times, and in each iteration, it adds the character count of the codepoint at the current 'pos'. If 'consumed' is 1 (representing a single character or a surrogate pair), it should advance 'pos' by the length of that character (1 or 2). However, the current implementation loops 'consumed' times, effectively advancing 'pos' by 'consumed * charCount', which is incorrect if 'consumed' refers to the number of characters processed by the translator.\", \"prediction\": \"The loop at lines 94-96 is logically flawed because it treats 'consumed' as a count of codepoints to skip, while it actually represents the number of characters consumed by the translator. When a surrogate pair is processed, 'consumed' is 2, and the loop runs twice, advancing 'pos' by 2+2=4 instead of 2, leading to an index out of bounds.\", \"experiment_rationale\": \"The code snippet clearly shows the loop logic at lines 94-96. The variable 'consumed' is used as the loop limit, and inside the loop, 'pos' is incremented by the character count of the codepoint at the current position. This is a clear algorithmic error in how the index is advanced.\", \"reasoning_summary\": \"The logic at lines 94-96 is fundamentally incorrect for advancing the index 'pos'. It iterates 'consumed' times, and in each iteration, it adds the character count of the codepoint at the current 'pos'. This results in 'pos' being advanced by more than the number of characters actually consumed by the translator, leading to an index out of bounds error.\", \"evidence_used\": [\"CharSequenceTranslator.java snippet\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Checking\", \"why_not_primary\": \"The issue is not a missing guard or validation, but an incorrect implementation of the index advancement logic.\"}]}"
+}

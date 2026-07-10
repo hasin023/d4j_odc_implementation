@@ -2,7 +2,7 @@
 
 - Version: `3b`
 - Work directory: `C:\d4j_work\prefix\Codec_3b`
-- Generated: `2026-07-08T16:54:32+00:00`
+- Generated: `2026-07-10T18:36:16+00:00`
 
 ## Failure Summary
 - `org.apache.commons.codec.language.DoubleMetaphone2Test::testDoubleMetaphoneAlternate`: junit.framework.ComparisonFailure: Test [19]=Angier expected:<AN[J]R> but was:<AN[K]R>
@@ -12,10 +12,13 @@
 
 ## ODC Result
 - **Evidence Mode**: ✅ Pre-fix only
-- ODC Type: `Algorithm/Method`
+- ODC Type: `Checking`
 - Family: `Control and Data Flow`
 - Target: `Design/Code`
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The defects are clearly procedural: they involve incorrect constants (4 vs 3), incorrect index arithmetic (value.length - 2 vs index - 1), and incorrect control flow (appending 'L' unconditionally). These are not design-level omissions (Function/Class/Object), nor are they interface mismatches (Interface/O-O Messages), nor are they simple initialization errors (Assignment/Initialization). They are errors in the implementation of the algorithm itself.
+The defect is a classic 'Checking' error where the condition logic (the length parameter in the contains check) is incorrect. This fits the ODC definition of Checking perfectly as it involves validation of data/parameters in a conditional statement.
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Capability`

@@ -2,7 +2,7 @@
 
 - Version: `26b`
 - Work directory: `C:\d4j_work\prefix\Mockito_26b`
-- Generated: `2026-07-08T16:51:58+00:00`
+- Generated: `2026-07-10T18:58:53+00:00`
 
 ## Failure Summary
 - `org.mockito.internal.progress.HandyReturnValuesTest::should_default_values_for_primitive`: java.lang.ClassCastException: class java.lang.Integer cannot be cast to class java.lang.Double (java.lang.Integer and java.lang.Double are in module java.base of loader 'bootstrap')
@@ -15,18 +15,14 @@
 
 ## ODC Result
 - **Evidence Mode**: ✅ Pre-fix only
-- ODC Type: `Algorithm/Method`
+- ODC Type: `Assignment/Initialization`
 - Family: `Control and Data Flow`
-- Target: `Design/Code`
+- Target: `Code`
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The defect is a classic case of incorrect computational logic within a utility method. The system is expected to return a specific primitive default (e.g., 0.0D for double), but it returns an integer 0, causing a type mismatch. This is an algorithmic error in the primitive-to-default-value mapping procedure, not a missing guard or a simple initialization error.
+The bug is a classic case of incorrect value assignment. The system is returning a generic '0' for all numeric primitives, failing to distinguish between types like 'int' and 'double'. This is not a missing check (Checking), nor a procedural logic error (Algorithm/Method), but rather an incorrect value being provided as the default.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Incorrect`
-- Age: `Base`
-- Source: `Developed In-House`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Test Variation`
-- Inferred Impact: `Reliability`
+- Impact: `Capability`

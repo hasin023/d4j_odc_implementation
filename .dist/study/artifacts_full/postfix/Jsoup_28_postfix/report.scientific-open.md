@@ -2,7 +2,7 @@
 
 - Version: `28b`
 - Work directory: `C:\d4j_work\postfix\Jsoup_28b`
-- Generated: `2026-07-08T16:58:29+00:00`
+- Generated: `2026-07-10T18:38:51+00:00`
 
 ## Failure Summary
 - `org.jsoup.nodes.EntitiesTest::unescape`: junit.framework.AssertionFailedError: expected:<Hello &<> ® Å [&angst] π π 新 there &! ¾ © ...> but was:<Hello &<> ® Å [Å] π π 新 there &! ¾ © ...>
@@ -28,4 +28,7 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The bug is a classic case of an incorrect algorithmic strategy for parsing. The regex-based `unescape` method is too greedy and lacks the context-awareness (like checking for valid entity names or the required semicolon) needed to distinguish between actual HTML entities and plain text that happens to contain an ampersand. The fix replaces this with a proper `Tokeniser` implementation, which is a change to the computational strategy/procedure.
+The bug is a classic case of an incorrect algorithmic approach (regex-based parsing) for a task that requires context-aware parsing (HTML entity decoding). The fix replaces the flawed algorithm with a correct one (tokenization).
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Capability`

@@ -2,7 +2,7 @@
 
 - Version: `111b`
 - Work directory: `C:\d4j_work\postfix\JacksonDatabind_111b`
-- Generated: `2026-07-08T16:47:28+00:00`
+- Generated: `2026-07-10T18:53:55+00:00`
 
 ## Failure Summary
 - `com.fasterxml.jackson.databind.deser.jdk.JDKAtomicTypesDeserTest::testNullWithinNested`: junit.framework.AssertionFailedError
@@ -18,4 +18,4 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The defect arises because the deserializer and the null value provider for a bean property were not kept in sync during contextual deserialization. When a new contextual deserializer was created, the property's null value provider remained stale, causing it to return a default object (e.g., an empty AtomicReference) instead of the correctly nested null value expected by the type hierarchy. The fix ensures that if the deserializer and null provider were originally linked, the null provider is updated to match the new deserializer.
+The defect arises because the deserialization logic for nested reference types (like AtomicReference<AtomicReference<T>>) fails to correctly propagate the null value provider when a new contextual deserializer is created. Specifically, when a property's deserializer is updated during the contextualization process, the corresponding null value provider is not updated to match, leading to a mismatch where the system uses a default null provider instead of the one associated with the specific nested type. The fix ensures that if the original deserializer and null provider were linked, the new contextual deserializer and the null provider remain synchronized, and it also updates the AtomicReferenceDeserializer to correctly use the nested deserializer's null value instead of returning an empty AtomicReference.

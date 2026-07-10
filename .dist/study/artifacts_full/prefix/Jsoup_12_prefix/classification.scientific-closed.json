@@ -5,38 +5,36 @@
   "prompt_style": "scientific",
   "model": "gemini-3.1-flash-lite-preview",
   "provider": "gemini",
-  "created_at": "2026-07-08T17:05:47+00:00",
+  "created_at": "2026-07-10T18:52:02+00:00",
   "odc_type": "Checking",
   "family": "Control and Data Flow",
   "confidence": 0.9,
   "needs_human_review": false,
-  "observation_summary": "The Selector parser throws a SelectorParseException when encountering an attribute selector after a combinator. The 'findElements' method in Selector.java lacks logic to handle the '[' character, which is the start of an attribute selector.",
-  "hypothesis": "The Selector parser fails to correctly handle attribute selectors (like [attr~=regex]) when they follow a combinator because the 'findElements' method does not account for the '[' character as a valid start of an element matcher, causing it to fall through to the 'unhandled' exception block.",
-  "prediction": "The 'findElements' method in Selector.java is missing a conditional check for the '[' character, which is required to initiate attribute selector parsing.",
-  "experiment_rationale": "The stack trace and code snippets confirm that 'findElements' is the entry point for parsing element matchers and it explicitly throws an exception if it doesn't match known prefixes like '#', '.', or specific pseudo-selectors. The missing '[' handling is a classic 'Checking' defect where a valid input path is not validated/handled.",
-  "reasoning_summary": "The code snippet for 'findElements' shows it only checks for '#', '.', and various pseudo-selectors. It does not check for '['. When a query like 'table[class~=x|y]' is processed, the parser reaches the attribute part, but 'findElements' doesn't know how to handle '[', leading to the 'unhandled' exception.",
+  "observation_summary": "The Selector parser throws a SelectorParseException when encountering a pipe character inside an attribute regex selector, specifically when preceded by a combinator. The parser fails to correctly identify the full attribute value.",
+  "hypothesis": "The Selector parser incorrectly treats the pipe character '|' as a special token (likely a combinator or separator) when it appears inside an attribute regex selector (e.g., [class~=x|y]), causing the TokenQueue to stop parsing the attribute value prematurely and fail to recognize the rest of the query.",
+  "prediction": "The logic responsible for parsing attribute selectors in the Selector class does not correctly handle the pipe character as a literal part of the regex value, leading to a parsing error when the query contains such a character.",
+  "experiment_rationale": "The stack trace and code snippets confirm that the parser fails at the point where it expects a valid token but finds the remainder of the query string, indicating a failure in the tokenization or parsing logic for complex attribute selectors.",
+  "reasoning_summary": "The failure is a classic parsing error where the grammar implementation (the Selector class) lacks the necessary validation or handling for a specific character (the pipe) within a specific context (attribute regex). This is a 'Checking' defect because the parser's predicate logic for identifying tokens is insufficient for the provided input.",
   "evidence_used": [
-    "full_stack_trace",
-    "snippet"
+    "org.jsoup.select.Selector$SelectorParseException: Could not parse query '=x|y]': unexpected token at '=x|y]'",
+    "org.jsoup.select.Selector.findElements(Selector.java:187)",
+    "org.jsoup.select.SelectorTest::testByAttributeRegexCombined"
   ],
   "evidence_gaps": [],
   "alternative_types": [
     {
       "type": "Algorithm/Method",
-      "why_not_primary": "The issue is not the complexity of the algorithm, but the missing guard/check for a specific token type."
+      "why_not_primary": "The issue is not the efficiency or the core algorithm, but rather the failure to correctly validate/parse the input string according to the expected grammar."
     }
   ],
   "target": "Design/Code",
   "qualifier": null,
   "age": null,
   "source": null,
-  "inferred_activity": "Unit Test",
-  "inferred_triggers": [
-    "Recovery/Exception"
-  ],
-  "inferred_impact": [
-    "Reliability"
-  ],
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
   "evidence_mode": "pre-fix",
   "strategy": "scientific",
   "taxonomy_mode": "closed",
@@ -46,8 +44,20 @@
   "turns": [
     {
       "turn": 1,
-      "hypothesis": "The TokenQueue in Selector.java is not correctly handling the attribute selector syntax (specifically the regex operator '~=') when it appears after a combinator, causing the parser to misinterpret the '[' character or the subsequent tokens.",
-      "prediction": "The TokenQueue or the Selector parsing logic for attribute selectors is missing a check or incorrectly consuming tokens when an attribute selector follows a combinator, leading to an unexpected token error.",
+      "hypothesis": "The TokenQueue in the Selector class is incorrectly consuming the pipe character '|' as a combinator or separator when parsing attribute selectors like [class~=x|y], causing the parser to fail because it expects a valid CSS selector token but encounters the remainder of the regex.",
+      "prediction": "The TokenQueue or the Selector parsing logic for attribute selectors does not correctly handle the pipe character inside regex attribute values, treating it as a delimiter instead of part of the regex string.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "org.jsoup.select.TokenQueue"
+      },
+      "observation_summary": "no snippet matches 'org.jsoup.select.TokenQueue'"
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The Selector class's attribute parsing logic (likely within a method called by findElements) is not correctly handling the pipe character '|' inside attribute regex selectors, causing it to prematurely terminate or misinterpret the attribute value.",
+      "prediction": "The Selector class contains a method that parses attribute selectors (e.g., [attr~=val]) and fails to account for special characters like '|' when consuming the attribute value.",
       "action": "request_evidence",
       "forced": false,
       "probe": {
@@ -59,17 +69,17 @@
       ]
     },
     {
-      "turn": 2,
-      "hypothesis": "The Selector parser fails to correctly handle attribute selectors (like [attr~=regex]) when they follow a combinator because the 'findElements' method does not account for the '[' character as a valid start of an element matcher, causing it to fall through to the 'unhandled' exception block.",
-      "prediction": "The 'findElements' method in Selector.java is missing a conditional check for the '[' character, which is required to initiate attribute selector parsing.",
+      "turn": 3,
+      "hypothesis": "The Selector parser incorrectly treats the pipe character '|' as a special token (likely a combinator or separator) when it appears inside an attribute regex selector (e.g., [class~=x|y]), causing the TokenQueue to stop parsing the attribute value prematurely and fail to recognize the rest of the query.",
+      "prediction": "The logic responsible for parsing attribute selectors in the Selector class does not correctly handle the pipe character as a literal part of the regex value, leading to a parsing error when the query contains such a character.",
       "action": "conclude",
       "forced": false,
       "conclusion_odc_type": "Checking"
     }
   ],
-  "llm_calls_used": 2,
+  "llm_calls_used": 3,
   "other_justification": null,
   "nearest_type": null,
   "other_confidence": null,
-  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"target\": \"Design/Code\", \"qualifier\": null, \"age\": null, \"source\": null, \"inferred_activity\": \"Unit Test\", \"inferred_triggers\": [\"Recovery/Exception\"], \"inferred_impact\": [\"Reliability\"], \"confidence\": 0.9, \"needs_human_review\": false, \"observation_summary\": \"The Selector parser throws a SelectorParseException when encountering an attribute selector after a combinator. The 'findElements' method in Selector.java lacks logic to handle the '[' character, which is the start of an attribute selector.\", \"hypothesis\": \"The Selector parser fails to correctly handle attribute selectors (like [attr~=regex]) when they follow a combinator because the 'findElements' method does not account for the '[' character as a valid start of an element matcher, causing it to fall through to the 'unhandled' exception block.\", \"prediction\": \"The 'findElements' method in Selector.java is missing a conditional check for the '[' character, which is required to initiate attribute selector parsing.\", \"experiment_rationale\": \"The stack trace and code snippets confirm that 'findElements' is the entry point for parsing element matchers and it explicitly throws an exception if it doesn't match known prefixes like '#', '.', or specific pseudo-selectors. The missing '[' handling is a classic 'Checking' defect where a valid input path is not validated/handled.\", \"reasoning_summary\": \"The code snippet for 'findElements' shows it only checks for '#', '.', and various pseudo-selectors. It does not check for '['. When a query like 'table[class~=x|y]' is processed, the parser reaches the attribute part, but 'findElements' doesn't know how to handle '[', leading to the 'unhandled' exception.\", \"evidence_used\": [\"full_stack_trace\", \"snippet\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"The issue is not the complexity of the algorithm, but the missing guard/check for a specific token type.\"}]}"
+  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"impact\": \"Capability\", \"confidence\": 0.9, \"needs_human_review\": false, \"observation_summary\": \"The Selector parser throws a SelectorParseException when encountering a pipe character inside an attribute regex selector, specifically when preceded by a combinator. The parser fails to correctly identify the full attribute value.\", \"hypothesis\": \"The Selector parser incorrectly treats the pipe character '|' as a special token (likely a combinator or separator) when it appears inside an attribute regex selector (e.g., [class~=x|y]), causing the TokenQueue to stop parsing the attribute value prematurely and fail to recognize the rest of the query.\", \"prediction\": \"The logic responsible for parsing attribute selectors in the Selector class does not correctly handle the pipe character as a literal part of the regex value, leading to a parsing error when the query contains such a character.\", \"experiment_rationale\": \"The stack trace and code snippets confirm that the parser fails at the point where it expects a valid token but finds the remainder of the query string, indicating a failure in the tokenization or parsing logic for complex attribute selectors.\", \"reasoning_summary\": \"The failure is a classic parsing error where the grammar implementation (the Selector class) lacks the necessary validation or handling for a specific character (the pipe) within a specific context (attribute regex). This is a 'Checking' defect because the parser's predicate logic for identifying tokens is insufficient for the provided input.\", \"evidence_used\": [\"org.jsoup.select.Selector$SelectorParseException: Could not parse query '=x|y]': unexpected token at '=x|y]'\", \"org.jsoup.select.Selector.findElements(Selector.java:187)\", \"org.jsoup.select.SelectorTest::testByAttributeRegexCombined\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"The issue is not the efficiency or the core algorithm, but rather the failure to correctly validate/parse the input string according to the expected grammar.\"}]}"
 }

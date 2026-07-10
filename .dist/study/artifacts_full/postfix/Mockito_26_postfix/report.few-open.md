@@ -2,7 +2,7 @@
 
 - Version: `26b`
 - Work directory: `C:\d4j_work\postfix\Mockito_26b`
-- Generated: `2026-07-08T16:52:01+00:00`
+- Generated: `2026-07-10T18:58:55+00:00`
 
 ## Failure Summary
 - `org.mockito.internal.progress.HandyReturnValuesTest::should_default_values_for_primitive`: java.lang.ClassCastException: class java.lang.Integer cannot be cast to class java.lang.Double (java.lang.Integer and java.lang.Double are in module java.base of loader 'bootstrap')
@@ -21,11 +21,8 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The defect is a classic case of an incorrect value being assigned during the initialization of a static map. It is not a missing check (Checking), not a procedural logic error (Algorithm/Method), and not a design-level capability issue (Function/Class/Object). It is a simple, localized assignment error.
+The defect is a classic initialization error where a map was populated with an incorrect value type for a specific key. It does not involve complex algorithmic logic, missing guards, or design-level capability gaps. It is a straightforward correction of an incorrectly initialized constant.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Incorrect`
-- Age: `Base`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Test Variation`
-- Inferred Impact: `Reliability`
+- Impact: `Capability`

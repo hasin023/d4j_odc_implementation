@@ -2,7 +2,7 @@
 
 - Version: `33b`
 - Work directory: `C:\d4j_work\prefix\Compress_33b`
-- Generated: `2026-07-08T17:01:35+00:00`
+- Generated: `2026-07-10T18:41:28+00:00`
 
 ## Failure Summary
 - `org.apache.commons.compress.compressors.DetectCompressorTestCase::testDetection`: org.apache.commons.compress.compressors.CompressorException: No Compressor found for the stream signature.
@@ -14,10 +14,13 @@
 
 ## ODC Result
 - **Evidence Mode**: ✅ Pre-fix only
-- ODC Type: `Checking`
-- Family: `Control and Data Flow`
+- ODC Type: `Function/Class/Object`
+- Family: `Structural`
 - Target: `Design/Code`
-- Confidence: `1.0`
+- Confidence: `0.9`
 - Needs Human Review: `False`
 
-The bug is a missing validation/check for a specific data signature (zlib header) in the stream detection logic. This falls under the 'Checking' category as it involves missing predicate logic to identify a valid input format.
+The bug is a missing feature (detection of a specific stream format) in the factory class. This is a structural design omission where the factory's capability to identify streams is incomplete relative to the requirements.
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Capability`

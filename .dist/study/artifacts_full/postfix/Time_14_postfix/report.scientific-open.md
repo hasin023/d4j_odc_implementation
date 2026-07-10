@@ -2,7 +2,7 @@
 
 - Version: `14b`
 - Work directory: `C:\d4j_work\postfix\Time_14b`
-- Generated: `2026-07-08T17:00:33+00:00`
+- Generated: `2026-07-10T18:40:38+00:00`
 
 ## Failure Summary
 - `org.joda.time.TestMonthDay_Basics::testPlusMonths_int_negativeFromLeap`: org.joda.time.IllegalFieldValueException: Value 29 for dayOfMonth must be in the range [1,28]
@@ -33,4 +33,7 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The failure occurs because the code assumes a generic way to add time to partials, which fails for leap days when the underlying chronology defaults to a non-leap year. The fix adds a specific algorithmic path for MonthDay objects to correctly calculate the new month without triggering invalid date exceptions.
+The bug is a direct consequence of an incorrect algorithmic approach to handling partials. The code attempts to normalize a partial to a full instant, which is invalid for leap days when the default year is not a leap year. This is a classic 'Algorithm/Method' defect as it requires a change in the procedural logic of the add method.
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Capability`

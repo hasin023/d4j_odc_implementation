@@ -1,0 +1,55 @@
+{
+  "project_id": "Lang",
+  "bug_id": 56,
+  "version_id": "56b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-10T19:47:52+00:00",
+  "odc_type": "Relationship",
+  "family": "Structural",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The FastDateFormat class failed during serialization because it contained non-serializable fields (mRules and mMaxLengthEstimate) that were not marked as transient, leading to a NotSerializableException.",
+  "hypothesis": "The class FastDateFormat holds state (mRules, mMaxLengthEstimate) that is derived from the pattern string during initialization. Because these fields were not marked as transient, the Java serialization mechanism attempted to serialize them, failing because the underlying Rule objects were not serializable. The fix requires marking these fields as transient and implementing a readObject method to re-initialize them upon deserialization.",
+  "prediction": "The code will now mark mRules and mMaxLengthEstimate as transient and include a readObject method that calls init() to restore the state after deserialization.",
+  "experiment_rationale": "The fix diff shows exactly these changes: adding the 'transient' keyword to the fields and adding the readObject method to handle the re-initialization of the object's internal state, which is a classic pattern for maintaining consistency between serialized state and object behavior.",
+  "reasoning_summary": "This is a Relationship defect because the failure arises from a broken association between the object's serialized state and its internal operational state. The object's internal structure (the rules array) was not compatible with the serialization contract, requiring a structural change to how the object maintains its internal consistency across the serialization boundary.",
+  "evidence_used": [
+    "org.apache.commons.lang.SerializationException: java.io.NotSerializableException: org.apache.commons.lang.time.FastDateFormat$PaddedNumberField",
+    "unified_diff: private transient Rule[] mRules;",
+    "unified_diff: private transient int mMaxLengthEstimate;",
+    "unified_diff: private void readObject(ObjectInputStream in) { in.defaultReadObject(); init(); }"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the fix involves adding a method (readObject), the root cause is the structural mismatch between the class's internal state and the serialization mechanism, not a flaw in a computational algorithm."
+    },
+    {
+      "type": "Function/Class/Object",
+      "why_not_primary": "This is a local fix to ensure serialization compatibility, not a design-level capability omission."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Incorrect",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "few",
+  "taxonomy_mode": "closed",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Relationship\",\n  \"family\": \"Structural\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The FastDateFormat class failed during serialization because it contained non-serializable fields (mRules and mMaxLengthEstimate) that were not marked as transient, leading to a NotSerializableException.\",\n  \"hypothesis\": \"The class FastDateFormat holds state (mRules, mMaxLengthEstimate) that is derived from the pattern string during initialization. Because these fields were not marked as transient, the Java serialization mechanism attempted to serialize them, failing because the underlying Rule objects were not serializable. The fix requires marking these fields as transient and implementing a readObject method to re-initialize them upon deserialization.\",\n  \"prediction\": \"The code will now mark mRules and mMaxLengthEstimate as transient and include a readObject method that calls init() to restore the state after deserialization.\",\n  \"experiment_rationale\": \"The fix diff shows exactly these changes: adding the 'transient' keyword to the fields and adding the readObject method to handle the re-initialization of the object's internal state, which is a classic pattern for maintaining consistency between serialized state and object behavior.\",\n  \"reasoning_summary\": \"This is a Relationship defect because the failure arises from a broken association between the object's serialized state and its internal operational state. The object's internal structure (the rules array) was not compatible with the serialization contract, requiring a structural change to how the object maintains its internal consistency across the serialization boundary.\",\n  \"evidence_used\": [\n    \"org.apache.commons.lang.SerializationException: java.io.NotSerializableException: org.apache.commons.lang.time.FastDateFormat$PaddedNumberField\",\n    \"unified_diff: private transient Rule[] mRules;\",\n    \"unified_diff: private transient int mMaxLengthEstimate;\",\n    \"unified_diff: private void readObject(ObjectInputStream in) { in.defaultReadObject(); init(); }\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the fix involves adding a method (readObject), the root cause is the structural mismatch between the class's internal state and the serialization mechanism, not a flaw in a computational algorithm.\"\n    },\n    {\n      \"type\": \"Function/Class/Object\",\n      \"why_not_primary\": \"This is a local fix to ensure serialization compatibility, not a design-level capability omission.\"\n    }\n  ]\n}"
+}

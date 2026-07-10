@@ -18,7 +18,8 @@ The code lives in `d4j_odc_pipeline/`. The rest of the repo is tests, documentat
 The current implementation has two ODC layers:
 
 - Primary, required: one of the 7 ODC `Defect Type` values for `Target=Design/Code`
-- Secondary, optional: heuristic opener/closer-aligned metadata such as `target`, `qualifier`, `age`, `source`, `inferred_activity`, `inferred_triggers`, and `inferred_impact`
+- Secondary: the ODC opener `Impact` attribute (v5.2 §3.3) — single-select from the 13 official categories + `Unknown`, taught to the LLM and strictly validated (`ClassificationResult.impact`); the one opener attribute the pipeline claims (see `docs/odc_alignment_audit.md`)
+- Tertiary, optional/heuristic: closer-aligned metadata `target`, `qualifier`, `age`, `source`. The legacy `inferred_activity`, `inferred_triggers`, `inferred_impact` fields remain on `ClassificationResult` for reading old artifacts but are no longer populated by prompts (Activity/Trigger are not reliably determinable from Defects4J evidence — see the audit doc)
 
 Important scope note:
 
@@ -157,6 +158,7 @@ Sequence:
 Important behavior:
 
 - `classes.modified` is stored in `hidden_oracles` and deliberately excluded from the LLM prompt.
+- `context.json` itself is never sanitized — the pre-fix payload's `bug_info`/`bug_report_content` are stripped of fix-derived sections (`prompting.sanitize_bug_info`/`sanitize_bug_report`) at *payload-build time* only, in `_context_payload` and `agent.execute_probe`'s `bug_report` probe. See §5.2 and `docs/odc_alignment_audit.md` §7.
 - Suspicious production frames are preferred over test frames.
 - Framework, JDK, build-tool, and test-runner frames are aggressively filtered out before source snippet extraction.
 - Test source extraction is capped to the first 3 failures.
@@ -188,11 +190,12 @@ Important behavior:
 - `scientific` never calls `build_messages` — it's the enforced loop in `agent.py` (see §5.4/§6 below), with its own system prompt and per-turn schema.
 - `zero` and `few` receive identical user evidence payloads (same snippet budget of 8) to avoid confounding comparisons. The `zero` user payload omits ODC-specific hints.
 - The user payload separates `production_code_snippets` and `test_code_snippets`.
-- For `few`, the payload includes `odc_opener_hints` and `odc_closer_hints`. The `zero` payload omits these.
+- The old `odc_opener_hints`/`odc_closer_hints` keyword-heuristic payload keys are REMOVED (they anchored the LLM's opener judgments and leaked ODC vocabulary into `zero-free`; see `docs/odc_alignment_audit.md` §4.4). `few`/`scientific` system prompts instead teach the ODC Impact vocabulary directly (`odc.impact_markdown()`); `zero` still gets none of it.
+- When `context.fix_diff` is absent (pre-fix arm only), `bug_info` and `bug_report_description` in the payload are sanitized (`prompting.sanitize_bug_info`/`sanitize_bug_report`) to strip fix-derived content; the post-fix arm gets them untouched. `context.json` on disk is never modified.
 - If `context.fix_diff` is present, the payload also includes `fix_diff_oracle` and the evidence mode becomes `post-fix`.
 - Gemini uses a response JSON schema. OpenRouter and `openai-compatible` use chat completions plus post-hoc parsing.
 - `dry_run=True` skips the LLM call and returns `None`.
-- Only `odc_type` is strictly validated against canonical names.
+- `odc_type` and `impact` (when present) are strictly validated against canonical names — `impact` tolerates absence (`None`) for providers that don't enforce the response schema, but rejects an out-of-vocabulary value. `few`/`scientific` require it in the schema; `zero`/`zero-free` never ask for it.
 - `target` defaults to `Design/Code` if the model omits it.
 - `family` is always overwritten with `family_for(odc_type)`.
 
@@ -339,18 +342,17 @@ Encodes most of the research methodology.
 
 Contains:
 
-- ODC instructions
+- ODC defect-type taxonomy instructions
+- ODC Impact attribute instructions (`odc.impact_markdown()`; few/scientific only, never `zero`)
 - scientific debugging protocol
 - 5 few-shot examples
-- evidence payload shaping
-- additive opener/closer alignment hints
+- evidence payload shaping, incl. pre-fix-only sanitization (`sanitize_bug_info`, `sanitize_bug_report`)
 
 Important details:
 
-- Hidden oracle metadata is filtered out before prompt construction.
-- `odc_opener_hints` are inferred heuristically from bug report text, `bug_info`, failure headlines, and stack trace excerpts.
-- `odc_closer_hints` always set `target=Design/Code`, and may add heuristic `qualifier_hint` and `age_hint` when `fix_diff` is available.
-- `source_hint` currently remains `null`.
+- Hidden oracle metadata (`classes.modified`) is filtered out before prompt construction, for both arms.
+- The pre-fix arm additionally has `bug_info`/`bug_report_description` sanitized to remove fix-derived sections (modified-sources list, fixed-revision id/date, tracker comments/status/resolution) — post-fix keeps them untouched. This is the only difference between the two arms' payloads besides `fix_diff_oracle`.
+- The old `odc_opener_hints`/`odc_closer_hints` keyword heuristics (Activity/Trigger/Impact candidates, `qualifier_hint`, `age_hint`, `source_hint` always `null`) are REMOVED — see `docs/odc_alignment_audit.md` §4.4 for why (anchoring bias, unsound heuristics, ODC-vocabulary leak into `zero-free`).
 - All strategies (`zero`/`few`/`scientific`) use the same production snippet budget of 8 (no confound between evidence and prompt engineering).
 
 ### `odc.py`
@@ -372,12 +374,18 @@ Families:
 - `Control and Data Flow`
 - `Structural`
 
+These two families are this project's own coarse grouping for the Tier-3
+family-match agreement level (`comparison.py`) — NOT a named attribute of the
+IBM v5.2 document, which defines the seven types individually. Say so in any
+write-up (`docs/odc_alignment_audit.md` §4.6).
+
 Also contains:
 
 - type summaries
 - indicators
 - contrastive "distinguish from" guidance
 - a backward-compatible `coarse_group_for()` alias
+- `ODC_IMPACTS` — the 13 v5.2 §3.3 Impact categories with verbatim-faithful definitions, plus `IMPACT_UNKNOWN` ("Unknown", per §5.1); `allowed_impact_names()`, `impact_markdown()` (the prompt section for `few`/`scientific`)
 
 ### `models.py`
 
@@ -398,9 +406,8 @@ Current schema additions you must know:
 - `ClassificationResult.qualifier`
 - `ClassificationResult.age`
 - `ClassificationResult.source`
-- `ClassificationResult.inferred_activity`
-- `ClassificationResult.inferred_triggers`
-- `ClassificationResult.inferred_impact`
+- `ClassificationResult.impact` — v5.2 §3.3 opener attribute, single-select, validated (see §10); current source of truth, populated by `few`/`scientific` prompts
+- `ClassificationResult.inferred_activity`, `.inferred_triggers`, `.inferred_impact` — LEGACY (list-valued); populated only by pre-2026-07-10 artifacts, no longer written by prompts
 - `ClassificationResult.evidence_mode`
 
 ### `parsing.py`
@@ -414,6 +421,7 @@ Parses:
 Important details:
 
 - JSON extraction can recover from fenced code blocks and from responses that contain extra text before the first `{`.
+- JSON extraction uses `JSONDecoder(strict=False)` (since 2026-07-11) — tolerates literal unescaped control characters (e.g. a raw newline) inside string values, which some LLM responses contain instead of properly escaping. Structural parsing (braces/commas/etc.) is unaffected. Found via a real deterministic failure (`temperature=0.0` + malformed output = identical failure on every retry, never self-resolving); regression test in `tests/test_parsing.py`.
 
 ### `comparison.py`
 
@@ -594,9 +602,8 @@ Serialized from `ClassificationResult`. Important top-level fields:
 - `qualifier`
 - `age`
 - `source`
-- `inferred_activity`
-- `inferred_triggers`
-- `inferred_impact`
+- `impact` — v5.2 §3.3 opener attribute; current source of truth (see §5.2, §10)
+- `inferred_activity`, `inferred_triggers`, `inferred_impact` — legacy, pre-2026-07-10 artifacts only
 - `evidence_mode`
 - `raw_response`
 - `other_justification`, `nearest_type`, `other_confidence` — present when `odc_type == "Other"` (`--taxonomy open` escape; see §5.2/§11)
@@ -745,22 +752,22 @@ The repo is built around a few methodological choices:
 
 - pre-fix evidence is the default
 - post-fix diff is optional and explicitly treated as oracle information
-- hidden leakage via `classes.modified` should not enter the prompt
+- fix knowledge (the modified-sources oracle, tracker fix-era content) should not enter the pre-fix prompt through ANY channel — not just `classes.modified` (see `docs/odc_alignment_audit.md`)
 - classification should use scientific-debugging-style reasoning by default
 - the mandatory label is still the 7-class ODC `Defect Type`
-- opener/closer-aligned metadata is additive, optional, and partly heuristic
-- evaluation distinguishes exact type vs alternative-type overlap vs family-level agreement
+- `Impact` (v5.2 §3.3) is the one opener attribute claimed and validated; Activity/Trigger are documented as not reliably determinable from Defects4J evidence rather than guessed at
+- evaluation distinguishes exact type vs alternative-type overlap vs family-level agreement, plus an Impact-based drift negative control (fix-independent, so its prefix/postfix disagreement estimates pure instrument noise)
 
-`odc_doc.md` is the underlying ODC reference.
+`odc_doc.md` is the underlying ODC reference; `docs/odc_alignment_audit.md` is the alignment audit against it — read before touching anything ODC-attribute-related.
 
 What the implementation currently does with ODC attributes:
 
-- `Defect Type`: mandatory
-- `Target`: effectively fixed to `Design/Code`
-- `Qualifier`: optional, mainly hinted from fix-diff shape
-- `Age`: optional, mainly hinted from fix-diff size/shape; the prompt/schema allow values like `ReFixed`, but the current hint builder only suggests `Base`, `New`, or `Rewritten`
-- `Source`: optional field in outputs, but not currently inferred in the hint builder
-- `Activity`, `Triggers`, `Impact`: represented as inferred or candidate metadata, not authoritative opener labels
+- `Defect Type`: mandatory; predicted pre-fix, read from the fix diff post-fix
+- `Impact`: claimed opener attribute — single-select from 13 v5.2 categories + `Unknown`, taught in-prompt (`few`/`scientific`), strictly validated
+- `Target`: effectively fixed to `Design/Code` (stated scoping assumption, not inferred)
+- `Qualifier`: optional, determined from the fix diff (post-fix)
+- `Age`, `Source`: not claimed — Age needs VCS archaeology outside current evidence; Source is ≈constant (all projects single-org OSS). See `docs/odc_alignment_audit.md` §3 for the full attribute-by-attribute rationale.
+- `Activity`, `Trigger`: not claimed — Defects4J's evidence doesn't match what ODC's field-defect procedure requires (§3.1.6); the old keyword heuristics that guessed at them are removed
 
 `thesis_plan.md` is background context, not executable policy.
 
@@ -771,9 +778,9 @@ These are the main places future agents get misled:
 1. `README.md` still describes retrying invalid classifications, but the code only retries transient HTTP/network failures in `llm._urlopen_json()`.
 2. `cli.main()` catches `Defects4JError`, `FileNotFoundError`, and `ValueError`, but it does **not** catch `LLMError`, so auth/network/provider failures may currently bubble out as uncaught exceptions.
 3. `family` in `classification.json` is not trusted from the model; it is always overwritten with `odc.family_for(odc_type)`.
-4. Only `odc_type` is validated against canonical labels. Optional ODC fields like `qualifier`, `age`, `source`, and the inferred opener fields are stored with only minimal trimming/list coercion.
-5. `odc_opener_hints` and `odc_closer_hints` are heuristic prompt aids, not ground truth ODC labels.
-6. `source_hint` in `odc_closer_hints` is currently always `null`.
+4. `odc_type` and `impact` are validated against canonical labels (`impact` tolerates absence but not an out-of-vocabulary value). Other optional ODC fields like `qualifier`, `age`, `source` are stored with only minimal trimming; the legacy `inferred_*` opener fields are read-only compatibility fields, no longer written.
+5. The `odc_opener_hints`/`odc_closer_hints` keyword-heuristic payload keys described in older docs/artifacts no longer exist — they were removed (`docs/odc_alignment_audit.md` §4.4). If you see them in an artifact, it predates 2026-07-10.
+6. Pre-fix sanitization (`sanitize_bug_info`/`sanitize_bug_report`) is applied only when `context.fix_diff` is falsy — it runs identically for `zero`/`few`/`scientific` (including the agent's `bug_report` probe), so don't assume it's a `few`/`scientific`-only concern when editing `agent.py`.
 7. `fix_diff` is a string field on `BugContext`; when not requested or unavailable it is usually `""`, not absent.
 8. `tests/test_url_fetch.py` is not a normal unit test file. It is a live integration script with top-level network calls and print statements.
 9. Full `pytest` runs may import `tests/test_url_fetch.py` and trigger network access. In restricted or offline environments, avoid that unless you explicitly want it.
@@ -879,9 +886,9 @@ To add a new LLM provider:
 
 To improve ODC opener/closer mapping:
 
-- start in `prompting._build_odc_mapping_hints()`
-- decide whether the new signal is just a prompt hint or a persisted output field
-- if persisted, thread it through `llm.py`, `models.py`, `pipeline.py`, `comparison.py`, tests, and docs
+- read `docs/odc_alignment_audit.md` first — it has the current per-attribute determinability rationale (what's claimed, constant, or not determinable, and why); don't reintroduce a keyword-heuristic "candidates" payload key (that pattern was removed for anchoring the LLM's judgment)
+- for a new/changed claimed attribute (like `impact`): teach its vocabulary in-prompt (`odc.py` markdown builder, e.g. `impact_markdown()`), add it to `few`/`scientific` prompts only (never `zero`), thread it through `llm.py` (schema), `models.py` (field), `pipeline.py` (`_validate_classification_payload`), `analysis.py`/`comparison.py` if it feeds an RQ, tests, and docs
+- decide whether the new signal is opener (fix-independent — a candidate for the impact-style drift negative control) or closer (fix-defined — a candidate for pre-fix prediction like Defect Type)
 
 To improve evaluation:
 
@@ -892,7 +899,7 @@ To improve evaluation:
 
 For implementation work, start with `pipeline.py`, then follow the call chain into `prompting.py`, `models.py`, `llm.py`, `defects4j.py`, and `comparison.py`.
 
-For methodology or RQ questions, start at `docs/JSS_HANDOFF.md` — it points to the current methodology docs and explicitly flags which ones (including `docs/METHODOLOGY.md`) are stale and why. Otherwise: `odc.py`, `docs/odc_doc.md`, and the scientific-debugging instructions plus ODC mapping hints in `prompting.py`.
+For methodology or RQ questions, start at `docs/JSS_HANDOFF.md` — it points to the current methodology docs and explicitly flags which ones (including `docs/METHODOLOGY.md`) are stale and why. Otherwise: `odc.py`, `docs/odc_doc.md`, `docs/odc_alignment_audit.md`, and the scientific-debugging instructions in `prompting.py`.
 
 For filesystem/output questions, trust current dataclasses and writers over historical artifact examples.
 

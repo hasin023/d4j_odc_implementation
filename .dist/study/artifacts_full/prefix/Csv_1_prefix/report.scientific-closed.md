@@ -2,7 +2,7 @@
 
 - Version: `1b`
 - Work directory: `C:\d4j_work\prefix\Csv_1b`
-- Generated: `2026-07-08T17:03:56+00:00`
+- Generated: `2026-07-10T18:45:35+00:00`
 
 ## Failure Summary
 - `org.apache.commons.csv.CSVParserTest::testGetLineNumberWithCR`: junit.framework.AssertionFailedError: expected:<1> but was:<0>
@@ -12,18 +12,14 @@
 
 ## ODC Result
 - **Evidence Mode**: ✅ Pre-fix only
-- ODC Type: `Algorithm/Method`
+- ODC Type: `Checking`
 - Family: `Control and Data Flow`
-- Target: `Design/Code`
-- Confidence: `0.95`
+- Target: `ExtendedBufferedReader`
+- Confidence: `1.0`
 - Needs Human Review: `False`
 
-The defect is a missing algorithmic step in the line-counting logic within the reader class. It is not a missing guard (Checking) because the logic for line counting itself is incomplete, nor is it an initialization issue.
+The failure in the test case (expected 1, got 0) confirms that the line counter is not incrementing on a CR-only line. The bug report confirms the missing logic in ExtendedBufferedReader regarding EOL handling.
 
 ## ODC Attribute Mapping (Optional)
-- Qualifier: `Correction`
-- Age: `New`
-- Source: `Requirement`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Test Variation`
-- Inferred Impact: `Capability`
+- Qualifier: `Missing/Incorrect Guard`
+- Impact: `Capability`

@@ -2,7 +2,7 @@
 
 - Version: `3b`
 - Work directory: `C:\d4j_work\postfix\Codec_3b`
-- Generated: `2026-07-08T16:54:37+00:00`
+- Generated: `2026-07-10T18:36:21+00:00`
 
 ## Failure Summary
 - `org.apache.commons.codec.language.DoubleMetaphone2Test::testDoubleMetaphoneAlternate`: junit.framework.ComparisonFailure: Test [19]=Angier expected:<AN[J]R> but was:<AN[K]R>
@@ -18,4 +18,7 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The defect is a classic 'Checking' error where the logic intended to identify a specific suffix ('IER') fails because the length parameter passed to the 'contains' method is incorrect (4 instead of 3). This is a validation/predicate error.
+The defect is a classic 'Checking' error where the condition logic (the length of the string to check) is incorrect. This fits the ODC definition of Checking perfectly as it involves incorrect validation of data in a conditional statement.
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Capability`

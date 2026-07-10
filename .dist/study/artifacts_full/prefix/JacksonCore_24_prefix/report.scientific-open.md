@@ -2,7 +2,7 @@
 
 - Version: `24b`
 - Work directory: `C:\d4j_work\prefix\JacksonCore_24b`
-- Generated: `2026-07-08T16:56:53+00:00`
+- Generated: `2026-07-10T18:37:53+00:00`
 
 ## Failure Summary
 - `com.fasterxml.jackson.core.json.async.AsyncNumberCoercionTest::testToLongFailing`: com.fasterxml.jackson.core.JsonParseException: Numeric value (9223372036854775817) out of range of long (-9223372036854775808 - 9223372036854775807)
@@ -31,7 +31,10 @@
 - ODC Type: `Checking`
 - Family: `Control and Data Flow`
 - Target: `Design/Code`
-- Confidence: `1.0`
+- Confidence: `0.9`
 - Needs Human Review: `False`
 
-The bug report and test code confirm that the system is failing because it throws the wrong exception type for numeric overflow. The fix involves changing the exception type thrown in the overflow reporting methods, which is a 'Checking' defect as it relates to the validation of input data against target type constraints.
+The stack traces show JsonParseException being thrown from ParserMinimalBase._reportError. The bug report identifies this as a design goal to use InputCoercionException instead. This is a 'Checking' defect because the logic for validating the numeric range is present, but the error handling mechanism (the exception type) is incorrect.
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Capability`

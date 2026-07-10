@@ -5,44 +5,41 @@
   "prompt_style": "scientific",
   "model": "gemini-3.1-flash-lite-preview",
   "provider": "gemini",
-  "created_at": "2026-07-08T16:51:13+00:00",
+  "created_at": "2026-07-10T18:58:11+00:00",
   "odc_type": "Algorithm/Method",
   "family": "Control and Data Flow",
   "confidence": 0.9,
   "needs_human_review": false,
-  "observation_summary": "The library incorrectly unescapes HTML entities in plain text URLs, such as interpreting '&num' as a character reference instead of part of a query string.",
-  "hypothesis": "The original unescape logic used a regex-based approach that greedily matched potential entities without correctly validating whether they were valid HTML entities in the given context (e.g., requiring a semicolon for extended entities).",
-  "prediction": "The fix will replace the regex-based unescaping with a more robust tokenization-based approach that correctly identifies valid entities according to HTML5 rules, distinguishing between base and extended entities.",
-  "experiment_rationale": "The diff shows the removal of the regex-based `unescape` method in `Entities.java` and the introduction of a `Tokeniser`-based approach in `Tokeniser.java` that correctly checks for base vs. extended entity validity.",
-  "reasoning_summary": "The defect is a procedural error in how the library identifies and decodes HTML entities. The original implementation used an incorrect algorithmic strategy (regex matching) that failed to distinguish between valid entities and arbitrary text sequences. The fix involves implementing a correct parsing algorithm (tokenization) to properly validate entity references, which is a classic Algorithm/Method correction.",
+  "observation_summary": "The Jsoup parser incorrectly unescapes HTML entities within plain text URLs, treating sequences like '&num' or '&int' as HTML entities instead of literal characters in a query string.",
+  "hypothesis": "The original unescaping logic used a regex-based approach that greedily matched any sequence starting with '&' as a potential entity, regardless of whether it was a valid, intended HTML entity. The fix replaces this with a more robust tokenization-based approach that correctly validates entities against the HTML specification (distinguishing between base and extended entities and requiring semicolons where appropriate).",
+  "prediction": "The code will move from a regex-based `unescape` method in `Entities` to a `Tokeniser`-based approach that correctly parses and validates character references according to HTML5 rules.",
+  "experiment_rationale": "The fix diff shows the removal of the regex-based `unescape` method in `Entities.java` and the introduction of a `Tokeniser.unescapeEntities` method that uses a `CharacterReader` to correctly identify and validate character references, confirming that the original algorithmic strategy for identifying entities was flawed.",
+  "reasoning_summary": "The defect is an incorrect algorithmic strategy for identifying and unescaping HTML entities. The original implementation used a simple regex that was too aggressive, leading to 'spurious decodes' in contexts like URLs. The fix replaces this with a proper tokenization-based algorithm that correctly validates entities, which is a classic procedural/algorithmic correction.",
   "evidence_used": [
-    "The diff shows the removal of the regex-based `unescape` method.",
-    "The diff shows the introduction of `Tokeniser.unescapeEntities` which uses a `CharacterReader` to parse the string.",
-    "The diff shows logic in `Tokeniser` that correctly distinguishes between base and extended entities based on the presence of a semicolon.",
-    "The bug report describes the failure as 'unescaping &num, &chi, and &int to #, \u0307, and \u222b respectively', which confirms the algorithm was incorrectly identifying entities."
+    "The fix diff shows the removal of the regex-based `unescape` method in `Entities.java`.",
+    "The fix diff shows the introduction of `Tokeniser.unescapeEntities` which uses a `CharacterReader` to correctly parse entities.",
+    "The failing tests (e.g., `noSpuriousDecodes`) demonstrate that the parser was incorrectly identifying parts of a URL as entities.",
+    "The bug report explicitly mentions that '&num', '&chi', and '&int' were being incorrectly unescaped."
   ],
   "evidence_gaps": [],
   "alternative_types": [
     {
       "type": "Checking",
-      "why_not_primary": "While the fix adds checks for entity validity, the core issue is the entire procedural approach to parsing and unescaping, which is better classified as an algorithmic/methodological flaw."
+      "why_not_primary": "While the fix adds validation (checking if an entity is valid), the root cause is the entire procedural approach to parsing entities, not just a missing guard clause."
     },
     {
       "type": "Function/Class/Object",
-      "why_not_primary": "The fix does not add a new capability or design-level structure; it corrects the implementation of an existing functionality (unescaping)."
+      "why_not_primary": "This is a local procedural correction to the entity unescaping logic, not a design-level capability omission."
     }
   ],
   "target": "Code",
   "qualifier": "Incorrect",
-  "age": "Base",
-  "source": "Developed In-House",
-  "inferred_activity": "Unit Test",
-  "inferred_triggers": [
-    "Test Variation"
-  ],
-  "inferred_impact": [
-    "Reliability"
-  ],
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
   "evidence_mode": "post-fix",
   "strategy": "few",
   "taxonomy_mode": "open",
@@ -54,5 +51,5 @@
   "other_justification": null,
   "nearest_type": null,
   "other_confidence": null,
-  "raw_response": "{\n  \"odc_type\": \"Algorithm/Method\",\n  \"family\": \"Control and Data Flow\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"age\": \"Base\",\n  \"source\": \"Developed In-House\",\n  \"inferred_activity\": \"Unit Test\",\n  \"inferred_triggers\": [\n    \"Test Variation\"\n  ],\n  \"inferred_impact\": [\n    \"Reliability\"\n  ],\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The library incorrectly unescapes HTML entities in plain text URLs, such as interpreting '&num' as a character reference instead of part of a query string.\",\n  \"hypothesis\": \"The original unescape logic used a regex-based approach that greedily matched potential entities without correctly validating whether they were valid HTML entities in the given context (e.g., requiring a semicolon for extended entities).\",\n  \"prediction\": \"The fix will replace the regex-based unescaping with a more robust tokenization-based approach that correctly identifies valid entities according to HTML5 rules, distinguishing between base and extended entities.\",\n  \"experiment_rationale\": \"The diff shows the removal of the regex-based `unescape` method in `Entities.java` and the introduction of a `Tokeniser`-based approach in `Tokeniser.java` that correctly checks for base vs. extended entity validity.\",\n  \"reasoning_summary\": \"The defect is a procedural error in how the library identifies and decodes HTML entities. The original implementation used an incorrect algorithmic strategy (regex matching) that failed to distinguish between valid entities and arbitrary text sequences. The fix involves implementing a correct parsing algorithm (tokenization) to properly validate entity references, which is a classic Algorithm/Method correction.\",\n  \"evidence_used\": [\n    \"The diff shows the removal of the regex-based `unescape` method.\",\n    \"The diff shows the introduction of `Tokeniser.unescapeEntities` which uses a `CharacterReader` to parse the string.\",\n    \"The diff shows logic in `Tokeniser` that correctly distinguishes between base and extended entities based on the presence of a semicolon.\",\n    \"The bug report describes the failure as 'unescaping &num, &chi, and &int to #, \\u0307, and \\u222B respectively', which confirms the algorithm was incorrectly identifying entities.\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Checking\",\n      \"why_not_primary\": \"While the fix adds checks for entity validity, the core issue is the entire procedural approach to parsing and unescaping, which is better classified as an algorithmic/methodological flaw.\"\n    },\n    {\n      \"type\": \"Function/Class/Object\",\n      \"why_not_primary\": \"The fix does not add a new capability or design-level structure; it corrects the implementation of an existing functionality (unescaping).\"\n    }\n  ]\n}"
+  "raw_response": "{\n  \"odc_type\": \"Algorithm/Method\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Capability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The Jsoup parser incorrectly unescapes HTML entities within plain text URLs, treating sequences like '&num' or '&int' as HTML entities instead of literal characters in a query string.\",\n  \"hypothesis\": \"The original unescaping logic used a regex-based approach that greedily matched any sequence starting with '&' as a potential entity, regardless of whether it was a valid, intended HTML entity. The fix replaces this with a more robust tokenization-based approach that correctly validates entities against the HTML specification (distinguishing between base and extended entities and requiring semicolons where appropriate).\",\n  \"prediction\": \"The code will move from a regex-based `unescape` method in `Entities` to a `Tokeniser`-based approach that correctly parses and validates character references according to HTML5 rules.\",\n  \"experiment_rationale\": \"The fix diff shows the removal of the regex-based `unescape` method in `Entities.java` and the introduction of a `Tokeniser.unescapeEntities` method that uses a `CharacterReader` to correctly identify and validate character references, confirming that the original algorithmic strategy for identifying entities was flawed.\",\n  \"reasoning_summary\": \"The defect is an incorrect algorithmic strategy for identifying and unescaping HTML entities. The original implementation used a simple regex that was too aggressive, leading to 'spurious decodes' in contexts like URLs. The fix replaces this with a proper tokenization-based algorithm that correctly validates entities, which is a classic procedural/algorithmic correction.\",\n  \"evidence_used\": [\n    \"The fix diff shows the removal of the regex-based `unescape` method in `Entities.java`.\",\n    \"The fix diff shows the introduction of `Tokeniser.unescapeEntities` which uses a `CharacterReader` to correctly parse entities.\",\n    \"The failing tests (e.g., `noSpuriousDecodes`) demonstrate that the parser was incorrectly identifying parts of a URL as entities.\",\n    \"The bug report explicitly mentions that '&num', '&chi', and '&int' were being incorrectly unescaped.\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Checking\",\n      \"why_not_primary\": \"While the fix adds validation (checking if an entity is valid), the root cause is the entire procedural approach to parsing entities, not just a missing guard clause.\"\n    },\n    {\n      \"type\": \"Function/Class/Object\",\n      \"why_not_primary\": \"This is a local procedural correction to the entity unescaping logic, not a design-level capability omission.\"\n    }\n  ]\n}"
 }

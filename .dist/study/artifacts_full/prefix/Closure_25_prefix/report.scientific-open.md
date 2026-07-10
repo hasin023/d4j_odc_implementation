@@ -2,7 +2,7 @@
 
 - Version: `25b`
 - Work directory: `C:\d4j_work\prefix\Closure_25b`
-- Generated: `2026-07-08T17:01:00+00:00`
+- Generated: `2026-07-10T18:40:59+00:00`
 
 ## Failure Summary
 - `com.google.javascript.jscomp.TypeInferenceTest::testBackwardsInferenceNew`: junit.framework.ComparisonFailure: expected:<{[foo: (number|undefined)]}> but was:<{[]}>
@@ -18,4 +18,7 @@
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The bug report and failing test confirm that backwards inference works for standard function calls but fails for constructors. This is a classic algorithmic omission where a specific case (constructor) was not handled in the inference procedure.
+The bug report and test failure confirm that backward type inference works for functions but not for constructors. This is a classic case of a missing procedural step in the compiler's type inference logic for a specific language construct (new).
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Capability`

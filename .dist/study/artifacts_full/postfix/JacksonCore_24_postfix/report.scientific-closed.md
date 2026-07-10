@@ -2,7 +2,7 @@
 
 - Version: `24b`
 - Work directory: `C:\d4j_work\postfix\JacksonCore_24b`
-- Generated: `2026-07-08T17:04:49+00:00`
+- Generated: `2026-07-10T18:46:21+00:00`
 
 ## Failure Summary
 - `com.fasterxml.jackson.core.json.async.AsyncNumberCoercionTest::testToLongFailing`: com.fasterxml.jackson.core.JsonParseException: Numeric value (9223372036854775817) out of range of long (-9223372036854775808 - 9223372036854775807)
@@ -28,17 +28,13 @@
 
 ## ODC Result
 - **Evidence Mode**: ⚠️ Post-fix (with buggy->fixed diff)
-- ODC Type: `Checking`
-- Family: `Control and Data Flow`
+- ODC Type: `Interface/O-O Messages`
+- Family: `Structural`
 - Target: `Design/Code`
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The defect is a failure to provide appropriate error handling granularity. The logic for detecting overflow exists, but the mechanism for reporting it (the exception type) is insufficient. This is a classic 'Checking' defect where the validation logic needs to be updated to handle the error state correctly by throwing the appropriate exception type.
+The bug is not a logic error in the algorithm, but a design-level requirement to improve the exception hierarchy and metadata. By changing the exception type thrown by the parser, the interface between the parser and the calling application is modified to provide more specific information.
 
 ## ODC Attribute Mapping (Optional)
-- Qualifier: `Incorrect`
-- Age: `Base`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Recovery/Exception, Test Variation`
-- Inferred Impact: `Reliability`
+- Impact: `Capability`

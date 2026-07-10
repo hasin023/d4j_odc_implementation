@@ -1,0 +1,84 @@
+{
+  "project_id": "Lang",
+  "bug_id": 28,
+  "version_id": "28b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-10T19:37:58+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The test fails because the unescaper produces an incorrect character for supplementary code points (e.g., 68642). The bug report confirms that the current implementation treats characters as 16-bit, failing to handle UTF-16 surrogate pairs.",
+  "hypothesis": "The NumericEntityUnescaper class uses a character-based conversion (char) instead of a code-point-based conversion (Character.toChars) when processing numeric entities, causing it to truncate supplementary characters (code points > 0xFFFF) into incorrect 16-bit values.",
+  "prediction": "The implementation of NumericEntityUnescaper.translate will show a cast to (char) for the parsed integer value, which is insufficient for supplementary characters.",
+  "experiment_rationale": "The failure is a direct result of an incorrect computational strategy for handling Unicode supplementary characters, which requires surrogate pair generation rather than simple char casting.",
+  "reasoning_summary": "The bug is a classic case of failing to account for the full range of Unicode characters in a string processing algorithm. The fix requires changing the translation logic to use Character.toChars(int) instead of (char) casting.",
+  "evidence_used": [
+    "bug_report",
+    "failing_tests"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Assignment/Initialization",
+      "why_not_primary": "The issue is not about an incorrect value being assigned, but about the procedural logic of converting a numeric entity to a character."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "closed",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The NumericEntityUnescaper class fails to correctly handle supplementary characters (code points > 0xFFFF) because it likely uses a method that treats the input string as a sequence of 16-bit chars rather than 32-bit code points, leading to incorrect character conversion.",
+      "prediction": "The source code for NumericEntityUnescaper will show that it parses the numeric entity value using a method that results in a 16-bit char truncation or incorrect character assembly for values exceeding 0xFFFF.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "NumericEntityUnescaper"
+      },
+      "observation_summary": [
+        "snippets"
+      ]
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The NumericEntityUnescaper class is missing the implementation of the translate method, or it is incorrectly implemented to only handle 16-bit characters, failing to convert supplementary characters (code points > 0xFFFF) into their correct UTF-16 surrogate pair representation.",
+      "prediction": "The source code for NumericEntityUnescaper will show that it uses (char) casting or similar logic that truncates the code point value, preventing the generation of the required surrogate pair.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "NumericEntityUnescaper"
+      },
+      "observation_summary": "probe already served this exact request \u2014 use a different probe or conclude"
+    },
+    {
+      "turn": 3,
+      "hypothesis": "The NumericEntityUnescaper class uses a character-based conversion (char) instead of a code-point-based conversion (Character.toChars) when processing numeric entities, causing it to truncate supplementary characters (code points > 0xFFFF) into incorrect 16-bit values.",
+      "prediction": "The implementation of NumericEntityUnescaper.translate will show a cast to (char) for the parsed integer value, which is insufficient for supplementary characters.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Algorithm/Method"
+    }
+  ],
+  "llm_calls_used": 3,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"impact\": \"Capability\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The test fails because the unescaper produces an incorrect character for supplementary code points (e.g., 68642). The bug report confirms that the current implementation treats characters as 16-bit, failing to handle UTF-16 surrogate pairs.\", \"hypothesis\": \"The NumericEntityUnescaper class uses a character-based conversion (char) instead of a code-point-based conversion (Character.toChars) when processing numeric entities, causing it to truncate supplementary characters (code points > 0xFFFF) into incorrect 16-bit values.\", \"prediction\": \"The implementation of NumericEntityUnescaper.translate will show a cast to (char) for the parsed integer value, which is insufficient for supplementary characters.\", \"experiment_rationale\": \"The failure is a direct result of an incorrect computational strategy for handling Unicode supplementary characters, which requires surrogate pair generation rather than simple char casting.\", \"reasoning_summary\": \"The bug is a classic case of failing to account for the full range of Unicode characters in a string processing algorithm. The fix requires changing the translation logic to use Character.toChars(int) instead of (char) casting.\", \"evidence_used\": [\"bug_report\", \"failing_tests\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Assignment/Initialization\", \"why_not_primary\": \"The issue is not about an incorrect value being assigned, but about the procedural logic of converting a numeric entity to a character.\"}]}"
+}

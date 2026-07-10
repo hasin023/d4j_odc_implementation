@@ -4,7 +4,8 @@ This module provides the analytical functions that transform raw classification
 and comparison artifacts into the empirical results needed for each RQ:
 
 - RQ1.1: ODC type distribution and per-project correlation
-- RQ1.2: Impact vs Type separation analysis
+- Impact analyses: distribution (RQ1 companion), impact×type cross-tab, and
+  the prefix/postfix impact-stability negative control (RQ5 companion)
 - RQ2.1: Overall pipeline efficacy metrics (per-type P/R/F1)
 - RQ2.2: Baseline vs scientific protocol comparison
 - RQ3.1: Semantic gap quantification
@@ -121,77 +122,126 @@ def compute_project_type_correlation(
 
 
 # ---------------------------------------------------------------------------
-# RQ1.2: Impact vs Type Separation
+# Impact (opener attribute) analyses — descriptive companion to RQ1 and the
+# negative control inside RQ5's drift analysis (docs/odc_alignment_audit.md §6)
 # ---------------------------------------------------------------------------
+
+def _extract_impact(cls: dict[str, Any]) -> str | None:
+    """Single impact label of a classification.
+
+    Prefers the current single-select `impact` field (v5.2 §3.3, validated);
+    falls back to the first entry of the legacy `inferred_impact` list found
+    in pre-2026-07-10 artifacts."""
+    impact = cls.get("impact")
+    if isinstance(impact, str) and impact.strip():
+        return impact.strip()
+    legacy = cls.get("inferred_impact")
+    if isinstance(legacy, list) and legacy:
+        first = str(legacy[0]).strip()
+        return first or None
+    return None
+
+
+def compute_impact_distribution(
+    classifications: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Distribution of the ODC Impact opener attribute.
+
+    Expect a skewed distribution on failing-unit-test benchmarks (Reliability
+    and Capability dominating) — that is a property of the benchmark, not an
+    instrument failure. Report alongside how many classifications carried an
+    impact at all, since impact evidence (the bug report) is unevenly
+    available across projects.
+    """
+    counter: Counter[str] = Counter()
+    total = len(classifications)
+    for cls in classifications:
+        impact = _extract_impact(cls)
+        if impact:
+            counter[impact] += 1
+    with_impact = sum(counter.values())
+    return {
+        "impact_counts": dict(counter.most_common()),
+        "impact_rates": (
+            {i: round(c / with_impact, 4) for i, c in counter.items()} if with_impact else {}
+        ),
+        "with_impact": with_impact,
+        "without_impact": total - with_impact,
+        "total": total,
+    }
+
 
 def analyze_impact_vs_type(
     classifications: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """Track how LLM inferred_impact aligns or conflicts with odc_type.
+    """Impact × Type cross-tabulation — the empirical orthogonality check.
 
-    Demonstrates the IBM v5.2 principle that Impact ≠ Type.  For example,
-    when impact='Reliability' (crash/hang) but type='Checking' (missing guard),
-    the pipeline correctly separates symptom from root cause.
-
-    Returns:
-      - total_with_impact: int
-      - impact_type_pairs: [{impact, odc_type, count}]
-      - separation_examples: cases where impact doesn't trivially map to type
-      - symptom_label_accuracy: how often a naive symptom→type mapping would match
+    ODC's core claim is that Impact (the behavioural/customer dimension) and
+    Defect Type (the code-mechanism dimension) are orthogonal attributes;
+    this table is where "performance bug / GUI bug"-style literature labels
+    meet the type dimension as data. The former naive symptom→type mapping
+    and its "symptom_label_accuracy" metric were removed — an invented
+    mapping with no literature basis (docs/odc_alignment_audit.md §4.8).
     """
     impact_type_counter: Counter[tuple[str, str]] = Counter()
     total_with_impact = 0
 
     for cls in classifications:
         odc_type = cls.get("odc_type", "")
-        impacts = cls.get("inferred_impact", [])
-        if not impacts or odc_type not in ODC_TYPE_NAMES:
+        impact = _extract_impact(cls)
+        if not impact or odc_type not in ODC_TYPE_NAMES:
             continue
         total_with_impact += 1
-        for impact in impacts:
-            impact_type_counter[(impact, odc_type)] += 1
+        impact_type_counter[(impact, odc_type)] += 1
 
-    # Build the pairs list sorted by frequency
     pairs = [
         {"impact": impact, "odc_type": odc_type, "count": count}
         for (impact, odc_type), count in impact_type_counter.most_common()
     ]
-
-    # Naive symptom→type mapping (the mapping a non-ODC classifier might use)
-    _NAIVE_MAP: dict[str, str] = {
-        "Performance": "Timing/Serialization",
-        "Reliability": "Checking",
-        "Capability": "Function/Class/Object",
-        "Integrity/Security": "Checking",
-        "Documentation": "Function/Class/Object",
-    }
-    naive_correct = 0
-    naive_total = 0
-    separation_examples: list[dict[str, str]] = []
-
-    for (impact, odc_type), count in impact_type_counter.items():
-        naive_type = _NAIVE_MAP.get(impact)
-        if naive_type:
-            naive_total += count
-            if naive_type == odc_type:
-                naive_correct += count
-            else:
-                separation_examples.append({
-                    "impact": impact,
-                    "actual_type": odc_type,
-                    "naive_would_be": naive_type,
-                    "count": count,
-                })
-
-    symptom_accuracy = round(naive_correct / naive_total, 4) if naive_total else None
-
     return {
         "total_with_impact": total_with_impact,
         "impact_type_pairs": pairs,
-        "separation_examples": sorted(separation_examples, key=lambda x: x["count"], reverse=True),
-        "symptom_label_accuracy": symptom_accuracy,
-        "naive_total": naive_total,
-        "naive_correct": naive_correct,
+    }
+
+
+def compute_impact_stability(
+    pairs: list[tuple[dict[str, Any], dict[str, Any]]],
+) -> dict[str, Any]:
+    """Prefix↔postfix impact agreement — the drift negative control.
+
+    Per v5.2, Impact is an opener attribute: defined at open time from the
+    failure's effect on the user, hence fix-independent. Its prefix/postfix
+    disagreement therefore estimates pure instrument noise — the baseline
+    against which type drift (which mixes genuine fix-choice indeterminacy
+    with noise) should be read. Type drift meaningfully above impact drift
+    indicates real fix-dependence in type, not mere LLM instability.
+    """
+    from .comparison import compute_cohens_kappa
+
+    label_pairs: list[tuple[str, str]] = []
+    for prefix_cls, postfix_cls in pairs:
+        pre = _extract_impact(prefix_cls)
+        post = _extract_impact(postfix_cls)
+        if pre and post:
+            label_pairs.append((pre, post))
+
+    n = len(label_pairs)
+    agree = sum(1 for a, b in label_pairs if a == b)
+    kappa = compute_cohens_kappa(label_pairs)
+    distinct = sorted({label for pair in label_pairs for label in pair})
+    note = None
+    if n and len(distinct) < 3:
+        note = (
+            "impact marginal distribution is near-degenerate; prefer the raw "
+            "agreement rate over kappa"
+        )
+    return {
+        "pairs_with_impact": n,
+        "agreement_count": agree,
+        "agreement_rate": round(agree / n, 4) if n else None,
+        "kappa": round(kappa, 4) if kappa is not None else None,
+        "distinct_labels": distinct,
+        "note": note,
     }
 
 

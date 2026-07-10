@@ -2,7 +2,7 @@
 
 - Version: `7b`
 - Work directory: `C:\d4j_work\postfix\Gson_7b`
-- Generated: `2026-07-08T16:47:13+00:00`
+- Generated: `2026-07-10T18:53:40+00:00`
 
 ## Failure Summary
 - `com.google.gson.functional.MapTest::testMapDeserializationWithUnquotedLongKeys`: com.google.gson.JsonSyntaxException: java.lang.IllegalStateException: Expected a long but was STRING at line 1 column 2 path $.
@@ -23,10 +23,10 @@
 
 ## ODC Result
 - **Evidence Mode**: ⚠️ Post-fix (with buggy->fixed diff)
-- ODC Type: `incomplete input handling logic`
+- ODC Type: `Incomplete state handling in JSON parser`
 - Family: `None`
 - Target: `Design/Code`
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The bug occurs because the JsonReader's nextLong() and nextInt() methods failed to account for the PEEKED_UNQUOTED token type when parsing numeric values. When a JSON map key or value was provided as an unquoted number (e.g., {0:1}), the reader failed to recognize the unquoted numeric string as a valid integer or long, throwing an IllegalStateException. The fix explicitly adds PEEKED_UNQUOTED to the conditional checks in both nextLong() and nextInt(), ensuring that unquoted numeric strings are correctly parsed into their respective numeric types.
+The bug occurs because the JsonReader's nextLong() and nextInt() methods fail to handle the PEEKED_UNQUOTED state when parsing numeric values. In JSON, keys in maps are often unquoted, and when Gson attempts to deserialize these into numeric types (like Integer or Long), the parser encounters an unquoted string that represents a number. The original implementation only checked for PEEKED_NUMBER, PEEKED_SINGLE_QUOTED, and PEEKED_DOUBLE_QUOTED, causing it to throw an IllegalStateException when it encountered an unquoted numeric key. The fix adds logic to explicitly handle the PEEKED_UNQUOTED state by calling nextUnquotedValue() and then attempting to parse the resulting string as a number.

@@ -8,6 +8,8 @@ import urllib.request
 from dataclasses import dataclass
 from typing import Callable, Iterator
 
+from .odc import allowed_impact_names
+
 _USER_AGENT = "d4j-odc-pipeline/1.0"
 
 
@@ -337,13 +339,12 @@ def classification_response_schema(taxonomy_mode: str = "closed") -> dict:
             "odc_type": {"type": "string"},
             **other_properties,
             "family": {"type": ["string", "null"]},
+            # Opener attribute (v5.2 §3.3): single-select, enum-constrained.
+            # The 13 official categories + "Unknown" (§5.1). Impact is judged
+            # from failure behaviour, never from the fix.
+            "impact": {"type": "string", "enum": allowed_impact_names()},
             "target": {"type": ["string", "null"]},
             "qualifier": {"type": ["string", "null"]},
-            "age": {"type": ["string", "null"]},
-            "source": {"type": ["string", "null"]},
-            "inferred_activity": {"type": ["string", "null"]},
-            "inferred_triggers": {"type": "array", "items": {"type": "string"}},
-            "inferred_impact": {"type": "array", "items": {"type": "string"}},
             "confidence": {"type": "number"},
             "needs_human_review": {"type": "boolean"},
             "observation_summary": {"type": "string"},
@@ -368,6 +369,7 @@ def classification_response_schema(taxonomy_mode: str = "closed") -> dict:
         "required": [
             "odc_type",
             "family",
+            "impact",
             "confidence",
             "needs_human_review",
             "observation_summary",

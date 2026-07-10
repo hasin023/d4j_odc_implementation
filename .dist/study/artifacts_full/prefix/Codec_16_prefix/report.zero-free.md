@@ -2,7 +2,7 @@
 
 - Version: `16b`
 - Work directory: `C:\d4j_work\prefix\Codec_16b`
-- Generated: `2026-07-08T16:46:44+00:00`
+- Generated: `2026-07-10T18:53:12+00:00`
 
 ## Failure Summary
 - `org.apache.commons.codec.binary.Base32Test::testCodec200`: java.lang.IllegalArgumentException: pad must not be in alphabet or whitespace
@@ -13,10 +13,10 @@
 
 ## ODC Result
 - **Evidence Mode**: ✅ Pre-fix only
-- ODC Type: `Incorrect constant definition`
+- ODC Type: `Incorrect validation logic due to flawed alphabet definition`
 - Family: `None`
 - Target: `Design/Code`
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The bug report and code analysis indicate that the HEX_DECODE_TABLE in the Base32 class contains an erroneous value (32) that incorrectly maps a character to a valid alphabet index. This causes the validation logic in the constructor, which checks if the provided padding character is part of the alphabet, to incorrectly reject valid padding characters like 'W'. The constructor correctly enforces that the pad must not be in the alphabet, but the alphabet definition itself is flawed due to the incorrect entry in the lookup table.
+The Base32 class includes a validation check in its constructor that prevents the use of characters present in the alphabet as padding. The bug report indicates that the HEX_DECODE_TABLE incorrectly includes the value 32, which corresponds to the character 'W'. Because 'W' is erroneously considered part of the Base32 Hex alphabet, the constructor's validation logic (isInAlphabet(pad)) incorrectly flags 'W' as an invalid padding character, causing an IllegalArgumentException when a user attempts to use it.

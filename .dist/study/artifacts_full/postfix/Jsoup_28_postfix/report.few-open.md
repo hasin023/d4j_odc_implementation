@@ -2,7 +2,7 @@
 
 - Version: `28b`
 - Work directory: `C:\d4j_work\postfix\Jsoup_28b`
-- Generated: `2026-07-08T16:51:13+00:00`
+- Generated: `2026-07-10T18:58:11+00:00`
 
 ## Failure Summary
 - `org.jsoup.nodes.EntitiesTest::unescape`: junit.framework.AssertionFailedError: expected:<Hello &<> ® Å [&angst] π π 新 there &! ¾ © ...> but was:<Hello &<> ® Å [Å] π π 新 there &! ¾ © ...>
@@ -28,12 +28,8 @@
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The defect is a procedural error in how the library identifies and decodes HTML entities. The original implementation used an incorrect algorithmic strategy (regex matching) that failed to distinguish between valid entities and arbitrary text sequences. The fix involves implementing a correct parsing algorithm (tokenization) to properly validate entity references, which is a classic Algorithm/Method correction.
+The defect is an incorrect algorithmic strategy for identifying and unescaping HTML entities. The original implementation used a simple regex that was too aggressive, leading to 'spurious decodes' in contexts like URLs. The fix replaces this with a proper tokenization-based algorithm that correctly validates entities, which is a classic procedural/algorithmic correction.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Incorrect`
-- Age: `Base`
-- Source: `Developed In-House`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Test Variation`
-- Inferred Impact: `Reliability`
+- Impact: `Capability`

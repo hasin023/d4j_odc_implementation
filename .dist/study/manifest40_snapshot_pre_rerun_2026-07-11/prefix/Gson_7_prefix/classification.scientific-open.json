@@ -1,0 +1,70 @@
+{
+  "project_id": "Gson",
+  "bug_id": 7,
+  "version_id": "7b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-08T16:55:57+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The JsonReader.nextInt() and nextLong() methods explicitly throw an IllegalStateException when the peeked token is not a quoted string or a number, failing to account for PEEKED_UNQUOTED tokens which are valid in lenient mode.",
+  "hypothesis": "The JsonReader.nextInt() and nextLong() methods fail to handle unquoted keys (which are identified as PEEKED_UNQUOTED) because the conditional logic only checks for PEEKED_SINGLE_QUOTED and PEEKED_DOUBLE_QUOTED, causing an IllegalStateException when an unquoted number is encountered.",
+  "prediction": "Adding a check for PEEKED_UNQUOTED in the nextInt() and nextLong() methods, similar to how quoted strings are handled, will resolve the issue by allowing the parser to attempt to parse the unquoted string as a number.",
+  "experiment_rationale": "The code snippet confirms that the logic for nextInt() and nextLong() explicitly excludes PEEKED_UNQUOTED from the parsing path, leading to the observed IllegalStateException. This is a classic missing guard/check condition.",
+  "reasoning_summary": "The failure occurs because the parser encounters an unquoted token (e.g., an integer key in a map) and the logic in JsonReader.nextInt()/nextLong() does not include PEEKED_UNQUOTED in the conditional branch that attempts to parse the value. This is a missing validation/handling case for a specific token type.",
+  "evidence_used": [
+    "snippet"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The fix is not a change to the core algorithm, but rather adding a missing condition to handle a specific input state (unquoted tokens)."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The JsonReader.nextInt() and nextLong() methods fail to handle unquoted keys (which are treated as PEEKED_UNQUOTED) because the logic in JsonReader does not correctly transition or parse these tokens when they appear in a context where an integer or long is expected, unlike quoted strings which are handled.",
+      "prediction": "The snippet of JsonReader.java will show that the nextInt() and nextLong() methods lack a case for PEEKED_UNQUOTED, causing them to fall through to the default error-throwing branch.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "com.google.gson.stream.JsonReader"
+      },
+      "observation_summary": [
+        "snippets"
+      ]
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The JsonReader.nextInt() and nextLong() methods fail to handle unquoted keys (which are identified as PEEKED_UNQUOTED) because the conditional logic only checks for PEEKED_SINGLE_QUOTED and PEEKED_DOUBLE_QUOTED, causing an IllegalStateException when an unquoted number is encountered.",
+      "prediction": "Adding a check for PEEKED_UNQUOTED in the nextInt() and nextLong() methods, similar to how quoted strings are handled, will resolve the issue by allowing the parser to attempt to parse the unquoted string as a number.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Checking"
+    }
+  ],
+  "llm_calls_used": 2,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"target\": \"Design/Code\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The JsonReader.nextInt() and nextLong() methods explicitly throw an IllegalStateException when the peeked token is not a quoted string or a number, failing to account for PEEKED_UNQUOTED tokens which are valid in lenient mode.\", \"hypothesis\": \"The JsonReader.nextInt() and nextLong() methods fail to handle unquoted keys (which are identified as PEEKED_UNQUOTED) because the conditional logic only checks for PEEKED_SINGLE_QUOTED and PEEKED_DOUBLE_QUOTED, causing an IllegalStateException when an unquoted number is encountered.\", \"prediction\": \"Adding a check for PEEKED_UNQUOTED in the nextInt() and nextLong() methods, similar to how quoted strings are handled, will resolve the issue by allowing the parser to attempt to parse the unquoted string as a number.\", \"experiment_rationale\": \"The code snippet confirms that the logic for nextInt() and nextLong() explicitly excludes PEEKED_UNQUOTED from the parsing path, leading to the observed IllegalStateException. This is a classic missing guard/check condition.\", \"reasoning_summary\": \"The failure occurs because the parser encounters an unquoted token (e.g., an integer key in a map) and the logic in JsonReader.nextInt()/nextLong() does not include PEEKED_UNQUOTED in the conditional branch that attempts to parse the value. This is a missing validation/handling case for a specific token type.\", \"evidence_used\": [\"snippet\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"The fix is not a change to the core algorithm, but rather adding a missing condition to handle a specific input state (unquoted tokens).\"}]}"
+}

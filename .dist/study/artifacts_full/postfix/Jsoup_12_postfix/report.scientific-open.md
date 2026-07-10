@@ -2,7 +2,7 @@
 
 - Version: `12b`
 - Work directory: `C:\d4j_work\postfix\Jsoup_12b`
-- Generated: `2026-07-08T16:58:45+00:00`
+- Generated: `2026-07-10T18:39:00+00:00`
 
 ## Failure Summary
 - `org.jsoup.select.SelectorTest::testByAttributeRegexCombined`: org.jsoup.select.Selector$SelectorParseException: Could not parse query '=x|y]': unexpected token at '=x|y]'
@@ -23,4 +23,7 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The bug is a classic parsing error where the algorithm for tokenizing the sub-query was too simplistic. It failed to account for nested structures (brackets/parentheses) within the selector, which is a procedural/algorithmic flaw in how the query string is processed. It is not a simple assignment error, nor a missing guard (Checking), but a fundamental flaw in the implementation of the parsing logic.
+The bug is a classic parsing error where the algorithm for extracting a sub-query was too simplistic (using 'consumeToAny' which is not context-aware). The fix implements a state-aware parser that respects balanced delimiters, which is a procedural/algorithmic correction.
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Capability`

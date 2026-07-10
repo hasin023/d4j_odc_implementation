@@ -6,7 +6,7 @@ import uuid
 from pathlib import Path
 from unittest.mock import patch
 
-from d4j_odc_pipeline.batch import analyze_batch_artifacts, generate_study_manifest
+from d4j_odc_pipeline.batch import analyze_batch_artifacts, generate_study_manifest, write_analysis_markdown
 
 
 class _FakeDefects4JClient:
@@ -140,6 +140,70 @@ class BatchAnalysisTests(unittest.TestCase):
             # RQ5: per-project kappa is None for projects with < 2 bugs (both here).
             self.assertIsNone(summary["per_project_kappa"]["Lang"])
             self.assertIsNone(summary["per_project_kappa"]["Math"])
+
+    def test_impact_distribution_and_stability_wired_into_summary(self) -> None:
+        """Impact (opener attribute) analyses ride alongside type drift in the
+        same study-drift summary (docs/odc_alignment_audit.md §6)."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            prefix_dir = root / "prefix"
+            postfix_dir = root / "postfix"
+
+            self._write_case(
+                prefix_dir / "Lang_1_prefix",
+                classification={
+                    "project_id": "Lang", "bug_id": 1, "version_id": "1b",
+                    "odc_type": "Checking", "family": "Control and Data Flow",
+                    "impact": "Reliability", "confidence": 0.7,
+                    "alternative_types": [], "reasoning_summary": "prefix",
+                },
+            )
+            self._write_case(
+                postfix_dir / "Lang_1_postfix",
+                classification={
+                    "project_id": "Lang", "bug_id": 1, "version_id": "1b",
+                    "odc_type": "Checking", "family": "Control and Data Flow",
+                    "impact": "Reliability", "confidence": 0.9,
+                    "alternative_types": [], "reasoning_summary": "postfix",
+                },
+            )
+            self._write_case(
+                prefix_dir / "Math_2_prefix",
+                classification={
+                    "project_id": "Math", "bug_id": 2, "version_id": "2b",
+                    "odc_type": "Algorithm/Method", "family": "Control and Data Flow",
+                    "impact": "Capability", "confidence": 0.6,
+                    "alternative_types": [], "reasoning_summary": "prefix",
+                },
+            )
+            self._write_case(
+                postfix_dir / "Math_2_postfix",
+                classification={
+                    "project_id": "Math", "bug_id": 2, "version_id": "2b",
+                    "odc_type": "Algorithm/Method", "family": "Control and Data Flow",
+                    "impact": "Reliability", "confidence": 0.9,
+                    "alternative_types": [], "reasoning_summary": "postfix",
+                },
+            )
+
+            summary = analyze_batch_artifacts(
+                prefix_dir=prefix_dir, postfix_dir=postfix_dir,
+                taxonomy="closed", strategy="scientific",
+            )
+
+            self.assertEqual(2, summary["impact_distribution_prefix"]["with_impact"])
+            self.assertEqual(1, summary["impact_distribution_prefix"]["impact_counts"]["Reliability"])
+            self.assertEqual(1, summary["impact_distribution_prefix"]["impact_counts"]["Capability"])
+            self.assertTrue(summary["impact_vs_type_prefix"]["impact_type_pairs"])
+            # Lang-1 impact agrees prefix/postfix; Math-2 impact disagrees.
+            self.assertEqual(2, summary["impact_stability"]["pairs_with_impact"])
+            self.assertEqual(1, summary["impact_stability"]["agreement_count"])
+
+            md_path = root / "analysis.md"
+            write_analysis_markdown(summary, md_path)
+            markdown = md_path.read_text()
+            self.assertIn("Impact (Opener Attribute", markdown)
+            self.assertIn("Impact Stability", markdown)
 
     @staticmethod
     def _write_case(case_dir: Path, *, classification: dict) -> None:

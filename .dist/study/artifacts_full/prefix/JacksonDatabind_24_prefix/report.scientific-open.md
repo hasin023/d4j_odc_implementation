@@ -2,7 +2,7 @@
 
 - Version: `24b`
 - Work directory: `C:\d4j_work\prefix\JacksonDatabind_24b`
-- Generated: `2026-07-08T16:57:31+00:00`
+- Generated: `2026-07-10T18:38:14+00:00`
 
 ## Failure Summary
 - `com.fasterxml.jackson.databind.ser.TestConfig::testDateFormatConfig`: junit.framework.AssertionFailedError: expected:<sun.util.calendar.ZoneInfo[id="America/Los_Angeles",offset=-28800000,dstSavings=3600000,useDaylight=true,transitions=185,lastRule=java.util.SimpleTimeZone[id=America/Los_Angeles,offset=-28800000,dstSavings=3600000,useDaylight=true,startYear=0,startMode=3,startMonth=2,startDay=8,startDayOfWeek=1,startTime=7200000,startTimeMode=0,endMode=3,endMonth=10,endDay=1,endDayOfWeek=1,endTime=7200000,endTimeMode=0]]> but was:<sun.util.calendar.ZoneInfo[id="GMT",offset=0,dstSavings=0,useDaylight=false,transitions=0,lastRule=null]>
@@ -15,7 +15,10 @@
 - ODC Type: `Assignment/Initialization`
 - Family: `Control and Data Flow`
 - Target: `Design/Code`
-- Confidence: `0.95`
+- Confidence: `0.9`
 - Needs Human Review: `False`
 
-The bug is a classic case of incorrect state initialization/assignment. The `ObjectMapper` state is modified by a setter that should only affect the date format, but it also inadvertently resets the `TimeZone` state. This fits the 'Assignment/Initialization' ODC type perfectly.
+The bug is a classic case of an incorrect state assignment where a method intended to update one property (DateFormat) inadvertently overwrites another (TimeZone) by pulling the default value from the new DateFormat object.
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Capability`

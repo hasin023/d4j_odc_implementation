@@ -2,7 +2,7 @@
 
 - Version: `14b`
 - Work directory: `C:\d4j_work\postfix\Gson_14b`
-- Generated: `2026-07-08T16:50:20+00:00`
+- Generated: `2026-07-10T18:57:31+00:00`
 
 ## Failure Summary
 - `com.google.gson.internal.bind.RecursiveTypesResolveTest::testDoubleSupertype`: junit.framework.AssertionFailedError: expected:<? super java.lang.Number> but was:<? super ? super java.lang.Number>
@@ -30,15 +30,11 @@
 - ODC Type: `Algorithm/Method`
 - Family: `Control and Data Flow`
 - Target: `Code`
-- Confidence: `0.95`
+- Confidence: `1.0`
 - Needs Human Review: `False`
 
-The defect is a failure in the computational logic used to resolve generic types. The algorithm does not account for nested wildcard bounds, causing infinite recursion. This is a procedural/algorithmic issue rather than a missing guard (Checking), a wrong constant (Assignment), or a design-level capability (Function/Class/Object).
+The defect is an algorithmic failure in the type resolution procedure. The code correctly identifies the need to resolve types but fails to handle recursive nesting, causing an infinite loop. This is a classic algorithmic error where the computational strategy for handling recursive data structures is incomplete. It is not a missing check (Checking), a wrong constant (Assignment/Initialization), or a design-level capability gap (Function/Class/Object).
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Incorrect`
-- Age: `Base`
-- Source: `Developed In-House`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Test Sequencing, Test Variation`
-- Inferred Impact: `Reliability`
+- Impact: `Reliability`

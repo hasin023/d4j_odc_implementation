@@ -5,16 +5,16 @@
   "prompt_style": "scientific",
   "model": "gemini-3.1-flash-lite-preview",
   "provider": "gemini",
-  "created_at": "2026-07-08T17:05:37+00:00",
+  "created_at": "2026-07-10T18:47:12+00:00",
   "odc_type": "Checking",
   "family": "Control and Data Flow",
-  "confidence": 0.95,
+  "confidence": 1.0,
   "needs_human_review": false,
-  "observation_summary": "The failing tests demonstrate that Jsoup's unescape function incorrectly decodes substrings like '&num' and '&int' within URLs, which are not valid HTML entities in that context. The bug report confirms this behavior is unintended.",
-  "hypothesis": "The entity unescaping logic in Jsoup is too aggressive, incorrectly identifying substrings that look like HTML entities (e.g., '&num', '&int') within URLs or plain text as valid entities to be decoded, even when they are not terminated by a semicolon or are part of a larger string context where such decoding is inappropriate.",
-  "prediction": "The code responsible for entity decoding lacks a strict check to ensure that an entity match is valid (e.g., checking for a trailing semicolon or verifying the entity name against a known list) before performing the replacement.",
-  "experiment_rationale": "The failure is clearly a logic error in the validation of what constitutes a valid HTML entity during the unescaping process. The fix involves adding a check to ensure that only properly terminated or recognized entities are decoded, which falls under the 'Checking' category of ODC.",
-  "reasoning_summary": "The bug is caused by the unescape function being too permissive in identifying entities. It treats any '&' followed by characters as a potential entity, failing to validate if it is a complete, valid entity (e.g., missing a semicolon). This is a classic validation/predicate logic error.",
+  "observation_summary": "The unescape method in the Entities class is too aggressive, decoding substrings that look like entities but are not valid, terminated HTML entities, leading to corrupted data in URLs and text.",
+  "hypothesis": "The Entities.unescape method incorrectly identifies and decodes HTML entities that are not properly terminated by a semicolon, causing it to erroneously process substrings like '&num' or '&int' in URLs as entities.",
+  "prediction": "The implementation of Entities.unescape will show a logic flaw where it attempts to match and replace entity names without verifying the presence of a terminating semicolon or checking if the context requires strict entity parsing.",
+  "experiment_rationale": "The failing tests demonstrate that Jsoup is unescaping sequences that are not valid HTML entities (e.g., '&num' in a URL). This is a classic validation/checking error where the parser fails to enforce the requirement that an entity must be properly terminated or contextually valid.",
+  "reasoning_summary": "The bug report and failing tests confirm that Jsoup's unescape logic is over-eager. The fix requires adding a check to ensure that only valid, terminated entities are decoded, which falls under the 'Checking' ODC category.",
   "evidence_used": [
     "bug_report",
     "failing_tests"
@@ -23,20 +23,17 @@
   "alternative_types": [
     {
       "type": "Algorithm/Method",
-      "why_not_primary": "While the implementation of the unescaping algorithm is involved, the core issue is the missing validation check (predicate) to distinguish between valid and invalid entities."
+      "why_not_primary": "The issue is not the algorithm itself, but the lack of a proper guard/check to validate the entity syntax before decoding."
     }
   ],
-  "target": "Design/Code",
-  "qualifier": null,
+  "target": "Method",
+  "qualifier": "Missing/Incorrect Guard",
   "age": null,
   "source": null,
-  "inferred_activity": "Unit Test",
-  "inferred_triggers": [
-    "Test Variation"
-  ],
-  "inferred_impact": [
-    "Reliability"
-  ],
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
   "evidence_mode": "pre-fix",
   "strategy": "scientific",
   "taxonomy_mode": "closed",
@@ -46,13 +43,13 @@
   "turns": [
     {
       "turn": 1,
-      "hypothesis": "The entity unescaping logic in Jsoup is too aggressive, incorrectly identifying substrings that look like HTML entities (e.g., '&num', '&int') within URLs or plain text as valid entities to be decoded, even when they are not terminated by a semicolon or are part of a larger string context where such decoding is inappropriate.",
-      "prediction": "The code responsible for entity decoding (likely in org.jsoup.nodes.Entities or org.jsoup.parser.Tokeniser) lacks a strict check to ensure that an entity match is valid (e.g., checking for a trailing semicolon or verifying the entity name against a known list) before performing the replacement.",
+      "hypothesis": "The entity unescaping logic in Jsoup is too aggressive, incorrectly identifying substrings that look like HTML entities (e.g., '&num', '&int') within URLs or plain text as valid entities to be decoded, even when they are not terminated by a semicolon or are part of a query string.",
+      "prediction": "The class responsible for entity unescaping (likely 'Entities') contains a method that performs a greedy or incorrect match for entity names, failing to validate the presence of a terminating semicolon or context-specific constraints.",
       "action": "request_evidence",
       "forced": false,
       "probe": {
         "name": "snippet",
-        "argument": "org.jsoup.nodes.Entities"
+        "argument": "Entities"
       },
       "observation_summary": [
         "snippets"
@@ -60,16 +57,28 @@
     },
     {
       "turn": 2,
-      "hypothesis": "The entity unescaping logic in Jsoup is too aggressive, incorrectly identifying substrings that look like HTML entities (e.g., '&num', '&int') within URLs or plain text as valid entities to be decoded, even when they are not terminated by a semicolon or are part of a larger string context where such decoding is inappropriate.",
-      "prediction": "The code responsible for entity decoding (likely in org.jsoup.nodes.Entities or org.jsoup.parser.Tokeniser) lacks a strict check to ensure that an entity match is valid (e.g., checking for a trailing semicolon or verifying the entity name against a known list) before performing the replacement.",
+      "hypothesis": "The 'Entities.unescape' method is incorrectly performing entity decoding on substrings that do not conform to the strict HTML entity syntax (e.g., missing a trailing semicolon), leading to spurious decoding of characters in URLs or plain text.",
+      "prediction": "The implementation of 'Entities.unescape' contains a regex or loop that matches '&' followed by characters and attempts to resolve them as entities without verifying if the sequence is a valid, terminated entity reference.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "Entities"
+      },
+      "observation_summary": "probe already served this exact request \u2014 use a different probe or conclude"
+    },
+    {
+      "turn": 3,
+      "hypothesis": "The Entities.unescape method incorrectly identifies and decodes HTML entities that are not properly terminated by a semicolon, causing it to erroneously process substrings like '&num' or '&int' in URLs as entities.",
+      "prediction": "The implementation of Entities.unescape will show a logic flaw where it attempts to match and replace entity names without verifying the presence of a terminating semicolon or checking if the context requires strict entity parsing.",
       "action": "conclude",
       "forced": false,
       "conclusion_odc_type": "Checking"
     }
   ],
-  "llm_calls_used": 2,
+  "llm_calls_used": 3,
   "other_justification": null,
   "nearest_type": null,
   "other_confidence": null,
-  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"target\": \"Design/Code\", \"qualifier\": null, \"age\": null, \"source\": null, \"inferred_activity\": \"Unit Test\", \"inferred_triggers\": [\"Test Variation\"], \"inferred_impact\": [\"Reliability\"], \"confidence\": 0.95, \"needs_human_review\": false, \"observation_summary\": \"The failing tests demonstrate that Jsoup's unescape function incorrectly decodes substrings like '&num' and '&int' within URLs, which are not valid HTML entities in that context. The bug report confirms this behavior is unintended.\", \"hypothesis\": \"The entity unescaping logic in Jsoup is too aggressive, incorrectly identifying substrings that look like HTML entities (e.g., '&num', '&int') within URLs or plain text as valid entities to be decoded, even when they are not terminated by a semicolon or are part of a larger string context where such decoding is inappropriate.\", \"prediction\": \"The code responsible for entity decoding lacks a strict check to ensure that an entity match is valid (e.g., checking for a trailing semicolon or verifying the entity name against a known list) before performing the replacement.\", \"experiment_rationale\": \"The failure is clearly a logic error in the validation of what constitutes a valid HTML entity during the unescaping process. The fix involves adding a check to ensure that only properly terminated or recognized entities are decoded, which falls under the 'Checking' category of ODC.\", \"reasoning_summary\": \"The bug is caused by the unescape function being too permissive in identifying entities. It treats any '&' followed by characters as a potential entity, failing to validate if it is a complete, valid entity (e.g., missing a semicolon). This is a classic validation/predicate logic error.\", \"evidence_used\": [\"bug_report\", \"failing_tests\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"While the implementation of the unescaping algorithm is involved, the core issue is the missing validation check (predicate) to distinguish between valid and invalid entities.\"}]}"
+  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"impact\": \"Capability\", \"target\": \"Method\", \"qualifier\": \"Missing/Incorrect Guard\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The unescape method in the Entities class is too aggressive, decoding substrings that look like entities but are not valid, terminated HTML entities, leading to corrupted data in URLs and text.\", \"hypothesis\": \"The Entities.unescape method incorrectly identifies and decodes HTML entities that are not properly terminated by a semicolon, causing it to erroneously process substrings like '&num' or '&int' in URLs as entities.\", \"prediction\": \"The implementation of Entities.unescape will show a logic flaw where it attempts to match and replace entity names without verifying the presence of a terminating semicolon or checking if the context requires strict entity parsing.\", \"experiment_rationale\": \"The failing tests demonstrate that Jsoup is unescaping sequences that are not valid HTML entities (e.g., '&num' in a URL). This is a classic validation/checking error where the parser fails to enforce the requirement that an entity must be properly terminated or contextually valid.\", \"reasoning_summary\": \"The bug report and failing tests confirm that Jsoup's unescape logic is over-eager. The fix requires adding a check to ensure that only valid, terminated entities are decoded, which falls under the 'Checking' ODC category.\", \"evidence_used\": [\"bug_report\", \"failing_tests\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"The issue is not the algorithm itself, but the lack of a proper guard/check to validate the entity syntax before decoding.\"}]}"
 }

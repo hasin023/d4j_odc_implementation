@@ -2,7 +2,7 @@
 
 - Version: `2b`
 - Work directory: `C:\d4j_work\postfix\Time_2b`
-- Generated: `2026-07-08T17:00:24+00:00`
+- Generated: `2026-07-10T18:40:30+00:00`
 
 ## Failure Summary
 - `org.joda.time.TestPartial_Basics::testWith_baseAndArgHaveNoRange`: java.lang.IllegalArgumentException: Types array must not contain duplicate: era and year
@@ -19,4 +19,7 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The bug is a classic 'Checking' defect where the validation logic (guards) for the 'Partial' object's internal state is insufficient. It fails to account for the properties of 'UnsupportedDurationField', leading to incorrect exceptions. The fix involves adjusting the conditional predicates in 'Partial.java' and the comparison logic in 'UnsupportedDurationField.java'.
+The failure is a direct result of an incorrect conditional check (predicate) in the Partial constructor. The code attempts to validate that fields are in a specific order (largest to smallest) and that there are no duplicates. The logic fails to correctly handle cases where fields have null range duration types, leading to an incorrect IllegalArgumentException. This is a classic 'Checking' defect where the validation logic is flawed.
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Capability`

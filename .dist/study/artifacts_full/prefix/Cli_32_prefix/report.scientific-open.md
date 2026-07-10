@@ -2,7 +2,7 @@
 
 - Version: `32b`
 - Work directory: `C:\d4j_work\prefix\Cli_32b`
-- Generated: `2026-07-08T17:00:50+00:00`
+- Generated: `2026-07-10T18:40:50+00:00`
 
 ## Failure Summary
 - `org.apache.commons.cli.HelpFormatterTest::testRenderWrappedTextWordCut`: java.lang.StringIndexOutOfBoundsException: String index out of range: 12
@@ -20,4 +20,7 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The defect is a classic boundary check error where a loop condition allows an index to exceed the valid range of a string. This falls squarely under the 'Checking' category of the ODC taxonomy.
+The code uses a loop to find a wrap position. The condition 'pos <= text.length()' is incorrect because 'text.charAt(pos)' is evaluated inside the loop. If 'pos' equals 'text.length()', the access is out of bounds. This is a classic boundary check error.
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Reliability`

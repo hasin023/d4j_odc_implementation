@@ -2,7 +2,7 @@
 
 - Version: `28b`
 - Work directory: `C:\d4j_work\prefix\Jsoup_28b`
-- Generated: `2026-07-08T16:58:23+00:00`
+- Generated: `2026-07-10T18:38:46+00:00`
 
 ## Failure Summary
 - `org.jsoup.nodes.EntitiesTest::unescape`: junit.framework.AssertionFailedError: expected:<Hello &<> ® Å [&angst] π π 新 there &! ¾ © ...> but was:<Hello &<> ® Å [Å] π π 新 there &! ¾ © ...>
@@ -25,7 +25,10 @@
 - ODC Type: `Checking`
 - Family: `Control and Data Flow`
 - Target: `Design/Code`
-- Confidence: `0.95`
+- Confidence: `0.9`
 - Needs Human Review: `False`
 
-The bug is a classic 'Checking' defect where the parser fails to correctly validate the boundary conditions of an HTML entity. By not enforcing the presence of a semicolon or strict matching, the code incorrectly treats arbitrary text as entities.
+The bug report and failing tests demonstrate that `Entities.unescape` incorrectly treats substrings like '&num' as entities. This indicates a failure in the validation logic (Checking) that determines whether a sequence starting with '&' is a valid entity. The fix requires adding a check to ensure the entity is properly terminated or valid.
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Capability`

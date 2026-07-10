@@ -2,7 +2,7 @@
 
 - Version: `25b`
 - Work directory: `C:\d4j_work\postfix\Time_25b`
-- Generated: `2026-07-08T15:49:43+00:00`
+- Generated: `2026-07-10T18:00:16+00:00`
 
 ## Failure Summary
 - `org.joda.time.TestDateTimeZoneCutover::test_DateTime_constructor_Moscow_Autumn`: junit.framework.ComparisonFailure: expected:<...10-28T02:30:00.000+0[4]:00> but was:<...10-28T02:30:00.000+0[3]:00>
@@ -21,7 +21,10 @@
 - ODC Type: `Algorithm/Method`
 - Family: `Control and Data Flow`
 - Target: `Design/Code`
-- Confidence: `0.9`
+- Confidence: `1.0`
 - Needs Human Review: `False`
 
-The bug is an algorithmic error in the calculation of the offset during DST transitions. The code failed to account for the 'earlier' instant in an overlap scenario, which is a procedural logic error. This fits the Algorithm/Method ODC type as it involves correcting the computational strategy for determining the correct offset.
+The bug report and test failures confirm that the logic for handling DST overlaps in getOffsetFromLocal was undefined or incorrect, leading to inconsistent results. The fix adds a specific algorithmic check for previous transitions to ensure the correct offset is chosen.
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Capability`

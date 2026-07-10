@@ -5,38 +5,39 @@
   "prompt_style": "scientific",
   "model": "gemini-3.1-flash-lite-preview",
   "provider": "gemini",
-  "created_at": "2026-07-08T17:05:42+00:00",
+  "created_at": "2026-07-10T18:47:17+00:00",
   "odc_type": "Algorithm/Method",
   "family": "Control and Data Flow",
   "confidence": 1.0,
   "needs_human_review": false,
-  "observation_summary": "The failing tests demonstrate that Jsoup's unescape function incorrectly interprets URL query parameters (e.g., '&num', '&int') as HTML entities. The bug report confirms this behavior is unintended and breaks standard URL handling.",
-  "hypothesis": "The current implementation of Entities.unescape uses a regex-based approach that is too permissive, incorrectly matching substrings in URLs as HTML entities. The fix requires replacing this regex logic with a more robust, context-aware parser that adheres to HTML5 entity parsing rules, specifically distinguishing between base and extended entities and requiring proper termination (like a semicolon) where appropriate.",
-  "prediction": "The implementation of Entities.unescape will be found to rely on a simple regex pattern that does not correctly handle the boundary conditions for entity recognition, and the fix will involve delegating this task to a more sophisticated Tokeniser class.",
-  "experiment_rationale": "The evidence from the failing tests and the nature of the bug (incorrect string processing) points directly to an algorithmic flaw in how entities are identified and replaced. The fix involves replacing a flawed regex-based method with a proper parser-based approach.",
-  "reasoning_summary": "The bug is a classic case of an incorrect algorithmic implementation for entity decoding. The regex approach fails to account for the context of the input string (e.g., URLs), leading to spurious replacements. The fix replaces the entire unescape method with a call to a more robust Tokeniser-based parser, which is a clear algorithmic/method-level correction.",
+  "observation_summary": "The `Entities.unescape` method incorrectly decodes substrings that resemble HTML entities (e.g., '&num', '&int') within URLs, leading to corrupted data. The failing tests confirm that the current implementation is too aggressive in its matching logic, failing to respect proper entity boundaries.",
+  "hypothesis": "The `Entities.unescape` method uses a regex-based approach that incorrectly identifies and unescapes substrings that look like HTML entities (e.g., '&num', '&int') even when they are not valid, complete entities in the context of the document. This causes spurious decoding in URLs and other text. The fix involves moving to a more robust tokenization-based approach (via `Tokeniser`) that correctly validates entity boundaries and existence.",
+  "prediction": "The `Entities.unescape` method will show a reliance on `unescapePattern` or `strictUnescapePattern` regexes, which are too aggressive in matching potential entities. The `Tokeniser` class will show a more precise, state-aware mechanism for consuming and validating character references.",
+  "experiment_rationale": "The failure is clearly in the logic used to identify and decode entities. The provided test cases demonstrate that the current implementation is over-eager, and the fix (as seen in the diff) replaces the regex-based logic with a tokenization-based approach, which is a classic algorithmic correction.",
+  "reasoning_summary": "The bug is a classic case of an incorrect algorithmic strategy for parsing entities. The regex-based approach in `Entities.unescape` fails to correctly handle entity boundaries, leading to spurious matches. The fix replaces this with a robust tokenization strategy, which is a procedural/algorithmic change.",
   "evidence_used": [
-    "bug_report",
-    "snippet"
+    "org.jsoup.nodes.EntitiesTest::unescape",
+    "org.jsoup.nodes.EntitiesTest::noSpuriousDecodes",
+    "org.jsoup.parser.AttributeParseTest::moreAttributeUnescapes",
+    "org.jsoup.parser.AttributeParseTest::strictAttributeUnescapes",
+    "org.jsoup.parser.HtmlParserTest::doesNotFindShortestMatchingEntity",
+    "org.jsoup.parser.HtmlParserTest::relaxedBaseEntityMatchAndStrictExtendedMatch"
   ],
   "evidence_gaps": [],
   "alternative_types": [
     {
       "type": "Checking",
-      "why_not_primary": "While the fix involves adding checks (e.g., for semicolons), the core issue is the entire approach to entity identification, which is an algorithmic/procedural problem rather than just a missing guard."
+      "why_not_primary": "While the fix involves adding checks, the core issue is the entire approach to parsing entities, which is an algorithmic/procedural flaw rather than just a missing guard."
     }
   ],
   "target": "Design/Code",
-  "qualifier": "Incorrect",
-  "age": "Base",
-  "source": "Internal",
-  "inferred_activity": "Unit Test",
-  "inferred_triggers": [
-    "Test Variation"
-  ],
-  "inferred_impact": [
-    "Reliability"
-  ],
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
   "evidence_mode": "post-fix",
   "strategy": "scientific",
   "taxonomy_mode": "closed",
@@ -46,8 +47,8 @@
   "turns": [
     {
       "turn": 1,
-      "hypothesis": "The entity unescaping logic in Jsoup is overly aggressive, incorrectly identifying substrings in URLs (like '&num' or '&int') as HTML entities even when they are not intended to be interpreted as such, leading to spurious character replacements.",
-      "prediction": "The current implementation of `Entities.unescape` uses a regex-based approach that does not correctly distinguish between valid HTML entities and arbitrary text sequences, whereas the fix likely involves a more context-aware parsing mechanism (like the one in `Tokeniser`) that respects HTML5 entity parsing rules.",
+      "hypothesis": "The current implementation of `Entities.unescape` uses a regex-based approach that incorrectly identifies and unescapes substrings that look like HTML entities (e.g., '&num', '&int') even when they are not valid, complete entities in the context of the document. This causes spurious decoding in URLs and other text. The fix involves moving to a more robust tokenization-based approach (via `Tokeniser`) that correctly validates entity boundaries and existence.",
+      "prediction": "The `Entities.unescape` method will show a reliance on `unescapePattern` or `strictUnescapePattern` regexes, which are too aggressive in matching potential entities. The `Tokeniser` class will show a more precise, state-aware mechanism for consuming and validating character references.",
       "action": "request_evidence",
       "forced": false,
       "probe": {
@@ -60,8 +61,8 @@
     },
     {
       "turn": 2,
-      "hypothesis": "The current implementation of Entities.unescape uses a regex-based approach that is too permissive, incorrectly matching substrings in URLs as HTML entities. The fix requires replacing this regex logic with a more robust, context-aware parser that adheres to HTML5 entity parsing rules, specifically distinguishing between base and extended entities and requiring proper termination (like a semicolon) where appropriate.",
-      "prediction": "The implementation of Entities.unescape will be found to rely on a simple regex pattern that does not correctly handle the boundary conditions for entity recognition, and the fix will involve delegating this task to a more sophisticated Tokeniser class.",
+      "hypothesis": "The `Entities.unescape` method uses a regex-based approach that incorrectly identifies and unescapes substrings that look like HTML entities (e.g., '&num', '&int') even when they are not valid, complete entities in the context of the document. This causes spurious decoding in URLs and other text. The fix involves moving to a more robust tokenization-based approach (via `Tokeniser`) that correctly validates entity boundaries and existence.",
+      "prediction": "The `Entities.unescape` method will show a reliance on `unescapePattern` or `strictUnescapePattern` regexes, which are too aggressive in matching potential entities. The `Tokeniser` class will show a more precise, state-aware mechanism for consuming and validating character references.",
       "action": "conclude",
       "forced": false,
       "conclusion_odc_type": "Algorithm/Method"
@@ -71,5 +72,5 @@
   "other_justification": null,
   "nearest_type": null,
   "other_confidence": null,
-  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"target\": \"Design/Code\", \"qualifier\": \"Incorrect\", \"age\": \"Base\", \"source\": \"Internal\", \"inferred_activity\": \"Unit Test\", \"inferred_triggers\": [\"Test Variation\"], \"inferred_impact\": [\"Reliability\"], \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The failing tests demonstrate that Jsoup's unescape function incorrectly interprets URL query parameters (e.g., '&num', '&int') as HTML entities. The bug report confirms this behavior is unintended and breaks standard URL handling.\", \"hypothesis\": \"The current implementation of Entities.unescape uses a regex-based approach that is too permissive, incorrectly matching substrings in URLs as HTML entities. The fix requires replacing this regex logic with a more robust, context-aware parser that adheres to HTML5 entity parsing rules, specifically distinguishing between base and extended entities and requiring proper termination (like a semicolon) where appropriate.\", \"prediction\": \"The implementation of Entities.unescape will be found to rely on a simple regex pattern that does not correctly handle the boundary conditions for entity recognition, and the fix will involve delegating this task to a more sophisticated Tokeniser class.\", \"experiment_rationale\": \"The evidence from the failing tests and the nature of the bug (incorrect string processing) points directly to an algorithmic flaw in how entities are identified and replaced. The fix involves replacing a flawed regex-based method with a proper parser-based approach.\", \"reasoning_summary\": \"The bug is a classic case of an incorrect algorithmic implementation for entity decoding. The regex approach fails to account for the context of the input string (e.g., URLs), leading to spurious replacements. The fix replaces the entire unescape method with a call to a more robust Tokeniser-based parser, which is a clear algorithmic/method-level correction.\", \"evidence_used\": [\"bug_report\", \"snippet\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Checking\", \"why_not_primary\": \"While the fix involves adding checks (e.g., for semicolons), the core issue is the entire approach to entity identification, which is an algorithmic/procedural problem rather than just a missing guard.\"}]}"
+  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"impact\": \"Capability\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The `Entities.unescape` method incorrectly decodes substrings that resemble HTML entities (e.g., '&num', '&int') within URLs, leading to corrupted data. The failing tests confirm that the current implementation is too aggressive in its matching logic, failing to respect proper entity boundaries.\", \"hypothesis\": \"The `Entities.unescape` method uses a regex-based approach that incorrectly identifies and unescapes substrings that look like HTML entities (e.g., '&num', '&int') even when they are not valid, complete entities in the context of the document. This causes spurious decoding in URLs and other text. The fix involves moving to a more robust tokenization-based approach (via `Tokeniser`) that correctly validates entity boundaries and existence.\", \"prediction\": \"The `Entities.unescape` method will show a reliance on `unescapePattern` or `strictUnescapePattern` regexes, which are too aggressive in matching potential entities. The `Tokeniser` class will show a more precise, state-aware mechanism for consuming and validating character references.\", \"experiment_rationale\": \"The failure is clearly in the logic used to identify and decode entities. The provided test cases demonstrate that the current implementation is over-eager, and the fix (as seen in the diff) replaces the regex-based logic with a tokenization-based approach, which is a classic algorithmic correction.\", \"reasoning_summary\": \"The bug is a classic case of an incorrect algorithmic strategy for parsing entities. The regex-based approach in `Entities.unescape` fails to correctly handle entity boundaries, leading to spurious matches. The fix replaces this with a robust tokenization strategy, which is a procedural/algorithmic change.\", \"evidence_used\": [\"org.jsoup.nodes.EntitiesTest::unescape\", \"org.jsoup.nodes.EntitiesTest::noSpuriousDecodes\", \"org.jsoup.parser.AttributeParseTest::moreAttributeUnescapes\", \"org.jsoup.parser.AttributeParseTest::strictAttributeUnescapes\", \"org.jsoup.parser.HtmlParserTest::doesNotFindShortestMatchingEntity\", \"org.jsoup.parser.HtmlParserTest::relaxedBaseEntityMatchAndStrictExtendedMatch\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Checking\", \"why_not_primary\": \"While the fix involves adding checks, the core issue is the entire approach to parsing entities, which is an algorithmic/procedural flaw rather than just a missing guard.\"}]}"
 }

@@ -2,7 +2,7 @@
 
 - Version: `15b`
 - Work directory: `C:\d4j_work\prefix\Compress_15b`
-- Generated: `2026-07-08T16:47:01+00:00`
+- Generated: `2026-07-10T18:53:28+00:00`
 
 ## Failure Summary
 - `org.apache.commons.compress.archivers.zip.ZipArchiveEntryTest::testNullCommentEqualsEmptyComment`: junit.framework.AssertionFailedError: expected:<foo> but was:<foo>
@@ -12,10 +12,10 @@
 
 ## ODC Result
 - **Evidence Mode**: ✅ Pre-fix only
-- ODC Type: `Inconsistent Object Equality Logic`
+- ODC Type: `Inconsistent Object Equality`
 - Family: `None`
 - Target: `Design/Code`
 - Confidence: `0.95`
 - Needs Human Review: `False`
 
-The defect arises because the equals() method in the ZipArchiveEntry class does not treat null and empty string values for the 'comment' field as equivalent. In the context of ZIP archives, different parsing mechanisms (streaming vs. central directory) may result in one implementation assigning null to the comment field while another assigns an empty string. Since these two states represent the same semantic value (no comment), the failure to equate them causes equality checks to fail for entries that are otherwise identical, breaking lookups in collections like Maps.
+The defect arises because ZipArchiveEntry instances created from different sources (ZipArchiveInputStream vs ZipFile) treat null and empty string comments differently during equality checks. The test case demonstrates that an entry with a null comment is not considered equal to an entry with an empty string comment, despite them being semantically equivalent in the context of ZIP file metadata. This inconsistency causes failures when comparing entries retrieved from different ZIP processing mechanisms.

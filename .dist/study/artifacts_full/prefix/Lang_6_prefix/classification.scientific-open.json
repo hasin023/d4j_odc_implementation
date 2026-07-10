@@ -1,0 +1,58 @@
+{
+  "project_id": "Lang",
+  "bug_id": 6,
+  "version_id": "6b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-10T19:13:12+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The CharSequenceTranslator.translate method throws a StringIndexOutOfBoundsException when processing surrogate pairs because the pointer increment logic (line 95) does not correctly account for the number of characters consumed by the translator, causing it to skip past the end of the string.",
+  "hypothesis": "The loop in CharSequenceTranslator.translate (line 84) iterates through the input string. When a character is not translated (consumed == 0), the code correctly handles surrogate pairs by using Character.toChars(Character.codePointAt(input, pos)) and incrementing pos by c.length. However, when a character IS translated (consumed > 0), the loop at line 94 increments pos by Character.charCount(Character.codePointAt(input, pos)). If the translator consumes a surrogate pair, Character.codePointAt(input, pos) correctly identifies the codepoint, but if the translator only consumes part of a surrogate pair or if the logic incorrectly assumes the codepoint at 'pos' is the same as the one just translated, it can lead to an index out of bounds when 'pos' exceeds the string length.",
+  "prediction": "The loop at line 94 is incorrectly incrementing the position pointer 'pos' by the number of characters in the codepoint at the current position, rather than by the number of characters actually consumed by the translator, leading to an index out of bounds when the translator logic and the manual pointer incrementing get out of sync.",
+  "experiment_rationale": "The stack trace and code snippet clearly show the failure occurs at line 95 during the increment of 'pos'. The logic at line 95 uses 'Character.charCount(Character.codePointAt(input, pos))' inside a loop that runs 'consumed' times, which is logically flawed because 'consumed' is the number of characters the translator processed, not the number of codepoints. This is a clear algorithmic error in how the pointer is advanced.",
+  "reasoning_summary": "The code at line 95 attempts to advance the 'pos' pointer by calling 'Character.charCount' for each unit of 'consumed' characters. This is incorrect because 'consumed' represents the number of characters the translator processed, and the pointer should simply be incremented by 'consumed', not by the character count of the codepoint at the current position.",
+  "evidence_used": [
+    "full_stack_trace",
+    "snippet"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "While a check could prevent the crash, the root cause is the incorrect implementation of the pointer advancement algorithm."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The loop in CharSequenceTranslator.translate (line 84) iterates through the input string. When a character is not translated (consumed == 0), the code correctly handles surrogate pairs by using Character.toChars(Character.codePointAt(input, pos)) and incrementing pos by c.length. However, when a character IS translated (consumed > 0), the loop at line 94 increments pos by Character.charCount(Character.codePointAt(input, pos)). If the translator consumes a surrogate pair, Character.codePointAt(input, pos) correctly identifies the codepoint, but if the translator only consumes part of a surrogate pair or if the logic incorrectly assumes the codepoint at 'pos' is the same as the one just translated, it can lead to an index out of bounds when 'pos' exceeds the string length.",
+      "prediction": "I expect that the loop at line 94 is incorrectly incrementing the position pointer 'pos' by the number of characters in the codepoint at the current position, rather than by the number of characters actually consumed by the translator, leading to an index out of bounds when the translator logic and the manual pointer incrementing get out of sync.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Algorithm/Method"
+    }
+  ],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"impact\": \"Reliability\", \"confidence\": 0.9, \"needs_human_review\": false, \"observation_summary\": \"The CharSequenceTranslator.translate method throws a StringIndexOutOfBoundsException when processing surrogate pairs because the pointer increment logic (line 95) does not correctly account for the number of characters consumed by the translator, causing it to skip past the end of the string.\", \"hypothesis\": \"The loop in CharSequenceTranslator.translate (line 84) iterates through the input string. When a character is not translated (consumed == 0), the code correctly handles surrogate pairs by using Character.toChars(Character.codePointAt(input, pos)) and incrementing pos by c.length. However, when a character IS translated (consumed > 0), the loop at line 94 increments pos by Character.charCount(Character.codePointAt(input, pos)). If the translator consumes a surrogate pair, Character.codePointAt(input, pos) correctly identifies the codepoint, but if the translator only consumes part of a surrogate pair or if the logic incorrectly assumes the codepoint at 'pos' is the same as the one just translated, it can lead to an index out of bounds when 'pos' exceeds the string length.\", \"prediction\": \"The loop at line 94 is incorrectly incrementing the position pointer 'pos' by the number of characters in the codepoint at the current position, rather than by the number of characters actually consumed by the translator, leading to an index out of bounds when the translator logic and the manual pointer incrementing get out of sync.\", \"experiment_rationale\": \"The stack trace and code snippet clearly show the failure occurs at line 95 during the increment of 'pos'. The logic at line 95 uses 'Character.charCount(Character.codePointAt(input, pos))' inside a loop that runs 'consumed' times, which is logically flawed because 'consumed' is the number of characters the translator processed, not the number of codepoints. This is a clear algorithmic error in how the pointer is advanced.\", \"reasoning_summary\": \"The code at line 95 attempts to advance the 'pos' pointer by calling 'Character.charCount' for each unit of 'consumed' characters. This is incorrect because 'consumed' represents the number of characters the translator processed, and the pointer should simply be incremented by 'consumed', not by the character count of the codepoint at the current position.\", \"evidence_used\": [\"full_stack_trace\", \"snippet\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Checking\", \"why_not_primary\": \"While a check could prevent the crash, the root cause is the incorrect implementation of the pointer advancement algorithm.\"}]}"
+}

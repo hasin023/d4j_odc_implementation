@@ -2,7 +2,7 @@
 
 - Version: `7b`
 - Work directory: `C:\d4j_work\postfix\Gson_7b`
-- Generated: `2026-07-08T16:50:11+00:00`
+- Generated: `2026-07-10T18:57:25+00:00`
 
 ## Failure Summary
 - `com.google.gson.functional.MapTest::testMapDeserializationWithUnquotedLongKeys`: com.google.gson.JsonSyntaxException: java.lang.IllegalStateException: Expected a long but was STRING at line 1 column 2 path $.
@@ -26,14 +26,11 @@
 - ODC Type: `Algorithm/Method`
 - Family: `Control and Data Flow`
 - Target: `Code`
-- Confidence: `0.9`
+- Confidence: `1.0`
 - Needs Human Review: `False`
 
-The defect is an algorithmic omission in the procedure that handles token parsing. The code was missing the logic to process unquoted tokens when a numeric value was expected. This is a procedural/algorithmic correction rather than a simple guard (Checking) or a wrong value (Assignment/Initialization).
+The defect is a failure in the procedural logic of the JsonReader to correctly identify and process unquoted tokens when parsing integers or longs. This is a classic algorithmic deficiency where the parser's state machine was incomplete for the supported input format. It is not a simple missing guard (Checking) because it requires implementing the retrieval of the unquoted value, nor is it a design-level capability gap (Function/Class/Object) as the parser already supports these types; it just lacked the specific logic to handle them in this context.
 
 ## ODC Attribute Mapping (Optional)
-- Qualifier: `Incorrect`
-- Age: `Base`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Recovery/Exception, Test Variation`
-- Inferred Impact: `Reliability`
+- Qualifier: `Missing`
+- Impact: `Capability`

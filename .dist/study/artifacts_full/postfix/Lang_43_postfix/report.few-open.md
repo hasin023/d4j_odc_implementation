@@ -2,7 +2,7 @@
 
 - Version: `43b`
 - Work directory: `C:\d4j_work\postfix\Lang_43b`
-- Generated: `2026-07-08T16:51:35+00:00`
+- Generated: `2026-07-10T18:58:34+00:00`
 
 ## Failure Summary
 - `org.apache.commons.lang.text.ExtendedMessageFormatTest::testEscapedQuote_LANG_477`: java.lang.OutOfMemoryError: Java heap space
@@ -15,18 +15,14 @@
 
 ## ODC Result
 - **Evidence Mode**: ⚠️ Post-fix (with buggy->fixed diff)
-- ODC Type: `Algorithm/Method`
+- ODC Type: `Checking`
 - Family: `Control and Data Flow`
 - Target: `Code`
-- Confidence: `0.95`
+- Confidence: `1.0`
 - Needs Human Review: `False`
 
-The defect is an infinite loop caused by incorrect procedural logic (failing to advance the parser state). This is a classic Algorithm/Method defect where the iteration strategy (advancing the parse position) was incomplete, leading to a failure in the computational procedure.
+The bug is a classic infinite loop caused by a missing state update (advancing the parse position). This falls under 'Checking' because the logic for handling the character was present, but the necessary guard/action to advance the parser state was missing, leading to an incorrect loop condition.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Missing`
-- Age: `Base`
-- Source: `Developed In-House`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Test Sequencing`
-- Inferred Impact: `Reliability`
+- Impact: `Reliability`

@@ -1,0 +1,88 @@
+{
+  "project_id": "Lang",
+  "bug_id": 42,
+  "version_id": "42b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-10T19:40:03+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The test case fails because high Unicode characters (codepoints > 0xFFFF) are incorrectly escaped as two separate HTML entities instead of one. The fix involves changing the iteration logic to use Character.codePointAt to correctly identify and process full Unicode codepoints.",
+  "hypothesis": "The bug is caused by the use of charAt(i) in the loop within the Entities class, which incorrectly processes supplementary Unicode characters (represented as surrogate pairs in Java) as two separate characters. This is an algorithmic flaw in how the string is traversed and encoded into HTML entities.",
+  "prediction": "The implementation of the escape method in the Entities class will show a loop using charAt(i) and will lack logic to handle surrogate pairs, which is the root cause of the incorrect HTML entity output.",
+  "experiment_rationale": "The bug report and the provided fix diff (from the oracle) clearly indicate that the iteration logic in the Entities class is flawed for supplementary characters. The fix replaces charAt(i) with Character.codePointAt(str, i) and adds logic to skip the second half of a surrogate pair, confirming the algorithmic nature of the defect.",
+  "reasoning_summary": "The defect is a classic case of incorrect iteration over a string containing surrogate pairs. The code treats the string as a sequence of 16-bit chars rather than a sequence of Unicode codepoints. This is a procedural/algorithmic error in the implementation of the escape method.",
+  "evidence_used": [
+    "bug_report",
+    "fix_diff_oracle"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "While the fix adds a check (if c >= 0x010000), the primary issue is the fundamental iteration strategy (using charAt vs codePointAt) which is an algorithmic/procedural flaw."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "closed",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The StringEscapeUtils.escapeHtml method iterates over the string using charAt(i), which treats supplementary characters (represented as surrogate pairs in Java) as two separate characters. This causes the escape logic to process each surrogate individually, resulting in two separate HTML entities instead of one combined entity for the full Unicode codepoint.",
+      "prediction": "The snippet of org.apache.commons.lang.Entities will show a loop using charAt(i) to retrieve characters, and the logic will lack a check for surrogate pairs or the use of Character.codePointAt(str, i) to correctly handle characters outside the Basic Multilingual Plane.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "org.apache.commons.lang.Entities"
+      },
+      "observation_summary": "no snippet matches 'org.apache.commons.lang.Entities'"
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The class responsible for the escaping logic is likely named 'Entities' but might be in a different package or the snippet probe failed due to a naming mismatch. Given the bug report and the fix diff provided in the oracle, the logic in 'Entities.java' uses 'char c = str.charAt(i)' which fails to handle supplementary characters (codepoints > 0xFFFF) that are represented as surrogate pairs in Java strings.",
+      "prediction": "The 'Entities' class contains a loop that iterates using 'char c = str.charAt(i)', which is insufficient for Unicode characters outside the Basic Multilingual Plane, leading to incorrect HTML entity generation.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "list_evidence",
+        "argument": null
+      },
+      "observation_summary": [
+        "bug_report_available",
+        "coverage_classes",
+        "failing_tests",
+        "production_snippet_classes",
+        "test_snippet_classes"
+      ]
+    },
+    {
+      "turn": 3,
+      "hypothesis": "The bug is caused by the use of charAt(i) in the loop within the Entities class, which incorrectly processes supplementary Unicode characters (represented as surrogate pairs in Java) as two separate characters. This is an algorithmic flaw in how the string is traversed and encoded into HTML entities.",
+      "prediction": "The implementation of the escape method in the Entities class will show a loop using charAt(i) and will lack logic to handle surrogate pairs, which is the root cause of the incorrect HTML entity output.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Algorithm/Method"
+    }
+  ],
+  "llm_calls_used": 3,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"impact\": \"Capability\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The test case fails because high Unicode characters (codepoints > 0xFFFF) are incorrectly escaped as two separate HTML entities instead of one. The fix involves changing the iteration logic to use Character.codePointAt to correctly identify and process full Unicode codepoints.\", \"hypothesis\": \"The bug is caused by the use of charAt(i) in the loop within the Entities class, which incorrectly processes supplementary Unicode characters (represented as surrogate pairs in Java) as two separate characters. This is an algorithmic flaw in how the string is traversed and encoded into HTML entities.\", \"prediction\": \"The implementation of the escape method in the Entities class will show a loop using charAt(i) and will lack logic to handle surrogate pairs, which is the root cause of the incorrect HTML entity output.\", \"experiment_rationale\": \"The bug report and the provided fix diff (from the oracle) clearly indicate that the iteration logic in the Entities class is flawed for supplementary characters. The fix replaces charAt(i) with Character.codePointAt(str, i) and adds logic to skip the second half of a surrogate pair, confirming the algorithmic nature of the defect.\", \"reasoning_summary\": \"The defect is a classic case of incorrect iteration over a string containing surrogate pairs. The code treats the string as a sequence of 16-bit chars rather than a sequence of Unicode codepoints. This is a procedural/algorithmic error in the implementation of the escape method.\", \"evidence_used\": [\"bug_report\", \"fix_diff_oracle\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Checking\", \"why_not_primary\": \"While the fix adds a check (if c >= 0x010000), the primary issue is the fundamental iteration strategy (using charAt vs codePointAt) which is an algorithmic/procedural flaw.\"}]}"
+}

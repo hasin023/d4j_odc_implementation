@@ -35,7 +35,9 @@ ODC_TYPES: dict[str, dict[str, str]] = {
         ),
         "distinguish_from": (
             "If the fix requires changes to control predicates or guards, use Checking. "
-            "If the correction requires algorithmic/procedural rewrite, use Algorithm/Method."
+            "If the correction requires algorithmic/procedural rewrite, use Algorithm/Method. "
+            "A fix involving multiple coordinated assignment corrections may be of type "
+            "Algorithm/Method."
         ),
         "examples": (
             "An internal variable or control-block field had an incorrect value or no value. "
@@ -47,7 +49,9 @@ ODC_TYPES: dict[str, dict[str, str]] = {
     "Checking": {
         "summary": (
             "Errors caused by missing or incorrect validation of parameters or data in conditional "
-            "statements."
+            "statements. If the missing or incorrect check is the critical error, the type stays "
+            "Checking even when the fix must also add consequence code such as a loop, branch, or "
+            "early return."
         ),
         "indicators": (
             "The main issue is in predicate logic, boundary checks, loop stop conditions, or "
@@ -154,6 +158,113 @@ ODC_TYPE_NAMES = list(ODC_TYPES)
 # It is only offered to the LLM when taxonomy_mode == "open".
 
 OTHER_TYPE_NAME = "Other"
+
+# ── ODC Impact (opener attribute, v5.2 §3.3) ─────────────────────────────
+# The 13 official impact categories with definitions faithful to
+# docs/odc_doc.md §3.3. Impact is judged from the customer/end-user
+# perspective at the time the defect is OPENED — it is fix-independent by
+# definition, which is what makes it usable as a negative control in the
+# prefix/postfix drift analysis (see docs/odc_alignment_audit.md §6.3).
+# "Unknown" is permitted at open time per v5.2 §5.1.
+
+ODC_IMPACTS: dict[str, str] = {
+    "Installability": (
+        "The ability of the customer to prepare and place the software in position "
+        "for use (does not include Usability)."
+    ),
+    "Integrity/Security": (
+        "The protection of systems, programs, and data from inadvertent or malicious "
+        "destruction, alteration, or disclosure."
+    ),
+    "Performance": (
+        "The speed of the software as perceived by the customer and the customer's "
+        "end users, in terms of their ability to perform their tasks."
+    ),
+    "Maintenance": (
+        "The ease of applying preventive or corrective fixes to the software "
+        "(e.g. fixes cannot be applied, or applying them takes excessive manual effort)."
+    ),
+    "Serviceability": (
+        "The ability to diagnose failures easily and quickly, with minimal impact "
+        "to the customer (e.g. misleading or unlocatable error diagnostics)."
+    ),
+    "Migration": (
+        "The ease of upgrading to a current release, particularly the impact on "
+        "existing customer data and operations (including changed external interfaces "
+        "that break existing applications)."
+    ),
+    "Documentation": (
+        "The degree to which the publication aids provided for understanding the "
+        "structure and intended uses of the software are correct and complete."
+    ),
+    "Usability": (
+        "The degree to which the software and publication aids enable the product to "
+        "be easily understood and conveniently employed by its end user."
+    ),
+    "Standards": (
+        "The degree to which the software complies with established pertinent standards."
+    ),
+    "Reliability": (
+        "The ability of the software to consistently perform its intended function "
+        "without unplanned interruption. Severe interruptions (crash, hang, abend) "
+        "are always Reliability."
+    ),
+    "Requirements": (
+        "A customer expectation, with regard to capability, which was not known, "
+        "understood, or prioritized as a requirement for the current product or release."
+    ),
+    "Accessibility": (
+        "Ensuring that successful access to information and use of information "
+        "technology is provided to people who have disabilities."
+    ),
+    "Capability": (
+        "The ability of the software to perform its intended functions and satisfy "
+        "KNOWN requirements, where the customer is not impacted in any of the other "
+        "categories. The explicit fallback when no other impact applies."
+    ),
+}
+
+IMPACT_UNKNOWN = "Unknown"
+ODC_IMPACT_NAMES = list(ODC_IMPACTS)
+
+
+def allowed_impact_names() -> list[str]:
+    """Canonical impact label set: the 13 v5.2 categories plus 'Unknown' (§5.1)."""
+    return ODC_IMPACT_NAMES + [IMPACT_UNKNOWN]
+
+
+def impact_markdown() -> str:
+    """Prompt section teaching the v5.2 Impact attribute (opener side).
+
+    Included in the few and scientific prompts only — never in zero-free,
+    which must stay free of ODC concepts."""
+    lines = [
+        "## ODC Impact (opener attribute — judged from behaviour, not the fix)",
+        "",
+        "Separately from the defect type, select exactly ONE Impact: the effect the",
+        "failure has (or would have) on the customer/end user. Judge it from the bug",
+        "report and the observable failure behaviour. Impact is recorded when a defect",
+        "is OPENED — the nature of the eventual fix does not define it.",
+        "",
+    ]
+    for name, definition in ODC_IMPACTS.items():
+        lines.append(f"- **{name}**: {definition}")
+    lines.extend(
+        [
+            f"- **{IMPACT_UNKNOWN}**: only when the evidence does not support any judgment "
+            "of the user-visible effect.",
+            "",
+            "Guidance:",
+            "- Severe unplanned interruption reaching the user (crash, hang, unhandled "
+            "exception) → Reliability.",
+            "- Wrong results / a function not doing its job, with no other category "
+            "applying → Capability (the explicit fallback).",
+            "- Do not derive impact from the code mechanism; derive it from the failure "
+            "as the user would experience it.",
+        ]
+    )
+    return "\n".join(lines)
+
 
 # ── Experimental condition variables ─────────────────────────────────────
 # Every classification is a coordinate (taxonomy, strategy). The authoritative
@@ -276,6 +387,9 @@ def taxonomy_markdown(taxonomy_mode: str = TAXONOMY_CLOSED) -> str:
 
 
 def family_for(odc_type: str) -> str | None:
+    # The two-family grouping (Control and Data Flow / Structural) is NOT part
+    # of IBM's v5.2 document — it is this project's coarse grouping for the
+    # Tier-3 family-match agreement level. Present it as such in any write-up.
     meta = ODC_TYPES.get(odc_type)
     return meta["family"] if meta else None
 

@@ -2,7 +2,7 @@
 
 - Version: `32b`
 - Work directory: `C:\d4j_work\postfix\Cli_32b`
-- Generated: `2026-07-08T17:00:53+00:00`
+- Generated: `2026-07-10T18:40:53+00:00`
 
 ## Failure Summary
 - `org.apache.commons.cli.HelpFormatterTest::testRenderWrappedTextWordCut`: java.lang.StringIndexOutOfBoundsException: String index out of range: 12
@@ -14,10 +14,13 @@
 
 ## ODC Result
 - **Evidence Mode**: ⚠️ Post-fix (with buggy->fixed diff)
-- ODC Type: `Checking`
+- ODC Type: `Algorithm/Method`
 - Family: `Control and Data Flow`
 - Target: `Design/Code`
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The defect is a classic boundary condition error where a loop condition (pos <= text.length()) allows an out-of-bounds access. The fix removes the entire loop, confirming that the logic was not only buggy but also unnecessary for the method's purpose.
+The defect is a procedural error in the findWrapPos method where an incorrect loop condition leads to an out-of-bounds access. The fix involves removing the erroneous loop, which is a correction of the algorithmic strategy for finding the wrap position.
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Reliability`

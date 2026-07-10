@@ -5,40 +5,40 @@
   "prompt_style": "scientific",
   "model": "gemini-3.1-flash-lite-preview",
   "provider": "gemini",
-  "created_at": "2026-07-08T16:50:11+00:00",
+  "created_at": "2026-07-10T18:57:25+00:00",
   "odc_type": "Algorithm/Method",
   "family": "Control and Data Flow",
-  "confidence": 0.9,
+  "confidence": 1.0,
   "needs_human_review": false,
-  "observation_summary": "The JsonReader fails to parse unquoted numeric keys in JSON maps, throwing an IllegalStateException because it expects a number but encounters an unquoted string.",
-  "hypothesis": "The JsonReader's nextLong() and nextInt() methods lack the logic to handle PEEKED_UNQUOTED tokens when attempting to parse numeric values, causing them to fall through to an error state instead of attempting to parse the unquoted string as a number.",
-  "prediction": "Adding a check for PEEKED_UNQUOTED in the nextLong() and nextInt() methods, and invoking nextUnquotedValue() to retrieve the string for parsing, will resolve the issue.",
-  "experiment_rationale": "The provided fix diff shows exactly this: the conditional logic in nextLong() and nextInt() was updated to include PEEKED_UNQUOTED and call nextUnquotedValue(), confirming the hypothesis that the procedural logic for handling unquoted tokens was missing.",
-  "reasoning_summary": "The defect is an algorithmic omission in the procedure that handles token parsing. The code was missing the logic to process unquoted tokens when a numeric value was expected. This is a procedural/algorithmic correction rather than a simple guard (Checking) or a wrong value (Assignment/Initialization).",
+  "observation_summary": "The JsonReader fails to parse unquoted integer or long keys in a JSON map, throwing an IllegalStateException because it expects a number but encounters an unquoted string.",
+  "hypothesis": "The JsonReader's nextInt() and nextLong() methods lack the logic to handle PEEKED_UNQUOTED tokens, which are valid in lenient JSON parsing for keys.",
+  "prediction": "The fix will involve updating the conditional logic in nextInt() and nextLong() to include PEEKED_UNQUOTED as a valid state and adding a call to nextUnquotedValue() to retrieve the string representation of the key for parsing.",
+  "experiment_rationale": "The provided diff shows that the conditional check for PEEKED_SINGLE_QUOTED and PEEKED_DOUBLE_QUOTED was expanded to include PEEKED_UNQUOTED, and a new branch was added to call nextUnquotedValue() when this state is encountered. This confirms that the procedural logic for handling unquoted tokens was missing.",
+  "reasoning_summary": "The defect is a failure in the procedural logic of the JsonReader to correctly identify and process unquoted tokens when parsing integers or longs. This is a classic algorithmic deficiency where the parser's state machine was incomplete for the supported input format. It is not a simple missing guard (Checking) because it requires implementing the retrieval of the unquoted value, nor is it a design-level capability gap (Function/Class/Object) as the parser already supports these types; it just lacked the specific logic to handle them in this context.",
   "evidence_used": [
-    "fix_diff_oracle",
-    "failing_tests",
-    "production_code_snippets"
+    "The fix_diff_oracle shows the addition of PEEKED_UNQUOTED to the conditional checks in nextInt() and nextLong().",
+    "The fix_diff_oracle shows the addition of a call to nextUnquotedValue() to handle the unquoted token.",
+    "The stack trace indicates an IllegalStateException when the parser encounters an unquoted string where it expects an int or long."
   ],
   "evidence_gaps": [],
   "alternative_types": [
     {
       "type": "Checking",
-      "why_not_primary": "While the fix adds a condition, the primary issue is the absence of the logic to handle the unquoted token type, which is a procedural step in the parsing algorithm."
+      "why_not_primary": "While a check was added, the fix also required implementing the retrieval of the unquoted value (nextUnquotedValue), which is a procedural/algorithmic step rather than just a guard."
+    },
+    {
+      "type": "Function/Class/Object",
+      "why_not_primary": "The capability to parse integers and longs already exists; this is a local procedural correction to the existing parsing algorithm."
     }
   ],
   "target": "Code",
-  "qualifier": "Incorrect",
-  "age": "Base",
+  "qualifier": "Missing",
+  "age": null,
   "source": null,
-  "inferred_activity": "Unit Test",
-  "inferred_triggers": [
-    "Recovery/Exception",
-    "Test Variation"
-  ],
-  "inferred_impact": [
-    "Reliability"
-  ],
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
   "evidence_mode": "post-fix",
   "strategy": "few",
   "taxonomy_mode": "open",
@@ -50,5 +50,5 @@
   "other_justification": null,
   "nearest_type": null,
   "other_confidence": null,
-  "raw_response": "{\n  \"odc_type\": \"Algorithm/Method\",\n  \"family\": \"Control and Data Flow\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"age\": \"Base\",\n  \"inferred_activity\": \"Unit Test\",\n  \"inferred_triggers\": [\"Recovery/Exception\", \"Test Variation\"],\n  \"inferred_impact\": [\"Reliability\"],\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The JsonReader fails to parse unquoted numeric keys in JSON maps, throwing an IllegalStateException because it expects a number but encounters an unquoted string.\",\n  \"hypothesis\": \"The JsonReader's nextLong() and nextInt() methods lack the logic to handle PEEKED_UNQUOTED tokens when attempting to parse numeric values, causing them to fall through to an error state instead of attempting to parse the unquoted string as a number.\",\n  \"prediction\": \"Adding a check for PEEKED_UNQUOTED in the nextLong() and nextInt() methods, and invoking nextUnquotedValue() to retrieve the string for parsing, will resolve the issue.\",\n  \"experiment_rationale\": \"The provided fix diff shows exactly this: the conditional logic in nextLong() and nextInt() was updated to include PEEKED_UNQUOTED and call nextUnquotedValue(), confirming the hypothesis that the procedural logic for handling unquoted tokens was missing.\",\n  \"reasoning_summary\": \"The defect is an algorithmic omission in the procedure that handles token parsing. The code was missing the logic to process unquoted tokens when a numeric value was expected. This is a procedural/algorithmic correction rather than a simple guard (Checking) or a wrong value (Assignment/Initialization).\",\n  \"evidence_used\": [\"fix_diff_oracle\", \"failing_tests\", \"production_code_snippets\"],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Checking\",\n      \"why_not_primary\": \"While the fix adds a condition, the primary issue is the absence of the logic to handle the unquoted token type, which is a procedural step in the parsing algorithm.\"\n    }\n  ]\n}"
+  "raw_response": "{\n  \"odc_type\": \"Algorithm/Method\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Capability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 1.0,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The JsonReader fails to parse unquoted integer or long keys in a JSON map, throwing an IllegalStateException because it expects a number but encounters an unquoted string.\",\n  \"hypothesis\": \"The JsonReader's nextInt() and nextLong() methods lack the logic to handle PEEKED_UNQUOTED tokens, which are valid in lenient JSON parsing for keys.\",\n  \"prediction\": \"The fix will involve updating the conditional logic in nextInt() and nextLong() to include PEEKED_UNQUOTED as a valid state and adding a call to nextUnquotedValue() to retrieve the string representation of the key for parsing.\",\n  \"experiment_rationale\": \"The provided diff shows that the conditional check for PEEKED_SINGLE_QUOTED and PEEKED_DOUBLE_QUOTED was expanded to include PEEKED_UNQUOTED, and a new branch was added to call nextUnquotedValue() when this state is encountered. This confirms that the procedural logic for handling unquoted tokens was missing.\",\n  \"reasoning_summary\": \"The defect is a failure in the procedural logic of the JsonReader to correctly identify and process unquoted tokens when parsing integers or longs. This is a classic algorithmic deficiency where the parser's state machine was incomplete for the supported input format. It is not a simple missing guard (Checking) because it requires implementing the retrieval of the unquoted value, nor is it a design-level capability gap (Function/Class/Object) as the parser already supports these types; it just lacked the specific logic to handle them in this context.\",\n  \"evidence_used\": [\n    \"The fix_diff_oracle shows the addition of PEEKED_UNQUOTED to the conditional checks in nextInt() and nextLong().\",\n    \"The fix_diff_oracle shows the addition of a call to nextUnquotedValue() to handle the unquoted token.\",\n    \"The stack trace indicates an IllegalStateException when the parser encounters an unquoted string where it expects an int or long.\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Checking\",\n      \"why_not_primary\": \"While a check was added, the fix also required implementing the retrieval of the unquoted value (nextUnquotedValue), which is a procedural/algorithmic step rather than just a guard.\"\n    },\n    {\n      \"type\": \"Function/Class/Object\",\n      \"why_not_primary\": \"The capability to parse integers and longs already exists; this is a local procedural correction to the existing parsing algorithm.\"\n    }\n  ]\n}"
 }

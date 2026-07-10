@@ -2,7 +2,7 @@
 
 - Version: `28b`
 - Work directory: `C:\d4j_work\postfix\Jsoup_28b`
-- Generated: `2026-07-08T16:47:43+00:00`
+- Generated: `2026-07-10T18:54:08+00:00`
 
 ## Failure Summary
 - `org.jsoup.nodes.EntitiesTest::unescape`: junit.framework.AssertionFailedError: expected:<Hello &<> ® Å [&angst] π π 新 there &! ¾ © ...> but was:<Hello &<> ® Å [Å] π π 新 there &! ¾ © ...>
@@ -28,4 +28,4 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The bug was caused by an overly aggressive entity unescaping mechanism that incorrectly identified substrings in URLs (like '&num' or '&int') as HTML entities. The original implementation used a regex-based approach that attempted to match any potential entity pattern without properly validating if the sequence was a valid, intended HTML entity. The fix involved replacing this regex logic with a more robust tokenization process that correctly distinguishes between base entities (which don't require a semicolon) and extended entities (which do), ensuring that only valid, intended entities are decoded.
+The bug was caused by an overly aggressive entity decoding mechanism that incorrectly identified substrings in URLs (like '&num' or '&int') as HTML entities. The original implementation used a regex-based approach that attempted to match and replace entities without properly validating if they were intended to be HTML entities or just part of a query string. The fix involved replacing the regex-based unescaper with a more robust tokenization-based approach that correctly respects HTML5 entity parsing rules, specifically requiring a semicolon for extended entities and distinguishing between base and extended entity sets.

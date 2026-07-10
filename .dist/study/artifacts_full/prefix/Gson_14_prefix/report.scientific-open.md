@@ -2,7 +2,7 @@
 
 - Version: `14b`
 - Work directory: `C:\d4j_work\prefix\Gson_14b`
-- Generated: `2026-07-08T16:56:17+00:00`
+- Generated: `2026-07-10T18:37:33+00:00`
 
 ## Failure Summary
 - `com.google.gson.internal.bind.RecursiveTypesResolveTest::testDoubleSupertype`: junit.framework.AssertionFailedError: expected:<? super java.lang.Number> but was:<? super ? super java.lang.Number>
@@ -33,4 +33,7 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The bug is a classic algorithmic deficiency where the recursive resolution of generic types does not account for nested wildcard bounds. This results in both incorrect type resolution (assertion failures) and infinite recursion (StackOverflowError). The fix is to implement the specified collapsing rules within the existing resolution procedure.
+The stack traces show `StackOverflowError` originating from `resolve` and `canonicalize` calls on `WildcardType`. The source code confirms that `resolve` does not implement the required collapsing rules (e.g., `supertypeOf(supertypeOf(X)) == supertypeOf(X)`), causing infinite recursion.
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Reliability`

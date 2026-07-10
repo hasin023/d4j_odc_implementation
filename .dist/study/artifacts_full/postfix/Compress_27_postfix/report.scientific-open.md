@@ -2,7 +2,7 @@
 
 - Version: `27b`
 - Work directory: `C:\d4j_work\postfix\Compress_27b`
-- Generated: `2026-07-08T16:55:04+00:00`
+- Generated: `2026-07-10T18:36:47+00:00`
 
 ## Failure Summary
 - `org.apache.commons.compress.archivers.tar.TarUtilsTest::testParseOctal`: java.lang.IllegalArgumentException: Invalid byte 32 at offset 1 in ' {NUL}' len=2
@@ -18,8 +18,7 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The code was performing a validation check that assumed a non-empty result after trimming. This check was too strict for valid tar archive inputs where fields might be empty/NUL, which should be interpreted as zero. Removing this check resolves the issue.
+The code snippet shows an explicit check that throws an exception if the buffer is empty after trimming. The bug report indicates this causes failures for valid tar entries. The fix removes this check, confirming the defect is an incorrect validation predicate.
 
 ## ODC Attribute Mapping (Optional)
-- Qualifier: `Extraneous`
-- Age: `Base`
+- Impact: `Reliability`

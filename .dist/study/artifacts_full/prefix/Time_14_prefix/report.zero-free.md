@@ -2,7 +2,7 @@
 
 - Version: `14b`
 - Work directory: `C:\d4j_work\prefix\Time_14b`
-- Generated: `2026-07-08T16:48:15+00:00`
+- Generated: `2026-07-10T18:54:57+00:00`
 
 ## Failure Summary
 - `org.joda.time.TestMonthDay_Basics::testPlusMonths_int_negativeFromLeap`: org.joda.time.IllegalFieldValueException: Value 29 for dayOfMonth must be in the range [1,28]
@@ -27,10 +27,10 @@
 
 ## ODC Result
 - **Evidence Mode**: ✅ Pre-fix only
-- ODC Type: `Incorrect validation logic for partial date arithmetic`
+- ODC Type: `Invalid boundary validation in date arithmetic`
 - Family: `None`
 - Target: `Design/Code`
-- Confidence: `1.0`
+- Confidence: `0.95`
 - Needs Human Review: `False`
 
-The bug occurs because the `BasicMonthOfYearDateTimeField.add` method attempts to perform arithmetic on a `MonthDay` object by setting the fields on a dummy instant (0L). When the `MonthDay` is February 29th, the `set` operation triggers a validation check in `PreciseDurationDateTimeField` that enforces a maximum day-of-month of 28, as it does not account for the leap year context when validating the partial date. This causes an `IllegalFieldValueException` when performing operations on February 29th, even though the operation itself is valid for a `MonthDay` object.
+The defect occurs when performing arithmetic operations (plus/minus months or days) on a 'MonthDay' object initialized to a leap day (February 29th). The code attempts to perform these operations by setting the date to a fixed epoch (1970-01-01) and then applying the field changes. When the operation involves a month or day that results in a non-leap year context, the underlying 'PreciseDurationDateTimeField.set' method triggers a 'verifyValueBounds' check. This check enforces a strict upper bound of 28 for the day of month in February, failing to account for the fact that 'MonthDay' is a partial date representation that should allow February 29th as a valid state regardless of the specific year context used for internal calculations.

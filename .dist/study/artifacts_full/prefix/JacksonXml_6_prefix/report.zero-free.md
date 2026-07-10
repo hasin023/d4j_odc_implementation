@@ -2,7 +2,7 @@
 
 - Version: `6b`
 - Work directory: `C:\d4j_work\prefix\JacksonXml_6b`
-- Generated: `2026-07-08T16:47:34+00:00`
+- Generated: `2026-07-10T18:54:00+00:00`
 
 ## Failure Summary
 - `com.fasterxml.jackson.dataformat.xml.ser.TestBinaryStreamToXMLSerialization::testWith0Bytes`: com.fasterxml.jackson.databind.JsonMappingException: Operation not supported by generator of type com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator (through reference chain: com.fasterxml.jackson.dataformat.xml.ser.TestBinaryStreamToXMLSerialization$TestPojo["field"])
@@ -25,10 +25,10 @@
 
 ## ODC Result
 - **Evidence Mode**: ✅ Pre-fix only
-- ODC Type: `Missing Feature Implementation`
+- ODC Type: `Missing API implementation`
 - Family: `None`
 - Target: `Design/Code`
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The bug report and stack traces indicate that the 'ToXmlGenerator' class fails when attempting to serialize binary data provided as an 'InputStream'. The stack trace shows a 'JsonMappingException' with the message 'Operation not supported by generator of type com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator', which occurs because the generator lacks an implementation for the 'writeBinary(Base64Variant, InputStream, int)' method. This is a classic case of a missing feature in an interface implementation, where the generator only supports byte arrays but not streaming binary data.
+The ToXmlGenerator class fails to implement the writeBinary(Base64Variant, InputStream, int) method, which is required for serializing binary data from an InputStream. When the Jackson serializer attempts to write binary data using this method, it falls back to the default implementation in the base class, which throws an 'Operation not supported' exception. This is a functional gap where the XML generator lacks the necessary logic to handle streaming binary data, unlike other Jackson generators.

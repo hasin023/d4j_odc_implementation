@@ -2,7 +2,7 @@
 
 - Version: `6b`
 - Work directory: `C:\d4j_work\prefix\JacksonXml_6b`
-- Generated: `2026-07-08T16:50:54+00:00`
+- Generated: `2026-07-10T18:57:57+00:00`
 
 ## Failure Summary
 - `com.fasterxml.jackson.dataformat.xml.ser.TestBinaryStreamToXMLSerialization::testWith0Bytes`: com.fasterxml.jackson.databind.JsonMappingException: Operation not supported by generator of type com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator (through reference chain: com.fasterxml.jackson.dataformat.xml.ser.TestBinaryStreamToXMLSerialization$TestPojo["field"])
@@ -27,16 +27,12 @@
 - **Evidence Mode**: ✅ Pre-fix only
 - ODC Type: `Function/Class/Object`
 - Family: `Structural`
-- Target: `Design/Code`
-- Confidence: `0.9`
+- Target: `Code`
+- Confidence: `1.0`
 - Needs Human Review: `False`
 
-This is a classic case of a missing capability. The class ToXmlGenerator is designed to handle XML serialization but lacks the specific method implementation required to process binary data from an InputStream, which is a standard capability in other Jackson generators. This is not a logic error in an existing algorithm, but the absence of a required functional capability.
+This is a classic case of a missing capability. The class ToXmlGenerator is designed to handle XML serialization but lacks the specific method implementation required to process binary data from an InputStream, which is a standard feature in the Jackson framework. This is not a local algorithmic error or a simple guard/assignment issue, but a missing structural capability in the class.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Missing`
-- Age: `New`
-- Source: `Developed In-House`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Recovery/Exception`
-- Inferred Impact: `Reliability`
+- Impact: `Capability`

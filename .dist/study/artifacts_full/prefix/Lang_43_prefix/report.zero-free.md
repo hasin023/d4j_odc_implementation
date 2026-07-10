@@ -2,7 +2,7 @@
 
 - Version: `43b`
 - Work directory: `C:\d4j_work\prefix\Lang_43b`
-- Generated: `2026-07-08T16:47:51+00:00`
+- Generated: `2026-07-10T18:54:28+00:00`
 
 ## Failure Summary
 - `org.apache.commons.lang.text.ExtendedMessageFormatTest::testEscapedQuote_LANG_477`: java.lang.OutOfMemoryError: Java heap space
@@ -15,10 +15,10 @@
 
 ## ODC Result
 - **Evidence Mode**: ✅ Pre-fix only
-- ODC Type: `Infinite Loop`
+- ODC Type: `infinite loop`
 - Family: `None`
 - Target: `Design/Code`
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The code in 'appendQuotedString' fails to advance the 'ParsePosition' when an escaped quote is encountered at the start of a quoted string segment. Because the index is not incremented, the loop in 'applyPattern' repeatedly processes the same character, leading to an infinite loop that eventually exhausts the heap memory, resulting in an OutOfMemoryError.
+The code in 'appendQuotedString' fails to advance the 'ParsePosition' when encountering an escaped quote. Because the index is not incremented, the loop in 'applyPattern' repeatedly processes the same character, leading to an infinite loop that consumes memory until an OutOfMemoryError occurs.

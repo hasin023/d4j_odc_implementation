@@ -2,7 +2,7 @@
 
 - Version: `20b`
 - Work directory: `C:\d4j_work\prefix\JxPath_20b`
-- Generated: `2026-07-08T15:49:52+00:00`
+- Generated: `2026-07-10T18:39:08+00:00`
 
 ## Failure Summary
 - `org.apache.commons.jxpath.ri.compiler.JXPath149Test::testComplexOperationWithVariables`: junit.framework.AssertionFailedError: Evaluating <$a + $b <= $c> expected:<true> but was:<false>
@@ -18,4 +18,7 @@
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The bug report explicitly states that relational operations fail when comparing a non-iterator LHS to an iterator RHS. This is a classic case of incorrect procedural logic in an evaluation method, fitting the 'Algorithm/Method' definition perfectly.
+The failure is a direct result of the evaluation logic not accounting for the iterator type in the comparison process, which is a procedural/algorithmic flaw in how the expression is computed.
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Capability`

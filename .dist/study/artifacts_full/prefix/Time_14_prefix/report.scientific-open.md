@@ -2,7 +2,7 @@
 
 - Version: `14b`
 - Work directory: `C:\d4j_work\prefix\Time_14b`
-- Generated: `2026-07-08T17:00:29+00:00`
+- Generated: `2026-07-10T18:40:33+00:00`
 
 ## Failure Summary
 - `org.joda.time.TestMonthDay_Basics::testPlusMonths_int_negativeFromLeap`: org.joda.time.IllegalFieldValueException: Value 29 for dayOfMonth must be in the range [1,28]
@@ -30,7 +30,10 @@
 - ODC Type: `Algorithm/Method`
 - Family: `Control and Data Flow`
 - Target: `Design/Code`
-- Confidence: `1.0`
+- Confidence: `0.9`
 - Needs Human Review: `False`
 
-The implementation of 'add' in 'BasicMonthOfYearDateTimeField' attempts to perform arithmetic on a 'ReadablePartial' by converting it to a 'long' instant. It uses 0L as the base. For a 'MonthDay' of '--02-29', this conversion fails because 1970 (the year of 0L) does not have a February 29th. This is a classic algorithmic error where the procedure assumes a fixed year context that is incompatible with the data being processed.
+The failure occurs consistently when manipulating MonthDay objects containing February 29th. The stack trace shows the error originates in BasicMonthOfYearDateTimeField.add, which is responsible for handling the addition logic for MonthDay. The code uses a fixed epoch (1970) which is not a leap year, thus the validation logic (which checks against the maximum allowed value for the month) incorrectly limits the day to 28.
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Capability`

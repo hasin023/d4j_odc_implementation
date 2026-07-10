@@ -2,7 +2,7 @@
 
 - Version: `3b`
 - Work directory: `C:\d4j_work\postfix\Collections_3b`
-- Generated: `2026-07-08T16:54:55+00:00`
+- Generated: `2026-07-10T18:36:41+00:00`
 
 ## Failure Summary
 - `org.apache.commons.collections.TestCollectionUtils::testRemoveAll`: junit.framework.AssertionFailedError: expected:<1> but was:<2>
@@ -18,4 +18,7 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The defect is a clear case of using the wrong method implementation (calling retainAll instead of removeAll). This is a procedural error in the method's logic, fitting the Algorithm/Method ODC type.
+The bug report and the fix diff (provided as oracle) confirm that the method implementation was calling the wrong utility method. This is a classic procedural error where the wrong algorithm/method was invoked for the intended task.
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Capability`

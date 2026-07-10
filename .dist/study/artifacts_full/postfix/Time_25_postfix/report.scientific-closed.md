@@ -2,7 +2,7 @@
 
 - Version: `25b`
 - Work directory: `C:\d4j_work\postfix\Time_25b`
-- Generated: `2026-07-08T15:53:57+00:00`
+- Generated: `2026-07-10T18:01:46+00:00`
 
 ## Failure Summary
 - `org.joda.time.TestDateTimeZoneCutover::test_DateTime_constructor_Moscow_Autumn`: junit.framework.ComparisonFailure: expected:<...10-28T02:30:00.000+0[4]:00> but was:<...10-28T02:30:00.000+0[3]:00>
@@ -20,15 +20,12 @@
 - **Evidence Mode**: ⚠️ Post-fix (with buggy->fixed diff)
 - ODC Type: `Algorithm/Method`
 - Family: `Control and Data Flow`
-- Target: `Design/Code`
-- Confidence: `1.0`
+- Target: `DateTimeZone.getOffsetFromLocal`
+- Confidence: `0.9`
 - Needs Human Review: `False`
 
-The bug is a classic algorithmic error where the logic for handling ambiguous local times during DST transitions was incomplete. The fix adds a specific check to compare the current offset with the previous transition's offset, ensuring the correct (earlier) instant is selected. This is a procedural/algorithmic correction.
+The bug report explicitly states that the behavior during DST overlaps was undefined and varied by hemisphere, and the fix was to define it to always return the earlier instant. This is a correction to the algorithm used to determine the correct offset.
 
 ## ODC Attribute Mapping (Optional)
-- Qualifier: `Missing`
-- Age: `Base`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Recovery/Exception, Test Variation`
-- Inferred Impact: `Documentation, Reliability`
+- Qualifier: `Incorrect`
+- Impact: `Capability`

@@ -151,6 +151,13 @@ class ClassificationResult:
     qualifier: str | None = None
     age: str | None = None
     source: str | None = None
+    # Opener attribute (v5.2 §3.3): single-select from the 13 ODC impact
+    # categories + "Unknown", validated against odc.allowed_impact_names().
+    # Judged from failure behaviour/bug report — fix-independent by definition,
+    # which makes it the negative control in the drift analysis.
+    impact: str | None = None
+    # Legacy opener fields — populated by pre-2026-07-10 artifacts only; the
+    # prompts no longer request them (see docs/odc_alignment_audit.md §3).
     inferred_activity: str | None = None
     inferred_triggers: list[str] = field(default_factory=list)
     inferred_impact: list[str] = field(default_factory=list)

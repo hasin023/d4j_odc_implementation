@@ -2,7 +2,7 @@
 
 - Version: `17b`
 - Work directory: `C:\d4j_work\postfix\Cli_17b`
-- Generated: `2026-07-08T16:49:05+00:00`
+- Generated: `2026-07-10T18:56:16+00:00`
 
 ## Failure Summary
 - `org.apache.commons.cli.PosixParserTest::testStopBursting`: junit.framework.AssertionFailedError: Confirm  1 extra arg: 2
@@ -15,15 +15,11 @@
 - ODC Type: `Algorithm/Method`
 - Family: `Control and Data Flow`
 - Target: `Code`
-- Confidence: `0.95`
+- Confidence: `1.0`
 - Needs Human Review: `False`
 
-The defect is a failure in the procedural logic of the parser. The algorithm for token bursting was incomplete because it failed to exit the loop when the 'stopAtNonOption' condition was met. This is a classic Algorithm/Method defect where the procedure itself (the token processing loop) was missing a necessary control flow step (the break).
+The defect is a procedural error in the token bursting algorithm. The parser failed to stop processing when it should have, which is a classic algorithmic control flow issue. It is not a missing guard (Checking) because the condition 'stopAtNonOption' was already being checked; the issue was the lack of a 'break' to terminate the loop/process, which is a procedural/algorithmic step correction.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Missing`
-- Age: `Base`
-- Source: `Developed In-House`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Test Variation`
-- Inferred Impact: `Capability`
+- Impact: `Capability`

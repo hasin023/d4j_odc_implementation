@@ -2,7 +2,7 @@
 
 - Version: `13b`
 - Work directory: `C:\d4j_work\prefix\Chart_13b`
-- Generated: `2026-07-08T17:02:09+00:00`
+- Generated: `2026-07-10T18:43:52+00:00`
 
 ## Failure Summary
 - `org.jfree.chart.block.junit.BorderArrangementTests::testSizingWithWidthConstraint`: java.lang.IllegalArgumentException: Range(double, double): require lower (0.0) <= upper (-2.3000000000000007).
@@ -20,15 +20,10 @@
 - ODC Type: `Checking`
 - Family: `Control and Data Flow`
 - Target: `Design/Code`
-- Confidence: `0.95`
+- Confidence: `0.9`
 - Needs Human Review: `False`
 
-The failure is a direct result of an invalid parameter (negative upper bound) being passed to the Range class. The logic in BorderArrangement.arrangeFF performs a subtraction that can result in a negative value, which is then used to construct a Range object without any prior validation or clamping.
+The code at BorderArrangement.java:455 performs a subtraction that can result in a negative value if the left block's width (w[2]) is greater than the total width. This violates the precondition of the Range constructor (lower <= upper). This is a classic missing validation/guard defect.
 
 ## ODC Attribute Mapping (Optional)
-- Qualifier: `Missing`
-- Age: `New`
-- Source: `Requirement`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Recovery/Exception`
-- Inferred Impact: `Reliability`
+- Impact: `Reliability`

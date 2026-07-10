@@ -2,7 +2,7 @@
 
 - Version: `20b`
 - Work directory: `C:\d4j_work\postfix\JxPath_20b`
-- Generated: `2026-07-08T15:49:56+00:00`
+- Generated: `2026-07-10T18:39:13+00:00`
 
 ## Failure Summary
 - `org.apache.commons.jxpath.ri.compiler.JXPath149Test::testComplexOperationWithVariables`: junit.framework.AssertionFailedError: Evaluating <$a + $b <= $c> expected:<true> but was:<false>
@@ -18,4 +18,7 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The fix diff shows that the code was calling 'containsMatch((Iterator) right, left)' which was incorrect. It was changed to 'containsMatch(left, (Iterator) right)' and a new method 'containsMatch(Object value, Iterator it)' was added to handle this specific case. This is a classic procedural logic error.
+The defect is a classic procedural logic error where the wrong method signature was invoked or the method itself lacked the necessary logic to handle the specific data flow (Object vs Iterator). This fits the 'Algorithm/Method' definition as it is a local procedural correction.
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Capability`

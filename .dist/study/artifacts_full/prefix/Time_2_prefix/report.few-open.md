@@ -2,7 +2,7 @@
 
 - Version: `2b`
 - Work directory: `C:\d4j_work\prefix\Time_2b`
-- Generated: `2026-07-08T16:52:12+00:00`
+- Generated: `2026-07-10T18:59:04+00:00`
 
 ## Failure Summary
 - `org.joda.time.TestPartial_Basics::testWith_baseAndArgHaveNoRange`: java.lang.IllegalArgumentException: Types array must not contain duplicate: era and year
@@ -15,16 +15,12 @@
 - **Evidence Mode**: ✅ Pre-fix only
 - ODC Type: `Checking`
 - Family: `Control and Data Flow`
-- Target: `Design/Code`
+- Target: `Code`
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The defect is a classic 'Checking' error. The code implements a validation check (to prevent duplicates) that is logically flawed because it uses an incorrect predicate (checking for null range duration types instead of checking for field equality). It is not an Algorithm/Method issue because the overall procedure of constructing a Partial is correct; it is not an Assignment/Initialization issue because no values are being set incorrectly; it is a failure of the validation logic to correctly identify what constitutes a 'duplicate'.
+The defect is a classic 'Checking' error. The code implements a validation check (to prevent duplicates) that is logically flawed because it uses an insufficient condition (checking only the range duration type) to determine equality, leading to a false positive exception. It is not an Algorithm/Method issue because the procedure is correct, just the guard condition is too broad. It is not a Function/Class/Object issue because the capability exists and is correctly designed, just incorrectly guarded.
 
 ## ODC Attribute Mapping (Optional)
-- Qualifier: `Missing`
-- Age: `Base`
-- Source: `Developed In-House`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Recovery/Exception, Test Variation`
-- Inferred Impact: `Reliability`
+- Qualifier: `Incorrect`
+- Impact: `Reliability`

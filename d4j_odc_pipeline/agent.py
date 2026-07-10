@@ -22,8 +22,15 @@ from typing import Any
 
 from .llm import LLMClient, LLMError, classification_response_schema
 from .models import BugContext, ClassificationResult
-from .odc import OTHER_TYPE_NAME, TAXONOMY_OPEN, allowed_type_names, taxonomy_markdown
+from .odc import (
+    OTHER_TYPE_NAME,
+    TAXONOMY_OPEN,
+    allowed_type_names,
+    impact_markdown,
+    taxonomy_markdown,
+)
 from .parsing import extract_json_object
+from .prompting import sanitize_bug_report
 
 AGENT_MAX_TURNS = 6
 
@@ -150,7 +157,14 @@ def execute_probe(context: BugContext, name: str, argument: str | None) -> dict[
     if name == "bug_report":
         if not context.bug_report_content:
             return {"error": "no bug report was collected for this bug"}
-        return {"bug_report": context.bug_report_content}
+        # Pre-fix arm: the probe must honour the same sanitization as the seed
+        # payload — comments/status post-date the report and leak fix knowledge.
+        report = (
+            context.bug_report_content
+            if context.fix_diff
+            else sanitize_bug_report(context.bug_report_content)
+        )
+        return {"bug_report": report}
 
     return {"error": f"unknown probe {name!r}", "available": list(PROBE_NAMES)}
 
@@ -185,11 +199,15 @@ def _agent_system_prompt(taxonomy: str) -> str:
         "revise the hypothesis on the next turn.",
         "- Do not re-request evidence you already received.",
         "- Conclude as soon as the evidence supports one type; probes are limited.",
-        "- Do NOT default to 'Function/Class/Object'; most Defects4J bugs are Checking, "
-        "Algorithm/Method, or Assignment/Initialization.",
+        "- Do NOT default to 'Function/Class/Object'; it requires evidence of a "
+        "design-level capability gap, not merely wrong behaviour in existing code.",
         f"- The final odc_type must be one of: {', '.join(allowed_type_names(taxonomy))}.",
+        "- The conclusion MUST also set `impact` — the ODC opener Impact attribute "
+        "(see the Impact section below).",
         "",
         taxonomy_markdown(taxonomy),
+        "",
+        impact_markdown(),
         "",
         "Every response must be a single JSON object matching the turn schema "
         "(hypothesis, prediction, action, probe?, conclusion?).",

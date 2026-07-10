@@ -3,8 +3,15 @@
 > **Read this file first.** It is the single entry point for drafting the JSS
 > paper: what the pipeline does, how each RQ is computed, the exact RQ
 > wording, and the results produced so far. Everything below is current as of
-> 2026-07-09. Where a claim needs more depth than fits here, it points to the
+> 2026-07-10. Where a claim needs more depth than fits here, it points to the
 > specific doc that has it — you should not need to go doc-hunting.
+
+**`docs/odc_alignment_audit.md` (new, 2026-07-10) is the ODC v5.2 alignment
+audit** — the corrected Defects4J-artifact→ODC-attribute mapping, the Impact
+opener attribute (now first-class and v5.2-grounded), and the pre-fix
+evidence-leak fixes described in the status flag below. Read it before writing
+the paper's mapping/Impact/threats-to-validity sections; `latex/jss/main.tex`
+already reflects it.
 
 ## Status flag (read before citing any number below)
 
@@ -19,6 +26,48 @@ particular are directional signals at this scale, not defensible estimates.
 A confirmatory run (recommended 68-100+ bugs, see §4) is still needed before
 any number here goes into a manuscript table.
 
+**§4's numbers additionally predate the 2026-07-10 audit fixes** and must not
+be reused even directionally without rerunning: the pre-fix arm leaked the
+modified-sources oracle (852/854 bugs) and, for JIRA-tracked projects,
+fix-era report discussion (~98% of JIRA reports); the system prompt asserted
+an expected type distribution that RQ1 then measured; and Impact was an
+unvalidated, ODC-blind heuristic (present in 1/44 classifications) rather than
+today's v5.2-taught single-select. All four are fixed in the pipeline; §4 is
+kept only as a record that the analysis *layer* itself produced well-formed
+output. See `docs/odc_alignment_audit.md` §5 for the full list of what these
+numbers taint and why. The confirmatory run should use the current code.
+
+**Both the 6-bug pilot and the 44-bug dev-validation set have since been
+rerun on the post-audit code** (all 4 conditions, both arms) — see
+`docs/study_execution_log.md`'s "2026-07-10/11 — Pilot rerun..." and
+"2026-07-11 — 40-bug dev-validation rerun..." entries for the full before/
+after numbers. **§4 below still shows the old, pre-audit numbers** — the
+reruns updated `analysis_40.json`/`taxonomy_coverage_40.json`/
+`taxonomy_grounding_40.json` and the pilot's artifacts in place, but §4's
+prose/tables have not yet been rewritten to match; do not quote §4 without
+cross-checking the execution log's before/after tables first. Headline from
+the 44-bug rerun: Impact is now fully populated (176/176) and its
+prefix↔postfix agreement (97.7%, κ=0.920) is far higher than Type's (72.7%,
+κ=0.601) — confirming the negative-control design. Type prefix↔postfix
+agreement **dropped** 9.1 points (81.8%→72.7%) post-fix — the direction the
+audit predicted (leaked fix knowledge was inflating agreement), not a
+regression. RQ2's zero-escape-rate and RQ4's vocabulary-reduction findings
+were unchanged, as expected (neither was leak-dependent). Lang-specific
+numbers were unreliable at n=3 (per-project κ swung 1.0→−0.5 on 2 bug flips).
+
+**The full 61-bug Lang-only run (supervisor's specific interest) is now
+done** — see `docs/study_execution_log.md`'s "Full Lang project run, all 5
+conditions" and "Cross-condition drift/impact/ladder synthesis" entries.
+Lang's Type strict match is 86.9% (κ=0.766, scientific-open) — far more
+usable than the n=3 figure above. Impact prefix↔postfix agreement beat Type
+agreement in every one of the 8 condition/dataset combinations measured (not
+just scientific-open), the strongest evidence yet for the negative-control
+design. One real pipeline bug was found and fixed while running this
+(`parsing.py::extract_json_object` rejected LLM output containing an
+unescaped control character inside a JSON string — deterministic at
+temperature=0, so it could never self-resolve via retry without the fix);
+regression test added, not corpus-specific, applies to any future run.
+
 ---
 
 ## 1. Pipeline
@@ -29,9 +78,23 @@ an LLM, producing machine-readable artifacts for evaluation.
 
 **Two evidence modes:**
 - **pre-fix** (default) — realistic classification from buggy code + failing
-  tests only.
+  tests only. As of 2026-07-10, `bug_info`/bug-report content are sanitized
+  in this arm only (fix-derived sections stripped at payload-build time,
+  `context.json` untouched) so the arm contains no fix knowledge — see
+  `docs/odc_alignment_audit.md` §7 for the invariant this establishes.
 - **post-fix** (`--include-fix-diff`) — injects the real buggy→fixed diff as
-  oracle information; used as the reference arm for RQ3/RQ5.
+  oracle information; used as the reference arm for RQ3/RQ5. `bug_info`/report
+  are left untouched here, since this arm legitimately knows the fix.
+
+**Impact (ODC opener attribute, v5.2 §3.3)** is now first-class: the `few`/
+`scientific` prompts teach all 13 official categories + `Unknown`, and the
+LLM returns a single validated `impact` field (`odc.py`, `docs/
+odc_alignment_audit.md` §6). It is the only opener attribute the pipeline
+claims — Activity/Trigger are documented as not reliably determinable from
+Defects4J evidence. Impact feeds RQ1 descriptively (distribution) and RQ5 as
+a drift *negative control* (impact is fix-independent, so its prefix/postfix
+disagreement estimates pure instrument noise against which Defect-Type drift
+can be read) — both wired into `study-drift`'s output, no new RQ.
 
 **Every classification is a coordinate of two independent condition
 variables** (full spec: `docs/condition_model.md`, authoritative — read it

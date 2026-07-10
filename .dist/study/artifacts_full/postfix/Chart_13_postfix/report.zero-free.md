@@ -2,7 +2,7 @@
 
 - Version: `13b`
 - Work directory: `C:\d4j_work\postfix\Chart_13b`
-- Generated: `2026-07-08T16:46:32+00:00`
+- Generated: `2026-07-10T18:52:56+00:00`
 
 ## Failure Summary
 - `org.jfree.chart.block.junit.BorderArrangementTests::testSizingWithWidthConstraint`: java.lang.IllegalArgumentException: Range(double, double): require lower (0.0) <= upper (-2.3000000000000007).
@@ -17,10 +17,10 @@
 
 ## ODC Result
 - **Evidence Mode**: ⚠️ Post-fix (with buggy->fixed diff)
-- ODC Type: `invalid range calculation`
+- ODC Type: `invalid argument range calculation`
 - Family: `None`
 - Target: `Design/Code`
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The bug occurs because the code calculates a range for a layout constraint using a subtraction that can result in a negative value. Specifically, in BorderArrangement.java, the upper bound of a Range object is calculated as 'constraint.getWidth() - w[2]'. If the width of the left block (w[2]) exceeds the total available width, this result becomes negative. The Range constructor explicitly throws an IllegalArgumentException if the lower bound (0.0) is greater than the upper bound, causing the application to crash. The fix correctly uses Math.max(..., 0.0) to ensure the upper bound is never negative, preventing the invalid range state.
+The bug occurs because the code calculates a range for a layout constraint using a subtraction that can result in a negative value. Specifically, in BorderArrangement.java, the upper bound of a Range object is calculated as 'constraint.getWidth() - w[2]'. If the width of the left block (w[2]) exceeds the total available width, this calculation produces a negative number. The Range constructor explicitly throws an IllegalArgumentException if the lower bound (0.0) is greater than the upper bound, which is exactly what happens here. The fix correctly uses Math.max(..., 0.0) to ensure the upper bound is never negative, preventing the invalid range state.

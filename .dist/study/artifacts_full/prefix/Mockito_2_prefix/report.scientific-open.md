@@ -2,7 +2,7 @@
 
 - Version: `2b`
 - Work directory: `C:\d4j_work\prefix\Mockito_2b`
-- Generated: `2026-07-08T17:00:10+00:00`
+- Generated: `2026-07-10T18:40:18+00:00`
 
 ## Failure Summary
 - `org.mockito.internal.util.TimerTest::should_throw_friendly_reminder_exception_when_duration_is_negative`: junit.framework.AssertionFailedError: It is forbidden to create timer with negative value of timer's duration.
@@ -21,4 +21,7 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The bug report and test failures consistently point to the lack of validation for negative durations in Timer and verification methods. This is a classic missing guard condition.
+The bug report and test failures explicitly state that negative durations are forbidden, yet the system accepts them. This is a classic missing validation/guard condition.
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Capability`

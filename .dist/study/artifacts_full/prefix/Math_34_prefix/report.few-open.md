@@ -2,7 +2,7 @@
 
 - Version: `34b`
 - Work directory: `C:\d4j_work\prefix\Math_34b`
-- Generated: `2026-07-08T16:51:51+00:00`
+- Generated: `2026-07-10T18:58:47+00:00`
 
 ## Failure Summary
 - `org.apache.commons.math3.genetics.ListPopulationTest::testIterator`: junit.framework.AssertionFailedError: Expected exception: java.lang.UnsupportedOperationException
@@ -12,16 +12,14 @@
 
 ## ODC Result
 - **Evidence Mode**: ✅ Pre-fix only
-- ODC Type: `Interface/O-O Messages`
-- Family: `Structural`
-- Target: `Design/Code`
+- ODC Type: `Checking`
+- Family: `Control and Data Flow`
+- Target: `Code`
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The issue is a violation of the expected API contract (encapsulation). The internal list is exposed directly, allowing external modification. This is an Interface/O-O Messages issue because the component's public interface (the iterator) does not enforce the expected read-only contract, leading to a mismatch between the caller's expectation and the object's behavior.
+The defect is a missing validation/restriction on the iterator's capability to modify the underlying collection. This is a classic 'Checking' defect where a guard (in this case, the enforcement of an unmodifiable contract) is missing, allowing an operation that should be prohibited.
 
 ## ODC Attribute Mapping (Optional)
-- Qualifier: `Incorrect`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Recovery/Exception, Test Sequencing, Test Variation`
-- Inferred Impact: `Documentation, Reliability`
+- Qualifier: `Missing`
+- Impact: `Capability`

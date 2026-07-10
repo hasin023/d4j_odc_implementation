@@ -1,0 +1,84 @@
+{
+  "project_id": "Lang",
+  "bug_id": 62,
+  "version_id": "62b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-10T19:20:45+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The test case fails because the code attempts to process numeric entities like &#12345678; as valid characters, even though they exceed the maximum value of a Java char (0xFFFF).",
+  "hypothesis": "The Entities class lacks a boundary check for numeric character references, causing it to attempt to convert values exceeding 0xFFFF into characters, which results in incorrect character mapping or truncation.",
+  "prediction": "The code will show an unchecked conversion of a parsed integer to a char, likely in a method responsible for unescaping numeric entities.",
+  "experiment_rationale": "The failure is a classic boundary condition error where input validation is missing for a numeric range.",
+  "reasoning_summary": "The bug report explicitly states that the maximum value for a char is 0xFFFF and that the entity should be left as is if it exceeds this. The failure is a direct result of missing this validation check.",
+  "evidence_used": [
+    "bug_report",
+    "failing_tests"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The primary issue is the missing validation of the input value, not the algorithm for unescaping itself."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The Entities.unescape method attempts to parse numeric character references (like &#12345678;) by converting the numeric value to a character, but it fails to check if the parsed number exceeds the maximum value of a Java char (0xFFFF), leading to an incorrect character conversion instead of returning the original string.",
+      "prediction": "The source code for Entities.unescape will show a conversion from a parsed integer to a char without a range check, likely using a cast or a method that truncates the integer.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "Entities"
+      },
+      "observation_summary": [
+        "snippets"
+      ]
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The Entities class is missing a check for the numeric value of character entities. When parsing a numeric entity like &#12345678;, the code likely parses the number into an integer and then casts it to a char without verifying if the value is within the valid range (0-65535), causing it to wrap around or produce an incorrect character.",
+      "prediction": "The Entities class will contain a method that parses the numeric entity string and performs a direct cast to char, lacking a conditional check to ensure the value is <= 0xFFFF.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "Entities"
+      },
+      "observation_summary": "probe already served this exact request \u2014 use a different probe or conclude"
+    },
+    {
+      "turn": 3,
+      "hypothesis": "The Entities class lacks a boundary check for numeric character references, causing it to attempt to convert values exceeding 0xFFFF into characters, which results in incorrect character mapping or truncation. The fix requires adding a check to ensure the parsed integer is within the valid range of a character.",
+      "prediction": "The code will show an unchecked conversion of a parsed integer to a char, likely in a method responsible for unescaping numeric entities.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Checking"
+    }
+  ],
+  "llm_calls_used": 3,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"impact\": \"Capability\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The test case fails because the code attempts to process numeric entities like &#12345678; as valid characters, even though they exceed the maximum value of a Java char (0xFFFF).\", \"hypothesis\": \"The Entities class lacks a boundary check for numeric character references, causing it to attempt to convert values exceeding 0xFFFF into characters, which results in incorrect character mapping or truncation.\", \"prediction\": \"The code will show an unchecked conversion of a parsed integer to a char, likely in a method responsible for unescaping numeric entities.\", \"experiment_rationale\": \"The failure is a classic boundary condition error where input validation is missing for a numeric range.\", \"reasoning_summary\": \"The bug report explicitly states that the maximum value for a char is 0xFFFF and that the entity should be left as is if it exceeds this. The failure is a direct result of missing this validation check.\", \"evidence_used\": [\"bug_report\", \"failing_tests\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"The primary issue is the missing validation of the input value, not the algorithm for unescaping itself.\"}]}"
+}

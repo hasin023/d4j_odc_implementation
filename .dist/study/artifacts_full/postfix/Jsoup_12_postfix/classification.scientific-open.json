@@ -5,32 +5,32 @@
   "prompt_style": "scientific",
   "model": "gemini-3.1-flash-lite-preview",
   "provider": "gemini",
-  "created_at": "2026-07-08T16:58:45+00:00",
+  "created_at": "2026-07-10T18:39:00+00:00",
   "odc_type": "Algorithm/Method",
   "family": "Control and Data Flow",
   "confidence": 1.0,
   "needs_human_review": false,
-  "observation_summary": "The selector parser fails when a CSS selector contains a combinator followed by an attribute selector with a regex (e.g., `table[class~=x|y]`). The parser incorrectly splits the query at the `[` character because it treats it as a delimiter or fails to handle the nested structure of the attribute selector.",
-  "hypothesis": "The `combinator` method in `Selector.java` incorrectly uses `tq.consumeToAny(combinators)` to parse the sub-query. This approach fails when the sub-query contains characters that are also used as combinators (like `[` or `(`), causing the token queue to be consumed prematurely or incorrectly, leading to a `SelectorParseException` when the remaining tokens are invalid.",
-  "prediction": "The `combinator` method will fail to correctly parse any sub-query containing balanced brackets `[]` or parentheses `()` when a combinator is present, because `consumeToAny` does not respect nested structures.",
-  "experiment_rationale": "The fix introduces a `consumeSubQuery` method that uses `chompBalanced` to correctly handle nested structures like `[]` and `()`, replacing the naive `consumeToAny` approach. This confirms the defect is in the algorithmic strategy for parsing the sub-query.",
-  "reasoning_summary": "The bug is a classic parsing error where the algorithm for tokenizing the sub-query was too simplistic. It failed to account for nested structures (brackets/parentheses) within the selector, which is a procedural/algorithmic flaw in how the query string is processed. It is not a simple assignment error, nor a missing guard (Checking), but a fundamental flaw in the implementation of the parsing logic.",
+  "observation_summary": "The CSS selector parser fails when an attribute selector containing special characters (like '|') is used after a combinator, because the current implementation uses a naive 'consumeToAny' approach that does not respect nested structures like brackets.",
+  "hypothesis": "The Selector parser uses a simple 'consumeToAny(combinators)' logic when parsing sub-queries after a combinator. This fails for attribute selectors like '[class~=x|y]' because the '|' character (or other characters inside the attribute selector) might be misinterpreted or the parser stops prematurely at characters that are part of the attribute value rather than the combinator set, leading to an incomplete or malformed sub-query string.",
+  "prediction": "The 'consumeSubQuery' method will be introduced to correctly handle balanced brackets '[]' and parentheses '()' when parsing sub-queries, ensuring that characters like '|' inside an attribute selector are not treated as delimiters or terminators.",
+  "experiment_rationale": "The provided fix diff clearly shows the replacement of a simple 'consumeToAny' call with a new 'consumeSubQuery' method that implements balanced parsing for brackets and parentheses. This confirms the issue was an incorrect algorithmic approach to parsing sub-queries.",
+  "reasoning_summary": "The bug is a classic parsing error where the algorithm for extracting a sub-query was too simplistic (using 'consumeToAny' which is not context-aware). The fix implements a state-aware parser that respects balanced delimiters, which is a procedural/algorithmic correction.",
   "evidence_used": [
-    "bug_report",
-    "production_code_snippets",
+    "bug_report_description",
     "fix_diff_oracle"
   ],
   "evidence_gaps": [],
   "alternative_types": [
     {
       "type": "Checking",
-      "why_not_primary": "While the parser throws an exception, the root cause is not a missing validation check, but an incorrect implementation of the parsing algorithm itself."
+      "why_not_primary": "While the parser fails to check for balanced brackets, the core issue is the implementation of the sub-query extraction algorithm itself, not just a missing guard."
     }
   ],
   "target": "Design/Code",
   "qualifier": null,
   "age": null,
   "source": null,
+  "impact": "Capability",
   "inferred_activity": null,
   "inferred_triggers": [],
   "inferred_impact": [],
@@ -43,8 +43,8 @@
   "turns": [
     {
       "turn": 1,
-      "hypothesis": "The `combinator` method in `Selector.java` incorrectly uses `tq.consumeToAny(combinators)` to parse the sub-query. This approach fails when the sub-query contains characters that are also used as combinators (like `[` or `(`), causing the token queue to be consumed prematurely or incorrectly, leading to a `SelectorParseException` when the remaining tokens are invalid.",
-      "prediction": "The `combinator` method will fail to correctly parse any sub-query containing balanced brackets `[]` or parentheses `()` when a combinator is present, because `consumeToAny` does not respect nested structures.",
+      "hypothesis": "The Selector parser uses a simple 'consumeToAny(combinators)' logic when parsing sub-queries after a combinator. This fails for attribute selectors like '[class~=x|y]' because the '|' character (or other characters inside the attribute selector) might be misinterpreted or the parser stops prematurely at characters that are part of the attribute value rather than the combinator set, leading to an incomplete or malformed sub-query string.",
+      "prediction": "The 'consumeSubQuery' method will be introduced to correctly handle balanced brackets '[]' and parentheses '()' when parsing sub-queries, ensuring that characters like '|' inside an attribute selector are not treated as delimiters or terminators.",
       "action": "conclude",
       "forced": false,
       "conclusion_odc_type": "Algorithm/Method"
@@ -54,5 +54,5 @@
   "other_justification": null,
   "nearest_type": null,
   "other_confidence": null,
-  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The selector parser fails when a CSS selector contains a combinator followed by an attribute selector with a regex (e.g., `table[class~=x|y]`). The parser incorrectly splits the query at the `[` character because it treats it as a delimiter or fails to handle the nested structure of the attribute selector.\", \"hypothesis\": \"The `combinator` method in `Selector.java` incorrectly uses `tq.consumeToAny(combinators)` to parse the sub-query. This approach fails when the sub-query contains characters that are also used as combinators (like `[` or `(`), causing the token queue to be consumed prematurely or incorrectly, leading to a `SelectorParseException` when the remaining tokens are invalid.\", \"prediction\": \"The `combinator` method will fail to correctly parse any sub-query containing balanced brackets `[]` or parentheses `()` when a combinator is present, because `consumeToAny` does not respect nested structures.\", \"experiment_rationale\": \"The fix introduces a `consumeSubQuery` method that uses `chompBalanced` to correctly handle nested structures like `[]` and `()`, replacing the naive `consumeToAny` approach. This confirms the defect is in the algorithmic strategy for parsing the sub-query.\", \"reasoning_summary\": \"The bug is a classic parsing error where the algorithm for tokenizing the sub-query was too simplistic. It failed to account for nested structures (brackets/parentheses) within the selector, which is a procedural/algorithmic flaw in how the query string is processed. It is not a simple assignment error, nor a missing guard (Checking), but a fundamental flaw in the implementation of the parsing logic.\", \"evidence_used\": [\"bug_report\", \"production_code_snippets\", \"fix_diff_oracle\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Checking\", \"why_not_primary\": \"While the parser throws an exception, the root cause is not a missing validation check, but an incorrect implementation of the parsing algorithm itself.\"}]}"
+  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"impact\": \"Capability\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The CSS selector parser fails when an attribute selector containing special characters (like '|') is used after a combinator, because the current implementation uses a naive 'consumeToAny' approach that does not respect nested structures like brackets.\", \"hypothesis\": \"The Selector parser uses a simple 'consumeToAny(combinators)' logic when parsing sub-queries after a combinator. This fails for attribute selectors like '[class~=x|y]' because the '|' character (or other characters inside the attribute selector) might be misinterpreted or the parser stops prematurely at characters that are part of the attribute value rather than the combinator set, leading to an incomplete or malformed sub-query string.\", \"prediction\": \"The 'consumeSubQuery' method will be introduced to correctly handle balanced brackets '[]' and parentheses '()' when parsing sub-queries, ensuring that characters like '|' inside an attribute selector are not treated as delimiters or terminators.\", \"experiment_rationale\": \"The provided fix diff clearly shows the replacement of a simple 'consumeToAny' call with a new 'consumeSubQuery' method that implements balanced parsing for brackets and parentheses. This confirms the issue was an incorrect algorithmic approach to parsing sub-queries.\", \"reasoning_summary\": \"The bug is a classic parsing error where the algorithm for extracting a sub-query was too simplistic (using 'consumeToAny' which is not context-aware). The fix implements a state-aware parser that respects balanced delimiters, which is a procedural/algorithmic correction.\", \"evidence_used\": [\"bug_report_description\", \"fix_diff_oracle\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Checking\", \"why_not_primary\": \"While the parser fails to check for balanced brackets, the core issue is the implementation of the sub-query extraction algorithm itself, not just a missing guard.\"}]}"
 }

@@ -207,41 +207,17 @@ def _fetch_github_issue(url: str, session: requests.Session) -> str | None:
         if title:
             parts.append(f"Title: {title}")
 
-        state = data.get("state", "")
+        # Opener-side evidence only: the report as filed (title, labels,
+        # description). Issue state and the comment thread post-date the
+        # report and routinely discuss the fix — deliberately NOT fetched
+        # (docs/odc_alignment_audit.md §4.3).
         labels = [label.get("name", "") for label in data.get("labels", []) if label.get("name")]
-        if state or labels:
-            meta_parts = []
-            if state:
-                meta_parts.append(f"State: {state}")
-            if labels:
-                meta_parts.append(f"Labels: {', '.join(labels)}")
-            parts.append(" | ".join(meta_parts))
+        if labels:
+            parts.append(f"Labels: {', '.join(labels)}")
 
         body = data.get("body", "") or ""
         if body:
             parts.append(f"\nDescription:\n{body.strip()}")
-
-        # Fetch first few comments for additional context
-        comments_url = data.get("comments_url", "")
-        comments_count = data.get("comments", 0)
-        if comments_url and comments_count > 0:
-            try:
-                comments_resp = session.get(
-                    comments_url,
-                    params={"per_page": min(comments_count, 5)},
-                    timeout=_DEFAULT_TIMEOUT,
-                )
-                if comments_resp.status_code == 200:
-                    comments = comments_resp.json()
-                    if comments:
-                        parts.append("\nComments:")
-                        for comment in comments[:5]:
-                            author = comment.get("user", {}).get("login", "unknown")
-                            comment_body = comment.get("body", "").strip()
-                            if comment_body:
-                                parts.append(f"\n[{author}]: {comment_body}")
-            except Exception:
-                pass  # comments are best-effort
 
         return "\n".join(parts) if parts else None
 
@@ -273,9 +249,13 @@ def _fetch_jira_issue(url: str, session: requests.Session) -> str | None:
 
     for api_url in api_urls:
         try:
+            # Opener-side evidence only: summary, type/priority, description.
+            # Status/resolution and the comment thread reflect post-open (and
+            # usually post-fix) state — deliberately NOT requested
+            # (docs/odc_alignment_audit.md §4.3).
             resp = session.get(
                 api_url,
-                params={"fields": "summary,description,comment,priority,issuetype,status,resolution"},
+                params={"fields": "summary,description,priority,issuetype"},
                 timeout=_DEFAULT_TIMEOUT,
             )
             if resp.status_code != 200:
@@ -297,30 +277,12 @@ def _fetch_jira_issue(url: str, session: requests.Session) -> str | None:
             priority = fields.get("priority", {})
             if isinstance(priority, dict) and priority.get("name"):
                 meta_parts.append(f"Priority: {priority['name']}")
-            status = fields.get("status", {})
-            if isinstance(status, dict) and status.get("name"):
-                meta_parts.append(f"Status: {status['name']}")
-            resolution = fields.get("resolution", {})
-            if isinstance(resolution, dict) and resolution.get("name"):
-                meta_parts.append(f"Resolution: {resolution['name']}")
             if meta_parts:
                 parts.append(" | ".join(meta_parts))
 
             description = fields.get("description", "") or ""
             if description:
                 parts.append(f"\nDescription:\n{description.strip()}")
-
-            # Comments (first few)
-            comment_data = fields.get("comment", {})
-            comments = comment_data.get("comments", []) if isinstance(comment_data, dict) else []
-            if comments:
-                parts.append("\nComments:")
-                for comment in comments[:5]:
-                    author_data = comment.get("author", {})
-                    author = author_data.get("displayName") or author_data.get("name", "unknown")
-                    comment_body = comment.get("body", "").strip()
-                    if comment_body:
-                        parts.append(f"\n[{author}]: {comment_body}")
 
             result = "\n".join(parts) if parts else None
             if result:

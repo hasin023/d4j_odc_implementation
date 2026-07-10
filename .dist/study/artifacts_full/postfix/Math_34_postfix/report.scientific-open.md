@@ -2,7 +2,7 @@
 
 - Version: `34b`
 - Work directory: `C:\d4j_work\postfix\Math_34b`
-- Generated: `2026-07-08T16:59:50+00:00`
+- Generated: `2026-07-10T18:39:55+00:00`
 
 ## Failure Summary
 - `org.apache.commons.math3.genetics.ListPopulationTest::testIterator`: junit.framework.AssertionFailedError: Expected exception: java.lang.UnsupportedOperationException
@@ -12,18 +12,13 @@
 
 ## ODC Result
 - **Evidence Mode**: ⚠️ Post-fix (with buggy->fixed diff)
-- ODC Type: `Function/Class/Object`
+- ODC Type: `Interface/O-O Messages`
 - Family: `Structural`
 - Target: `Design/Code`
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The bug is a classic encapsulation failure where a class exposes its internal mutable state through an iterator. This is a structural design flaw rather than a local algorithmic error or a simple initialization mistake. The fix involves changing the interface behavior to return an unmodifiable view, which is a design-level correction.
+The defect is a violation of the encapsulation contract where an internal mutable structure is exposed via an iterator. This is an Interface/O-O Messages issue because the component's public interface (iterator) does not enforce the expected immutability contract, leading to unexpected behavior in the client code.
 
 ## ODC Attribute Mapping (Optional)
-- Qualifier: `Incorrect`
-- Age: `Base`
-- Source: `Design`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Test Variation`
-- Inferred Impact: `Reliability`
+- Impact: `Capability`

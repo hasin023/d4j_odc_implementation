@@ -1,0 +1,91 @@
+{
+  "project_id": "JacksonDatabind",
+  "bug_id": 24,
+  "version_id": "24b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-08T17:05:07+00:00",
+  "odc_type": "Assignment/Initialization",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The bug report explicitly states that calling mapper.setDateFormat causes the ObjectMapper's time zone to be set to the JVM's default time zone, whereas it should retain the previously configured time zone. This is a classic case of incorrect state initialization/assignment.",
+  "hypothesis": "The method setDateFormat incorrectly overwrites the existing TimeZone with the one from the provided DateFormat object.",
+  "prediction": "The fix will involve modifying the code to avoid overwriting the existing TimeZone when setDateFormat is called.",
+  "experiment_rationale": "The bug report provides a clear description of the behavioral change and the root cause (overwriting the timezone). The ODC type is clearly Assignment/Initialization as it involves an incorrect value assignment to the internal state of the ObjectMapper.",
+  "reasoning_summary": "The bug report describes a state change (timezone) that occurs as a side effect of a configuration method (setDateFormat). This is an assignment error where the new state is incorrectly initialized/assigned based on the input parameter.",
+  "evidence_used": [
+    "bug_report",
+    "failing_tests"
+  ],
+  "evidence_gaps": [
+    "source code access"
+  ],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "The issue is not about a missing guard or validation, but about an incorrect assignment of a value."
+    },
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The issue is not a procedural logic error, but a simple incorrect assignment of a state variable."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": "Incorrect",
+  "age": "New",
+  "source": "Requirement",
+  "inferred_activity": "Unit Test",
+  "inferred_triggers": [
+    "Test Variation"
+  ],
+  "inferred_impact": [
+    "Reliability"
+  ],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "closed",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The method `ObjectMapper.setDateFormat(DateFormat)` incorrectly updates the `TimeZone` of the `ObjectMapper`'s configuration by extracting it from the provided `DateFormat` object, even when the `ObjectMapper` already has a specific `TimeZone` configured. This behavior was introduced as a side effect of a previous fix and should be reverted to preserve the existing `TimeZone`.",
+      "prediction": "The `BaseSettings` class (or wherever `setDateFormat` is implemented) will show logic that calls `df.getTimeZone()` and updates the internal `BaseSettings` object's `TimeZone` field, overriding the previous value.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "com.fasterxml.jackson.databind.cfg.BaseSettings"
+      },
+      "observation_summary": "no snippet matches 'com.fasterxml.jackson.databind.cfg.BaseSettings'"
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The bug is located in the `ObjectMapper` class or a related configuration class where `setDateFormat` is defined. Since `BaseSettings` was not found, I will search for `ObjectMapper` to find the `setDateFormat` implementation.",
+      "prediction": "The `ObjectMapper.setDateFormat` method will contain logic that calls `with(df)` or similar on the configuration, which in turn extracts the timezone from the `DateFormat` and overwrites the existing one.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "com.fasterxml.jackson.databind.ObjectMapper"
+      },
+      "observation_summary": "no snippet matches 'com.fasterxml.jackson.databind.ObjectMapper'"
+    },
+    {
+      "turn": 3,
+      "hypothesis": "The bug is caused by an incorrect assignment of the TimeZone in the configuration when setDateFormat is called. Since I cannot access the source code directly via snippet, I will infer the ODC type based on the bug report description which states that the fix involves not taking the timezone from the DateFormat object, which is an assignment/initialization error.",
+      "prediction": "The fix will involve changing the assignment logic to preserve the existing TimeZone instead of overwriting it with the one from the DateFormat.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Assignment/Initialization"
+    }
+  ],
+  "llm_calls_used": 3,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Assignment/Initialization\", \"family\": \"Control and Data Flow\", \"target\": \"Design/Code\", \"qualifier\": \"Incorrect\", \"age\": \"New\", \"source\": \"Requirement\", \"inferred_activity\": \"Unit Test\", \"inferred_triggers\": [\"Test Variation\"], \"inferred_impact\": [\"Reliability\"], \"confidence\": 0.9, \"needs_human_review\": false, \"observation_summary\": \"The bug report explicitly states that calling mapper.setDateFormat causes the ObjectMapper's time zone to be set to the JVM's default time zone, whereas it should retain the previously configured time zone. This is a classic case of incorrect state initialization/assignment.\", \"hypothesis\": \"The method setDateFormat incorrectly overwrites the existing TimeZone with the one from the provided DateFormat object.\", \"prediction\": \"The fix will involve modifying the code to avoid overwriting the existing TimeZone when setDateFormat is called.\", \"experiment_rationale\": \"The bug report provides a clear description of the behavioral change and the root cause (overwriting the timezone). The ODC type is clearly Assignment/Initialization as it involves an incorrect value assignment to the internal state of the ObjectMapper.\", \"reasoning_summary\": \"The bug report describes a state change (timezone) that occurs as a side effect of a configuration method (setDateFormat). This is an assignment error where the new state is incorrectly initialized/assigned based on the input parameter.\", \"evidence_used\": [\"bug_report\", \"failing_tests\"], \"evidence_gaps\": [\"source code access\"], \"alternative_types\": [{\"type\": \"Checking\", \"why_not_primary\": \"The issue is not about a missing guard or validation, but about an incorrect assignment of a value.\"}, {\"type\": \"Algorithm/Method\", \"why_not_primary\": \"The issue is not a procedural logic error, but a simple incorrect assignment of a state variable.\"}]}"
+}

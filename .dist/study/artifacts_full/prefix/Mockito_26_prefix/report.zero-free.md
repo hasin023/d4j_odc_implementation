@@ -2,7 +2,7 @@
 
 - Version: `26b`
 - Work directory: `C:\d4j_work\prefix\Mockito_26b`
-- Generated: `2026-07-08T16:48:04+00:00`
+- Generated: `2026-07-10T18:54:45+00:00`
 
 ## Failure Summary
 - `org.mockito.internal.progress.HandyReturnValuesTest::should_default_values_for_primitive`: java.lang.ClassCastException: class java.lang.Integer cannot be cast to class java.lang.Double (java.lang.Integer and java.lang.Double are in module java.base of loader 'bootstrap')
@@ -15,10 +15,10 @@
 
 ## ODC Result
 - **Evidence Mode**: ✅ Pre-fix only
-- ODC Type: `Type mismatch in primitive default value mapping`
+- ODC Type: `Type Mismatch in Default Value Return`
 - Family: `None`
 - Target: `Design/Code`
 - Confidence: `0.95`
 - Needs Human Review: `False`
 
-The failing tests consistently show that when Mockito is expected to return a default value for a primitive type (specifically double), it returns an integer (0) instead of the expected double (0.0). The ClassCastException and assertion failures indicate that the internal utility responsible for mapping primitive types to their default values is incorrectly returning an Integer object where a Double is expected, suggesting a logic error in the primitive-to-default-value lookup table or mapping function.
+The failing tests consistently show that when a mock is expected to return a primitive double (0.0), it is instead returning an integer (0). This indicates that the logic responsible for providing default return values for primitive types is incorrectly mapping or returning an integer type where a double is expected, leading to ClassCastExceptions or assertion failures when comparing the returned value against the expected double.

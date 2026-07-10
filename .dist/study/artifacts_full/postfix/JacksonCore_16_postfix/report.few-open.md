@@ -2,7 +2,7 @@
 
 - Version: `16b`
 - Work directory: `C:\d4j_work\postfix\JacksonCore_16b`
-- Generated: `2026-07-08T16:50:27+00:00`
+- Generated: `2026-07-10T18:57:37+00:00`
 
 ## Failure Summary
 - `com.fasterxml.jackson.core.json.ParserSequenceTest::testInitialized`: junit.framework.AssertionFailedError: expected:<2> but was:<3>
@@ -18,11 +18,8 @@
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The defect is a procedural error in how the parser sequence manages token retrieval during parser switching. It is not a missing guard (Checking) or a simple value assignment (Assignment/Initialization), but a fundamental flaw in the iteration/retrieval logic of the sequence parser, which is best classified as an Algorithm/Method defect.
+The defect is in the procedural logic of the nextToken() method, which failed to correctly handle the state of the delegate parser when switching. It was unconditionally advancing the parser, which is an algorithmic error in the sequence traversal logic. It is not a missing check (Checking) because the logic itself was fundamentally flawed in its iteration strategy, nor is it a simple initialization error.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Incorrect`
-- Age: `Base`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Test Sequencing, Test Variation`
-- Inferred Impact: `Reliability`
+- Impact: `Capability`

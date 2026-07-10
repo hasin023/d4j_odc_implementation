@@ -2,7 +2,7 @@
 
 - Version: `28b`
 - Work directory: `C:\d4j_work\prefix\Jsoup_28b`
-- Generated: `2026-07-08T17:05:37+00:00`
+- Generated: `2026-07-10T18:47:12+00:00`
 
 ## Failure Summary
 - `org.jsoup.nodes.EntitiesTest::unescape`: junit.framework.AssertionFailedError: expected:<Hello &<> ® Å [&angst] π π 新 there &! ¾ © ...> but was:<Hello &<> ® Å [Å] π π 新 there &! ¾ © ...>
@@ -24,13 +24,12 @@
 - **Evidence Mode**: ✅ Pre-fix only
 - ODC Type: `Checking`
 - Family: `Control and Data Flow`
-- Target: `Design/Code`
-- Confidence: `0.95`
+- Target: `Method`
+- Confidence: `1.0`
 - Needs Human Review: `False`
 
-The bug is caused by the unescape function being too permissive in identifying entities. It treats any '&' followed by characters as a potential entity, failing to validate if it is a complete, valid entity (e.g., missing a semicolon). This is a classic validation/predicate logic error.
+The bug report and failing tests confirm that Jsoup's unescape logic is over-eager. The fix requires adding a check to ensure that only valid, terminated entities are decoded, which falls under the 'Checking' ODC category.
 
 ## ODC Attribute Mapping (Optional)
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Test Variation`
-- Inferred Impact: `Reliability`
+- Qualifier: `Missing/Incorrect Guard`
+- Impact: `Capability`

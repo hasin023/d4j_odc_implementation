@@ -2,7 +2,7 @@
 
 - Version: `13b`
 - Work directory: `C:\d4j_work\postfix\Chart_13b`
-- Generated: `2026-07-08T16:53:36+00:00`
+- Generated: `2026-07-10T18:35:19+00:00`
 
 ## Failure Summary
 - `org.jfree.chart.block.junit.BorderArrangementTests::testSizingWithWidthConstraint`: java.lang.IllegalArgumentException: Range(double, double): require lower (0.0) <= upper (-2.3000000000000007).
@@ -23,4 +23,7 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The bug is a missing validation/guard for a calculated value that is used as a parameter for a constructor that enforces a non-negative constraint. This fits the 'Checking' category perfectly as it involves validating data before passing it to a sensitive operation.
+The bug is a classic missing boundary check. The code assumes that the remaining width for the right block will always be positive, but it fails to account for cases where the left block consumes more than the available width. This is a validation error on the input to the Range constructor.
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Reliability`

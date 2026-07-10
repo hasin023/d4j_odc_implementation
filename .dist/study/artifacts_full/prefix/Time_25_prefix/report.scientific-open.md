@@ -2,7 +2,7 @@
 
 - Version: `25b`
 - Work directory: `C:\d4j_work\prefix\Time_25b`
-- Generated: `2026-07-08T15:49:39+00:00`
+- Generated: `2026-07-10T18:00:11+00:00`
 
 ## Failure Summary
 - `org.joda.time.TestDateTimeZoneCutover::test_DateTime_constructor_Moscow_Autumn`: junit.framework.ComparisonFailure: expected:<...10-28T02:30:00.000+0[4]:00> but was:<...10-28T02:30:00.000+0[3]:00>
@@ -24,4 +24,7 @@
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The bug report explicitly states that the behavior during DST overlaps was undefined and varied, and the fix was to change the algorithm to always return the earlier instant. The failing tests confirm that the current implementation does not meet this requirement.
+The failure is specific to the Moscow autumn transition where the local time is ambiguous. The code is failing to correctly identify the daylight offset during the overlap, which is a procedural/algorithmic issue in the time zone calculation logic.
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Capability`

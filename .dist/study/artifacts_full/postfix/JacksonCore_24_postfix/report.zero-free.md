@@ -2,7 +2,7 @@
 
 - Version: `24b`
 - Work directory: `C:\d4j_work\postfix\JacksonCore_24b`
-- Generated: `2026-07-08T16:47:24+00:00`
+- Generated: `2026-07-10T18:53:51+00:00`
 
 ## Failure Summary
 - `com.fasterxml.jackson.core.json.async.AsyncNumberCoercionTest::testToLongFailing`: com.fasterxml.jackson.core.JsonParseException: Numeric value (9223372036854775817) out of range of long (-9223372036854775808 - 9223372036854775807)
@@ -34,4 +34,4 @@
 - Confidence: `0.95`
 - Needs Human Review: `False`
 
-The bug was identified as a design issue where numeric overflow errors were being reported using a generic 'JsonParseException' rather than a more specific exception type. The fix involved introducing 'InputCoercionException' to provide better context (such as the target type and input token type) when a valid JSON number cannot be coerced into the requested Java numeric type. The code was updated to replace generic error reporting calls with specialized methods that throw this new, more descriptive exception.
+The bug was identified as a design flaw where numeric overflow errors during coercion were being reported as generic JsonParseExceptions. The fix involved introducing a more specific exception type, InputCoercionException, which provides better metadata (such as the target type and input token type) to the calling application. The code changes updated the error reporting methods in ParserBase and ParserMinimalBase to utilize this new exception type instead of the generic _reportError method, allowing for better error handling and differentiation between parsing errors and type mismatch/coercion errors.

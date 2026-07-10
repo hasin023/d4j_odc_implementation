@@ -2,7 +2,7 @@
 
 - Version: `14b`
 - Work directory: `C:\d4j_work\postfix\Time_14b`
-- Generated: `2026-07-08T16:52:24+00:00`
+- Generated: `2026-07-10T18:59:14+00:00`
 
 ## Failure Summary
 - `org.joda.time.TestMonthDay_Basics::testPlusMonths_int_negativeFromLeap`: org.joda.time.IllegalFieldValueException: Value 29 for dayOfMonth must be in the range [1,28]
@@ -33,12 +33,8 @@
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The defect is an algorithmic flaw in how date arithmetic is performed for partial dates like MonthDay. The original implementation used a generic approach that was not robust enough to handle leap-day-to-non-leap-year transitions, leading to invalid intermediate states. The fix implements a specific, correct algorithmic strategy for month-based arithmetic, which is a classic Algorithm/Method correction.
+The bug is a failure in the computational strategy for handling date arithmetic on partial dates (MonthDay). The original algorithm was flawed because it forced a reconstruction of the date on a default (non-leap) year, leading to an invalid state during validation. The fix replaces this flawed procedural logic with a correct calculation for month-wrapping, which is a classic Algorithm/Method correction.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Incorrect`
-- Age: `Base`
-- Source: `Developed In-House`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Recovery/Exception, Test Interaction, Test Variation`
-- Inferred Impact: `Reliability`
+- Impact: `Capability`

@@ -2,7 +2,7 @@
 
 - Version: `14b`
 - Work directory: `C:\d4j_work\postfix\Time_14b`
-- Generated: `2026-07-08T17:07:22+00:00`
+- Generated: `2026-07-10T18:48:56+00:00`
 
 ## Failure Summary
 - `org.joda.time.TestMonthDay_Basics::testPlusMonths_int_negativeFromLeap`: org.joda.time.IllegalFieldValueException: Value 29 for dayOfMonth must be in the range [1,28]
@@ -33,12 +33,7 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The bug is a procedural error in how the library handles month arithmetic for year-agnostic partials. By forcing a specific year (1970) during the conversion to an instant, the code introduces a dependency on the leap-year status of that year, which is incorrect for a MonthDay object.
+The defect is an algorithmic flaw where the procedure for adding months to a partial date (MonthDay) relies on an invalid assumption that the partial can be represented as a specific point in time (1970). This is a procedural error in how the library handles partial date arithmetic.
 
 ## ODC Attribute Mapping (Optional)
-- Qualifier: `Missing`
-- Age: `Base`
-- Source: `Internal`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Recovery/Exception, Test Variation`
-- Inferred Impact: `Reliability`
+- Impact: `Capability`

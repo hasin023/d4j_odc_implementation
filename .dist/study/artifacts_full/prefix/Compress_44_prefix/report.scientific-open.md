@@ -2,7 +2,7 @@
 
 - Version: `44b`
 - Work directory: `C:\d4j_work\prefix\Compress_44b`
-- Generated: `2026-07-08T15:50:00+00:00`
+- Generated: `2026-07-10T18:00:35+00:00`
 
 ## Failure Summary
 - `org.apache.commons.compress.utils.ChecksumCalculatingInputStreamTest::testClassInstantiationWithParameterBeingNullThrowsNullPointerExceptionOne`: junit.framework.AssertionFailedError: Expected exception: java.lang.NullPointerException
@@ -20,4 +20,7 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The defect is a missing guard/validation check on constructor parameters. According to the ODC taxonomy, errors caused by missing or incorrect validation of parameters in conditional statements are classified as 'Checking'.
+The bug report and test failures explicitly state that the class fails to throw a NullPointerException when null is passed to the constructor. This is a missing parameter validation check.
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Capability`

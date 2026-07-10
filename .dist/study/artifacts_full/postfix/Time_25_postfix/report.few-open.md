@@ -2,7 +2,7 @@
 
 - Version: `25b`
 - Work directory: `C:\d4j_work\postfix\Time_25b`
-- Generated: `2026-07-08T15:55:53+00:00`
+- Generated: `2026-07-10T18:04:16+00:00`
 
 ## Failure Summary
 - `org.joda.time.TestDateTimeZoneCutover::test_DateTime_constructor_Moscow_Autumn`: junit.framework.ComparisonFailure: expected:<...10-28T02:30:00.000+0[4]:00> but was:<...10-28T02:30:00.000+0[3]:00>
@@ -24,12 +24,8 @@
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The fix involves adding a new logic branch to an existing method to handle a specific edge case (DST overlap) that was previously incorrectly calculated. This is a procedural correction to the algorithm used to determine the correct offset, fitting the definition of Algorithm/Method.
+The fix is a rewrite of the local procedural logic used to calculate the offset during DST overlaps. It is not a simple guard (Checking) or a constant change (Assignment/Initialization), but a refinement of the computational strategy for handling time zone transitions. Therefore, it is classified as Algorithm/Method.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Incorrect`
-- Age: `Base`
-- Source: `Developed In-House`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Test Variation`
-- Inferred Impact: `Reliability`
+- Impact: `Capability`

@@ -2,7 +2,7 @@
 
 - Version: `24b`
 - Work directory: `C:\d4j_work\postfix\JacksonCore_24b`
-- Generated: `2026-07-08T16:50:34+00:00`
+- Generated: `2026-07-10T18:57:43+00:00`
 
 ## Failure Summary
 - `com.fasterxml.jackson.core.json.async.AsyncNumberCoercionTest::testToLongFailing`: com.fasterxml.jackson.core.JsonParseException: Numeric value (9223372036854775817) out of range of long (-9223372036854775808 - 9223372036854775807)
@@ -30,16 +30,12 @@
 - **Evidence Mode**: ⚠️ Post-fix (with buggy->fixed diff)
 - ODC Type: `Interface/O-O Messages`
 - Family: `Structural`
-- Target: `Design/Code`
+- Target: `Code`
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The change is not a simple algorithmic fix or a missing guard (Checking). It is a structural change to the error-handling interface. By adding a new exception type and updating the method signatures to propagate metadata (inputType, targetType), the fix modifies the communication contract between the parser and the application, which is the definition of an Interface/O-O Messages defect.
+The bug is classified as Interface/O-O Messages because the fix involves changing the error reporting contract. By introducing a new exception type and passing additional metadata (inputType, targetType) through the error reporting methods, the system now correctly communicates the nature of the coercion failure to the caller, which was previously obscured by a generic exception.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Incorrect`
-- Age: `Base`
-- Source: `Developed In-House`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Recovery/Exception, Test Variation`
-- Inferred Impact: `Reliability`
+- Impact: `Capability`

@@ -2,7 +2,7 @@
 
 - Version: `21b`
 - Work directory: `C:\d4j_work\prefix\Collections_21b`
-- Generated: `2026-07-08T16:48:32+00:00`
+- Generated: `2026-07-10T18:55:36+00:00`
 
 ## Failure Summary
 - `org.apache.commons.collections4.list.SetUniqueListTest::testSubListIsUnmodifiable`: junit.framework.AssertionFailedError: subList should be unmodifiable
@@ -12,10 +12,10 @@
 
 ## ODC Result
 - **Evidence Mode**: ✅ Pre-fix only
-- ODC Type: `Inconsistent API Contract Implementation`
+- ODC Type: `Incorrect subList implementation`
 - Family: `None`
 - Target: `Design/Code`
 - Confidence: `0.95`
 - Needs Human Review: `False`
 
-The SetUniqueList class violates the java.util.List contract regarding subList behavior. The subList returned by SetUniqueList is currently a standard, modifiable list view that does not synchronize its modifications with the parent SetUniqueList's internal uniqueness set. This leads to a state where the subList can be modified in ways that violate the uniqueness constraint of the parent list, or where the parent list becomes inconsistent with its internal set. The failing test confirms that the subList is expected to be unmodifiable to prevent these inconsistencies, but the current implementation allows modifications.
+The SetUniqueList class fails to correctly implement the subList method. According to the Java List contract, a subList should be a view of the parent list. In this implementation, the subList returned is not properly synchronized with the parent SetUniqueList's uniqueness constraints and internal state. When modifications are performed on the subList, they do not correctly propagate to the parent list or maintain the required set-like uniqueness properties, leading to inconsistent states between the subList and the parent list.

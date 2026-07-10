@@ -2,7 +2,7 @@
 
 - Version: `6b`
 - Work directory: `C:\d4j_work\prefix\JacksonXml_6b`
-- Generated: `2026-07-08T16:57:45+00:00`
+- Generated: `2026-07-10T18:38:24+00:00`
 
 ## Failure Summary
 - `com.fasterxml.jackson.dataformat.xml.ser.TestBinaryStreamToXMLSerialization::testWith0Bytes`: com.fasterxml.jackson.databind.JsonMappingException: Operation not supported by generator of type com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator (through reference chain: com.fasterxml.jackson.dataformat.xml.ser.TestBinaryStreamToXMLSerialization$TestPojo["field"])
@@ -31,4 +31,7 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The failure is a direct result of a missing method implementation in the ToXmlGenerator class. This is a structural defect where the class fails to provide a capability expected by the Jackson framework's serialization process.
+The bug is a missing capability (streaming binary support) in the ToXmlGenerator class. This is a structural design-level omission as it requires adding a new method to the class interface to support the required functionality.
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Capability`

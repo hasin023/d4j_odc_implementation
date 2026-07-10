@@ -2,7 +2,7 @@
 
 - Version: `32b`
 - Work directory: `C:\d4j_work\prefix\Cli_32b`
-- Generated: `2026-07-08T16:52:39+00:00`
+- Generated: `2026-07-10T18:59:21+00:00`
 
 ## Failure Summary
 - `org.apache.commons.cli.HelpFormatterTest::testRenderWrappedTextWordCut`: java.lang.StringIndexOutOfBoundsException: String index out of range: 12
@@ -17,15 +17,11 @@
 - ODC Type: `Checking`
 - Family: `Control and Data Flow`
 - Target: `Code`
-- Confidence: `0.95`
+- Confidence: `1.0`
 - Needs Human Review: `False`
 
-The defect is a classic boundary condition error in a loop predicate. The code fails to correctly validate the upper bound of the string index before accessing it, leading to an exception. This falls squarely under the 'Checking' category as it involves an incorrect conditional check.
+The defect is a classic boundary condition error in a loop predicate. The code fails to correctly validate the index before accessing the string, leading to an out-of-bounds exception. This falls squarely under the 'Checking' category as it involves an incorrect conditional check.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Incorrect`
-- Age: `Base`
-- Source: `Developed In-House`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Recovery/Exception, Test Variation`
-- Inferred Impact: `Reliability`
+- Impact: `Reliability`

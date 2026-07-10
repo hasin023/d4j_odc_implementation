@@ -2,7 +2,7 @@
 
 - Version: `32b`
 - Work directory: `C:\d4j_work\prefix\Cli_32b`
-- Generated: `2026-07-08T16:48:21+00:00`
+- Generated: `2026-07-10T18:55:11+00:00`
 
 ## Failure Summary
 - `org.apache.commons.cli.HelpFormatterTest::testRenderWrappedTextWordCut`: java.lang.StringIndexOutOfBoundsException: String index out of range: 12
@@ -20,4 +20,4 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The code in 'findWrapPos' uses a 'while' loop condition 'pos <= text.length()' to check for characters in a string. Since 'text.charAt(pos)' is called inside the loop, when 'pos' equals 'text.length()', the method attempts to access an index that is out of bounds, causing a 'StringIndexOutOfBoundsException'. The loop condition should use '<' instead of '<=' to ensure the index remains within the valid range of the string.
+The code in HelpFormatter.findWrapPos uses a while loop condition 'pos <= text.length()' to check for characters in the string. When 'pos' equals 'text.length()', the subsequent call to 'text.charAt(pos)' attempts to access an index equal to the string's length, which is out of bounds for a zero-indexed string. This causes a StringIndexOutOfBoundsException. The logic should only check up to 'text.length() - 1' or ensure the index is strictly less than the length before accessing the character.

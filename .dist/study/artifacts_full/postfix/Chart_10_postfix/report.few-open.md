@@ -2,7 +2,7 @@
 
 - Version: `10b`
 - Work directory: `C:\d4j_work\postfix\Chart_10b`
-- Generated: `2026-07-08T16:52:35+00:00`
+- Generated: `2026-07-10T18:59:19+00:00`
 
 ## Failure Summary
 - `org.jfree.chart.imagemap.junit.StandardToolTipTagFragmentGeneratorTests::testGenerateURLFragment`: junit.framework.ComparisonFailure: expected:< title="Series [&quot;A&quot;], 100.0" alt=""> but was:< title="Series ["A"], 100.0" alt="">
@@ -18,11 +18,8 @@
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The defect is an incorrect implementation of a string formatting procedure. It is not a missing guard (Checking), nor a wrong constant (Assignment/Initialization), but a failure to perform the required transformation (HTML escaping) on the input data within the method's logic. This fits the definition of an Algorithm/Method defect.
+The defect is an algorithmic failure where the method failed to correctly process the input data for its intended output format (HTML). It is not a missing check (the input is processed, just incorrectly), not an assignment error (the logic is procedural), and not a design-level capability gap. It is a local procedural error in how the tool tip string is constructed.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Incorrect`
-- Age: `Base`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Test Variation`
-- Inferred Impact: `Capability`
+- Impact: `Capability`

@@ -2,7 +2,7 @@
 
 - Version: `14b`
 - Work directory: `C:\d4j_work\prefix\Time_14b`
-- Generated: `2026-07-08T17:07:17+00:00`
+- Generated: `2026-07-10T18:48:51+00:00`
 
 ## Failure Summary
 - `org.joda.time.TestMonthDay_Basics::testPlusMonths_int_negativeFromLeap`: org.joda.time.IllegalFieldValueException: Value 29 for dayOfMonth must be in the range [1,28]
@@ -30,15 +30,10 @@
 - ODC Type: `Checking`
 - Family: `Control and Data Flow`
 - Target: `Design/Code`
-- Confidence: `1.0`
+- Confidence: `0.95`
 - Needs Human Review: `False`
 
-The bug is a classic case of incorrect validation logic (Checking) where the context (leap year) is ignored during the reconstruction of a partial date. The code assumes a fixed, non-leap year base, which is insufficient for handling leap-day-dependent partials.
+The bug is a classic 'Checking' defect where the validation logic (checking if the day is valid for the month) is applied in a context (a generic 1970 instant) that is too restrictive for the data being processed (a leap day). The fix requires either using a leap year as the base or bypassing the strict validation for partials that don't have a year.
 
 ## ODC Attribute Mapping (Optional)
-- Qualifier: `Incorrect`
-- Age: `New`
-- Source: `Requirement`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Test Interaction, Recovery/Exception`
-- Inferred Impact: `Reliability`
+- Impact: `Capability`

@@ -2,7 +2,7 @@
 
 - Version: `14b`
 - Work directory: `C:\d4j_work\postfix\Time_14b`
-- Generated: `2026-07-08T16:48:16+00:00`
+- Generated: `2026-07-10T18:55:00+00:00`
 
 ## Failure Summary
 - `org.joda.time.TestMonthDay_Basics::testPlusMonths_int_negativeFromLeap`: org.joda.time.IllegalFieldValueException: Value 29 for dayOfMonth must be in the range [1,28]
@@ -33,4 +33,4 @@
 - Confidence: `0.95`
 - Needs Human Review: `False`
 
-The bug occurs because the `MonthDay` class attempts to perform arithmetic on a partial date (like February 29th) by converting it to a full timestamp using a default year (1970). Since 1970 is not a leap year, the `dayOfMonth` field is validated against a maximum of 28, causing an `IllegalFieldValueException` when the date is February 29th. The fix introduces a specialized path for `MonthDay` operations that avoids this premature conversion to a full timestamp, allowing the logic to handle month-based arithmetic without triggering invalid bounds checks against a non-leap year.
+The bug occurs because the `BasicMonthOfYearDateTimeField.add` method attempts to perform arithmetic on a `MonthDay` object by converting it to a full timestamp (using a default year) and then back to a partial. When the `MonthDay` is set to February 29th, this conversion process triggers a validation error because the default year used for the conversion is not a leap year, causing the `dayOfMonth` (29) to be rejected as out of bounds for February. The fix introduces a specialized path for `MonthDay` objects that performs the month arithmetic directly on the partial values, bypassing the problematic conversion to a full timestamp that enforces non-leap-year constraints.

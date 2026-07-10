@@ -83,7 +83,13 @@ def extract_json_object(text: str) -> dict:
     text = text.strip()
     if not text:
         raise ValueError("LLM response was empty.")
-    decoder = json.JSONDecoder()
+    # strict=False tolerates literal control characters (e.g. an unescaped
+    # newline) inside string values — LLMs occasionally emit these inside a
+    # long prose field without escaping them; the JSON structure itself is
+    # still parsed exactly as strictly. Reproduced 2026-07-11: Lang_41's
+    # zero-free response had a raw "\n" inside its "symptom" string, causing
+    # a deterministic (temperature=0) parse failure on every retry.
+    decoder = json.JSONDecoder(strict=False)
     candidates = [text]
     if "```" in text:
         candidates.extend(_code_block_candidates(text))

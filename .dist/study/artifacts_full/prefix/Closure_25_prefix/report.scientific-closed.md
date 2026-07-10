@@ -2,7 +2,7 @@
 
 - Version: `25b`
 - Work directory: `C:\d4j_work\prefix\Closure_25b`
-- Generated: `2026-07-08T17:07:47+00:00`
+- Generated: `2026-07-10T18:49:15+00:00`
 
 ## Failure Summary
 - `com.google.javascript.jscomp.TypeInferenceTest::testBackwardsInferenceNew`: junit.framework.ComparisonFailure: expected:<{[foo: (number|undefined)]}> but was:<{[]}>
@@ -12,18 +12,13 @@
 
 ## ODC Result
 - **Evidence Mode**: ✅ Pre-fix only
-- ODC Type: `Checking`
+- ODC Type: `Algorithm/Method`
 - Family: `Control and Data Flow`
 - Target: `Design/Code`
-- Confidence: `0.95`
+- Confidence: `0.9`
 - Needs Human Review: `False`
 
-The bug report and failing test confirm that backwards type inference works for functions but not for constructors. This is a classic 'missing case' in a control flow/data flow analysis pass, which falls under 'Checking' (missing validation/handling of a specific node type).
+The bug is a classic case of missing algorithmic coverage for a specific language construct (constructor calls) within the type inference engine. The fix requires updating the inference procedure to include 'new' expressions in the backwards propagation logic.
 
 ## ODC Attribute Mapping (Optional)
-- Qualifier: `Missing`
-- Age: `New`
-- Source: `Requirements`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Test Variation`
-- Inferred Impact: `Capability`
+- Impact: `Capability`

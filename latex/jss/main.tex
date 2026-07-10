@@ -237,8 +237,11 @@ The main contributions are:
         must probe held-back evidence to confirm or refute it, producing an
         auditable reasoning transcript.
   \item A dual-mode (pre-fix / post-fix) evidence system that mirrors ODC's
-        opener/closer separation and supports a self-consistency evaluation in
-        the absence of ground-truth labels.
+        opener/closer separation, supports a self-consistency evaluation in
+        the absence of ground-truth labels, and uses the fix-independent
+        Impact attribute (Section~\ref{sec:impact}) as a negative control that
+        separates genuine fix-dependence in Defect-Type drift from instrument
+        noise.
   \item A reproducible study toolchain (\texttt{study-plan}, \texttt{study-run},
         \texttt{study-drift}, \texttt{study-escape}, \texttt{study-ladder},
         \texttt{study-export}) that operationalises all five research questions
@@ -320,7 +323,10 @@ initialisation), \textit{Checking} (missing or wrong validation), and
 \textit{Timing/Serialization} (concurrency or ordering). The \emph{Structural}
 family comprises \textit{Function/Class/Object} (design-level gap),
 \textit{Interface/O-O Messages} (component-boundary issue), and
-\textit{Relationship} (entity-association problem). ODC remains in active use:
+\textit{Relationship} (entity-association problem). This two-family grouping is
+used later (Section~\ref{sec:eval}) as the coarser Tier-3 agreement level; it is
+this paper's own grouping for that purpose, not a named attribute of the v5.2
+document itself, which defines the seven types individually. ODC remains in active use:
 Pan \textit{et al.}\ \citep{pan2024understanding} applied it in 2024 to defects in
 LLM-generated code, showing the taxonomy generalises beyond human-written
 software.
@@ -479,16 +485,108 @@ measured against a strong baseline rather than a handicapped one.
 \subsection{ODC and Defects4J Artefact Mapping}
 \label{sec:mapping}
 
-The pipeline maps \textit{Defects4J} artefacts to ODC attributes following the
-framework's two-phase opener/closer model \citep{chillarege1992odc}, keeping
-subjective discovery data separate from objective repair data. On the
-\emph{opener} (discovery) side, test type maps to Activity, stack-trace runtime
-context maps to Trigger, and bug-report symptoms map to Impact. On the
-\emph{closer} (repair) side, the code diff maps to Defect Type and Qualifier
-(Missing, Incorrect, or Extraneous), and the modified-class list maps to Target
-and Age. This separation is what enables the dual-mode evaluation: pre-fix
-classification uses opener evidence only, while post-fix classification adds
-closer evidence from the fix diff.
+ODC's two-phase model ties each attribute to the evidence available at a
+specific point in a defect's lifecycle: opener attributes (Activity, Trigger,
+Impact) to what is known at discovery, closer attributes (Target, Defect Type,
+Qualifier, Age, Source) to what is known once the fix is understood
+\citep{chillarege1992odc,ibm2013odc}. \textit{Defects4J} is a retrospective
+benchmark assembled after every bug was already fixed, so not every attribute
+has evidence that matches its intended phase; the pipeline claims an attribute
+only where \textit{Defects4J}'s artefacts genuinely support the corresponding
+judgement, rather than mapping all eight uncritically. Table~\ref{tab:mapping}
+summarises the mapping actually implemented.
+
+On the closer side, \textbf{Target} is fixed to \texttt{Design/Code} as a
+scoping assumption rather than an inference, since \textit{Defects4J}'s
+minimised patches touch source code by construction. \textbf{Defect Type and
+Qualifier} are read from the real fix diff in post-fix mode --- the
+ODC-canonical use of closer evidence --- while the pre-fix arm instead
+\emph{predicts} them from opener-time evidence alone; this prediction task, not
+a mapping shortcut, is the paper's central contribution, and the pre-fix/
+post-fix agreement of Section~\ref{sec:eval} measures how well it succeeds.
+\textbf{Age} would require reconstructing when the defective code was
+introduced, which needs VCS archaeology beyond the current evidence set and is
+left to future work (Section~\ref{sec:conclusion}); \textbf{Source} is not
+claimed as a finding beyond noting that all 17 projects are single-organisation
+open-source efforts.
+
+On the opener side, only \textbf{Impact} is claimed: \textit{Defects4J} bug
+reports and observed failure behaviour are exactly the customer-perspective
+evidence ODC~\S3.3 specifies, and Section~\ref{sec:impact} details how the
+pipeline determines it. \textbf{Trigger} and \textbf{Activity} are not, because
+\textit{Defects4J}'s evidence does not match what ODC's own procedure requires:
+for the field-reported defects that make up most of the benchmark, ODC selects
+the Trigger first, from the user's usage scenario, and derives Activity from it
+via an organisation's activity-to-trigger mapping (v5.2~\S3.1.6, \S2.1); but
+usage-scenario detail in \textit{Defects4J} reports varies sharply by project
+and tracker, and the benchmark's triggering test is a retrospective
+reproduction written alongside the fix rather than the in-process activity that
+would have caught the defect in the field. Earlier iterations of this pipeline
+produced Trigger/Activity candidates from keyword heuristics over this
+evidence; because the underlying evidence does not support the judgement, those
+heuristics have been removed rather than kept as an unvalidated convenience.
+
+\begin{table*}[t]
+\centering
+\caption{The \textit{Defects4J}-to-ODC attribute mapping actually implemented.
+         \emph{Claimed} attributes are determined and reported; \emph{Constant}
+         attributes are fixed by \textit{Defects4J}'s construction and stated
+         rather than inferred; \emph{Not determinable} attributes lack matching
+         evidence and are not claimed.}
+\label{tab:mapping}
+\begin{tabularx}{\textwidth}{@{}lllX@{}}
+\toprule
+\thead{Attribute} & \thead{Phase} & \thead{Status} & \thead{\textit{Defects4J} evidence and rationale} \\
+\midrule
+Impact      & Opener & Claimed                & Bug-report description and observed failure behaviour --- the customer-perspective evidence ODC~\S3.3 specifies (Section~\ref{sec:impact}). \\
+Trigger     & Opener & Not determinable       & ODC's field-defect procedure (v5.2~\S3.1.6) needs the user's usage scenario; report detail is too uneven across projects/trackers to support this. \\
+Activity    & Opener & Not determinable       & The harness always reruns JUnit regardless of how the defect actually surfaced; this is a retrospective reproduction, not the in-process discovery activity ODC intends. \\
+Target      & Closer & Constant               & \textit{Defects4J} minimised patches touch source code only, by benchmark construction (Design/Code). \\
+Defect Type & Closer & Predicted / Canonical  & Post-fix: read from the real fix diff (ODC-canonical). Pre-fix: \emph{predicted} from opener-time evidence --- the paper's central task. \\
+Qualifier   & Closer & Determined (post-fix)  & Missing / Incorrect / Extraneous, read off the shape of the fix diff. \\
+Age         & Closer & Not determinable       & Needs the injection history of the defective code (VCS archaeology), outside the current evidence set. \\
+Source      & Closer & Constant               & All 17 projects are single-organisation open-source efforts ($\approx$ Developed In-House). \\
+\bottomrule
+\end{tabularx}
+\end{table*}
+
+\subsection{The ODC Impact Attribute}
+\label{sec:impact}
+
+Impact is the one opener attribute the pipeline claims, and it is determined
+the same way in the \textit{few} and \textit{scientific} strategies: the system
+prompt defines all thirteen v5.2~\S3.3 categories verbatim --- Installability,
+Integrity/Security, Performance, Maintenance, Serviceability, Migration,
+Documentation, Usability, Standards, Reliability, Requirements, Accessibility,
+and Capability --- plus \texttt{Unknown}, which v5.2~\S5.1 permits when the
+evidence available at open time is insufficient. The model returns exactly one
+label, judged from the bug report and the observed failure behaviour as the end
+user would experience it, never from the nature of the eventual fix; Capability
+is ODC's explicit fallback when no other category applies. This section is
+deliberately absent from the \textit{zero-free} baseline, which must remain
+free of ODC vocabulary by definition (Section~\ref{sec:conditions}). An earlier
+version of the pipeline instead derived impact candidates from a five-category
+keyword heuristic that fed its own guesses back into the evidence payload; that
+heuristic anchored the model's judgement and covered fewer than half of the
+thirteen categories, and has been replaced by the vocabulary-taught,
+single-select design above.
+
+Impact carries no oracle: \textit{Defects4J} provides no customer-impact
+labels, and post-fix evidence is not a reference for an opener attribute the
+way it is for Defect Type. Two consequences follow. First, Impact enters the
+results only descriptively, as a distribution over the benchmark that
+complements RQ1 rather than an accuracy claim; on a benchmark defined by
+failing unit tests, a skew toward Reliability and Capability is expected and is
+a property of the benchmark, not of the instrument. Second, and more usefully,
+ODC defines Impact at open time, independent of how the defect is eventually
+fixed (v5.2~\S3.3); its pre-fix/post-fix agreement should therefore reflect
+instrument noise alone, with no genuine fix-dependence to explain
+disagreement. This makes Impact agreement a \emph{negative control} for the
+Defect-Type drift RQ5 measures: computed over the same paired bugs used for the
+four-tier evaluation (Section~\ref{sec:eval}), it gives a noise floor against
+which Defect-Type drift --- which legitimately mixes fix-choice indeterminacy
+with instrument noise --- can be read. Section~\ref{sec:divergence} reports
+both together.
 
 \subsection{Evidence Collection}
 \label{sec:collection}
@@ -501,7 +599,10 @@ the following eight-step sequence per bug:
         buggy/fixed revisions, trigger tests, relevant classes, and the
         \texttt{classes.modified} list (stored as a hidden oracle).
   \item \textbf{Fetch bug-report content} --- structured APIs for JIRA/GitHub;
-        HTML text extraction as a fallback for other trackers.
+        HTML text extraction as a fallback for other trackers; scoped to
+        opener-side fields (title, description, labels/priority) --- status,
+        resolution, and comment threads are not fetched, since they routinely
+        discuss the fix.
   \item \textbf{Checkout and compile the buggy version} --- validates
         reproducibility and provides a base for test execution.
   \item \textbf{Run failing tests} --- parse output for test names, exception
@@ -519,9 +620,18 @@ the following eight-step sequence per bug:
         fix diff), into a structured file.
 \end{enumerate}
 
-A key decision is \emph{hidden-oracle exclusion}: the \texttt{classes.modified}
-list is stored in a separate \texttt{hidden\_oracles} field and excluded from the
-pre-fix prompt, preventing data leakage \citep{rafi2024revisiting}.
+A key decision is \emph{fix-knowledge exclusion from the pre-fix arm}. Beyond
+the \texttt{classes.modified} hidden oracle, two further channels carry
+fix-era material by default: the raw \texttt{defects4j info} text lists the
+classes touched by the fix commit and the fixed revision id/date, and fetched
+bug-report content for resolved trackers routinely retains status/resolution
+context. At payload-build time --- not at collection time, so
+\texttt{context.json} itself is never modified --- the pipeline strips these
+sections from the pre-fix payload only; the post-fix payload keeps them
+untouched, since that arm legitimately knows the fix. The result is a
+paired-arms invariant: the two payloads differ in exactly one respect, the fix
+diff, which is what the pre-fix/post-fix comparison of Section~\ref{sec:eval}
+is designed to isolate \citep{rafi2024revisiting}.
 
 \begin{figure}[H]
 \centering
@@ -951,6 +1061,12 @@ Relationship                & \TBD & \TBD \\
 \end{tabular}
 \end{table}
 
+As a descriptive companion, the same prefix pass also yields an Impact
+distribution (Section~\ref{sec:impact}): modal category \TBD{}, label entropy
+\TBD{}, and bug-report coverage \TBD{}\% (uneven across projects ---
+Section~\ref{sec:threats}). This is reported for completeness, not as a claim
+of discriminative power.
+
 \subsection{RQ2 --- Taxonomy Coverage}
 
 RQ2 asks whether the seven ODC types are exhaustive for \textit{Defects4J}. The
@@ -1064,6 +1180,7 @@ Mockito & \TBD \\ Time & \TBD \\
 \end{table}
 
 \subsection{Interpreting Divergence}
+\label{sec:divergence}
 
 Pre-fix and post-fix classifications are expected to diverge for a minority of
 bugs, for reasons intrinsic to semantic classification rather than pipeline
@@ -1079,6 +1196,16 @@ structure legible: a gap between strict and family match localises disagreement
 to boundary-adjacent types rather than to unrelated families. A representative
 soft-divergence case study will be populated from the confirmatory run.
 
+\textbf{Impact as a negative control.} Because Impact is opener-defined and
+fix-independent (Section~\ref{sec:impact}), its pre-fix/post-fix agreement over
+the same paired bugs should reflect instrument noise alone, with no genuine
+fix-dependence to explain disagreement. We report it alongside Defect-Type
+drift as a noise floor: raw agreement \TBD{} and, where the marginal
+distribution is non-degenerate, Cohen's~$\kappa$ \TBD{}. Defect-Type drift
+materially above this floor indicates genuine fix-dependence in the assigned
+type; drift at or below it would instead suggest the apparent semantic
+divergence is largely instrument noise.
+
 %% =============================================================================
 \section{Threats to Validity}
 \label{sec:threats}
@@ -1092,11 +1219,51 @@ studies.
 
 \smallskip
 \noindent\textbf{Construct validity.}\quad
-Pre-fix/post-fix agreement is a proxy for correctness, not a direct ground truth;
-\textit{Defects4J} provides no authoritative ODC labels. This strategy is
-justified by ODC's two-phase model but cannot substitute for expert-labelled
-validation, and the heuristic opener/closer mappings remain keyword-based and
-unvalidated by trained assessors.
+Pre-fix/post-fix agreement is a proxy for correctness, not a direct ground
+truth; \textit{Defects4J} provides no authoritative ODC labels for Defect Type,
+and none at all for Impact. This strategy is justified by ODC's two-phase model
+but cannot substitute for expert-labelled validation. The Impact attribute
+(Section~\ref{sec:impact}) is taught its full v5.2 vocabulary and validated as
+a single-select field, but --- like Defect Type --- has not been checked
+against trained human assessors.
+
+\smallskip
+\noindent\textbf{Pre-fix evidence purity.}\quad
+Two channels can leak fix knowledge into the pre-fix arm if left unsanitised:
+\texttt{defects4j info} output lists the classes touched by the fix commit,
+and tracker reports for resolved issues routinely carry post-fix discussion
+(status/resolution transitions, ``fixed in'' comments). Both are stripped from
+the pre-fix payload at classification time (Section~\ref{sec:collection}); the
+post-fix payload is left untouched, since that arm legitimately knows the fix.
+This is a correction relative to earlier development-validation runs, which did
+not sanitise these two channels and are accordingly not used for any number
+reported in this paper.
+
+\smallskip
+\noindent\textbf{Impact evidence availability.}\quad
+Impact relies primarily on bug-report content, which \textit{Defects4J} does
+not provide uniformly: report availability is high overall across the shared
+evidence corpus but uneven by project and tracker, notably lower for
+\textit{Chart}, whose reports are hosted on an archived SourceForge tracker.
+\texttt{Unknown} is the intended response when available evidence cannot
+support a judgement, and is preferred over a forced guess.
+
+\smallskip
+\noindent\textbf{Impact ground truth.}\quad
+No customer-impact oracle exists for \textit{Defects4J}. On a benchmark
+defined by failing unit tests, a skew of the Impact distribution toward
+Reliability and Capability is expected and reflects the benchmark rather than
+the instrument; Impact is therefore reported descriptively
+(Section~\ref{sec:impact}) and used as a drift negative control
+(Section~\ref{sec:divergence}), not as an accuracy claim.
+
+\smallskip
+\noindent\textbf{Instrument-prior revision.}\quad
+Development-validation prompts asserted that most \textit{Defects4J} bugs fall
+into three named ODC types, which risked biasing the very distribution RQ1
+measures. This assertion has been replaced with a neutral anti-default rule
+that names no expected distribution; the confirmatory run of
+Section~\ref{sec:setup} uses the revised prompt exclusively.
 
 \smallskip
 \noindent\textbf{External validity.}\quad
@@ -1170,9 +1337,13 @@ Future work spans five directions:
   \item \textbf{Multi-model consensus} --- classify with several LLMs and
         aggregate by majority vote to reduce single-provider variance
         \citep{colavito2024llm}.
-  \item \textbf{Validated opener mapping} --- replace keyword-based
-        opener/closer heuristics with validated Activity$\to$Trigger mappings from
-        \textit{Defects4J} test metadata.
+  \item \textbf{Completing the opener/closer attribute set} --- implement
+        ODC's full field-defect procedure (Trigger from the report's usage
+        scenario, Activity via the \S2.1 mapping) for the subset of bugs whose
+        reports carry sufficient usage detail; recover Age via VCS archaeology
+        that reconstructs when defective code was introduced; and validate the
+        Impact attribute of Section~\ref{sec:impact} against trained human
+        raters.
   \item \textbf{ODC-guided repair} --- use classifications to select repair
         strategies, connecting classification output to automated repair tools
         (e.g.\ \textit{Checking} bugs to conditional-guard templates)

@@ -2,7 +2,7 @@
 
 - Version: `21b`
 - Work directory: `C:\d4j_work\postfix\Collections_21b`
-- Generated: `2026-07-08T17:08:15+00:00`
+- Generated: `2026-07-10T18:49:43+00:00`
 
 ## Failure Summary
 - `org.apache.commons.collections4.list.SetUniqueListTest::testSubListIsUnmodifiable`: junit.framework.AssertionFailedError: subList should be unmodifiable
@@ -12,18 +12,13 @@
 
 ## ODC Result
 - **Evidence Mode**: ⚠️ Post-fix (with buggy->fixed diff)
-- ODC Type: `Checking`
+- ODC Type: `Algorithm/Method`
 - Family: `Control and Data Flow`
 - Target: `Design/Code`
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The bug is a violation of the expected API contract for sublists of a SetUniqueList. The implementation failed to enforce the unmodifiable nature of the sublist, leading to inconsistent state. By wrapping the sublist in an unmodifiable list, the code now correctly enforces the required constraint.
+The defect is a failure to adhere to the expected behavior of the subList() method. By returning a mutable list, the class allows operations that corrupt the internal state of the SetUniqueList. The fix is to wrap the returned sublist in an unmodifiable decorator, which is a local procedural change to the method.
 
 ## ODC Attribute Mapping (Optional)
-- Qualifier: `Incorrect`
-- Age: `Base`
-- Source: `Design`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Recovery/Exception, Test Sequencing`
-- Inferred Impact: `Reliability`
+- Impact: `Capability`

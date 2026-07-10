@@ -2,7 +2,7 @@
 
 - Version: `43b`
 - Work directory: `C:\d4j_work\prefix\Lang_43b`
-- Generated: `2026-07-08T17:06:04+00:00`
+- Generated: `2026-07-10T18:47:49+00:00`
 
 ## Failure Summary
 - `org.apache.commons.lang.text.ExtendedMessageFormatTest::testEscapedQuote_LANG_477`: java.lang.OutOfMemoryError: Java heap space
@@ -21,12 +21,7 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The code at line 422 returns without updating the ParsePosition, which is the loop control variable for the while loop in applyPattern. This is a classic 'Checking' defect where the loop termination condition is not correctly maintained.
+The code at line 421-422 in ExtendedMessageFormat.java checks for a quote but does not update the ParsePosition. Since this is called within a loop in applyPattern, the parser gets stuck on the same character, causing an infinite loop that consumes memory until an OOM occurs. This is a failure to correctly validate/advance the parsing state, fitting the 'Checking' category.
 
 ## ODC Attribute Mapping (Optional)
-- Qualifier: `Missing`
-- Age: `New`
-- Source: `Requirement`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Test Sequencing`
-- Inferred Impact: `Reliability`
+- Impact: `Reliability`

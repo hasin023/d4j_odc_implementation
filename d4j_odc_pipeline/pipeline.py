@@ -14,6 +14,7 @@ from .odc import (
     OTHER_TYPE_NAME,
     STRATEGY_SCIENTIFIC,
     TAXONOMY_FREE,
+    allowed_impact_names,
     allowed_type_names,
     family_for,
     legacy_prompt_style,
@@ -359,6 +360,8 @@ def classify_bug_context(
     if result.odc_type == OTHER_TYPE_NAME:
         optional_rows.append(("Nearest Type", result.nearest_type or "—"))
         optional_rows.append(("Other Confidence", f"{result.other_confidence:.2f}" if result.other_confidence is not None else "—"))
+    if result.impact:
+        optional_rows.append(("Impact", result.impact))
     if result.target:
         optional_rows.append(("Target", result.target))
     if result.qualifier:
@@ -446,6 +449,8 @@ def write_markdown_report(
         if classification.source:
             closer_lines.append(f"- Source: `{classification.source}`")
         opener_lines = []
+        if classification.impact:
+            opener_lines.append(f"- Impact: `{classification.impact}`")
         if classification.inferred_activity:
             opener_lines.append(f"- Inferred Activity: `{classification.inferred_activity}`")
         if classification.inferred_triggers:
@@ -942,6 +947,7 @@ def _validate_classification_payload(
             qualifier=None,
             age=None,
             source=None,
+            impact=None,  # zero-free stays ODC-free: no impact vocabulary in that cell
             inferred_activity=None,
             inferred_triggers=[],
             inferred_impact=[],
@@ -981,6 +987,16 @@ def _validate_classification_payload(
                 f"odc_type is 'Other' but other_confidence {raw_other_confidence!r} is not a number"
             ) from None
 
+    # Opener attribute (v5.2 §3.3): single-select, strictly validated like
+    # odc_type. Tolerate absence (None) so providers without response-schema
+    # enforcement don't hard-fail an otherwise valid classification.
+    impact = _opt_text(payload.get("impact"))
+    if impact is not None and impact not in allowed_impact_names():
+        raise LLMError(
+            f"Invalid impact in LLM output: {impact!r} "
+            f"(expected one of {', '.join(allowed_impact_names())})"
+        )
+
     confidence = float(payload.get("confidence", 0.0))
     confidence = min(1.0, max(0.0, confidence))
     return ClassificationResult(
@@ -1012,6 +1028,7 @@ def _validate_classification_payload(
         qualifier=_opt_text(payload.get("qualifier")),
         age=_opt_text(payload.get("age")),
         source=_opt_text(payload.get("source")),
+        impact=impact,
         inferred_activity=_opt_text(payload.get("inferred_activity")),
         inferred_triggers=_opt_list(payload.get("inferred_triggers")),
         inferred_impact=_opt_list(payload.get("inferred_impact")),

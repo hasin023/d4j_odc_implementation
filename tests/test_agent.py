@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 
 from d4j_odc_pipeline.agent import (
     AGENT_MAX_TURNS,
+    _agent_system_prompt,
     execute_probe,
     run_agentic_classification,
     turn_response_schema,
@@ -56,9 +57,9 @@ def _turn(action: str, probe=None, conclusion=None) -> str:
     })
 
 
-def _conclusion_payload(label="Assignment/Initialization") -> dict:
+def _conclusion_payload(label="Assignment/Initialization", impact="Reliability") -> dict:
     return {
-        "odc_type": label, "confidence": 0.9, "needs_human_review": False,
+        "odc_type": label, "impact": impact, "confidence": 0.9, "needs_human_review": False,
         "observation_summary": "o", "hypothesis": "h", "prediction": "p",
         "experiment_rationale": "e", "reasoning_summary": "r",
         "evidence_used": [], "evidence_gaps": [], "alternative_types": [],
@@ -88,6 +89,48 @@ class ProbeTests(unittest.TestCase):
         self.assertEqual(0.9, execute_probe(self.ctx, "coverage", "Foo")["coverage"][0]["line_rate"])
         self.assertIn("bar is empty", execute_probe(self.ctx, "bug_report", None)["bug_report"])
 
+    def test_bug_report_probe_sanitizes_prefix_arm(self) -> None:
+        """The bug_report probe must honour the same pre-fix sanitization as
+        the seed payload (docs/odc_alignment_audit.md §7) — otherwise a probe
+        would leak fix knowledge the seed deliberately withheld."""
+        ctx = _rich_context()
+        ctx.bug_report_content = (
+            "Title: Foo is wrong\n"
+            "Type: Bug | Priority: Major | Status: Resolved | Resolution: Fixed\n"
+            "\nDescription:\nThe foo value is wrong when bar is empty.\n"
+            "\nComments:\n\n[dev]: Fixed in commit abc123."
+        )
+        observation = execute_probe(ctx, "bug_report", None)
+        self.assertIn("wrong when bar is empty", observation["bug_report"])
+        self.assertNotIn("Fixed in commit", observation["bug_report"])
+        self.assertNotIn("Resolution:", observation["bug_report"])
+
+    def test_bug_report_probe_untouched_on_postfix_arm(self) -> None:
+        ctx = _rich_context()
+        ctx.fix_diff = "--- a/Foo.java\n+++ b/Foo.java\n@@ -1 +1 @@\n-old\n+new\n"
+        ctx.bug_report_content = (
+            "Title: Foo is wrong\n\nComments:\n\n[dev]: Fixed in commit abc123."
+        )
+        observation = execute_probe(ctx, "bug_report", None)
+        self.assertIn("Fixed in commit", observation["bug_report"])
+
+
+class AgentImpactPromptTests(unittest.TestCase):
+    """The scientific loop's system prompt must teach the v5.2 Impact
+    attribute (docs/odc_alignment_audit.md §6.1) — it is opener-side, so it
+    belongs in the agent's system prompt like the taxonomy itself."""
+
+    def test_system_prompt_includes_impact_definitions(self) -> None:
+        system = _agent_system_prompt("closed")
+        self.assertIn("ODC Impact", system)
+        self.assertIn("Reliability", system)
+        self.assertIn("Capability", system)
+        self.assertIn("Unknown", system)
+
+    def test_system_prompt_requires_impact_in_conclusion(self) -> None:
+        system = _agent_system_prompt("closed")
+        self.assertIn("impact", system.lower())
+
 
 class LoopTests(unittest.TestCase):
     def test_probe_then_conclude(self) -> None:
@@ -109,6 +152,7 @@ class LoopTests(unittest.TestCase):
             context=_rich_context(), client=fake, taxonomy="closed",
             validate_conclusion=validate)
         self.assertEqual("Assignment/Initialization", result.odc_type)
+        self.assertEqual("Reliability", result.impact)
         self.assertEqual(2, len(result.turns))
         self.assertEqual("request_evidence", result.turns[0]["action"])
         self.assertEqual("snippet", result.turns[0]["probe"]["name"])

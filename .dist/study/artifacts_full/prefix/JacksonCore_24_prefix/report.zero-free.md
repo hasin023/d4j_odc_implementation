@@ -2,7 +2,7 @@
 
 - Version: `24b`
 - Work directory: `C:\d4j_work\prefix\JacksonCore_24b`
-- Generated: `2026-07-08T16:47:22+00:00`
+- Generated: `2026-07-10T18:53:49+00:00`
 
 ## Failure Summary
 - `com.fasterxml.jackson.core.json.async.AsyncNumberCoercionTest::testToLongFailing`: com.fasterxml.jackson.core.JsonParseException: Numeric value (9223372036854775817) out of range of long (-9223372036854775808 - 9223372036854775807)
@@ -28,10 +28,10 @@
 
 ## ODC Result
 - **Evidence Mode**: ✅ Pre-fix only
-- ODC Type: `Inappropriate Exception Type Usage`
+- ODC Type: `Incorrect Exception Type Usage`
 - Family: `None`
 - Target: `Design/Code`
 - Confidence: `0.95`
 - Needs Human Review: `False`
 
-The bug report and failing tests indicate that the library was using 'JsonParseException' to signal numeric overflow errors during coercion. This is semantically incorrect because the input JSON is syntactically valid, but the requested conversion to a specific Java type (like int or long) fails due to range constraints. The code was throwing a generic parse exception instead of a more specific exception that could provide context about the target type and the nature of the coercion failure. The fix involves introducing a more specific exception hierarchy (InputCoercionException) to distinguish these semantic conversion errors from actual syntax parsing errors.
+The bug report explicitly states that the current implementation uses 'JsonParseException' for numeric overflow errors, which is semantically incorrect because these are coercion failures rather than parsing errors. The stack traces confirm that the code currently throws 'JsonParseException' via 'ParserMinimalBase._reportError' when a number exceeds the range of the requested target type (int or long). The desired behavior is to use a more specific 'InputCoercionException' that extends 'JsonProcessingException' instead of 'JsonParseException', allowing for better error handling and metadata reporting.

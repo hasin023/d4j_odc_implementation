@@ -2,7 +2,7 @@
 
 - Version: `3b`
 - Work directory: `C:\d4j_work\prefix\JacksonXml_3b`
-- Generated: `2026-07-08T17:05:27+00:00`
+- Generated: `2026-07-10T18:47:01+00:00`
 
 ## Failure Summary
 - `com.fasterxml.jackson.dataformat.xml.stream.XmlParserNextXxxTest::testXmlAttributesWithNextTextValue`: junit.framework.ComparisonFailure: expected:<7> but was:<null>
@@ -12,18 +12,13 @@
 
 ## ODC Result
 - **Evidence Mode**: ✅ Pre-fix only
-- ODC Type: `Algorithm/Method`
+- ODC Type: `Checking`
 - Family: `Control and Data Flow`
 - Target: `Design/Code`
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The defect is a failure to return a value in a specific control flow path (attributes), which is a method-level implementation error.
+The failure is a classic case of a missing check for a specific state (attribute value) in a conditional block, which is the definition of a 'Checking' defect in ODC.
 
 ## ODC Attribute Mapping (Optional)
-- Qualifier: `Incorrect`
-- Age: `New`
-- Source: `Requirement`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Test Variation`
-- Inferred Impact: `Reliability`
+- Impact: `Capability`

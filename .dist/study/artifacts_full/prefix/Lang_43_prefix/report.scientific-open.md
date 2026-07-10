@@ -2,7 +2,7 @@
 
 - Version: `43b`
 - Work directory: `C:\d4j_work\prefix\Lang_43b`
-- Generated: `2026-07-08T16:59:12+00:00`
+- Generated: `2026-07-10T18:39:25+00:00`
 
 ## Failure Summary
 - `org.apache.commons.lang.text.ExtendedMessageFormatTest::testEscapedQuote_LANG_477`: java.lang.OutOfMemoryError: Java heap space
@@ -15,10 +15,13 @@
 
 ## ODC Result
 - **Evidence Mode**: ✅ Pre-fix only
-- ODC Type: `Checking`
+- ODC Type: `Algorithm/Method`
 - Family: `Control and Data Flow`
 - Target: `Design/Code`
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The code at line 421-422 in ExtendedMessageFormat.java returns without calling next(pos) or updating the index. Since the caller (applyPattern) relies on the ParsePosition to advance through the string, failing to advance it causes the loop to process the same character repeatedly, leading to infinite recursion/looping and memory exhaustion.
+The code at line 421-422 in ExtendedMessageFormat.java handles an escaped quote but does not update the ParsePosition. Since this is called within a while loop in applyPattern (line 155), the parser gets stuck on the same character, leading to an infinite loop and eventual heap exhaustion.
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Reliability`

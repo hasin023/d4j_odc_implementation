@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 
 from .models import BugContext
 from .odc import (
@@ -9,7 +10,9 @@ from .odc import (
     TAXONOMY_CLOSED,
     TAXONOMY_FREE,
     TAXONOMY_OPEN,
+    allowed_impact_names,
     allowed_type_names,
+    impact_markdown,
     taxonomy_markdown,
     validate_condition,
 )
@@ -85,11 +88,13 @@ def _build_system_prompt(
         "",
         "CRITICAL RULES:",
         "- Do NOT default to 'Function/Class/Object'. This type implies a design-level capability issue.",
-        "- Most Defects4J bugs are in existing code that produces wrong results — these are often Checking, Algorithm/Method, or Assignment/Initialization.",
+        "- Choose the type whose root-cause mechanism the evidence best supports; 'Function/Class/Object' requires evidence of a design-level capability gap, not merely wrong behaviour in existing code.",
         "- Read the code snippets carefully. The type of fix needed determines the ODC type.",
         "- Do not use benchmark familiarity, project reputation, or hidden fix knowledge.",
         "",
         taxonomy_markdown(taxonomy_mode),
+        "",
+        impact_markdown(),
         "",
         "Return only valid JSON matching this schema:",
         _json_contract(taxonomy_mode),
@@ -241,6 +246,9 @@ def _build_user_prompt(
         "- If code snippets show existing logic producing wrong results, this is usually NOT 'Function/Class/Object'.",
         "- If evidence is incomplete, lower confidence and set needs_human_review=true.",
         "- The output odc_type must be one of: " + ", ".join(allowed_type_names(taxonomy_mode)),
+        "- Also set `impact` (ODC opener attribute) per the Impact section of the system prompt: "
+        "judged from the bug report and failure behaviour, one of "
+        + ", ".join(allowed_impact_names()) + ".",
     ]
     if taxonomy_mode == TAXONOMY_OPEN:
         rules.append(
@@ -251,6 +259,154 @@ def _build_user_prompt(
     if context.fix_diff:
         rules.append("- CAREFULLY examine the fix_diff_oracle to see exactly what was changed. The nature of the change determines the ODC type.")
     return "\n".join(rules) + "\n\nEvidence:\n" + json.dumps(payload, indent=2)
+
+
+# ── Pre-fix payload sanitization ──────────────────────────────────────────
+# The pre-fix arm must contain NO fix-derived information (see
+# docs/odc_alignment_audit.md §7). Two channels are sanitized at payload-build
+# time — context.json artifacts are never modified:
+#   - bug_info: raw `defects4j info` output carries "List of modified sources"
+#     (the classes changed by the FIX commit — the same oracle hidden as
+#     hidden_oracles["classes.modified"]) and the fixed-revision id/date.
+#   - bug_report_content: tracker pages/API responses carry post-fix material
+#     (comments like "Fixed in …", Status/Resolution fields, close transitions).
+# Post-fix payloads (context.fix_diff set) keep both untouched: that arm
+# legitimately knows the fix.
+
+_BUG_INFO_FIX_SECTIONS = (
+    "revision id (fixed version)",
+    "revision date (fixed version)",
+    "list of modified sources",
+)
+
+# Comment-thread markers for flattened tracker pages (SourceForge, archives).
+# Truncating at the earliest marker keeps the original report body, which
+# always precedes the comment thread.
+# NOTE: "If you would like to refer to this comment" / "Logged In: YES" are
+# boilerplate APPENDED AFTER each individual comment, not before the thread —
+# truncating there still keeps the first comment's own text intact (which is
+# exactly where a "Good spot, I've committed the fix" disclosure typically
+# lives). "Discussion" is SourceForge's section header preceding the FIRST
+# comment, so it must be tried first; the others remain as a fallback for
+# pages where "Discussion" doesn't appear. Verified against the corpus:
+# 23/832 reports contain "Discussion", 100% as this section-header pattern
+# (never inside legitimate description prose).
+_REPORT_COMMENT_MARKERS = (
+    "\nComments:",                                  # our own JIRA/GitHub API format
+    "Discussion",                                    # SourceForge section header (precedes ALL comments)
+    "If you would like to refer to this comment",   # SourceForge per-comment boilerplate (fallback)
+    "Logged In: YES",                               # SourceForge comment header (fallback)
+    "Log in to post a comment",                     # SourceForge page footer (fallback)
+)
+
+# Google Code-style trackers (e.g. Closure) store the report as a raw JSON
+# object: {"status": "...", "comments": [{"id":0,...="original report"},
+# {"id":1,...="follow-up discussion, routinely reveals the fix"}, ...]}.
+# The first comment IS the original report; truncate at the second comment
+# object's start regardless of its "id" value (ids are not guaranteed to
+# start at a specific number).
+_JSON_SECOND_COMMENT_RE = re.compile(r'\{"id":\d+,\s*"commenterId"')
+
+# Meta segments that reveal post-open state on API-format report meta lines
+# (e.g. "Type: Bug | Priority: Major | Status: Resolved | Resolution: Fixed").
+_REPORT_META_KEYS = ("Type", "State", "Priority", "Status", "Resolution", "Labels")
+_REPORT_META_DROP = ("State", "Status", "Resolution")
+
+# Inline status/resolution tokens on flattened generic-HTML/JSON tracker pages
+# (SourceForge, Google Code), which are neither a clean " | "-delimited meta
+# line NOR past the comment-thread truncation point — a ticket header like
+# "#868 ... Status: closed-fixed Owner: ..." precedes the description itself,
+# and Google Code JSON has an unquoted-colon '"status":"Fixed"' top-level key.
+# Also catches transition-log phrasing ("status : open --> closed-fixed").
+# Trade-off: a rare false positive eating 1-2 incidental words beats the
+# alternative of a resolved-ticket status token surviving sanitization.
+_INLINE_STATUS_RE = re.compile(
+    r'\bstatus"?\s*:\s*"?[\w-]+"?(?:\s*-+>\s*"?[\w-]+"?)?', re.IGNORECASE
+)
+_INLINE_RESOLUTION_RE = re.compile(
+    r'\bresolution"?\s*:\s*"?[\w-]+"?(?:\s*-+>\s*"?[\w-]+"?)?', re.IGNORECASE
+)
+
+
+def _is_separator_line(line: str) -> bool:
+    stripped = line.strip()
+    return len(stripped) >= 10 and set(stripped) == {"-"}
+
+
+def sanitize_bug_info(text: str) -> str:
+    """Strip fix-derived sections from raw `defects4j info` output.
+
+    Drops the "List of modified sources" and "Revision ID/date (fixed
+    version)" sections wholesale; everything else (project summary, bug
+    report id/url, triggering tests) is legitimately pre-fix and kept."""
+    if not text:
+        return text
+    out: list[str] = []
+    skipping = False
+    for line in text.splitlines():
+        if skipping:
+            if _is_separator_line(line):
+                skipping = False
+                out.append(line)  # keep one delimiter between surviving sections
+            continue
+        header = line.strip().lower().rstrip(":")
+        if header in _BUG_INFO_FIX_SECTIONS:
+            # Drop the delimiter we just emitted for this section, then skip
+            # until the section's closing delimiter.
+            if out and _is_separator_line(out[-1]):
+                out.pop()
+            skipping = True
+            continue
+        out.append(line)
+    return "\n".join(out)
+
+
+def sanitize_bug_report(text: str) -> str:
+    """Strip post-fix material from bug report text.
+
+    Keeps the report as filed (title, metadata, description); removes the
+    comment thread (which post-dates the report and frequently discusses the
+    fix), Status/Resolution/State segments from API meta lines, and inline
+    status/resolution tokens on flattened generic-HTML tracker pages."""
+    if not text:
+        return text
+    # 1. Truncate at the earliest comment-thread marker.
+    cut = len(text)
+    for marker in _REPORT_COMMENT_MARKERS:
+        idx = text.find(marker)
+        if idx != -1:
+            cut = min(cut, idx)
+    # 1b. Google Code-style JSON comments[] array: keep only the first
+    # (original-report) comment object.
+    json_comments = list(_JSON_SECOND_COMMENT_RE.finditer(text))
+    if len(json_comments) >= 2:
+        cut = min(cut, json_comments[1].start())
+    text = text[:cut].rstrip()
+    # 2. Drop post-open segments from meta lines. Only lines whose every
+    #    " | "-separated segment is a known meta key are rewritten, so
+    #    description text containing pipes is never touched.
+    lines = text.splitlines()
+    meta_re = re.compile(r"^(%s): " % "|".join(_REPORT_META_KEYS))
+    for i, line in enumerate(lines):
+        segments = line.split(" | ")
+        if len(segments) > 1 and all(meta_re.match(seg.strip()) for seg in segments):
+            kept = [
+                seg for seg in segments
+                if not seg.strip().startswith(tuple(f"{key}: " for key in _REPORT_META_DROP))
+            ]
+            lines[i] = " | ".join(kept)
+    text = "\n".join(lines).strip()
+    # 3. Sweep any remaining inline status/resolution tokens — covers ticket
+    #    headers on flattened generic-HTML pages that precede the truncation
+    #    point (step 1 only removes the comment-thread TAIL).
+    text = _INLINE_STATUS_RE.sub("", text)
+    text = _INLINE_RESOLUTION_RE.sub("", text)
+    return _collapse_line_whitespace(text)
+
+
+def _collapse_line_whitespace(text: str) -> str:
+    """Collapse runs of spaces left by token removal, without merging lines."""
+    return "\n".join(" ".join(line.split()) for line in text.split("\n")).strip()
 
 
 def _context_payload(context: BugContext) -> dict:
@@ -269,13 +425,17 @@ def _context_payload(context: BugContext) -> dict:
         "coverage_summary": [],
     }
 
-    # ── Bug info from d4j info command ────────────────────────────────
-    if context.bug_info:
-        payload["bug_info"] = context.bug_info
+    # ── Bug info / bug report (sanitized in the pre-fix arm only) ─────
+    prefix_arm = not context.fix_diff
+    bug_info = sanitize_bug_info(context.bug_info) if prefix_arm else context.bug_info
+    if bug_info:
+        payload["bug_info"] = bug_info
 
-    # ── Bug report content from JIRA/GitHub ───────────────────────────
-    if context.bug_report_content:
-        payload["bug_report_description"] = context.bug_report_content
+    bug_report = (
+        sanitize_bug_report(context.bug_report_content) if prefix_arm else context.bug_report_content
+    )
+    if bug_report:
+        payload["bug_report_description"] = bug_report
 
     # ── Failing tests ─────────────────────────────────────────────────
     for failure in context.failures[:5]:
@@ -358,108 +518,12 @@ def _context_payload(context: BugContext) -> dict:
     if context.notes:
         payload["notes"] = list(context.notes)
 
-    # ── ODC opener/closer alignment hints (additive, optional) ──────
-    opener_hints, closer_hints = _build_odc_mapping_hints(context)
-    payload["odc_opener_hints"] = opener_hints
-    payload["odc_closer_hints"] = closer_hints
+    # NOTE: the old odc_opener_hints/odc_closer_hints keyword heuristics were
+    # removed (docs/odc_alignment_audit.md §4.4): they anchored the LLM's
+    # opener judgments, used unsound age/qualifier rules, and leaked ODC
+    # vocabulary into the zero-free baseline payload.
 
     return payload
-
-
-def _build_odc_mapping_hints(context: BugContext) -> tuple[dict, dict]:
-    activity_candidates: list[str] = ["Unit Test"]
-    trigger_candidates: list[str] = []
-    impact_candidates: list[str] = []
-
-    combined_text = " ".join(
-        [
-            context.bug_report_content,
-            context.bug_info,
-            " ".join((f.headline or "") + " " + " ".join(f.stack_trace[:3]) for f in context.failures),
-        ]
-    ).lower()
-
-    if "integration" in combined_text or "end-to-end" in combined_text:
-        activity_candidates.append("Function Test")
-    if any(token in combined_text for token in ("workload", "stress", "throughput", "latency", "hang under load")):
-        activity_candidates.append("System Test")
-
-    if any(token in combined_text for token in ("nullpointer", "assert", "expected", "boundary", "invalid")):
-        trigger_candidates.append("Test Variation")
-    if any(token in combined_text for token in ("sequence", "order", "after", "before", "then")):
-        trigger_candidates.append("Test Sequencing")
-    if any(token in combined_text for token in ("interaction", "interact", "combined", "together")):
-        trigger_candidates.append("Test Interaction")
-    if any(token in combined_text for token in ("exception", "recover", "recovery", "abend")):
-        trigger_candidates.append("Recovery/Exception")
-    if any(token in combined_text for token in ("workload", "stress", "load")):
-        trigger_candidates.append("Workload/Stress")
-    if not trigger_candidates:
-        trigger_candidates.append("Coverage")
-
-    if any(token in combined_text for token in ("crash", "hang", "deadlock", "abort", "exception")):
-        impact_candidates.append("Reliability")
-    if any(token in combined_text for token in ("slow", "performance", "latency", "throughput")):
-        impact_candidates.append("Performance")
-    if any(token in combined_text for token in ("security", "permission", "auth", "integrity")):
-        impact_candidates.append("Integrity/Security")
-    if any(token in combined_text for token in ("documentation", "javadoc", "manual", "message")):
-        impact_candidates.append("Documentation")
-    if not impact_candidates:
-        impact_candidates.append("Capability")
-
-    qualifier_hint: str | None = None
-    age_hint: str | None = None
-    source_hint: str | None = None
-
-    if context.fix_diff:
-        added = 0
-        removed = 0
-        for line in context.fix_diff.splitlines():
-            if line.startswith("+++") or line.startswith("---"):
-                continue
-            if line.startswith("+"):
-                added += 1
-            elif line.startswith("-"):
-                removed += 1
-
-        if added > 0 and removed == 0:
-            qualifier_hint = "Missing"
-        elif removed > 0 and added == 0:
-            qualifier_hint = "Extraneous"
-        elif added > 0 or removed > 0:
-            qualifier_hint = "Incorrect"
-
-        total_delta = added + removed
-        if total_delta >= 120:
-            age_hint = "Rewritten"
-        elif added >= 24 and added > (removed * 2):
-            age_hint = "New"
-        elif total_delta > 0:
-            age_hint = "Base"
-
-    opener_hints = {
-        "activity_candidates": activity_candidates,
-        "trigger_candidates": sorted(set(trigger_candidates)),
-        "impact_candidates": sorted(set(impact_candidates)),
-        "mapping_rationale": (
-            "Derived from failing test patterns, bug report/bug info text, and failure headlines. "
-            "These are heuristic candidates aligned to ODC opener attributes."
-        ),
-    }
-
-    closer_hints = {
-        "target": "Design/Code",
-        "qualifier_hint": qualifier_hint,
-        "age_hint": age_hint,
-        "source_hint": source_hint,
-        "mapping_rationale": (
-            "Target is fixed for this pipeline scope; qualifier/age/source are heuristic and optional, "
-            "primarily informed by fix-diff shape and available metadata."
-        ),
-    }
-
-    return opener_hints, closer_hints
 
 
 def _json_contract(taxonomy_mode: str = TAXONOMY_CLOSED) -> str:
@@ -475,13 +539,9 @@ def _json_contract(taxonomy_mode: str = TAXONOMY_CLOSED) -> str:
         '"odc_type": "one of the allowed ODC types", '
         + other_fields +
         '"family": "Control and Data Flow or Structural", '
+        '"impact": "ODC opener Impact — exactly one of: ' + ", ".join(allowed_impact_names()) + '", '
         '"target": "Design/Code (optional; closer attribute)", '
-        '"qualifier": "Missing or Incorrect or Extraneous (optional; closer attribute)", '
-        '"age": "Base or New or Rewritten or ReFixed (optional; closer attribute)", '
-        '"source": "Developed In-House or Reused From Library or Outsourced or Ported (optional; closer attribute)", '
-        '"inferred_activity": "ODC opener activity candidate (optional)", '
-        '"inferred_triggers": ["ODC opener trigger candidates (optional)"], '
-        '"inferred_impact": ["ODC opener impact candidates (optional)"], '
+        '"qualifier": "Missing or Incorrect or Extraneous (optional; closer attribute, determinable from the fix diff)", '
         '"confidence": "number between 0 and 1", '
         '"needs_human_review": "boolean", '
         '"observation_summary": "short paragraph describing failure symptoms", '

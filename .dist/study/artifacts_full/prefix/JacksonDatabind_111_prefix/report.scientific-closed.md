@@ -2,7 +2,7 @@
 
 - Version: `111b`
 - Work directory: `C:\d4j_work\prefix\JacksonDatabind_111b`
-- Generated: `2026-07-08T17:04:55+00:00`
+- Generated: `2026-07-10T18:46:30+00:00`
 
 ## Failure Summary
 - `com.fasterxml.jackson.databind.deser.jdk.JDKAtomicTypesDeserTest::testNullWithinNested`: junit.framework.AssertionFailedError
@@ -14,16 +14,12 @@
 - **Evidence Mode**: ✅ Pre-fix only
 - ODC Type: `Assignment/Initialization`
 - Family: `Control and Data Flow`
-- Target: `Design/Code`
+- Target: `null`
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The bug report states that the deserializer and null value provider are not kept in sync. This is a classic case of incorrect state initialization/assignment during the object lifecycle (contextualization).
+The bug report provides a clear explanation of the root cause: the bean property creator has distinct deserializer and nullProvider, and when the ReferenceTypeDeserializer is contextualized, the nullProvider is not updated. This is an initialization error where the state of the deserializer is not correctly set up for the nested case.
 
 ## ODC Attribute Mapping (Optional)
-- Qualifier: `Incorrect Value`
-- Age: `New`
-- Source: `Requirement`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Test Variation`
-- Inferred Impact: `Reliability`
+- Qualifier: `null`
+- Impact: `Capability`

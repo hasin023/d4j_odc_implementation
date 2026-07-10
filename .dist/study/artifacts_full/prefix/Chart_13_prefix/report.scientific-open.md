@@ -2,7 +2,7 @@
 
 - Version: `13b`
 - Work directory: `C:\d4j_work\prefix\Chart_13b`
-- Generated: `2026-07-08T16:53:32+00:00`
+- Generated: `2026-07-10T18:35:16+00:00`
 
 ## Failure Summary
 - `org.jfree.chart.block.junit.BorderArrangementTests::testSizingWithWidthConstraint`: java.lang.IllegalArgumentException: Range(double, double): require lower (0.0) <= upper (-2.3000000000000007).
@@ -20,7 +20,10 @@
 - ODC Type: `Checking`
 - Family: `Control and Data Flow`
 - Target: `Design/Code`
-- Confidence: `1.0`
+- Confidence: `0.95`
 - Needs Human Review: `False`
 
-The bug is a missing boundary check (a guard) for a value used in a constructor that enforces a constraint (lower <= upper). This fits the ODC definition of 'Checking'.
+The failure is a direct result of an invalid parameter being passed to a constructor. The logic in BorderArrangement.arrangeFF assumes that the remaining width for the right block will always be positive. Since this is a validation error on input data (the calculated width), it falls under the 'Checking' category.
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Reliability`

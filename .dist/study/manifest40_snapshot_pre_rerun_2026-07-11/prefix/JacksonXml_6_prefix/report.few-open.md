@@ -1,0 +1,42 @@
+# Defects4J ODC Classification Report: JacksonXml-6
+
+- Version: `6b`
+- Work directory: `C:\d4j_work\prefix\JacksonXml_6b`
+- Generated: `2026-07-08T16:50:54+00:00`
+
+## Failure Summary
+- `com.fasterxml.jackson.dataformat.xml.ser.TestBinaryStreamToXMLSerialization::testWith0Bytes`: com.fasterxml.jackson.databind.JsonMappingException: Operation not supported by generator of type com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator (through reference chain: com.fasterxml.jackson.dataformat.xml.ser.TestBinaryStreamToXMLSerialization$TestPojo["field"])
+- `com.fasterxml.jackson.dataformat.xml.ser.TestBinaryStreamToXMLSerialization::testWith2Bytes`: com.fasterxml.jackson.databind.JsonMappingException: Operation not supported by generator of type com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator (through reference chain: com.fasterxml.jackson.dataformat.xml.ser.TestBinaryStreamToXMLSerialization$TestPojo["field"])
+- `com.fasterxml.jackson.dataformat.xml.ser.TestBinaryStreamToXMLSerialization::testWith3Bytes`: com.fasterxml.jackson.databind.JsonMappingException: Operation not supported by generator of type com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator (through reference chain: com.fasterxml.jackson.dataformat.xml.ser.TestBinaryStreamToXMLSerialization$TestPojo["field"])
+- `com.fasterxml.jackson.dataformat.xml.ser.TestBinaryStreamToXMLSerialization::testWith4Bytes`: com.fasterxml.jackson.databind.JsonMappingException: Operation not supported by generator of type com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator (through reference chain: com.fasterxml.jackson.dataformat.xml.ser.TestBinaryStreamToXMLSerialization$TestPojo["field"])
+- `com.fasterxml.jackson.dataformat.xml.ser.TestBinaryStreamToXMLSerialization::testWith1Byte`: com.fasterxml.jackson.databind.JsonMappingException: Operation not supported by generator of type com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator (through reference chain: com.fasterxml.jackson.dataformat.xml.ser.TestBinaryStreamToXMLSerialization$TestPojo["field"])
+
+## Suspicious Frames
+- `com.fasterxml.jackson.databind.JsonMappingException.wrapWithPath` at `JsonMappingException.java:394`
+- `com.fasterxml.jackson.databind.JsonMappingException.wrapWithPath` at `JsonMappingException.java:353`
+- `com.fasterxml.jackson.databind.ser.std.StdSerializer.wrapAndThrow` at `StdSerializer.java:316`
+- `com.fasterxml.jackson.dataformat.xml.ser.XmlBeanSerializerBase.serializeFields` at `XmlBeanSerializerBase.java:219`
+- `com.fasterxml.jackson.dataformat.xml.ser.XmlBeanSerializer.serialize` at `XmlBeanSerializer.java:117`
+- `com.fasterxml.jackson.dataformat.xml.ser.XmlSerializerProvider.serializeValue` at `XmlSerializerProvider.java:107`
+- `com.fasterxml.jackson.databind.ObjectMapper._configAndWriteValue` at `ObjectMapper.java:3905`
+- `com.fasterxml.jackson.databind.ObjectMapper.writeValueAsString` at `ObjectMapper.java:3219`
+- `com.fasterxml.jackson.core.JsonGenerator._reportUnsupportedOperation` at `JsonGenerator.java:1967`
+- `com.fasterxml.jackson.core.base.GeneratorBase.writeBinary` at `GeneratorBase.java:341`
+
+## ODC Result
+- **Evidence Mode**: ✅ Pre-fix only
+- ODC Type: `Function/Class/Object`
+- Family: `Structural`
+- Target: `Design/Code`
+- Confidence: `0.9`
+- Needs Human Review: `False`
+
+This is a classic case of a missing capability. The class ToXmlGenerator is designed to handle XML serialization but lacks the specific method implementation required to process binary data from an InputStream, which is a standard capability in other Jackson generators. This is not a logic error in an existing algorithm, but the absence of a required functional capability.
+
+## ODC Attribute Mapping (Optional)
+- Qualifier: `Missing`
+- Age: `New`
+- Source: `Developed In-House`
+- Inferred Activity: `Unit Test`
+- Inferred Triggers: `Recovery/Exception`
+- Inferred Impact: `Reliability`

@@ -2,7 +2,7 @@
 
 - Version: `28b`
 - Work directory: `C:\d4j_work\postfix\Jsoup_28b`
-- Generated: `2026-07-08T17:05:42+00:00`
+- Generated: `2026-07-10T18:47:17+00:00`
 
 ## Failure Summary
 - `org.jsoup.nodes.EntitiesTest::unescape`: junit.framework.AssertionFailedError: expected:<Hello &<> ® Å [&angst] π π 新 there &! ¾ © ...> but was:<Hello &<> ® Å [Å] π π 新 there &! ¾ © ...>
@@ -28,12 +28,7 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The bug is a classic case of an incorrect algorithmic implementation for entity decoding. The regex approach fails to account for the context of the input string (e.g., URLs), leading to spurious replacements. The fix replaces the entire unescape method with a call to a more robust Tokeniser-based parser, which is a clear algorithmic/method-level correction.
+The bug is a classic case of an incorrect algorithmic strategy for parsing entities. The regex-based approach in `Entities.unescape` fails to correctly handle entity boundaries, leading to spurious matches. The fix replaces this with a robust tokenization strategy, which is a procedural/algorithmic change.
 
 ## ODC Attribute Mapping (Optional)
-- Qualifier: `Incorrect`
-- Age: `Base`
-- Source: `Internal`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Test Variation`
-- Inferred Impact: `Reliability`
+- Impact: `Capability`

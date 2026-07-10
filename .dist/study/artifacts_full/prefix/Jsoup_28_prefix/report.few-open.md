@@ -2,7 +2,7 @@
 
 - Version: `28b`
 - Work directory: `C:\d4j_work\prefix\Jsoup_28b`
-- Generated: `2026-07-08T16:51:09+00:00`
+- Generated: `2026-07-10T18:58:08+00:00`
 
 ## Failure Summary
 - `org.jsoup.nodes.EntitiesTest::unescape`: junit.framework.AssertionFailedError: expected:<Hello &<> ® Å [&angst] π π 新 there &! ¾ © ...> but was:<Hello &<> ® Å [Å] π π 新 there &! ¾ © ...>
@@ -28,12 +28,8 @@
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The issue is a flaw in the entity decoding procedure itself. It is not a missing guard (Checking) or a wrong initialization (Assignment/Initialization), but rather an incorrect algorithmic strategy for identifying and replacing entities in the input string. The fix requires changing the logic that determines what constitutes a valid entity to be decoded.
+The issue is a flaw in the procedural logic of the entity unescaping algorithm. It is not a missing guard (Checking) or a wrong constant (Assignment), but rather an incorrect implementation of the entity-matching strategy that fails to correctly handle the context of the input string. This fits the definition of Algorithm/Method as it requires a change to the computational strategy used to identify and replace entities.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Incorrect`
-- Age: `Base`
-- Source: `Developed In-House`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Test Variation`
-- Inferred Impact: `Reliability`
+- Impact: `Capability`

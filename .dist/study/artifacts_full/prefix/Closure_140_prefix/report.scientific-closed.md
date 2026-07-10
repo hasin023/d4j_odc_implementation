@@ -2,7 +2,7 @@
 
 - Version: `140b`
 - Work directory: `C:\d4j_work\prefix\Closure_140b`
-- Generated: `2026-07-08T17:02:47+00:00`
+- Generated: `2026-07-10T18:44:34+00:00`
 
 ## Failure Summary
 - `com.google.javascript.jscomp.CrossModuleCodeMotionTest::testEmptyModule`: junit.framework.AssertionFailedError: compiler.reportCodeChange() was called even though nothing changed
@@ -22,4 +22,7 @@
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The error message 'compiler.reportCodeChange() was called even though nothing changed' explicitly points to a missing or incorrect check in the code responsible for reporting changes. In ODC, missing or incorrect validation of state changes is classified as 'Checking'.
+The error message explicitly states that reportCodeChange() was called when nothing changed. This is a classic 'Checking' defect where a guard condition (checking if the move is valid/necessary) is missing or insufficient.
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Capability`

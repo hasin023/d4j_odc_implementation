@@ -2,7 +2,7 @@
 
 - Version: `25b`
 - Work directory: `C:\d4j_work\prefix\Time_25b`
-- Generated: `2026-07-08T15:53:52+00:00`
+- Generated: `2026-07-10T18:01:42+00:00`
 
 ## Failure Summary
 - `org.joda.time.TestDateTimeZoneCutover::test_DateTime_constructor_Moscow_Autumn`: junit.framework.ComparisonFailure: expected:<...10-28T02:30:00.000+0[4]:00> but was:<...10-28T02:30:00.000+0[3]:00>
@@ -21,15 +21,10 @@
 - ODC Type: `Algorithm/Method`
 - Family: `Control and Data Flow`
 - Target: `Design/Code`
-- Confidence: `0.95`
+- Confidence: `0.9`
 - Needs Human Review: `False`
 
-The bug report explicitly states that the behavior during DST overlaps was undefined and varied by hemisphere, and that the fix involves changing the logic to always return the earlier instant. This is a classic algorithmic/method-level defect in handling temporal data transitions.
+The failure is a classic DST transition issue where the library fails to correctly identify the correct offset during an overlap. This is a procedural/algorithmic error in the time zone calculation logic.
 
 ## ODC Attribute Mapping (Optional)
-- Qualifier: `Incorrect`
-- Age: `New`
-- Source: `Requirements`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Test Variation`
-- Inferred Impact: `Reliability`
+- Impact: `Capability`

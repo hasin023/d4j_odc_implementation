@@ -5,41 +5,36 @@
   "prompt_style": "scientific",
   "model": "gemini-3.1-flash-lite-preview",
   "provider": "gemini",
-  "created_at": "2026-07-08T16:50:08+00:00",
+  "created_at": "2026-07-10T18:57:22+00:00",
   "odc_type": "Algorithm/Method",
   "family": "Control and Data Flow",
   "confidence": 0.9,
   "needs_human_review": false,
-  "observation_summary": "The JsonReader fails to correctly parse unquoted integer or long keys in a JSON map, throwing an IllegalStateException because it expects a numeric type but encounters a string representation.",
-  "hypothesis": "The JsonReader's internal state machine for parsing numbers (specifically nextInt/nextLong) is missing logic to handle unquoted numeric values (PEEKED_UNQUOTED), causing it to incorrectly identify them as strings or fail to transition correctly.",
-  "prediction": "The fix will involve updating the JsonReader's nextInt/nextLong methods to include a case for PEEKED_UNQUOTED, allowing it to parse unquoted numeric strings into integers or longs instead of throwing an exception.",
-  "experiment_rationale": "The stack trace points directly to JsonReader.nextInt/nextLong throwing an IllegalStateException when encountering unquoted values. The bug report confirms that unquoted keys (like '0' in '{0:1}') trigger this failure, indicating a missing or incorrect branch in the parsing algorithm.",
-  "reasoning_summary": "The defect is a failure in the procedural logic of the JsonReader's number parsing algorithm. It lacks the necessary logic to handle unquoted numeric tokens, which is a procedural deficiency in the parsing strategy rather than a simple missing guard or wrong initialization.",
+  "observation_summary": "The JsonReader fails to correctly parse unquoted numeric keys in a JSON map, throwing an IllegalStateException because it expects a numeric type but encounters a string token.",
+  "hypothesis": "The JsonReader's internal state machine for parsing numbers (specifically nextInt/nextLong) does not correctly handle the PEEKED_UNQUOTED state when the unquoted token is a valid number. The logic assumes that if the token is unquoted, it must be a string, failing to attempt a numeric parse for unquoted numeric literals.",
+  "prediction": "The fix will involve modifying the nextInt/nextLong methods in JsonReader to include a case for PEEKED_UNQUOTED, attempting to parse the unquoted string as a number before falling back to the current error-throwing behavior.",
+  "experiment_rationale": "The stack trace points directly to JsonReader.nextInt/nextLong throwing an IllegalStateException when encountering a STRING token where an int/long is expected. The bug report confirms this happens specifically with unquoted keys, which are treated as strings by the current implementation's state machine.",
+  "reasoning_summary": "The issue is a procedural failure in the parsing algorithm. The JsonReader's state machine logic for numeric extraction is incomplete; it lacks the necessary steps to handle unquoted numeric literals, which are valid in some JSON contexts (like map keys). This is an algorithmic deficiency in the parsing procedure, not a missing guard (Checking) or a wrong constant (Assignment).",
   "evidence_used": [
-    "com.google.gson.stream.JsonReader.nextLong",
+    "com.google.gson.stream.JsonReader.nextLong (line 966)",
     "com.google.gson.stream.JsonReaderTest::testPeekingUnquotedStringsPrefixedWithIntegers",
-    "com.google.gson.functional.MapTest::testMapDeserializationWithUnquotedLongKeys",
-    "Bug report description"
+    "Bug report description: JsonReader.nextInt() doesent work if p == PEEKED_UNQUOTED"
   ],
   "evidence_gaps": [],
   "alternative_types": [
     {
       "type": "Checking",
-      "why_not_primary": "While the code throws an exception, the root cause is not a missing validation check, but rather the absence of the logic required to process unquoted numeric tokens."
+      "why_not_primary": "While the code throws an exception, the root cause is not a missing validation check, but rather the absence of the logic required to handle a valid (though unquoted) numeric input format."
     }
   ],
   "target": "Code",
   "qualifier": "Incorrect",
-  "age": "Base",
-  "source": "Developed In-House",
-  "inferred_activity": "Unit Test",
-  "inferred_triggers": [
-    "Recovery/Exception",
-    "Test Variation"
-  ],
-  "inferred_impact": [
-    "Reliability"
-  ],
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
   "evidence_mode": "pre-fix",
   "strategy": "few",
   "taxonomy_mode": "open",
@@ -51,5 +46,5 @@
   "other_justification": null,
   "nearest_type": null,
   "other_confidence": null,
-  "raw_response": "{\n  \"odc_type\": \"Algorithm/Method\",\n  \"family\": \"Control and Data Flow\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"age\": \"Base\",\n  \"source\": \"Developed In-House\",\n  \"inferred_activity\": \"Unit Test\",\n  \"inferred_triggers\": [\"Recovery/Exception\", \"Test Variation\"],\n  \"inferred_impact\": [\"Reliability\"],\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The JsonReader fails to correctly parse unquoted integer or long keys in a JSON map, throwing an IllegalStateException because it expects a numeric type but encounters a string representation.\",\n  \"hypothesis\": \"The JsonReader's internal state machine for parsing numbers (specifically nextInt/nextLong) is missing logic to handle unquoted numeric values (PEEKED_UNQUOTED), causing it to incorrectly identify them as strings or fail to transition correctly.\",\n  \"prediction\": \"The fix will involve updating the JsonReader's nextInt/nextLong methods to include a case for PEEKED_UNQUOTED, allowing it to parse unquoted numeric strings into integers or longs instead of throwing an exception.\",\n  \"experiment_rationale\": \"The stack trace points directly to JsonReader.nextInt/nextLong throwing an IllegalStateException when encountering unquoted values. The bug report confirms that unquoted keys (like '0' in '{0:1}') trigger this failure, indicating a missing or incorrect branch in the parsing algorithm.\",\n  \"reasoning_summary\": \"The defect is a failure in the procedural logic of the JsonReader's number parsing algorithm. It lacks the necessary logic to handle unquoted numeric tokens, which is a procedural deficiency in the parsing strategy rather than a simple missing guard or wrong initialization.\",\n  \"evidence_used\": [\"com.google.gson.stream.JsonReader.nextLong\", \"com.google.gson.stream.JsonReaderTest::testPeekingUnquotedStringsPrefixedWithIntegers\", \"com.google.gson.functional.MapTest::testMapDeserializationWithUnquotedLongKeys\", \"Bug report description\"],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Checking\",\n      \"why_not_primary\": \"While the code throws an exception, the root cause is not a missing validation check, but rather the absence of the logic required to process unquoted numeric tokens.\"\n    }\n  ]\n}"
+  "raw_response": "{\n  \"odc_type\": \"Algorithm/Method\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Capability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The JsonReader fails to correctly parse unquoted numeric keys in a JSON map, throwing an IllegalStateException because it expects a numeric type but encounters a string token.\",\n  \"hypothesis\": \"The JsonReader's internal state machine for parsing numbers (specifically nextInt/nextLong) does not correctly handle the PEEKED_UNQUOTED state when the unquoted token is a valid number. The logic assumes that if the token is unquoted, it must be a string, failing to attempt a numeric parse for unquoted numeric literals.\",\n  \"prediction\": \"The fix will involve modifying the nextInt/nextLong methods in JsonReader to include a case for PEEKED_UNQUOTED, attempting to parse the unquoted string as a number before falling back to the current error-throwing behavior.\",\n  \"experiment_rationale\": \"The stack trace points directly to JsonReader.nextInt/nextLong throwing an IllegalStateException when encountering a STRING token where an int/long is expected. The bug report confirms this happens specifically with unquoted keys, which are treated as strings by the current implementation's state machine.\",\n  \"reasoning_summary\": \"The issue is a procedural failure in the parsing algorithm. The JsonReader's state machine logic for numeric extraction is incomplete; it lacks the necessary steps to handle unquoted numeric literals, which are valid in some JSON contexts (like map keys). This is an algorithmic deficiency in the parsing procedure, not a missing guard (Checking) or a wrong constant (Assignment).\",\n  \"evidence_used\": [\n    \"com.google.gson.stream.JsonReader.nextLong (line 966)\",\n    \"com.google.gson.stream.JsonReaderTest::testPeekingUnquotedStringsPrefixedWithIntegers\",\n    \"Bug report description: JsonReader.nextInt() doesent work if p == PEEKED_UNQUOTED\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Checking\",\n      \"why_not_primary\": \"While the code throws an exception, the root cause is not a missing validation check, but rather the absence of the logic required to handle a valid (though unquoted) numeric input format.\"\n    }\n  ]\n}"
 }

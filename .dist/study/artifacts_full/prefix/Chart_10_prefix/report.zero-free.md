@@ -2,7 +2,7 @@
 
 - Version: `10b`
 - Work directory: `C:\d4j_work\prefix\Chart_10b`
-- Generated: `2026-07-08T16:48:18+00:00`
+- Generated: `2026-07-10T18:55:03+00:00`
 
 ## Failure Summary
 - `org.jfree.chart.imagemap.junit.StandardToolTipTagFragmentGeneratorTests::testGenerateURLFragment`: junit.framework.ComparisonFailure: expected:< title="Series [&quot;A&quot;], 100.0" alt=""> but was:< title="Series ["A"], 100.0" alt="">
@@ -18,4 +18,4 @@
 - Confidence: `0.95`
 - Needs Human Review: `False`
 
-The failing test indicates that the StandardToolTipTagFragmentGenerator is failing to escape double quotes within the tooltip string. The test expects the double quotes to be converted to the HTML entity '&quot;', but the actual output contains raw double quotes. This indicates that the generator class is not performing the necessary character escaping required for valid HTML attribute values, leading to a malformed tooltip fragment.
+The test failure indicates that the tool tip generator is failing to escape double quotes within the tool tip string when generating HTML attributes. The expected output contains '&quot;' for the double quotes, while the actual output contains raw double quotes, which breaks the HTML attribute structure. This indicates a failure to properly sanitize or encode special characters for HTML output.

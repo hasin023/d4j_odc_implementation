@@ -2,7 +2,7 @@
 
 - Version: `12b`
 - Work directory: `C:\d4j_work\postfix\Jsoup_12b`
-- Generated: `2026-07-08T16:51:20+00:00`
+- Generated: `2026-07-10T18:58:17+00:00`
 
 ## Failure Summary
 - `org.jsoup.select.SelectorTest::testByAttributeRegexCombined`: org.jsoup.select.Selector$SelectorParseException: Could not parse query '=x|y]': unexpected token at '=x|y]'
@@ -23,11 +23,8 @@
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The defect is an algorithmic failure in the parsing logic. The parser was using a naive token consumption strategy that failed to correctly identify the boundaries of a sub-query when it contained nested structures. This is a classic procedural logic error where the implementation of the parsing algorithm was incomplete, requiring a more sophisticated approach to handle the syntax correctly.
+The defect is an algorithmic failure in the parsing logic. The original implementation used a naive token consumption strategy that could not handle complex CSS selectors containing nested structures. The fix introduces a more sophisticated, state-aware parsing method to correctly identify the sub-query boundaries, which is a classic correction of an algorithmic/procedural strategy.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Incorrect`
-- Age: `Base`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Recovery/Exception, Test Interaction`
-- Inferred Impact: `Reliability`
+- Impact: `Capability`

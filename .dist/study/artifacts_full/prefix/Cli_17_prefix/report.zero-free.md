@@ -2,7 +2,7 @@
 
 - Version: `17b`
 - Work directory: `C:\d4j_work\prefix\Cli_17b`
-- Generated: `2026-07-08T16:46:34+00:00`
+- Generated: `2026-07-10T18:52:58+00:00`
 
 ## Failure Summary
 - `org.apache.commons.cli.PosixParserTest::testStopBursting`: junit.framework.AssertionFailedError: Confirm  1 extra arg: 2
@@ -12,10 +12,10 @@
 
 ## ODC Result
 - **Evidence Mode**: ✅ Pre-fix only
-- ODC Type: `Incorrect logic in token parsing loop`
+- ODC Type: `Incorrect logic in command-line argument parsing`
 - Family: `None`
 - Target: `Design/Code`
 - Confidence: `0.95`
 - Needs Human Review: `False`
 
-The PosixParser is designed to handle 'bursting' of combined short options (e.g., -azc). When the 'stopAtNonOption' flag is set to true, the parser should stop processing tokens as soon as it encounters a character that is not a valid option. The failing test 'testStopBursting' demonstrates that the parser incorrectly continues to process the remainder of the token string even after encountering a non-option character, resulting in an incorrect number of arguments being returned in the command line object.
+The PosixParser fails to correctly implement the 'stopAtNonOption' behavior. When parsing a burst token (e.g., '-azc'), if the parser encounters a character that does not correspond to a valid option, it should stop processing the current token and treat the remainder as a non-option argument. Instead, the parser continues to process the remaining characters in the burst token, leading to an incorrect number of arguments being returned in the command line object.

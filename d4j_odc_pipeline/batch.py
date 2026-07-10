@@ -8,7 +8,13 @@ import threading
 from pathlib import Path
 from typing import Any
 
-from .analysis import compute_per_type_metrics, compute_type_distribution
+from .analysis import (
+    analyze_impact_vs_type,
+    compute_impact_distribution,
+    compute_impact_stability,
+    compute_per_type_metrics,
+    compute_type_distribution,
+)
 from .comparison import compare_classifications, compute_cohens_kappa, compute_per_project_kappa
 from .defects4j import Defects4JClient
 from .models import ensure_parent, utc_now_iso
@@ -662,6 +668,13 @@ def analyze_batch_artifacts(
     type_distribution = compute_type_distribution(prefix_classifications)
     per_type_metrics = compute_per_type_metrics(type_metric_pairs)
     per_project_kappa = compute_per_project_kappa(cmp_results)
+    # Impact (opener attribute): distribution + impact×type cross-tab over the
+    # prefix arm, and the prefix↔postfix stability negative control — impact is
+    # fix-independent per v5.2 §3.3, so its drift estimates pure instrument
+    # noise (docs/odc_alignment_audit.md §6.3).
+    impact_distribution = compute_impact_distribution(prefix_classifications)
+    impact_vs_type = analyze_impact_vs_type(prefix_classifications)
+    impact_stability = compute_impact_stability(type_metric_pairs)
     cohens_kappa = compute_cohens_kappa(
         [(r.prefix_odc_type, r.postfix_odc_type) for r in cmp_results]
     ) if len(cmp_results) >= 2 else None
@@ -698,6 +711,9 @@ def analyze_batch_artifacts(
         "per_project_kappa": per_project_kappa,
         "type_distribution_prefix": type_distribution,
         "per_type_metrics": per_type_metrics,
+        "impact_distribution_prefix": impact_distribution,
+        "impact_vs_type_prefix": impact_vs_type,
+        "impact_stability": impact_stability,
         "type_confusion_matrix": type_confusion_matrix,
         "type_transitions_changed": transitions_changed,
         "type_transitions_unchanged": transitions_unchanged,
@@ -731,6 +747,53 @@ def write_analysis_markdown(summary: dict[str, Any], output_path: Path) -> None:
         for item in missing:
             lines.append(f"- {item}")
         lines.append("")
+
+    # Impact (opener attribute): distribution, orthogonality cross-tab, and
+    # the drift negative control (see docs/odc_alignment_audit.md §6).
+    impact_dist = summary.get("impact_distribution_prefix") or {}
+    if impact_dist.get("with_impact"):
+        lines.extend(["## Impact (Opener Attribute, Prefix Arm)", ""])
+        lines.append(
+            f"- Classifications with impact: **{impact_dist.get('with_impact', 0)}**"
+            f" of {impact_dist.get('total', 0)}"
+        )
+        for impact, count in (impact_dist.get("impact_counts") or {}).items():
+            rate = (impact_dist.get("impact_rates") or {}).get(impact, 0.0)
+            lines.append(f"- {impact}: {count} ({rate:.1%})")
+        lines.append("")
+
+        stability = summary.get("impact_stability") or {}
+        if stability.get("pairs_with_impact"):
+            lines.extend(["### Impact Stability (Drift Negative Control)", ""])
+            lines.append(
+                f"- Prefix↔postfix agreement: **{stability.get('agreement_count', 0)}"
+                f"/{stability.get('pairs_with_impact', 0)}**"
+                + (
+                    f" ({stability['agreement_rate']:.1%})"
+                    if stability.get("agreement_rate") is not None
+                    else ""
+                )
+            )
+            if stability.get("kappa") is not None:
+                lines.append(f"- Kappa: {stability['kappa']}")
+            if stability.get("note"):
+                lines.append(f"- Note: {stability['note']}")
+            lines.append(
+                "- Reading: impact is fix-independent (v5.2 §3.3), so its drift is "
+                "pure instrument noise; type drift meaningfully above it indicates "
+                "genuine fix-dependence."
+            )
+            lines.append("")
+
+        cross = summary.get("impact_vs_type_prefix") or {}
+        cross_pairs = cross.get("impact_type_pairs") or []
+        if cross_pairs:
+            lines.extend(["### Impact × Type Cross-Tab (Orthogonality Check)", ""])
+            for item in cross_pairs:
+                lines.append(
+                    f"- {item.get('impact')} × {item.get('odc_type')}: {item.get('count')}"
+                )
+            lines.append("")
 
     lines.extend([
         "## Alternative Match Cases (Type Changed)",

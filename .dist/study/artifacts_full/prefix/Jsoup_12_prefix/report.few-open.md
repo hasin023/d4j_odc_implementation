@@ -2,7 +2,7 @@
 
 - Version: `12b`
 - Work directory: `C:\d4j_work\prefix\Jsoup_12b`
-- Generated: `2026-07-08T16:51:16+00:00`
+- Generated: `2026-07-10T18:58:14+00:00`
 
 ## Failure Summary
 - `org.jsoup.select.SelectorTest::testByAttributeRegexCombined`: org.jsoup.select.Selector$SelectorParseException: Could not parse query '=x|y]': unexpected token at '=x|y]'
@@ -23,12 +23,8 @@
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The issue is a failure in the parsing procedure (the algorithm used to tokenize and interpret the CSS selector string). It is not a missing guard (Checking), a wrong value (Assignment), or a design-level capability issue (Function/Class/Object). It is a procedural error in how the selector string is processed, making Algorithm/Method the most appropriate classification.
+The issue is a failure in the parsing procedure (the algorithm) for CSS selectors. The parser incorrectly identifies the pipe character in the regex as a token boundary or invalid character, leading to a parse exception. This is a procedural logic error in how the query string is tokenized and processed, fitting the Algorithm/Method definition.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Incorrect`
-- Age: `Base`
-- Source: `Developed In-House`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Recovery/Exception, Test Interaction`
-- Inferred Impact: `Reliability`
+- Impact: `Capability`

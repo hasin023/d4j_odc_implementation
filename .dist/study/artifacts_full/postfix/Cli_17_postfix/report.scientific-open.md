@@ -2,7 +2,7 @@
 
 - Version: `17b`
 - Work directory: `C:\d4j_work\postfix\Cli_17b`
-- Generated: `2026-07-08T16:53:47+00:00`
+- Generated: `2026-07-10T18:35:31+00:00`
 
 ## Failure Summary
 - `org.apache.commons.cli.PosixParserTest::testStopBursting`: junit.framework.AssertionFailedError: Confirm  1 extra arg: 2
@@ -18,4 +18,7 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The failure is caused by the parser continuing to process tokens when it should have stopped. The fix is to add a 'break' statement, which is a control flow correction within a conditional block, fitting the 'Checking' ODC type.
+The bug is a failure to correctly implement the 'stopAtNonOption' requirement. The parser identifies the non-option character but does not stop, which is a failure in the conditional logic (Checking).
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Capability`

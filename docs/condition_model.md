@@ -77,12 +77,22 @@ Invalid and rejected: `closed-zero`, `open-zero`, `free-few`, `free-scientific`.
   `checkpoint.{pairs|prefix}.<tag>.json` — always explicit, all conditions
   side by side in the bug folder next to the shared read-only `context.json`.
 - Result fields: `taxonomy_mode`, `strategy`, plus `turns`/`llm_calls_used`
-  (scientific), `consistency_*` (self-consistency), `other_*` (open escapes).
+  (scientific), `consistency_*` (self-consistency), `other_*` (open escapes),
+  `impact` (v5.2 §3.3 opener attribute — `few`/`scientific` only, never
+  `zero-free`; see `docs/odc_alignment_audit.md` §6).
 
 ⚠️ **Artifacts written before 2026-07-07 use the OLD tokens** (`reasoning`
 field; `*-scientific` files there mean the *narrated single-shot*, and
 `*-agentic` files mean the loop). They are pilot-era exploratory data — do not
 mix them with new runs; regenerate instead. See `docs/study_execution_log.md`.
+
+⚠️ **Artifacts written before 2026-07-10 predate the ODC alignment audit**:
+their pre-fix payload was not sanitized (the modified-sources oracle and, for
+JIRA-tracked projects, fix-era report content leaked into the prefix arm), the
+system prompt asserted an expected type distribution, and `impact` is absent
+or came from the old unvalidated keyword heuristic (`inferred_impact`, a
+list). Do not mix with post-audit runs; regenerate instead. See
+`docs/odc_alignment_audit.md` §5 and §7.
 
 ## 6. Study recipes
 

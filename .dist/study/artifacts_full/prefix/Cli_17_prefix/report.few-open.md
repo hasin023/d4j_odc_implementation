@@ -2,7 +2,7 @@
 
 - Version: `17b`
 - Work directory: `C:\d4j_work\prefix\Cli_17b`
-- Generated: `2026-07-08T16:49:01+00:00`
+- Generated: `2026-07-10T18:56:12+00:00`
 
 ## Failure Summary
 - `org.apache.commons.cli.PosixParserTest::testStopBursting`: junit.framework.AssertionFailedError: Confirm  1 extra arg: 2
@@ -18,12 +18,8 @@
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The issue is a failure in the procedural logic of the parser (the 'bursting' algorithm). It is not a missing guard (Checking), as the logic exists but is flawed in its execution flow. It is not an assignment error, as the state is being updated incorrectly due to the loop continuing when it should terminate. Therefore, Algorithm/Method is the most accurate classification.
+The defect is in the procedural logic of the parser's tokenization algorithm. It fails to correctly implement the 'stop at non-option' requirement, which is a procedural control flow issue. It is not a missing guard (Checking) because the logic for stopping is present but incorrectly implemented, nor is it a design-level capability issue (Function/Class/Object) as the parser is designed to handle this, but the implementation of the algorithm is flawed.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Incorrect`
-- Age: `Base`
-- Source: `Developed In-House`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Test Variation`
-- Inferred Impact: `Capability`
+- Impact: `Capability`

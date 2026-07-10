@@ -1,0 +1,73 @@
+{
+  "project_id": "Lang",
+  "bug_id": 30,
+  "version_id": "30b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-10T19:16:34+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The failing tests confirm that StringUtils methods fail to correctly handle Unicode supplementary characters (surrogate pairs). The logic in these methods iterates over characters individually, which is insufficient for supplementary characters that consist of two char values.",
+  "hypothesis": "The StringUtils methods (like containsAny, containsNone, indexOfAny) are implemented using character-by-character iteration that does not account for Unicode supplementary characters (which are represented as surrogate pairs in Java). When a high surrogate is encountered, the code treats it as a single character, leading to incorrect matches or failures to match when the supplementary character is split or partially matched.",
+  "prediction": "The implementation of these methods in StringUtils will show a simple loop over the string characters, comparing each char against the search set without checking for surrogate pairs (e.g., using Character.isHighSurrogate).",
+  "experiment_rationale": "The failure patterns in the tests (e.g., expected true but was false for containsNone) and the nature of the bug (Unicode supplementary character handling) strongly point to an algorithmic flaw in how the string is traversed and compared. The provided test cases specifically target supplementary characters, and the failure occurs because the current implementation treats them as two separate characters rather than one logical character.",
+  "reasoning_summary": "The bug is a classic case of incorrect handling of multi-char sequences (surrogate pairs) in string processing. The algorithm iterates through the string using char-at-a-time logic, which is fundamentally flawed for Unicode supplementary characters. This is an algorithmic/method-level defect because the procedure for searching/matching needs to be updated to recognize and handle surrogate pairs correctly.",
+  "evidence_used": [
+    "bug_report",
+    "failing_tests",
+    "test_code_snippets"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "While the fix involves adding checks (e.g., isHighSurrogate), the core issue is the procedural logic of how the string is traversed and matched, which is an algorithmic concern."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The StringUtils methods (containsAny, containsNone, indexOfAny, etc.) iterate over characters in a string and compare them individually against search characters. When a high surrogate character is encountered, the current implementation treats it as a standalone character, failing to account for the fact that Unicode supplementary characters are represented as a pair of high and low surrogates. This leads to incorrect matching logic when supplementary characters are present.",
+      "prediction": "If I examine the source code for StringUtils.containsAny or similar methods, I will find that they iterate through the string character-by-character and perform a simple equality check against the search characters without checking if the current character is a high surrogate that requires checking the subsequent low surrogate.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "StringUtils"
+      },
+      "observation_summary": [
+        "snippets"
+      ]
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The StringUtils methods (like containsAny, containsNone, indexOfAny) are implemented using character-by-character iteration that does not account for Unicode supplementary characters (which are represented as surrogate pairs in Java). When a high surrogate is encountered, the code treats it as a single character, leading to incorrect matches or failures to match when the supplementary character is split or partially matched.",
+      "prediction": "The implementation of these methods in StringUtils will show a simple loop over the string characters, comparing each char against the search set without checking for surrogate pairs (e.g., using Character.isHighSurrogate).",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Algorithm/Method"
+    }
+  ],
+  "llm_calls_used": 2,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"impact\": \"Capability\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The failing tests confirm that StringUtils methods fail to correctly handle Unicode supplementary characters (surrogate pairs). The logic in these methods iterates over characters individually, which is insufficient for supplementary characters that consist of two char values.\", \"hypothesis\": \"The StringUtils methods (like containsAny, containsNone, indexOfAny) are implemented using character-by-character iteration that does not account for Unicode supplementary characters (which are represented as surrogate pairs in Java). When a high surrogate is encountered, the code treats it as a single character, leading to incorrect matches or failures to match when the supplementary character is split or partially matched.\", \"prediction\": \"The implementation of these methods in StringUtils will show a simple loop over the string characters, comparing each char against the search set without checking for surrogate pairs (e.g., using Character.isHighSurrogate).\", \"experiment_rationale\": \"The failure patterns in the tests (e.g., expected true but was false for containsNone) and the nature of the bug (Unicode supplementary character handling) strongly point to an algorithmic flaw in how the string is traversed and compared. The provided test cases specifically target supplementary characters, and the failure occurs because the current implementation treats them as two separate characters rather than one logical character.\", \"reasoning_summary\": \"The bug is a classic case of incorrect handling of multi-char sequences (surrogate pairs) in string processing. The algorithm iterates through the string using char-at-a-time logic, which is fundamentally flawed for Unicode supplementary characters. This is an algorithmic/method-level defect because the procedure for searching/matching needs to be updated to recognize and handle surrogate pairs correctly.\", \"evidence_used\": [\"bug_report\", \"failing_tests\", \"test_code_snippets\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Checking\", \"why_not_primary\": \"While the fix involves adding checks (e.g., isHighSurrogate), the core issue is the procedural logic of how the string is traversed and matched, which is an algorithmic concern.\"}]}"
+}

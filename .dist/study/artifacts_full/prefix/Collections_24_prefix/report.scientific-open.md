@@ -2,7 +2,7 @@
 
 - Version: `24b`
 - Work directory: `C:\d4j_work\prefix\Collections_24b`
-- Generated: `2026-07-08T16:54:42+00:00`
+- Generated: `2026-07-10T18:36:25+00:00`
 
 ## Failure Summary
 - `org.apache.commons.collections4.collection.UnmodifiableBoundedCollectionTest::testDecorateFactory`: junit.framework.AssertionFailedError: expected same:<[, One, 2, Three, null, 4, One, 5.0, 6.0, Seven, Eight, Nine, 10, 11, 12, Thirteen, 14, 15, 16]> was not:<[, One, 2, Three, null, 4, One, 5.0, 6.0, Seven, Eight, Nine, 10, 11, 12, Thirteen, 14, 15, 16]>
@@ -20,4 +20,7 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The failure in the test suite (AssertionFailedError) is directly linked to the class not being an instance of the Unmodifiable interface. This is a structural defect where a class fails to adhere to the expected interface contract.
+The bug report explicitly states that UnmodifiableBoundedCollection does not implement the Unmodifiable marker interface. The test failures confirm this: testUnmodifiable fails the instanceof check, and testDecorateFactory fails the same-reference check because the factory creates a new wrapper instead of returning the existing one.
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Capability`

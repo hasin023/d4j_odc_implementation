@@ -1,0 +1,50 @@
+{
+  "project_id": "Lang",
+  "bug_id": 62,
+  "version_id": "62b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-10T19:48:21+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The unescape function incorrectly attempts to process numeric character references that exceed the maximum valid character value (0xFFFF), resulting in incorrect character conversion instead of returning the original string.",
+  "hypothesis": "The unescape logic lacks a boundary check to verify if the parsed numeric value of a character entity reference is within the valid range for a Java character (0xFFFF). When the value exceeds this, it is likely being truncated or incorrectly cast, leading to an invalid character output.",
+  "prediction": "The code will contain a parsing routine for numeric entities that converts the string to an integer but fails to validate if that integer is <= 0xFFFF before attempting to cast it to a char.",
+  "experiment_rationale": "The failure occurs specifically when the numeric entity value is very large (12345678), which is well beyond the range of a 16-bit character. The fix should involve adding a conditional check to ensure the parsed value is within the valid range.",
+  "reasoning_summary": "The issue is a missing validation check for the numeric value of an entity reference. The code attempts to process an entity that is mathematically valid as a number but invalid as a character, and it fails to guard against this overflow/out-of-bounds condition. This is a classic 'Checking' defect.",
+  "evidence_used": [
+    "org.apache.commons.lang.EntitiesTest::testNumberOverflow",
+    "junit.framework.ComparisonFailure: expected:<[&#12345678;]> but was:<[\u614e]>",
+    "Maximim value for char is 0xFFFF, so &#12345678; is invalid entity reference, and so should be left as is."
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the parsing logic is part of an algorithm, the root cause is specifically the lack of a boundary check (guard) for the numeric value, which is the defining characteristic of a Checking defect."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "few",
+  "taxonomy_mode": "closed",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Capability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The unescape function incorrectly attempts to process numeric character references that exceed the maximum valid character value (0xFFFF), resulting in incorrect character conversion instead of returning the original string.\",\n  \"hypothesis\": \"The unescape logic lacks a boundary check to verify if the parsed numeric value of a character entity reference is within the valid range for a Java character (0xFFFF). When the value exceeds this, it is likely being truncated or incorrectly cast, leading to an invalid character output.\",\n  \"prediction\": \"The code will contain a parsing routine for numeric entities that converts the string to an integer but fails to validate if that integer is <= 0xFFFF before attempting to cast it to a char.\",\n  \"experiment_rationale\": \"The failure occurs specifically when the numeric entity value is very large (12345678), which is well beyond the range of a 16-bit character. The fix should involve adding a conditional check to ensure the parsed value is within the valid range.\",\n  \"reasoning_summary\": \"The issue is a missing validation check for the numeric value of an entity reference. The code attempts to process an entity that is mathematically valid as a number but invalid as a character, and it fails to guard against this overflow/out-of-bounds condition. This is a classic 'Checking' defect.\",\n  \"evidence_used\": [\n    \"org.apache.commons.lang.EntitiesTest::testNumberOverflow\",\n    \"junit.framework.ComparisonFailure: expected:<[&#12345678;]> but was:<[\\u614E]>\",\n    \"Maximim value for char is 0xFFFF, so &#12345678; is invalid entity reference, and so should be left as is.\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the parsing logic is part of an algorithm, the root cause is specifically the lack of a boundary check (guard) for the numeric value, which is the defining characteristic of a Checking defect.\"\n    }\n  ]\n}"
+}

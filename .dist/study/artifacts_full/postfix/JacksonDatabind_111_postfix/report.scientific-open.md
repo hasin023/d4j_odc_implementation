@@ -2,7 +2,7 @@
 
 - Version: `111b`
 - Work directory: `C:\d4j_work\postfix\JacksonDatabind_111b`
-- Generated: `2026-07-08T16:57:23+00:00`
+- Generated: `2026-07-10T18:38:07+00:00`
 
 ## Failure Summary
 - `com.fasterxml.jackson.databind.deser.jdk.JDKAtomicTypesDeserTest::testNullWithinNested`: junit.framework.AssertionFailedError
@@ -18,4 +18,7 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The fix involves updating the 'NullValueProvider' (nvp) in multiple 'SettableBeanProperty' implementations to ensure it stays in sync with the 'ValueDeserializer' when the latter is updated. Additionally, 'AtomicReferenceDeserializer' was incorrectly initializing its null value as a new empty 'AtomicReference' instead of using the value deserializer's null value. These are classic initialization/assignment errors.
+The fix involves updating the NullValueProvider to match the new deserializer if they were previously linked, and correcting the initialization logic in AtomicReferenceDeserializer to use the nested deserializer's null value. This is a classic case of incorrect state initialization/assignment during object updates.
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Capability`

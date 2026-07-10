@@ -2,7 +2,7 @@
 
 - Version: `140b`
 - Work directory: `C:\d4j_work\postfix\Closure_140b`
-- Generated: `2026-07-08T16:54:14+00:00`
+- Generated: `2026-07-10T18:36:05+00:00`
 
 ## Failure Summary
 - `com.google.javascript.jscomp.CrossModuleCodeMotionTest::testEmptyModule`: junit.framework.AssertionFailedError: compiler.reportCodeChange() was called even though nothing changed
@@ -16,10 +16,13 @@
 
 ## ODC Result
 - **Evidence Mode**: ⚠️ Post-fix (with buggy->fixed diff)
-- ODC Type: `Assignment/Initialization`
-- Family: `Control and Data Flow`
+- ODC Type: `Function/Class/Object`
+- Family: `Structural`
 - Target: `Design/Code`
-- Confidence: `1.0`
+- Confidence: `0.9`
 - Needs Human Review: `False`
 
-The bug is caused by the lack of proper initialization of empty modules, which causes the cross-module code motion logic to behave incorrectly. By adding a placeholder file to empty modules, the compiler ensures that the module state is consistent, which is an initialization/assignment issue.
+The failure is a direct result of the compiler's inability to handle empty modules during cross-module optimization. The fix enforces a structural invariant (all modules must contain at least one input) which is a design-level correction to ensure the compiler's internal state remains consistent during optimization passes.
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Capability`

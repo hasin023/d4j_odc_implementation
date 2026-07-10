@@ -2,7 +2,7 @@
 
 - Version: `15b`
 - Work directory: `C:\d4j_work\prefix\Codec_15b`
-- Generated: `2026-07-08T16:52:52+00:00`
+- Generated: `2026-07-10T18:59:33+00:00`
 
 ## Failure Summary
 - `org.apache.commons.codec.language.SoundexTest::testHWRuleEx1`: junit.framework.AssertionFailedError: expected:<Y3[3]0> but was:<Y3[0]0>
@@ -18,12 +18,8 @@
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The defect is a classic algorithmic error where the procedure for encoding characters in the Soundex algorithm does not correctly implement the specified rule for 'H' and 'W' separators. It is not a missing check (Checking), a wrong constant (Assignment/Initialization), or a design-level capability issue (Function/Class/Object), but rather a flaw in the computational logic of the Soundex method itself.
+The defect is a failure in the implementation of the Soundex algorithm's specific rule regarding 'H' and 'W' separators. This is a procedural logic error (Algorithm/Method) rather than a missing guard (Checking), a wrong constant (Assignment/Initialization), or a structural design issue (Function/Class/Object).
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Incorrect`
-- Age: `Base`
-- Source: `Developed In-House`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Test Variation`
-- Inferred Impact: `Reliability`
+- Impact: `Capability`

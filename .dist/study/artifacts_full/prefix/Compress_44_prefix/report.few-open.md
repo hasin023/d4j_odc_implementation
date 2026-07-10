@@ -2,7 +2,7 @@
 
 - Version: `44b`
 - Work directory: `C:\d4j_work\prefix\Compress_44b`
-- Generated: `2026-07-08T15:56:03+00:00`
+- Generated: `2026-07-10T18:04:25+00:00`
 
 ## Failure Summary
 - `org.apache.commons.compress.utils.ChecksumCalculatingInputStreamTest::testClassInstantiationWithParameterBeingNullThrowsNullPointerExceptionOne`: junit.framework.AssertionFailedError: Expected exception: java.lang.NullPointerException
@@ -16,16 +16,12 @@
 - **Evidence Mode**: ✅ Pre-fix only
 - ODC Type: `Checking`
 - Family: `Control and Data Flow`
-- Target: `Design/Code`
-- Confidence: `1.0`
+- Target: `Code`
+- Confidence: `0.9`
 - Needs Human Review: `False`
 
-The defect is a classic missing guard/validation check. The constructor failed to validate its input parameters, leading to an invalid object state. Adding these checks is the definition of a 'Checking' ODC type.
+The defect is a classic missing validation check. The system expects an exception when nulls are passed, but the code proceeds without checking, failing the test that asserts the exception. This is a textbook 'Checking' defect where a guard is missing.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Missing`
-- Age: `Base`
-- Source: `Developed In-House`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Recovery/Exception, Test Variation`
-- Inferred Impact: `Reliability`
+- Impact: `Reliability`

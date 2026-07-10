@@ -5,44 +5,40 @@
   "prompt_style": "scientific",
   "model": "gemini-3.1-flash-lite-preview",
   "provider": "gemini",
-  "created_at": "2026-07-08T16:51:20+00:00",
+  "created_at": "2026-07-10T18:58:17+00:00",
   "odc_type": "Algorithm/Method",
   "family": "Control and Data Flow",
   "confidence": 0.9,
   "needs_human_review": false,
-  "observation_summary": "The CSS selector parser fails with a SelectorParseException when encountering attribute selectors containing special characters (like '|') if they are preceded by a combinator (e.g., 'div table[class~=x|y]').",
-  "hypothesis": "The original implementation of the `combinator` method used `tq.consumeToAny(combinators)` to extract the sub-query. This approach is too simplistic because it does not account for nested structures (like brackets or parentheses) within the sub-query, causing the parser to prematurely stop or misinterpret tokens when it encounters characters that are part of the selector syntax but also appear in the attribute value.",
-  "prediction": "The fix will involve replacing the simple `consumeToAny` call with a more robust parsing method that respects balanced brackets and parentheses, ensuring the entire sub-query is correctly captured before the next combinator.",
-  "experiment_rationale": "The provided diff shows the replacement of `tq.consumeToAny(combinators)` with a new `consumeSubQuery()` method that explicitly handles balanced brackets and parentheses. This confirms that the original algorithm for parsing the sub-query was insufficient for complex selectors.",
-  "reasoning_summary": "The defect is an algorithmic failure in the parsing logic. The parser was using a naive token consumption strategy that failed to correctly identify the boundaries of a sub-query when it contained nested structures. This is a classic procedural logic error where the implementation of the parsing algorithm was incomplete, requiring a more sophisticated approach to handle the syntax correctly.",
+  "observation_summary": "The CSS selector parser fails to correctly parse attribute selectors containing regex patterns (e.g., [class~=x|y]) when they are preceded by a combinator (like '>', '+', '~', or space). The parser incorrectly treats the '|' or ']' characters as delimiters, leading to a SelectorParseException.",
+  "hypothesis": "The parser's `combinator` method uses a simple `consumeToAny(combinators)` call to extract the sub-query. This approach is insufficient because it does not account for nested structures like parentheses or brackets that might contain characters that should be treated as part of the query rather than delimiters.",
+  "prediction": "The fix will involve replacing the simple `consumeToAny` call with a more robust parsing method that correctly handles balanced brackets and parentheses, ensuring the entire sub-query is captured correctly before processing the combinator.",
+  "experiment_rationale": "The provided diff shows the replacement of `tq.consumeToAny(combinators)` with a new `consumeSubQuery()` method that explicitly handles balanced brackets and parentheses. This confirms that the original algorithm for extracting the sub-query was too simplistic and failed to correctly identify the boundaries of the query string.",
+  "reasoning_summary": "The defect is an algorithmic failure in the parsing logic. The original implementation used a naive token consumption strategy that could not handle complex CSS selectors containing nested structures. The fix introduces a more sophisticated, state-aware parsing method to correctly identify the sub-query boundaries, which is a classic correction of an algorithmic/procedural strategy.",
   "evidence_used": [
-    "unified_diff",
-    "failing_tests",
-    "production_code_snippets"
+    "The fix replaces `tq.consumeToAny(combinators)` with `consumeSubQuery()`.",
+    "The new `consumeSubQuery()` method implements a loop that respects balanced brackets and parentheses.",
+    "The failing test case `div table[class~=x|y]` involves a complex attribute selector that was being incorrectly truncated by the original parser."
   ],
   "evidence_gaps": [],
   "alternative_types": [
     {
       "type": "Checking",
-      "why_not_primary": "While the parser throws an exception, the root cause is not a missing guard or validation, but an incorrect implementation of the sub-query extraction algorithm."
+      "why_not_primary": "While the parser does perform checks, the root cause is the incorrect implementation of the sub-query extraction algorithm, not a missing guard or validation check."
     },
     {
-      "type": "Interface/O-O Messages",
-      "why_not_primary": "The issue is not a mismatch between components or API contracts, but an internal logic error within the `Selector` class's parsing procedure."
+      "type": "Function/Class/Object",
+      "why_not_primary": "This is a local procedural fix within the `Selector` class, not a design-level capability omission."
     }
   ],
   "target": "Code",
   "qualifier": "Incorrect",
-  "age": "Base",
+  "age": null,
   "source": null,
-  "inferred_activity": "Unit Test",
-  "inferred_triggers": [
-    "Recovery/Exception",
-    "Test Interaction"
-  ],
-  "inferred_impact": [
-    "Reliability"
-  ],
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
   "evidence_mode": "post-fix",
   "strategy": "few",
   "taxonomy_mode": "open",
@@ -54,5 +50,5 @@
   "other_justification": null,
   "nearest_type": null,
   "other_confidence": null,
-  "raw_response": "{\n  \"odc_type\": \"Algorithm/Method\",\n  \"family\": \"Control and Data Flow\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"age\": \"Base\",\n  \"inferred_activity\": \"Unit Test\",\n  \"inferred_triggers\": [\"Recovery/Exception\", \"Test Interaction\"],\n  \"inferred_impact\": [\"Reliability\"],\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The CSS selector parser fails with a SelectorParseException when encountering attribute selectors containing special characters (like '|') if they are preceded by a combinator (e.g., 'div table[class~=x|y]').\",\n  \"hypothesis\": \"The original implementation of the `combinator` method used `tq.consumeToAny(combinators)` to extract the sub-query. This approach is too simplistic because it does not account for nested structures (like brackets or parentheses) within the sub-query, causing the parser to prematurely stop or misinterpret tokens when it encounters characters that are part of the selector syntax but also appear in the attribute value.\",\n  \"prediction\": \"The fix will involve replacing the simple `consumeToAny` call with a more robust parsing method that respects balanced brackets and parentheses, ensuring the entire sub-query is correctly captured before the next combinator.\",\n  \"experiment_rationale\": \"The provided diff shows the replacement of `tq.consumeToAny(combinators)` with a new `consumeSubQuery()` method that explicitly handles balanced brackets and parentheses. This confirms that the original algorithm for parsing the sub-query was insufficient for complex selectors.\",\n  \"reasoning_summary\": \"The defect is an algorithmic failure in the parsing logic. The parser was using a naive token consumption strategy that failed to correctly identify the boundaries of a sub-query when it contained nested structures. This is a classic procedural logic error where the implementation of the parsing algorithm was incomplete, requiring a more sophisticated approach to handle the syntax correctly.\",\n  \"evidence_used\": [\"unified_diff\", \"failing_tests\", \"production_code_snippets\"],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Checking\",\n      \"why_not_primary\": \"While the parser throws an exception, the root cause is not a missing guard or validation, but an incorrect implementation of the sub-query extraction algorithm.\"\n    },\n    {\n      \"type\": \"Interface/O-O Messages\",\n      \"why_not_primary\": \"The issue is not a mismatch between components or API contracts, but an internal logic error within the `Selector` class's parsing procedure.\"\n    }\n  ]\n}"
+  "raw_response": "{\n  \"odc_type\": \"Algorithm/Method\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Capability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The CSS selector parser fails to correctly parse attribute selectors containing regex patterns (e.g., [class~=x|y]) when they are preceded by a combinator (like '>', '+', '~', or space). The parser incorrectly treats the '|' or ']' characters as delimiters, leading to a SelectorParseException.\",\n  \"hypothesis\": \"The parser's `combinator` method uses a simple `consumeToAny(combinators)` call to extract the sub-query. This approach is insufficient because it does not account for nested structures like parentheses or brackets that might contain characters that should be treated as part of the query rather than delimiters.\",\n  \"prediction\": \"The fix will involve replacing the simple `consumeToAny` call with a more robust parsing method that correctly handles balanced brackets and parentheses, ensuring the entire sub-query is captured correctly before processing the combinator.\",\n  \"experiment_rationale\": \"The provided diff shows the replacement of `tq.consumeToAny(combinators)` with a new `consumeSubQuery()` method that explicitly handles balanced brackets and parentheses. This confirms that the original algorithm for extracting the sub-query was too simplistic and failed to correctly identify the boundaries of the query string.\",\n  \"reasoning_summary\": \"The defect is an algorithmic failure in the parsing logic. The original implementation used a naive token consumption strategy that could not handle complex CSS selectors containing nested structures. The fix introduces a more sophisticated, state-aware parsing method to correctly identify the sub-query boundaries, which is a classic correction of an algorithmic/procedural strategy.\",\n  \"evidence_used\": [\n    \"The fix replaces `tq.consumeToAny(combinators)` with `consumeSubQuery()`.\",\n    \"The new `consumeSubQuery()` method implements a loop that respects balanced brackets and parentheses.\",\n    \"The failing test case `div table[class~=x|y]` involves a complex attribute selector that was being incorrectly truncated by the original parser.\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Checking\",\n      \"why_not_primary\": \"While the parser does perform checks, the root cause is the incorrect implementation of the sub-query extraction algorithm, not a missing guard or validation check.\"\n    },\n    {\n      \"type\": \"Function/Class/Object\",\n      \"why_not_primary\": \"This is a local procedural fix within the `Selector` class, not a design-level capability omission.\"\n    }\n  ]\n}"
 }

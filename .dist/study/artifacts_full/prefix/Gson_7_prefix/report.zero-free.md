@@ -2,7 +2,7 @@
 
 - Version: `7b`
 - Work directory: `C:\d4j_work\prefix\Gson_7b`
-- Generated: `2026-07-08T16:47:11+00:00`
+- Generated: `2026-07-10T18:53:38+00:00`
 
 ## Failure Summary
 - `com.google.gson.functional.MapTest::testMapDeserializationWithUnquotedLongKeys`: com.google.gson.JsonSyntaxException: java.lang.IllegalStateException: Expected a long but was STRING at line 1 column 2 path $.
@@ -29,4 +29,4 @@
 - Confidence: `0.95`
 - Needs Human Review: `False`
 
-The issue arises because the JsonReader's nextInt() and nextLong() methods fail to correctly handle unquoted keys or values that are not strictly numeric. When the parser encounters an unquoted string that starts with a digit, it fails to transition correctly or handle the token type, leading to an IllegalStateException. The stack traces confirm that the parser expects a numeric type (int/long) but encounters a STRING token, which occurs because the internal state machine in JsonReader does not account for unquoted strings in the same way it handles quoted ones or pure numbers.
+The issue arises because the JsonReader's nextInt() and nextLong() methods fail to correctly handle unquoted keys or values that are numeric in nature but are treated as strings by the parser. When the parser encounters an unquoted token, it identifies it as a string (PEEKED_UNQUOTED) rather than a number. The subsequent call to nextInt() or nextLong() expects a numeric token type and throws an IllegalStateException when it encounters a STRING token instead. This is a regression in the streaming API's ability to handle lenient JSON formats where keys or values might not be quoted.

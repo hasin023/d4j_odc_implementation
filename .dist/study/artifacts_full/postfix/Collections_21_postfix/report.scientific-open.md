@@ -2,7 +2,7 @@
 
 - Version: `21b`
 - Work directory: `C:\d4j_work\postfix\Collections_21b`
-- Generated: `2026-07-08T17:01:30+00:00`
+- Generated: `2026-07-10T18:41:24+00:00`
 
 ## Failure Summary
 - `org.apache.commons.collections4.list.SetUniqueListTest::testSubListIsUnmodifiable`: junit.framework.AssertionFailedError: subList should be unmodifiable
@@ -18,8 +18,7 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The defect is a structural design issue where the subList view of a SetUniqueList does not correctly maintain the uniqueness invariant of the parent list. The fix is to change the return type/behavior of the subList method to return an unmodifiable list, which is a design-level correction.
+The defect is a design-level capability gap where the subList() method fails to provide the expected unmodifiable view, leading to structural inconsistencies. This is a structural issue requiring a change in the returned object's capability (unmodifiability).
 
 ## ODC Attribute Mapping (Optional)
-- Qualifier: `Incorrect`
-- Age: `Base`
+- Impact: `Capability`

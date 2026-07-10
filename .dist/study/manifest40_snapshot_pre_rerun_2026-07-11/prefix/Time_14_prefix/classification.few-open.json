@@ -1,0 +1,55 @@
+{
+  "project_id": "Time",
+  "bug_id": 14,
+  "version_id": "14b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-08T16:52:20+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The MonthDay class fails to perform arithmetic operations (plus/minus months/days) when the instance is set to February 29th. It throws an IllegalFieldValueException because it attempts to validate the day-of-month against a range [1, 28] while the date is still conceptually February 29th.",
+  "hypothesis": "The logic in BasicMonthOfYearDateTimeField.add() incorrectly attempts to validate the day-of-month field against the bounds of a non-leap year before the full arithmetic operation is completed. The algorithm needs to handle the leap day (February 29th) as a valid state during intermediate calculations for MonthDay objects.",
+  "prediction": "The fix will involve modifying BasicMonthOfYearDateTimeField.add() to bypass or adjust the strict validation of the day-of-month field when performing arithmetic on MonthDay objects, allowing the leap day to persist or be handled correctly during the transition.",
+  "experiment_rationale": "The stack trace points directly to BasicMonthOfYearDateTimeField.add() calling FieldUtils.verifyValueBounds, which triggers the exception. Since the operation is valid for a MonthDay (which represents a recurring date), the algorithm's assumption that it must validate against a standard year's bounds is the root cause.",
+  "reasoning_summary": "The defect is an algorithmic flaw in how the library handles date arithmetic for partial dates (MonthDay). It is not a missing check (the check exists but is applied incorrectly), nor is it a simple initialization error. The procedure for adding/subtracting months/days is fundamentally flawed for the specific case of leap days in a partial date context.",
+  "evidence_used": [
+    "org.joda.time.IllegalFieldValueException: Value 29 for dayOfMonth must be in the range [1,28]",
+    "org.joda.time.chrono.BasicMonthOfYearDateTimeField.add(BasicMonthOfYearDateTimeField.java:213)",
+    "org.joda.time.field.FieldUtils.verifyValueBounds(FieldUtils.java:220)"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "While the failure manifests as a failed check, the root cause is the algorithmic design of the add() method, which incorrectly enforces standard year bounds on a partial date that is allowed to be a leap day."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Incorrect",
+  "age": "Base",
+  "source": "Developed In-House",
+  "inferred_activity": "Unit Test",
+  "inferred_triggers": [
+    "Recovery/Exception",
+    "Test Interaction",
+    "Test Variation"
+  ],
+  "inferred_impact": [
+    "Reliability"
+  ],
+  "evidence_mode": "pre-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Algorithm/Method\",\n  \"family\": \"Control and Data Flow\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"age\": \"Base\",\n  \"source\": \"Developed In-House\",\n  \"inferred_activity\": \"Unit Test\",\n  \"inferred_triggers\": [\"Recovery/Exception\", \"Test Interaction\", \"Test Variation\"],\n  \"inferred_impact\": [\"Reliability\"],\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The MonthDay class fails to perform arithmetic operations (plus/minus months/days) when the instance is set to February 29th. It throws an IllegalFieldValueException because it attempts to validate the day-of-month against a range [1, 28] while the date is still conceptually February 29th.\",\n  \"hypothesis\": \"The logic in BasicMonthOfYearDateTimeField.add() incorrectly attempts to validate the day-of-month field against the bounds of a non-leap year before the full arithmetic operation is completed. The algorithm needs to handle the leap day (February 29th) as a valid state during intermediate calculations for MonthDay objects.\",\n  \"prediction\": \"The fix will involve modifying BasicMonthOfYearDateTimeField.add() to bypass or adjust the strict validation of the day-of-month field when performing arithmetic on MonthDay objects, allowing the leap day to persist or be handled correctly during the transition.\",\n  \"experiment_rationale\": \"The stack trace points directly to BasicMonthOfYearDateTimeField.add() calling FieldUtils.verifyValueBounds, which triggers the exception. Since the operation is valid for a MonthDay (which represents a recurring date), the algorithm's assumption that it must validate against a standard year's bounds is the root cause.\",\n  \"reasoning_summary\": \"The defect is an algorithmic flaw in how the library handles date arithmetic for partial dates (MonthDay). It is not a missing check (the check exists but is applied incorrectly), nor is it a simple initialization error. The procedure for adding/subtracting months/days is fundamentally flawed for the specific case of leap days in a partial date context.\",\n  \"evidence_used\": [\"org.joda.time.IllegalFieldValueException: Value 29 for dayOfMonth must be in the range [1,28]\", \"org.joda.time.chrono.BasicMonthOfYearDateTimeField.add(BasicMonthOfYearDateTimeField.java:213)\", \"org.joda.time.field.FieldUtils.verifyValueBounds(FieldUtils.java:220)\"],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Checking\",\n      \"why_not_primary\": \"While the failure manifests as a failed check, the root cause is the algorithmic design of the add() method, which incorrectly enforces standard year bounds on a partial date that is allowed to be a leap day.\"\n    }\n  ]\n}"
+}

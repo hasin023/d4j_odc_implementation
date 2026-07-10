@@ -2,7 +2,7 @@
 
 - Version: `15b`
 - Work directory: `C:\d4j_work\postfix\Codec_15b`
-- Generated: `2026-07-08T17:08:05+00:00`
+- Generated: `2026-07-10T18:49:33+00:00`
 
 ## Failure Summary
 - `org.apache.commons.codec.language.SoundexTest::testHWRuleEx1`: junit.framework.AssertionFailedError: expected:<Y3[3]0> but was:<Y3[0]0>
@@ -14,16 +14,12 @@
 - **Evidence Mode**: ⚠️ Post-fix (with buggy->fixed diff)
 - ODC Type: `Algorithm/Method`
 - Family: `Control and Data Flow`
-- Target: `Design/Code`
+- Target: `Soundex.getMappingCode`
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The bug is a classic algorithmic flaw where the implementation of a specific rule (the HW rule in Soundex) was too restrictive (only checking two positions back) instead of being robust (iterating back until a non-H/W character is found). This is a procedural error in the implementation of the Soundex algorithm.
+The bug report and the failing test case 'yhwdyt' indicate that the HW rule implementation is too restrictive. The fix (as seen in the provided diff) replaces the fixed-depth check with a loop that correctly traverses backwards to find the last non-H/W character, confirming the defect is an algorithmic/methodological error.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Incorrect`
-- Age: `Base`
-- Source: `Requirement`
-- Inferred Activity: `Unit Test`
-- Inferred Triggers: `Test Variation`
-- Inferred Impact: `Reliability`
+- Impact: `Capability`
