@@ -172,7 +172,7 @@ trigger it, the buggy and fixed source, and the buggy-to-fixed diff. That
 richness is exactly what makes \textit{Defects4J} such a good fit for automated
 classification research.
 
-And yet, despite this richness, no one has produced a full, ODC-based semantic
+And yet, despite this richness, no one has produced a full, semantic
 labelling of the benchmark. We looked at why, and existing classification work
 falls into three groups, each with a different focus: control- and data-flow
 analyses capture \emph{how} a bug manifests syntactically
@@ -188,14 +188,13 @@ unconstrained, though, LLM classification suffers from label drift and
 hallucination \citep{gao2024rcegen}: with no fixed label space, different runs
 assign incompatible categories to the same bug. This can be solved with
 Orthogonal Defect Classification (ODC), a taxonomy that classifies each defect
-into one of seven Design/Code defect types capturing the semantics of the
-correction that was made \citep{chillarege1992odc,ibm2013odc}.
+into one of \textbf{seven} Design/Code defect types capturing the semantics of the bug itself \citep{chillarege1992odc,ibm2013odc}.
 Pairing LLMs with ODC fixes that by turning classification into
 a bounded, semantically grounded decision problem, but a forced, fixed schema
 brings back the opposite failure: it manufactures false certainty for defects
 that do not fit. Our answer is to treat the taxonomy's own coverage as
 something to measure rather than assume, by giving the model an explicit escape
-category: a defect that falls outside the seven types becomes recorded data
+category \textbf{"Other":} a defect that falls outside the seven types becomes recorded data
 instead of a mislabelled forced choice.
 
 \subsection{Research Questions}
@@ -210,7 +209,7 @@ concrete questions. We organise this work around them:
         and does this distribution vary significantly across projects?
   \item[RQ2: Coverage of the ODC taxonomy.] How much of \textit{Defects4J} is
         covered by the seven standard ODC defect types, and how often does a
-        bug instead need the \textit{Other} escape category?
+        bug instead need the \textbf{Other} escape category?
   \item[RQ3: Classification accuracy.] How well does the LLM-based pipeline,
         using the enforced scientific reasoning loop and the ODC taxonomy,
         classify \textit{Defects4J} bugs into the correct defect types under a
@@ -285,8 +284,7 @@ detailed, but the authors themselves flag the limited external validity of a
 
 Put together, these efforts span only tens to a few hundred bugs, anchor their
 taxonomies to code structure or patch operations, and none of them applies a
-semantic defect-type taxonomy to the full active dataset. That is the door LLMs
-leave open.
+semantic defect-type taxonomy to the full active dataset.
 
 \subsection{LLM-based Defect Classification}
 
@@ -463,14 +461,12 @@ section walks through each of the three steps in turn.
 \draw[->] (e3) -- (e4);
 \draw[->] (e4) -- (e5);
 \end{tikzpicture}
-\caption{The pipeline's three stages. Stage~1 preprocesses raw
+\caption{Stage~1 preprocesses raw
          \textit{Defects4J} evidence into \texttt{context.json}. Stage~2
          classifies the bug; the enforced \textit{scientific} loop is shown in
          full, while the \textit{zero} and \textit{few} strategies take the
          same case file and answer it in a single step. Stage~3 compares the
-         pre-fix and post-fix conclusions at four levels of strictness. The
-         numbered spine on the left marks the three stages; each row branches
-         off it to show that stage's own steps.}
+         pre-fix and post-fix conclusions at four levels of strictness.}
 \label{fig:architecture}
 \end{figure*}
 
@@ -528,7 +524,7 @@ usage-scenario detail that \textit{Defects4J} reports do not reliably provide.
 \toprule
 \thead{Attribute} & \thead{Phase} & \thead{Status} & \thead{\textit{Defects4J} evidence and rationale} \\
 \midrule
-Impact      & Opener & Claimed                & We read it from the bug report and the observed failure, the customer-perspective evidence ODC~\S3.3 asks for (see below). \\
+Impact      & Opener & Claimed                & We read it from the bug report and the observed failure, the customer-perspective evidence ODC asks for. \\
 Trigger     & Opener & Not determinable       & We would need the user's usage scenario for this, and report detail is too uneven across projects and trackers to give us that. \\
 Activity    & Opener & Not determinable       & The harness always reruns JUnit no matter how the defect actually surfaced, so what we see is a reproduction, not the original discovery activity. \\
 Target      & Closer & Constant               & \textit{Defects4J}'s minimised patches only ever touch source code, by construction, so this is always Design/Code. \\
@@ -686,12 +682,11 @@ A tiered comparison matters here because even trained human ODC experts disagree
 on a meaningful share of real cases, so a single strict-match number would
 understate how reasonable the model's classifications actually are.
 
-The remaining questions reuse this machinery differently: RQ1, RQ3, and RQ5
+The remaining RQs reuse this machinery differently: RQ1, RQ3, and RQ5
 draw on the same pre-fix/post-fix comparison; RQ2 compares the closed and open
 taxonomy passes to see how often the model needs the escape category; and RQ4
 compares the three strategies against each other to see how much each narrows
-the vocabulary and improves consistency. Table~\ref{tab:rqmap}
-(Section~\ref{sec:setup}) summarises which metric answers which question.
+the vocabulary and improves consistency.
 
 \section{Experimental Setup}
 \label{sec:setup}
