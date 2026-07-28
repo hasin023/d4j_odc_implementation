@@ -1,0 +1,52 @@
+{
+  "project_id": "Closure",
+  "bug_id": 73,
+  "version_id": "73b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T07:02:29+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 0.8,
+  "needs_human_review": false,
+  "observation_summary": "The Closure Compiler outputs the raw control character U+007f (delete) in the generated JavaScript code instead of escaping it as \\u007f. This causes issues with downstream encoders and fails the test case expecting the escaped representation.",
+  "hypothesis": "The code generation logic responsible for escaping characters in strings incorrectly treats U+007f as a printable character or fails to include it in the set of characters that must be escaped, leading to it being emitted raw.",
+  "prediction": "The code responsible for string escaping (likely in a class like CodeGenerator or CodePrinter) will have a condition or a lookup table that determines which characters to escape, and U+007f is missing from the 'must-escape' criteria.",
+  "experiment_rationale": "The failure is a direct result of the compiler's output transformation logic. Since the compiler is supposed to produce safe, portable JavaScript, the logic that decides whether to escape a character is the procedural mechanism at fault.",
+  "reasoning_summary": "The issue is a failure in the character-escaping algorithm used during code generation. It is not a missing guard (Checking) because the logic is present but flawed in its classification of U+007f. It is not an Assignment/Initialization issue because it is a procedural decision-making process. It is not a design-level capability issue (Function/Class/Object) because the escaping functionality exists; it just needs a refinement in its algorithmic logic to include U+007f in the set of characters requiring escape.",
+  "evidence_used": [
+    "com.google.javascript.jscomp.CodePrinterTest::testUnicode",
+    "junit.framework.ComparisonFailure: expected:<var x=\"[\\u007f]\"> but was:<var x=\"[\u007f]\">",
+    "Bug report: Codepoint U+007f appears raw in output"
+  ],
+  "evidence_gaps": [
+    "The specific source file containing the character escaping logic is not provided, but the failure is clearly within the code generation/printing pipeline."
+  ],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "While a check is technically missing (if char == 0x7f), the root cause is the logic governing character output, which is better classified as an algorithmic decision in the code generator."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Incorrect",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Algorithm/Method\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"confidence\": 0.8,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The Closure Compiler outputs the raw control character U+007f (delete) in the generated JavaScript code instead of escaping it as \\\\u007f. This causes issues with downstream encoders and fails the test case expecting the escaped representation.\",\n  \"hypothesis\": \"The code generation logic responsible for escaping characters in strings incorrectly treats U+007f as a printable character or fails to include it in the set of characters that must be escaped, leading to it being emitted raw.\",\n  \"prediction\": \"The code responsible for string escaping (likely in a class like CodeGenerator or CodePrinter) will have a condition or a lookup table that determines which characters to escape, and U+007f is missing from the 'must-escape' criteria.\",\n  \"experiment_rationale\": \"The failure is a direct result of the compiler's output transformation logic. Since the compiler is supposed to produce safe, portable JavaScript, the logic that decides whether to escape a character is the procedural mechanism at fault.\",\n  \"reasoning_summary\": \"The issue is a failure in the character-escaping algorithm used during code generation. It is not a missing guard (Checking) because the logic is present but flawed in its classification of U+007f. It is not an Assignment/Initialization issue because it is a procedural decision-making process. It is not a design-level capability issue (Function/Class/Object) because the escaping functionality exists; it just needs a refinement in its algorithmic logic to include U+007f in the set of characters requiring escape.\",\n  \"evidence_used\": [\n    \"com.google.javascript.jscomp.CodePrinterTest::testUnicode\",\n    \"junit.framework.ComparisonFailure: expected:<var x=\\\"[\\\\u007f]\\\"> but was:<var x=\\\"[\\u007F]\\\">\",\n    \"Bug report: Codepoint U+007f appears raw in output\"\n  ],\n  \"evidence_gaps\": [\n    \"The specific source file containing the character escaping logic is not provided, but the failure is clearly within the code generation/printing pipeline.\"\n  ],\n  \"alternative_types\": [\n    {\n      \"type\": \"Checking\",\n      \"why_not_primary\": \"While a check is technically missing (if char == 0x7f), the root cause is the logic governing character output, which is better classified as an algorithmic decision in the code generator.\"\n    }\n  ]\n}"
+}

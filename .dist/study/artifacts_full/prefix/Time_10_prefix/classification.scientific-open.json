@@ -1,0 +1,72 @@
+{
+  "project_id": "Time",
+  "bug_id": 10,
+  "version_id": "10b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-25T12:29:56+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 0.95,
+  "needs_human_review": false,
+  "observation_summary": "The `BaseSingleFieldPeriod.between` method calculates the difference between two `ReadablePartial` objects by setting them into a default chronology (1970). When `MonthDay(2, 29)` is used, the chronology's validation logic correctly identifies that 29 is invalid for February in a non-leap year, causing an `IllegalFieldValueException`.",
+  "hypothesis": "The `BaseSingleFieldPeriod.between` method uses a default chronology (1970) that does not support leap years when setting a `MonthDay` (which lacks a year) into an instant. This causes validation errors for February 29th.",
+  "prediction": "The `BaseSingleFieldPeriod.between` method will be identified as the location where the chronology is incorrectly initialized or used without considering leap years.",
+  "experiment_rationale": "The stack trace and code snippet confirm that the exception is thrown during the `set` operation within `BaseSingleFieldPeriod.between` because the default chronology (1970) does not allow February 29th. This is a procedural error in how the partials are converted to instants for comparison.",
+  "reasoning_summary": "The bug is a failure to handle leap years when calculating the difference between `MonthDay` objects. The `between` method uses a fixed-year chronology (1970) which is not a leap year, making February 29th an invalid date. This is an algorithmic flaw in the calculation procedure.",
+  "evidence_used": [
+    "stack_trace_excerpt",
+    "snippet"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "While the exception is thrown by a check, the root cause is the choice of an inappropriate chronology for the calculation, which is an algorithmic/procedural design choice."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The `BaseSingleFieldPeriod.between` method uses a default chronology (likely ISO) that does not account for leap years when setting a `MonthDay` (which lacks a year) into an instant. When `MonthDay(2, 29)` is processed, the chronology defaults to a non-leap year (e.g., 1970), where February only has 28 days, causing `verifyValueBounds` to throw an `IllegalFieldValueException`.",
+      "prediction": "If I inspect the `BaseSingleFieldPeriod.between` method, I will find that it uses a fixed or default chronology that does not dynamically adjust for leap years when handling partials like `MonthDay` that do not specify a year.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "org.joda.time.base.BaseSingleFieldPeriod"
+      },
+      "observation_summary": [
+        "snippets"
+      ]
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The `BaseSingleFieldPeriod.between` method uses `chrono.set(partial, 0L)` to convert a `ReadablePartial` into a timestamp. When the partial is a `MonthDay` (e.g., 2-29), the chronology (defaulting to 1970, a non-leap year) attempts to set the day-of-month to 29, which is invalid for February in a non-leap year, triggering the `IllegalFieldValueException`. The fix requires using a leap-year-aware chronology (like 2012) when calculating the difference between partials that might include February 29th.",
+      "prediction": "The `BaseSingleFieldPeriod.between` method will be identified as the location where the chronology is incorrectly initialized or used without considering leap years, and the fix will involve ensuring a leap-year-capable year is used for the calculation.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Algorithm/Method"
+    }
+  ],
+  "llm_calls_used": 2,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"impact\": \"Capability\", \"confidence\": 0.95, \"needs_human_review\": false, \"observation_summary\": \"The `BaseSingleFieldPeriod.between` method calculates the difference between two `ReadablePartial` objects by setting them into a default chronology (1970). When `MonthDay(2, 29)` is used, the chronology's validation logic correctly identifies that 29 is invalid for February in a non-leap year, causing an `IllegalFieldValueException`.\", \"hypothesis\": \"The `BaseSingleFieldPeriod.between` method uses a default chronology (1970) that does not support leap years when setting a `MonthDay` (which lacks a year) into an instant. This causes validation errors for February 29th.\", \"prediction\": \"The `BaseSingleFieldPeriod.between` method will be identified as the location where the chronology is incorrectly initialized or used without considering leap years.\", \"experiment_rationale\": \"The stack trace and code snippet confirm that the exception is thrown during the `set` operation within `BaseSingleFieldPeriod.between` because the default chronology (1970) does not allow February 29th. This is a procedural error in how the partials are converted to instants for comparison.\", \"reasoning_summary\": \"The bug is a failure to handle leap years when calculating the difference between `MonthDay` objects. The `between` method uses a fixed-year chronology (1970) which is not a leap year, making February 29th an invalid date. This is an algorithmic flaw in the calculation procedure.\", \"evidence_used\": [\"stack_trace_excerpt\", \"snippet\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Checking\", \"why_not_primary\": \"While the exception is thrown by a check, the root cause is the choice of an inappropriate chronology for the calculation, which is an algorithmic/procedural design choice.\"}]}"
+}

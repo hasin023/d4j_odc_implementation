@@ -1,0 +1,84 @@
+{
+  "project_id": "Closure",
+  "bug_id": 162,
+  "version_id": "162b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T06:50:41+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The ScopedAliases pass fails to resolve type aliases in JSDoc when the alias is defined later in the same scope, indicating a single-pass traversal limitation.",
+  "hypothesis": "The ScopedAliases pass fails to resolve aliases in JSDoc because it processes the AST in a single pass, and the alias mapping is only populated as it encounters 'var' declarations. When a JSDoc annotation appears before the 'var' declaration, the alias is not yet in the map, causing the resolution to fail.",
+  "prediction": "The ScopedAliases implementation will show a single traversal that attempts to resolve JSDoc types using a map that is populated during the same traversal, rather than pre-scanning for aliases.",
+  "experiment_rationale": "The failure is a classic ordering issue in a compiler pass where information needed for processing (alias mapping) is not available when needed (JSDoc annotation processing). This is a procedural/algorithmic flaw in the pass's design.",
+  "reasoning_summary": "The bug report and test failure confirm that aliases are not resolved when used before their definition. This requires a change in the algorithm (e.g., a two-pass approach or pre-scanning) to ensure all aliases are known before JSDoc processing occurs.",
+  "evidence_used": [
+    "bug_report",
+    "test_code_snippets"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "The issue is not a missing guard or validation, but a fundamental flaw in the order of operations for alias resolution."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The ScopedAliases pass fails to correctly resolve type aliases when they are used in JSDoc annotations before the alias is defined within the goog.scope block. The compiler is unable to map the aliased name (e.g., 'Foo.Bar') to its fully qualified name (e.g., 'foo.Foo.Bar') because the alias resolution logic is not processing the scope correctly or is missing the necessary forward-reference handling for types.",
+      "prediction": "The ScopedAliases class (or the pass responsible for alias expansion) is likely missing a mechanism to perform a two-pass analysis or a pre-scan of the scope to identify all alias definitions before attempting to resolve type annotations in JSDoc.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "ScopedAliases"
+      },
+      "observation_summary": [
+        "snippets"
+      ]
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The ScopedAliases pass performs a single-pass traversal of the scope, which prevents it from resolving aliases that are defined later in the same scope when they appear in JSDoc annotations. The compiler needs to identify all alias definitions within the scope before processing JSDoc annotations that reference those aliases.",
+      "prediction": "The ScopedAliases class will contain a single traversal method that processes nodes in order, and it will lack a pre-processing step to collect alias mappings before visiting JSDoc nodes.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "ScopedAliases"
+      },
+      "observation_summary": "probe already served this exact request \u2014 use a different probe or conclude"
+    },
+    {
+      "turn": 3,
+      "hypothesis": "The ScopedAliases pass fails to resolve aliases in JSDoc because it processes the AST in a single pass, and the alias mapping is only populated as it encounters 'var' declarations. When a JSDoc annotation appears before the 'var' declaration, the alias is not yet in the map, causing the resolution to fail.",
+      "prediction": "The ScopedAliases implementation will show a single traversal that attempts to resolve JSDoc types using a map that is populated during the same traversal, rather than pre-scanning for aliases.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Algorithm/Method"
+    }
+  ],
+  "llm_calls_used": 3,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"impact\": \"Capability\", \"confidence\": 0.9, \"needs_human_review\": false, \"observation_summary\": \"The ScopedAliases pass fails to resolve type aliases in JSDoc when the alias is defined later in the same scope, indicating a single-pass traversal limitation.\", \"hypothesis\": \"The ScopedAliases pass fails to resolve aliases in JSDoc because it processes the AST in a single pass, and the alias mapping is only populated as it encounters 'var' declarations. When a JSDoc annotation appears before the 'var' declaration, the alias is not yet in the map, causing the resolution to fail.\", \"prediction\": \"The ScopedAliases implementation will show a single traversal that attempts to resolve JSDoc types using a map that is populated during the same traversal, rather than pre-scanning for aliases.\", \"experiment_rationale\": \"The failure is a classic ordering issue in a compiler pass where information needed for processing (alias mapping) is not available when needed (JSDoc annotation processing). This is a procedural/algorithmic flaw in the pass's design.\", \"reasoning_summary\": \"The bug report and test failure confirm that aliases are not resolved when used before their definition. This requires a change in the algorithm (e.g., a two-pass approach or pre-scanning) to ensure all aliases are known before JSDoc processing occurs.\", \"evidence_used\": [\"bug_report\", \"test_code_snippets\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Checking\", \"why_not_primary\": \"The issue is not a missing guard or validation, but a fundamental flaw in the order of operations for alias resolution.\"}]}"
+}

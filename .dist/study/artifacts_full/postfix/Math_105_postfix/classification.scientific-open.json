@@ -1,0 +1,72 @@
+{
+  "project_id": "Math",
+  "bug_id": 105,
+  "version_id": "105b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-25T16:58:32+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The test fails because getSumSquaredErrors() returns a slightly negative value due to floating-point precision errors in a collinear data set, violating the assertion that the result must be >= 0.0.",
+  "hypothesis": "The method getSumSquaredErrors() in SimpleRegression performs a floating-point calculation that can result in a tiny negative value due to precision loss (cancellation error) when the points are collinear. The current implementation returns this raw result, which violates the mathematical expectation that sum of squared errors must be non-negative. The fix should be to clamp the result to 0.0 using Math.max(0d, ...).",
+  "prediction": "The source code for SimpleRegression.getSumSquaredErrors() will show a direct return of the calculation 'sumYY - sumXY * sumXY / sumXX' without any clamping or validation.",
+  "experiment_rationale": "The failure is a classic case of a missing boundary check (clamping to 0) for a value that is mathematically guaranteed to be non-negative but can become negative due to floating-point inaccuracies.",
+  "reasoning_summary": "The bug is a missing validation/guard (clamping) on the result of a calculation. While the calculation itself is correct in theory, the implementation fails to account for the domain constraint (SSE >= 0) in the presence of floating-point errors. This fits the 'Checking' category as it involves adding a guard/validation to ensure the output meets the required predicate.",
+  "evidence_used": [
+    "bug_report",
+    "failing_tests"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The underlying algorithm is correct; the issue is specifically the lack of a boundary check to handle floating-point artifacts."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The method getSumSquaredErrors() performs a floating-point calculation that can result in a tiny negative value due to precision loss (cancellation error) when the points are collinear. The current implementation returns this raw result, which violates the mathematical expectation that sum of squared errors must be non-negative. The fix should be to clamp the result to 0.0.",
+      "prediction": "The snippet of SimpleRegression.java will show that getSumSquaredErrors() returns the raw result of the expression 'sumYY - sumXY * sumXY / sumXX' without any validation or clamping.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "SimpleRegression"
+      },
+      "observation_summary": [
+        "snippets"
+      ]
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The method getSumSquaredErrors() in SimpleRegression performs a floating-point calculation that can result in a tiny negative value due to precision loss (cancellation error) when the points are collinear. The current implementation returns this raw result, which violates the mathematical expectation that sum of squared errors must be non-negative. The fix should be to clamp the result to 0.0 using Math.max(0d, ...).",
+      "prediction": "The source code for SimpleRegression.getSumSquaredErrors() will show a direct return of the calculation 'sumYY - sumXY * sumXY / sumXX' without any clamping or validation.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Checking"
+    }
+  ],
+  "llm_calls_used": 2,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"impact\": \"Capability\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The test fails because getSumSquaredErrors() returns a slightly negative value due to floating-point precision errors in a collinear data set, violating the assertion that the result must be >= 0.0.\", \"hypothesis\": \"The method getSumSquaredErrors() in SimpleRegression performs a floating-point calculation that can result in a tiny negative value due to precision loss (cancellation error) when the points are collinear. The current implementation returns this raw result, which violates the mathematical expectation that sum of squared errors must be non-negative. The fix should be to clamp the result to 0.0 using Math.max(0d, ...).\", \"prediction\": \"The source code for SimpleRegression.getSumSquaredErrors() will show a direct return of the calculation 'sumYY - sumXY * sumXY / sumXX' without any clamping or validation.\", \"experiment_rationale\": \"The failure is a classic case of a missing boundary check (clamping to 0) for a value that is mathematically guaranteed to be non-negative but can become negative due to floating-point inaccuracies.\", \"reasoning_summary\": \"The bug is a missing validation/guard (clamping) on the result of a calculation. While the calculation itself is correct in theory, the implementation fails to account for the domain constraint (SSE >= 0) in the presence of floating-point errors. This fits the 'Checking' category as it involves adding a guard/validation to ensure the output meets the required predicate.\", \"evidence_used\": [\"bug_report\", \"failing_tests\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"The underlying algorithm is correct; the issue is specifically the lack of a boundary check to handle floating-point artifacts.\"}]}"
+}

@@ -1,0 +1,53 @@
+{
+  "project_id": "Closure",
+  "bug_id": 127,
+  "version_id": "127b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T07:08:38+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The compiler incorrectly removes code (like 'break' or 'return') inside a 'finally' block during unreachable code elimination. This leads to incorrect program behavior because the 'finally' block's control flow (e.g., breaking out of a label) should override the exception propagation from the 'try' block.",
+  "hypothesis": "The UnreachableCodeElimination pass fails to check if a 'finally' block contains control flow statements (break, continue, return) that affect the outer scope. It incorrectly assumes the 'finally' block completes normally or is irrelevant to the control flow of the 'try' block, leading to the premature removal of these statements.",
+  "prediction": "The fix will involve adding a check within the UnreachableCodeElimination logic to verify if the 'finally' block contains any control flow statements that could alter the execution path, preventing their removal if they do.",
+  "experiment_rationale": "The failing tests demonstrate that 'break', 'continue', and 'return' statements inside 'finally' blocks are being stripped away. This is a classic case of missing a guard condition that validates whether a block is truly 'unreachable' or 'redundant' before removing it.",
+  "reasoning_summary": "The defect is a failure to validate the contents of a 'finally' block before performing an optimization (code elimination). Because the optimization logic lacks a check for control-flow-altering statements (break/continue/return) within the 'finally' block, it incorrectly identifies them as removable. This is a 'Checking' defect because the core issue is the missing validation of the block's contents before applying the transformation.",
+  "evidence_used": [
+    "com.google.javascript.jscomp.UnreachableCodeEliminationTest::testIssue4177428_return",
+    "com.google.javascript.jscomp.UnreachableCodeEliminationTest::testDontRemoveBreakInTryFinally",
+    "com.google.javascript.jscomp.UnreachableCodeEliminationTest::testIssue4177428_continue",
+    "com.google.javascript.jscomp.UnreachableCodeEliminationTest::testDontRemoveBreakInTryFinallySwitch",
+    "com.google.javascript.jscomp.UnreachableCodeEliminationTest::testIssue4177428a",
+    "bug_report_description"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the optimization algorithm is flawed, the root cause is specifically the lack of a check to validate the contents of the 'finally' block before proceeding with the removal."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The compiler incorrectly removes code (like 'break' or 'return') inside a 'finally' block during unreachable code elimination. This leads to incorrect program behavior because the 'finally' block's control flow (e.g., breaking out of a label) should override the exception propagation from the 'try' block.\",\n  \"hypothesis\": \"The UnreachableCodeElimination pass fails to check if a 'finally' block contains control flow statements (break, continue, return) that affect the outer scope. It incorrectly assumes the 'finally' block completes normally or is irrelevant to the control flow of the 'try' block, leading to the premature removal of these statements.\",\n  \"prediction\": \"The fix will involve adding a check within the UnreachableCodeElimination logic to verify if the 'finally' block contains any control flow statements that could alter the execution path, preventing their removal if they do.\",\n  \"experiment_rationale\": \"The failing tests demonstrate that 'break', 'continue', and 'return' statements inside 'finally' blocks are being stripped away. This is a classic case of missing a guard condition that validates whether a block is truly 'unreachable' or 'redundant' before removing it.\",\n  \"reasoning_summary\": \"The defect is a failure to validate the contents of a 'finally' block before performing an optimization (code elimination). Because the optimization logic lacks a check for control-flow-altering statements (break/continue/return) within the 'finally' block, it incorrectly identifies them as removable. This is a 'Checking' defect because the core issue is the missing validation of the block's contents before applying the transformation.\",\n  \"evidence_used\": [\n    \"com.google.javascript.jscomp.UnreachableCodeEliminationTest::testIssue4177428_return\",\n    \"com.google.javascript.jscomp.UnreachableCodeEliminationTest::testDontRemoveBreakInTryFinally\",\n    \"com.google.javascript.jscomp.UnreachableCodeEliminationTest::testIssue4177428_continue\",\n    \"com.google.javascript.jscomp.UnreachableCodeEliminationTest::testDontRemoveBreakInTryFinallySwitch\",\n    \"com.google.javascript.jscomp.UnreachableCodeEliminationTest::testIssue4177428a\",\n    \"bug_report_description\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the optimization algorithm is flawed, the root cause is specifically the lack of a check to validate the contents of the 'finally' block before proceeding with the removal.\"\n    }\n  ]\n}"
+}

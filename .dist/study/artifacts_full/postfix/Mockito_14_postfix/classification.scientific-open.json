@@ -1,0 +1,70 @@
+{
+  "project_id": "Mockito",
+  "bug_id": 14,
+  "version_id": "14b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-25T12:49:53+00:00",
+  "odc_type": "Interface/O-O Messages",
+  "family": "Structural",
+  "confidence": 0.95,
+  "needs_human_review": false,
+  "observation_summary": "The test fails when a nested mock call is used as an argument in a verify() call. The stack trace shows the verification logic incorrectly processing the nested call as an interaction to be verified, leading to an assertion failure because the nested mock has no interactions.",
+  "hypothesis": "The verification logic in Mockito is failing because it does not correctly bind the verification mode to the specific mock instance being verified. When a nested call occurs, the framework incorrectly attempts to verify the nested call against the current verification mode, which is intended for the outer mock. This is a structural issue where the interface between the verification mode and the mock handler lacks the necessary context (the mock instance) to filter out irrelevant invocations.",
+  "prediction": "I expect that the fix involves introducing a 'MockAwareVerificationMode' that explicitly stores the mock instance, allowing the MockHandler to ignore invocations that do not match the mock being verified.",
+  "experiment_rationale": "The fix diff provided in the oracle confirms that a 'MockAwareVerificationMode' was introduced to associate the verification mode with the specific mock instance, and the MockHandler was updated to check this association. This confirms the issue was an interface/contract mismatch between the verification mode and the mock handler.",
+  "reasoning_summary": "The bug is caused by the lack of association between the verification mode and the mock instance. The fix introduces a wrapper (MockAwareVerificationMode) to pass this context, which is a classic interface/contract issue where the existing signature/contract was insufficient for the required functionality.",
+  "evidence_used": [
+    "bug_report",
+    "fix_diff_oracle"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "While the fix adds a check, the root cause is the lack of necessary context (the mock instance) in the verification mode interface, which is a structural design issue."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The bug occurs because Mockito's verification process does not correctly associate the verification mode with the specific mock instance being verified. When a nested mock call (like mock.otherMethod()) occurs inside a verify() call for a different mock (mockTwo), the verification logic incorrectly attempts to verify the nested call against the wrong mock or fails to distinguish between the two, leading to an assertion failure.",
+      "prediction": "I expect to see that the verification mode is currently generic and lacks a reference to the specific mock object it is intended to verify, causing the MockHandler to incorrectly process the nested invocation as part of the verification sequence for the wrong mock.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "org.mockito.internal.MockHandler"
+      },
+      "observation_summary": "no snippet matches 'org.mockito.internal.MockHandler'"
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The verification logic in Mockito is failing because it does not correctly bind the verification mode to the specific mock instance being verified. When a nested call occurs, the framework incorrectly attempts to verify the nested call against the current verification mode, which is intended for the outer mock. This is a structural issue where the interface between the verification mode and the mock handler lacks the necessary context (the mock instance) to filter out irrelevant invocations.",
+      "prediction": "I expect that the fix involves introducing a 'MockAwareVerificationMode' that explicitly stores the mock instance, allowing the MockHandler to ignore invocations that do not match the mock being verified.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Interface/O-O Messages"
+    }
+  ],
+  "llm_calls_used": 2,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Interface/O-O Messages\", \"family\": \"Structural\", \"impact\": \"Capability\", \"confidence\": 0.95, \"needs_human_review\": false, \"observation_summary\": \"The test fails when a nested mock call is used as an argument in a verify() call. The stack trace shows the verification logic incorrectly processing the nested call as an interaction to be verified, leading to an assertion failure because the nested mock has no interactions.\", \"hypothesis\": \"The verification logic in Mockito is failing because it does not correctly bind the verification mode to the specific mock instance being verified. When a nested call occurs, the framework incorrectly attempts to verify the nested call against the current verification mode, which is intended for the outer mock. This is a structural issue where the interface between the verification mode and the mock handler lacks the necessary context (the mock instance) to filter out irrelevant invocations.\", \"prediction\": \"I expect that the fix involves introducing a 'MockAwareVerificationMode' that explicitly stores the mock instance, allowing the MockHandler to ignore invocations that do not match the mock being verified.\", \"experiment_rationale\": \"The fix diff provided in the oracle confirms that a 'MockAwareVerificationMode' was introduced to associate the verification mode with the specific mock instance, and the MockHandler was updated to check this association. This confirms the issue was an interface/contract mismatch between the verification mode and the mock handler.\", \"reasoning_summary\": \"The bug is caused by the lack of association between the verification mode and the mock instance. The fix introduces a wrapper (MockAwareVerificationMode) to pass this context, which is a classic interface/contract issue where the existing signature/contract was insufficient for the required functionality.\", \"evidence_used\": [\"bug_report\", \"fix_diff_oracle\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Checking\", \"why_not_primary\": \"While the fix adds a check, the root cause is the lack of necessary context (the mock instance) in the verification mode interface, which is a structural design issue.\"}]}"
+}

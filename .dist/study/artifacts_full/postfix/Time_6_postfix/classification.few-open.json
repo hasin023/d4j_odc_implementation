@@ -1,0 +1,50 @@
+{
+  "project_id": "Time",
+  "bug_id": 6,
+  "version_id": "6b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-25T12:33:42+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The GJChronology fails when performing date arithmetic that crosses the year 0 boundary (e.g., subtracting years from a positive year to reach a negative year), throwing an IllegalFieldValueException because the internal logic does not correctly account for the non-existence of year 0 in the Julian/Gregorian calendar transition.",
+  "hypothesis": "The algorithm for adjusting dates across the cutover point fails to account for the 'year 0' gap when transitioning from positive to negative years. The fix requires explicitly checking if the resulting year is 0 and adjusting it by -1 to skip the non-existent year.",
+  "prediction": "The code will include logic to check if the calculated year (or weekyear) is 0 after a date arithmetic operation and, if so, apply an additional adjustment to skip it.",
+  "experiment_rationale": "The fix diff shows that inside the `add` method of `ImpreciseCutoverField`, additional logic was added to check if the resulting year or weekyear is <= 0 and, if so, subtract 1 to skip the year 0, which confirms the algorithm was missing this specific calendar-aware step.",
+  "reasoning_summary": "The defect is an algorithmic error in how the chronology handles date arithmetic across the cutover point. It is not a simple missing guard (Checking) because the logic itself needs to perform a specific calendar-aware adjustment (subtracting an extra year) to maintain correctness. It is not an Assignment/Initialization issue because the logic is procedural. It is not a design-level capability issue (Function/Class/Object) because the functionality exists but is implemented with an incorrect computational strategy for the specific edge case of crossing the year 0 boundary.",
+  "evidence_used": [
+    "The fix_diff_oracle shows the addition of logic to check if the year is <= 0 and adjust it by -1.",
+    "The stack trace shows an IllegalFieldValueException: Value 0 for year is not supported.",
+    "The bug report describes the failure when crossing the year 0 boundary."
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "While the fix adds a check, the primary issue is that the algorithm for calculating the date across the cutover is incomplete; it needs to perform an additional adjustment (the 'skip' logic) to be correct, not just validate the input."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Incorrect",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Algorithm/Method\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The GJChronology fails when performing date arithmetic that crosses the year 0 boundary (e.g., subtracting years from a positive year to reach a negative year), throwing an IllegalFieldValueException because the internal logic does not correctly account for the non-existence of year 0 in the Julian/Gregorian calendar transition.\",\n  \"hypothesis\": \"The algorithm for adjusting dates across the cutover point fails to account for the 'year 0' gap when transitioning from positive to negative years. The fix requires explicitly checking if the resulting year is 0 and adjusting it by -1 to skip the non-existent year.\",\n  \"prediction\": \"The code will include logic to check if the calculated year (or weekyear) is 0 after a date arithmetic operation and, if so, apply an additional adjustment to skip it.\",\n  \"experiment_rationale\": \"The fix diff shows that inside the `add` method of `ImpreciseCutoverField`, additional logic was added to check if the resulting year or weekyear is <= 0 and, if so, subtract 1 to skip the year 0, which confirms the algorithm was missing this specific calendar-aware step.\",\n  \"reasoning_summary\": \"The defect is an algorithmic error in how the chronology handles date arithmetic across the cutover point. It is not a simple missing guard (Checking) because the logic itself needs to perform a specific calendar-aware adjustment (subtracting an extra year) to maintain correctness. It is not an Assignment/Initialization issue because the logic is procedural. It is not a design-level capability issue (Function/Class/Object) because the functionality exists but is implemented with an incorrect computational strategy for the specific edge case of crossing the year 0 boundary.\",\n  \"evidence_used\": [\n    \"The fix_diff_oracle shows the addition of logic to check if the year is <= 0 and adjust it by -1.\",\n    \"The stack trace shows an IllegalFieldValueException: Value 0 for year is not supported.\",\n    \"The bug report describes the failure when crossing the year 0 boundary.\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Checking\",\n      \"why_not_primary\": \"While the fix adds a check, the primary issue is that the algorithm for calculating the date across the cutover is incomplete; it needs to perform an additional adjustment (the 'skip' logic) to be correct, not just validate the input.\"\n    }\n  ]\n}"
+}

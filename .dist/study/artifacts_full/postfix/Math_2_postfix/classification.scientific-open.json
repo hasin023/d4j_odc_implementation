@@ -1,0 +1,72 @@
+{
+  "project_id": "Math",
+  "bug_id": 2,
+  "version_id": "2b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-25T16:39:54+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The test fails with a negative sample value when using large parameters, indicating an integer overflow in the calculation of the distribution's mean, which is used during sampling.",
+  "hypothesis": "The HypergeometricDistribution.getNumericalMean() method performs an integer multiplication (getSampleSize() * getNumberOfSuccesses()) before casting to double. This causes an integer overflow when the product exceeds 2^31-1, leading to incorrect results in the sampling process.",
+  "prediction": "The source code for HypergeometricDistribution.getNumericalMean() will show the expression (double) (getSampleSize() * getNumberOfSuccesses()) / (double) getPopulationSize(), confirming the integer overflow before the cast.",
+  "experiment_rationale": "The bug report explicitly identifies the integer overflow in getNumericalMean() as the cause, and the fix provided in the oracle confirms that changing the order of operations (to avoid intermediate integer overflow) resolves the issue.",
+  "reasoning_summary": "The defect is a classic integer overflow caused by an incorrect order of operations in a mathematical formula. The fix involves changing the calculation to perform division before multiplication, which is a procedural/algorithmic correction to ensure numerical correctness.",
+  "evidence_used": [
+    "bug_report",
+    "fix_diff_oracle"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Assignment/Initialization",
+      "why_not_primary": "While the result is assigned to a variable, the root cause is the procedural logic of the calculation itself, not the initialization of a variable."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The HypergeometricDistribution.sample() method relies on getNumericalMean(), which performs an integer multiplication (getSampleSize() * getNumberOfSuccesses()) before casting to double. Given the large values provided in the test case (N=43130568, m=42976365, n=50), this multiplication overflows the 32-bit integer range, resulting in a negative value that causes the sampling logic to fail.",
+      "prediction": "The snippet of HypergeometricDistribution.java will show that getNumericalMean() performs the multiplication of two integers before casting the result to double, confirming the integer overflow vulnerability.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "HypergeometricDistribution"
+      },
+      "observation_summary": [
+        "snippets"
+      ]
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The HypergeometricDistribution.getNumericalMean() method performs an integer multiplication (getSampleSize() * getNumberOfSuccesses()) before casting to double. This causes an integer overflow when the product exceeds 2^31-1, leading to incorrect results in the sampling process.",
+      "prediction": "The source code for HypergeometricDistribution.getNumericalMean() will show the expression (double) (getSampleSize() * getNumberOfSuccesses()) / (double) getPopulationSize(), confirming the integer overflow before the cast.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Algorithm/Method"
+    }
+  ],
+  "llm_calls_used": 2,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"impact\": \"Capability\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The test fails with a negative sample value when using large parameters, indicating an integer overflow in the calculation of the distribution's mean, which is used during sampling.\", \"hypothesis\": \"The HypergeometricDistribution.getNumericalMean() method performs an integer multiplication (getSampleSize() * getNumberOfSuccesses()) before casting to double. This causes an integer overflow when the product exceeds 2^31-1, leading to incorrect results in the sampling process.\", \"prediction\": \"The source code for HypergeometricDistribution.getNumericalMean() will show the expression (double) (getSampleSize() * getNumberOfSuccesses()) / (double) getPopulationSize(), confirming the integer overflow before the cast.\", \"experiment_rationale\": \"The bug report explicitly identifies the integer overflow in getNumericalMean() as the cause, and the fix provided in the oracle confirms that changing the order of operations (to avoid intermediate integer overflow) resolves the issue.\", \"reasoning_summary\": \"The defect is a classic integer overflow caused by an incorrect order of operations in a mathematical formula. The fix involves changing the calculation to perform division before multiplication, which is a procedural/algorithmic correction to ensure numerical correctness.\", \"evidence_used\": [\"bug_report\", \"fix_diff_oracle\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Assignment/Initialization\", \"why_not_primary\": \"While the result is assigned to a variable, the root cause is the procedural logic of the calculation itself, not the initialization of a variable.\"}]}"
+}

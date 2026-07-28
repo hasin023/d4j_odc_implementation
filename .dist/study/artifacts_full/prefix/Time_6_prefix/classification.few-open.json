@@ -1,0 +1,55 @@
+{
+  "project_id": "Time",
+  "bug_id": 6,
+  "version_id": "6b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-25T12:33:38+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The Joda-Time library throws an 'IllegalFieldValueException: Value 0 for year is not supported' when performing date arithmetic that crosses the year 0 boundary (e.g., moving from 1 AD to 1 BC). The library is expected to handle the transition automatically by skipping year 0, but it fails to do so correctly during internal chronology conversions.",
+  "hypothesis": "The root cause is an incorrect algorithmic implementation in the chronology conversion logic (specifically in GJChronology and JulianChronology). The code fails to account for the 'year 0' skip requirement when converting between Gregorian and Julian calendars during date arithmetic, leading to an invalid year value being passed to internal validation methods.",
+  "prediction": "The fix will involve modifying the year adjustment logic in JulianChronology or the conversion methods in GJChronology to correctly skip year 0 when crossing the boundary, rather than simply throwing an exception or passing an invalid 0 value.",
+  "experiment_rationale": "The stack trace points directly to 'JulianChronology.adjustYearForSet' throwing the exception when it receives a 0. The calling code in 'GJChronology' performs conversions that do not correctly account for the fact that the Julian calendar (and the library's representation) does not support year 0, requiring an algorithmic adjustment to skip it during cross-chronology arithmetic.",
+  "reasoning_summary": "The issue is not a missing guard (Checking) or a wrong constant (Assignment/Initialization), but a flaw in the procedural logic used to calculate dates across the year 0 boundary. The algorithm for converting between calendars fails to correctly map years when the result of an arithmetic operation lands on the non-existent year 0, requiring a change to the computational strategy for year adjustment.",
+  "evidence_used": [
+    "org.joda.time.IllegalFieldValueException: Value 0 for year is not supported",
+    "org.joda.time.chrono.JulianChronology.adjustYearForSet(JulianChronology.java:81)",
+    "org.joda.time.chrono.GJChronology.convertByYear(GJChronology.java:85)",
+    "org.joda.time.chrono.GJChronology$ImpreciseCutoverField.add(GJChronology.java:979)"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "While the code throws an exception (a check), the root cause is that the algorithm performing the date calculation is producing an invalid year value (0) that it should have skipped, rather than just failing to validate a user input."
+    },
+    {
+      "type": "Function/Class/Object",
+      "why_not_primary": "This is a procedural logic error in existing date arithmetic methods, not a missing design capability or a missing class/object."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Incorrect",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Algorithm/Method\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The Joda-Time library throws an 'IllegalFieldValueException: Value 0 for year is not supported' when performing date arithmetic that crosses the year 0 boundary (e.g., moving from 1 AD to 1 BC). The library is expected to handle the transition automatically by skipping year 0, but it fails to do so correctly during internal chronology conversions.\",\n  \"hypothesis\": \"The root cause is an incorrect algorithmic implementation in the chronology conversion logic (specifically in GJChronology and JulianChronology). The code fails to account for the 'year 0' skip requirement when converting between Gregorian and Julian calendars during date arithmetic, leading to an invalid year value being passed to internal validation methods.\",\n  \"prediction\": \"The fix will involve modifying the year adjustment logic in JulianChronology or the conversion methods in GJChronology to correctly skip year 0 when crossing the boundary, rather than simply throwing an exception or passing an invalid 0 value.\",\n  \"experiment_rationale\": \"The stack trace points directly to 'JulianChronology.adjustYearForSet' throwing the exception when it receives a 0. The calling code in 'GJChronology' performs conversions that do not correctly account for the fact that the Julian calendar (and the library's representation) does not support year 0, requiring an algorithmic adjustment to skip it during cross-chronology arithmetic.\",\n  \"reasoning_summary\": \"The issue is not a missing guard (Checking) or a wrong constant (Assignment/Initialization), but a flaw in the procedural logic used to calculate dates across the year 0 boundary. The algorithm for converting between calendars fails to correctly map years when the result of an arithmetic operation lands on the non-existent year 0, requiring a change to the computational strategy for year adjustment.\",\n  \"evidence_used\": [\n    \"org.joda.time.IllegalFieldValueException: Value 0 for year is not supported\",\n    \"org.joda.time.chrono.JulianChronology.adjustYearForSet(JulianChronology.java:81)\",\n    \"org.joda.time.chrono.GJChronology.convertByYear(GJChronology.java:85)\",\n    \"org.joda.time.chrono.GJChronology$ImpreciseCutoverField.add(GJChronology.java:979)\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Checking\",\n      \"why_not_primary\": \"While the code throws an exception (a check), the root cause is that the algorithm performing the date calculation is producing an invalid year value (0) that it should have skipped, rather than just failing to validate a user input.\"\n    },\n    {\n      \"type\": \"Function/Class/Object\",\n      \"why_not_primary\": \"This is a procedural logic error in existing date arithmetic methods, not a missing design capability or a missing class/object.\"\n    }\n  ]\n}"
+}

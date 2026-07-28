@@ -1,0 +1,51 @@
+{
+  "project_id": "Closure",
+  "bug_id": 157,
+  "version_id": "157b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T07:11:52+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 0.8,
+  "needs_human_review": false,
+  "observation_summary": "The compiler fails to correctly handle ES5 object literal property names (numbers or quoted strings) when used with getters and setters, leading to incorrect code generation and internal compiler errors.",
+  "hypothesis": "The compiler's normalization and constant-annotation logic assumes that property names in object literals are always simple identifiers (NAME nodes), failing to account for STRING nodes or numeric literals which are valid in ES5. This causes the compiler to attempt to call getString() on non-string nodes, triggering an UnsupportedOperationException.",
+  "prediction": "The fix will involve updating the logic in Normalize.java and NodeUtil.java to correctly handle property keys that are not simple NAME nodes, likely by checking the node type before calling getString() or by implementing a more robust way to retrieve the property name.",
+  "experiment_rationale": "The stack trace points directly to an UnsupportedOperationException in Node.getString() when called from Normalize.annotateConstantsByConvention. This confirms that the code is attempting to treat a non-string node as a string node during the normalization phase, which is a procedural logic error in how the compiler traverses and processes the AST.",
+  "reasoning_summary": "The defect is an algorithmic failure in the compiler's AST traversal and normalization logic. It incorrectly assumes that all property keys are NAME nodes, failing to handle the broader set of valid ES5 property keys (strings, numbers). This is a procedural error in the compiler's transformation strategy, not a missing guard (Checking) or a simple value assignment error.",
+  "evidence_used": [
+    "com.google.javascript.rhino.Node.getString throws UnsupportedOperationException",
+    "com.google.javascript.jscomp.Normalize$NormalizeStatements.annotateConstantsByConvention calls NodeUtil.isConstantByConvention",
+    "com.google.javascript.jscomp.NodeUtil.isConstantByConvention calls node.getString() without verifying node type",
+    "Stack trace shows failure during normalization of object literals"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "While a check is missing, the root cause is the incorrect assumption in the algorithm that all property keys are NAME nodes, which is a procedural design flaw in the normalization process."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Incorrect",
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Algorithm/Method\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Capability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"confidence\": 0.8,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The compiler fails to correctly handle ES5 object literal property names (numbers or quoted strings) when used with getters and setters, leading to incorrect code generation and internal compiler errors.\",\n  \"hypothesis\": \"The compiler's normalization and constant-annotation logic assumes that property names in object literals are always simple identifiers (NAME nodes), failing to account for STRING nodes or numeric literals which are valid in ES5. This causes the compiler to attempt to call getString() on non-string nodes, triggering an UnsupportedOperationException.\",\n  \"prediction\": \"The fix will involve updating the logic in Normalize.java and NodeUtil.java to correctly handle property keys that are not simple NAME nodes, likely by checking the node type before calling getString() or by implementing a more robust way to retrieve the property name.\",\n  \"experiment_rationale\": \"The stack trace points directly to an UnsupportedOperationException in Node.getString() when called from Normalize.annotateConstantsByConvention. This confirms that the code is attempting to treat a non-string node as a string node during the normalization phase, which is a procedural logic error in how the compiler traverses and processes the AST.\",\n  \"reasoning_summary\": \"The defect is an algorithmic failure in the compiler's AST traversal and normalization logic. It incorrectly assumes that all property keys are NAME nodes, failing to handle the broader set of valid ES5 property keys (strings, numbers). This is a procedural error in the compiler's transformation strategy, not a missing guard (Checking) or a simple value assignment error.\",\n  \"evidence_used\": [\n    \"com.google.javascript.rhino.Node.getString throws UnsupportedOperationException\",\n    \"com.google.javascript.jscomp.Normalize$NormalizeStatements.annotateConstantsByConvention calls NodeUtil.isConstantByConvention\",\n    \"com.google.javascript.jscomp.NodeUtil.isConstantByConvention calls node.getString() without verifying node type\",\n    \"Stack trace shows failure during normalization of object literals\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Checking\",\n      \"why_not_primary\": \"While a check is missing, the root cause is the incorrect assumption in the algorithm that all property keys are NAME nodes, which is a procedural design flaw in the normalization process.\"\n    }\n  ]\n}"
+}

@@ -1,0 +1,103 @@
+{
+  "project_id": "Closure",
+  "bug_id": 115,
+  "version_id": "115b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T06:39:39+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The compiler incorrectly inlines functions with side effects on their arguments, leading to incorrect code generation and failing tests that expect specific evaluation orders.",
+  "hypothesis": "The FunctionInjector class is incorrectly inlining functions that contain side effects on their arguments, specifically property modifications.",
+  "prediction": "The inlining safety check logic in the compiler is insufficient to detect side effects on object properties.",
+  "experiment_rationale": "The failing tests consistently show that the compiler reorders operations in a way that changes the semantics of the code when side effects are present. This is a procedural error in the inlining algorithm.",
+  "reasoning_summary": "The bug is clearly in the logic that determines whether a function is safe to inline. The compiler's inlining pass fails to account for side effects on object properties, which is a procedural/algorithmic flaw in the inlining safety check.",
+  "evidence_used": [
+    "com.google.javascript.jscomp.InlineFunctionsTest::testBug4944818",
+    "com.google.javascript.jscomp.InlineFunctionsTest::testNoInlineIfParametersModified8",
+    "com.google.javascript.jscomp.InlineFunctionsTest::testNoInlineIfParametersModified9"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "While it involves a check, the core issue is the design of the inlining algorithm itself, which fails to correctly model the side effects of the code being inlined."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The FunctionInjector is incorrectly inlining functions that have side effects on their arguments, specifically when the function being inlined modifies an object property that is also used in the expression. The compiler fails to detect that the argument is modified, leading to an incorrect reordering of operations that changes the semantics of the code.",
+      "prediction": "I expect to find logic in the FunctionInjector (or a related class like InlineFunctions) that determines whether a function is safe to inline, and that this logic fails to account for side effects on object properties when the function is inlined.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "FunctionInjector"
+      },
+      "observation_summary": "no snippet matches 'FunctionInjector'"
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The bug is located in the InlineFunctions class, which is responsible for the inlining logic that is failing. The previous attempt to find 'FunctionInjector' failed because the class name was likely different or it is an inner class/package-private class not directly accessible by that name. I will search for 'InlineFunctions' instead.",
+      "prediction": "I expect to find the logic that determines whether a function is safe to inline within the InlineFunctions class, specifically checking for side effects on arguments.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "InlineFunctions"
+      },
+      "observation_summary": [
+        "snippets"
+      ]
+    },
+    {
+      "turn": 3,
+      "hypothesis": "The bug is in the FunctionInjector class, which is responsible for inlining functions. The inlining logic fails to correctly identify that a function has side effects on its arguments, specifically when those arguments are objects whose properties are modified. This leads to incorrect reordering of operations during inlining, violating the expected evaluation order.",
+      "prediction": "I expect to find that the FunctionInjector class contains a method (likely named something like 'isSafeToInline' or 'canInline') that incorrectly evaluates the safety of inlining a function when it contains side-effecting operations on its arguments.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "list_evidence",
+        "argument": null
+      },
+      "observation_summary": [
+        "bug_report_available",
+        "coverage_classes",
+        "failing_tests",
+        "production_snippet_classes",
+        "test_snippet_classes"
+      ]
+    },
+    {
+      "turn": 4,
+      "hypothesis": "The FunctionInjector class is incorrectly inlining functions that contain side effects on their arguments. Specifically, it fails to detect that an argument is modified within the function, leading to an incorrect reordering of operations that violates the expected evaluation order in JavaScript. This is a classic case of an incorrect algorithm for determining inlining safety.",
+      "prediction": "The FunctionInjector class will contain a method that checks for side effects, and this method will be missing a check for property modifications on arguments, or it will incorrectly assume that property modifications are not side effects that affect inlining safety.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Algorithm/Method"
+    }
+  ],
+  "llm_calls_used": 4,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"impact\": \"Capability\", \"confidence\": 0.9, \"needs_human_review\": false, \"observation_summary\": \"The compiler incorrectly inlines functions with side effects on their arguments, leading to incorrect code generation and failing tests that expect specific evaluation orders.\", \"hypothesis\": \"The FunctionInjector class is incorrectly inlining functions that contain side effects on their arguments, specifically property modifications.\", \"prediction\": \"The inlining safety check logic in the compiler is insufficient to detect side effects on object properties.\", \"experiment_rationale\": \"The failing tests consistently show that the compiler reorders operations in a way that changes the semantics of the code when side effects are present. This is a procedural error in the inlining algorithm.\", \"reasoning_summary\": \"The bug is clearly in the logic that determines whether a function is safe to inline. The compiler's inlining pass fails to account for side effects on object properties, which is a procedural/algorithmic flaw in the inlining safety check.\", \"evidence_used\": [\"com.google.javascript.jscomp.InlineFunctionsTest::testBug4944818\", \"com.google.javascript.jscomp.InlineFunctionsTest::testNoInlineIfParametersModified8\", \"com.google.javascript.jscomp.InlineFunctionsTest::testNoInlineIfParametersModified9\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Checking\", \"why_not_primary\": \"While it involves a check, the core issue is the design of the inlining algorithm itself, which fails to correctly model the side effects of the code being inlined.\"}]}"
+}

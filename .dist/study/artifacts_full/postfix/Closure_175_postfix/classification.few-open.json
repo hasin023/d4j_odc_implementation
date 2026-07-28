@@ -1,0 +1,50 @@
+{
+  "project_id": "Closure",
+  "bug_id": 175,
+  "version_id": "175b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T07:14:10+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The compiler incorrectly inlines functions in ADVANCED_OPTIMIZATIONS mode, leading to incorrect evaluation order when function arguments have side effects. This causes semantic changes in the generated code.",
+  "hypothesis": "The function inliner fails to check if function arguments have side effects before performing direct inlining. When a function is inlined directly, the arguments are evaluated in a different context or order, which is unsafe if those arguments contain side-effecting expressions.",
+  "prediction": "The fix will introduce a check to verify if arguments have side effects or require aliasing (temporary variables) before allowing direct inlining, and will back out of the optimization if these conditions are met.",
+  "experiment_rationale": "The fix modifies 'canInlineReferenceDirectly' to incorporate 'namesToAlias' and uses 'FunctionArgumentInjector' to determine if temporary variables are needed for call arguments. If aliasing is required, it returns 'CanInlineResult.NO', effectively adding the missing safety check.",
+  "reasoning_summary": "The bug is fundamentally a missing validation check. The compiler was performing an optimization (direct inlining) without verifying if the arguments were safe to inline (i.e., whether they had side effects that would be altered by the inlining process). The fix adds the necessary logic to detect these cases and prevent the unsafe optimization, which is a classic 'Checking' defect.",
+  "evidence_used": [
+    "The bug report states: 'Note how this is semantically very different if modifiesProp/b (whose semantics are unknown to the compiler) side-effects a.prop.'",
+    "The fix diff modifies 'canInlineReferenceDirectly' to check for 'namesToAlias' and uses 'FunctionArgumentInjector' to determine if temporary variables are needed.",
+    "The fix returns 'CanInlineResult.NO' if 'allNamesToAlias' is not empty, which is a guard condition."
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the inlining logic is complex, the root cause is the absence of a safety check (validation) for side effects, not an error in the inlining algorithm itself."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The compiler incorrectly inlines functions in ADVANCED_OPTIMIZATIONS mode, leading to incorrect evaluation order when function arguments have side effects. This causes semantic changes in the generated code.\",\n  \"hypothesis\": \"The function inliner fails to check if function arguments have side effects before performing direct inlining. When a function is inlined directly, the arguments are evaluated in a different context or order, which is unsafe if those arguments contain side-effecting expressions.\",\n  \"prediction\": \"The fix will introduce a check to verify if arguments have side effects or require aliasing (temporary variables) before allowing direct inlining, and will back out of the optimization if these conditions are met.\",\n  \"experiment_rationale\": \"The fix modifies 'canInlineReferenceDirectly' to incorporate 'namesToAlias' and uses 'FunctionArgumentInjector' to determine if temporary variables are needed for call arguments. If aliasing is required, it returns 'CanInlineResult.NO', effectively adding the missing safety check.\",\n  \"reasoning_summary\": \"The bug is fundamentally a missing validation check. The compiler was performing an optimization (direct inlining) without verifying if the arguments were safe to inline (i.e., whether they had side effects that would be altered by the inlining process). The fix adds the necessary logic to detect these cases and prevent the unsafe optimization, which is a classic 'Checking' defect.\",\n  \"evidence_used\": [\n    \"The bug report states: 'Note how this is semantically very different if modifiesProp/b (whose semantics are unknown to the compiler) side-effects a.prop.'\",\n    \"The fix diff modifies 'canInlineReferenceDirectly' to check for 'namesToAlias' and uses 'FunctionArgumentInjector' to determine if temporary variables are needed.\",\n    \"The fix returns 'CanInlineResult.NO' if 'allNamesToAlias' is not empty, which is a guard condition.\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the inlining logic is complex, the root cause is the absence of a safety check (validation) for side effects, not an error in the inlining algorithm itself.\"\n    }\n  ]\n}"
+}

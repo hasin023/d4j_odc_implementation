@@ -1,0 +1,50 @@
+{
+  "project_id": "Closure",
+  "bug_id": 129,
+  "version_id": "129b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T07:08:55+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The compiler incorrectly wraps function calls in a (0, ...) expression when a type cast is present, which breaks calls to certain objects (like ActiveX objects) that rely on the 'this' context being preserved.",
+  "hypothesis": "The compiler's AST preparation logic fails to look through 'CAST' nodes when determining if a function call is a 'free call' (which triggers the (0, ...) wrapping). By not unwrapping the cast, it incorrectly identifies the call as a free call.",
+  "prediction": "The fix will involve adding logic to traverse through 'CAST' nodes to find the actual underlying expression before deciding whether to apply the free-call transformation.",
+  "experiment_rationale": "The provided diff shows a 'while' loop added to 'PrepareAst' that explicitly unwraps 'CAST' nodes. This confirms that the logic for identifying the call target was flawed because it stopped at the cast node instead of the actual function expression.",
+  "reasoning_summary": "The bug is an incorrect procedural step in the AST transformation logic. The compiler was performing an unnecessary and harmful transformation (wrapping in (0, ...)) because it failed to correctly identify the call target due to an intervening 'CAST' node. This is a classic algorithmic error in the compiler's transformation pass, not a missing check or a simple value assignment error.",
+  "evidence_used": [
+    "The fix_diff_oracle shows a 'while' loop added to 'PrepareAst' to skip 'CAST' nodes.",
+    "The bug report describes the (0, ...) wrapping as an unwanted side effect of the CAST node introduction.",
+    "The failing test shows the compiler outputting 'console.log((0,(new x).abc)())' instead of 'console.log((new x).abc())'."
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "While the fix adds a loop that acts as a check, the root cause is the incorrect implementation of the 'free call' identification algorithm, which fails to account for the AST structure introduced by casts."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Incorrect",
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Algorithm/Method\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Capability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The compiler incorrectly wraps function calls in a (0, ...) expression when a type cast is present, which breaks calls to certain objects (like ActiveX objects) that rely on the 'this' context being preserved.\",\n  \"hypothesis\": \"The compiler's AST preparation logic fails to look through 'CAST' nodes when determining if a function call is a 'free call' (which triggers the (0, ...) wrapping). By not unwrapping the cast, it incorrectly identifies the call as a free call.\",\n  \"prediction\": \"The fix will involve adding logic to traverse through 'CAST' nodes to find the actual underlying expression before deciding whether to apply the free-call transformation.\",\n  \"experiment_rationale\": \"The provided diff shows a 'while' loop added to 'PrepareAst' that explicitly unwraps 'CAST' nodes. This confirms that the logic for identifying the call target was flawed because it stopped at the cast node instead of the actual function expression.\",\n  \"reasoning_summary\": \"The bug is an incorrect procedural step in the AST transformation logic. The compiler was performing an unnecessary and harmful transformation (wrapping in (0, ...)) because it failed to correctly identify the call target due to an intervening 'CAST' node. This is a classic algorithmic error in the compiler's transformation pass, not a missing check or a simple value assignment error.\",\n  \"evidence_used\": [\n    \"The fix_diff_oracle shows a 'while' loop added to 'PrepareAst' to skip 'CAST' nodes.\",\n    \"The bug report describes the (0, ...) wrapping as an unwanted side effect of the CAST node introduction.\",\n    \"The failing test shows the compiler outputting 'console.log((0,(new x).abc)())' instead of 'console.log((new x).abc())'.\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Checking\",\n      \"why_not_primary\": \"While the fix adds a loop that acts as a check, the root cause is the incorrect implementation of the 'free call' identification algorithm, which fails to account for the AST structure introduced by casts.\"\n    }\n  ]\n}"
+}

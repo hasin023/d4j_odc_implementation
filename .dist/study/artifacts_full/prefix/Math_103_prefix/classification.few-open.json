@@ -1,0 +1,54 @@
+{
+  "project_id": "Math",
+  "bug_id": 103,
+  "version_id": "103b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-25T17:10:19+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The NormalDistributionImpl.cumulativeProbability method throws a MaxIterationsExceededException when evaluating extreme values (e.g., +/- 100 standard deviations from the mean), even though the result should mathematically converge to 0 or 1.",
+  "hypothesis": "The cumulativeProbability method lacks a guard condition to handle extreme input values where the underlying series expansion (used in the Gamma function) fails to converge within the fixed iteration limit. Instead of throwing an exception, the method should return 0.0 or 1.0 for these extreme cases.",
+  "prediction": "The fix will involve adding a conditional check in cumulativeProbability to detect when the input x is significantly far from the mean (e.g., > 20 standard deviations) and returning 0.0 or 1.0 immediately, bypassing the call to Erf.erf.",
+  "experiment_rationale": "The stack trace confirms the exception originates from the Gamma function's iteration limit being reached during the Erf calculation. The bug report explicitly states that for extreme values, the CDF should be 0 or 1, indicating that the current implementation is missing a boundary check for these extreme inputs.",
+  "reasoning_summary": "The root cause is a missing boundary check (guard) for extreme input values. The existing code attempts to compute the CDF using a series expansion that is not designed for extreme values, leading to an iteration limit exception. Adding a check to return 0 or 1 for extreme inputs is a classic 'Checking' fix.",
+  "evidence_used": [
+    "org.apache.commons.math.MaxIterationsExceededException: Maximal number of iterations (10,000) exceeded",
+    "org.apache.commons.math.distribution.NormalDistributionImpl.cumulativeProbability(NormalDistributionImpl.java:109)",
+    "Bug report description: 'NormalDistributionImpl::cumulativeProbability(double x) throws ConvergenceException if x deviates too much from the mean... effectively it should be either zero or one.'"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the algorithm fails, the fix is not to change the algorithm itself, but to add a guard condition to bypass it for extreme cases."
+    },
+    {
+      "type": "Function/Class/Object",
+      "why_not_primary": "This is a local procedural fix for a specific edge case, not a design-level capability gap."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The NormalDistributionImpl.cumulativeProbability method throws a MaxIterationsExceededException when evaluating extreme values (e.g., +/- 100 standard deviations from the mean), even though the result should mathematically converge to 0 or 1.\",\n  \"hypothesis\": \"The cumulativeProbability method lacks a guard condition to handle extreme input values where the underlying series expansion (used in the Gamma function) fails to converge within the fixed iteration limit. Instead of throwing an exception, the method should return 0.0 or 1.0 for these extreme cases.\",\n  \"prediction\": \"The fix will involve adding a conditional check in cumulativeProbability to detect when the input x is significantly far from the mean (e.g., > 20 standard deviations) and returning 0.0 or 1.0 immediately, bypassing the call to Erf.erf.\",\n  \"experiment_rationale\": \"The stack trace confirms the exception originates from the Gamma function's iteration limit being reached during the Erf calculation. The bug report explicitly states that for extreme values, the CDF should be 0 or 1, indicating that the current implementation is missing a boundary check for these extreme inputs.\",\n  \"reasoning_summary\": \"The root cause is a missing boundary check (guard) for extreme input values. The existing code attempts to compute the CDF using a series expansion that is not designed for extreme values, leading to an iteration limit exception. Adding a check to return 0 or 1 for extreme inputs is a classic 'Checking' fix.\",\n  \"evidence_used\": [\n    \"org.apache.commons.math.MaxIterationsExceededException: Maximal number of iterations (10,000) exceeded\",\n    \"org.apache.commons.math.distribution.NormalDistributionImpl.cumulativeProbability(NormalDistributionImpl.java:109)\",\n    \"Bug report description: 'NormalDistributionImpl::cumulativeProbability(double x) throws ConvergenceException if x deviates too much from the mean... effectively it should be either zero or one.'\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the algorithm fails, the fix is not to change the algorithm itself, but to add a guard condition to bypass it for extreme cases.\"\n    },\n    {\n      \"type\": \"Function/Class/Object\",\n      \"why_not_primary\": \"This is a local procedural fix for a specific edge case, not a design-level capability gap.\"\n    }\n  ]\n}"
+}

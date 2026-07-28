@@ -732,3 +732,204 @@ Full write-up in the "Full Lang project run" entry above.
 
 **Do not cite any of this in the manuscript** — same development-validation
 status as everything else in this log.
+
+---
+
+## 2026-07-25 — Chart/Time/Mockito project runs, scientific-open + few-open (manifest_chart26.json, manifest_time26.json, manifest_mockito38.json)
+
+Context: supervisor wants results for the remaining Defects4J projects
+(Chart, Math, Time, Mockito, Closure) in addition to Lang. Same approach as
+the Lang-61 run: one hand-built, single-project manifest per project,
+classified only under `scientific-open` (primary condition) and `few-open`
+(strong static prompt) — `zero-free` explicitly deferred (low value when
+every bug is unique; revisit later if budget allows). This session covers
+only the three smallest projects (Chart, Time, Mockito); Math (106) and
+Closure (174) are deferred pending review of these results.
+
+**Active bug counts verified against the local Defects4J v3.0.1 clone**
+(`defects4j bids -p <Project>`, not the commonly-cited nominal 2014-paper
+counts) — these differ from nominal by each project's deprecated-bug count:
+Chart 26 (0 deprecated), Time 26 (1 deprecated: Time-21,
+`JVM8.Not.Reproducible`), Mockito 38 (0 deprecated). See
+`framework/projects/<Project>/deprecated-bugs.csv` in the Defects4J clone.
+
+**Manifests built directly from the corpus, not via `study-plan`** (same
+rationale as Lang-61 — guarantees 100% context reuse against what's actually
+pre-collected): for each project, listed
+`artifacts_full/prefix/<Project>_*_prefix` and verified `context.json` exists
+in both prefix and postfix arms for every bug. All matched the verified
+active-bug counts exactly (26/26/38) with zero missing contexts — full corpus
+was already collected, zero collection calls needed for any of the three
+projects.
+
+```bash
+python -m d4j_odc_pipeline study-run --manifest .dist/study/manifest_chart26.json   --artifacts-root .dist/study/artifacts_full --summary-output .dist/study/chart26_run_summary.scientific-open.json
+python -m d4j_odc_pipeline study-run --manifest .dist/study/manifest_chart26.json   --artifacts-root .dist/study/artifacts_full --taxonomy open --strategy few --summary-output .dist/study/chart26_run_summary.few-open.json
+python -m d4j_odc_pipeline study-run --manifest .dist/study/manifest_time26.json    --artifacts-root .dist/study/artifacts_full --summary-output .dist/study/time26_run_summary.scientific-open.json
+python -m d4j_odc_pipeline study-run --manifest .dist/study/manifest_time26.json    --artifacts-root .dist/study/artifacts_full --taxonomy open --strategy few --summary-output .dist/study/time26_run_summary.few-open.json
+python -m d4j_odc_pipeline study-run --manifest .dist/study/manifest_mockito38.json --artifacts-root .dist/study/artifacts_full --summary-output .dist/study/mockito38_run_summary.scientific-open.json
+python -m d4j_odc_pipeline study-run --manifest .dist/study/manifest_mockito38.json --artifacts-root .dist/study/artifacts_full --taxonomy open --strategy few --summary-output .dist/study/mockito38_run_summary.few-open.json
+```
+
+**Transient rate-limit failures on Mockito's scientific-open run, resolved by
+a plain rerun.** First attempt completed 35/38 (not interrupted, not a budget
+stop): `Mockito_14` postfix, `Mockito_16` prefix, `Mockito_17` postfix each
+failed with `LLM request failed after 5 attempts (last status: 429)`. This is
+a single call exhausting its per-key retry/failover budget during a momentary
+burst, not the 7-key aggregate daily quota (total run cost was 225 calls,
+nowhere near the ~10,500/day aggregate — see
+[[gemini-key-rotation-and-rate-limits]]). Re-running the identical
+`study-run` command auto-skipped the 35 already-classified bugs (checkpoint +
+file-existence skip-check) and reprocessed only the 3 failures, which
+succeeded cleanly on the retry (8 calls,
+`mockito38_run_summary.scientific-open.retry1.json`). Final state verified by
+direct file count: 38/38 `classification.scientific-open.json` in both
+prefix and postfix. No other project/condition in this session hit this
+error.
+
+**Cost and wall-clock** (measured from each run's summary JSON / progress
+bar):
+
+| Project | Condition | Calls | Wall-clock | Completed |
+|---|---|---|---|---|
+| Chart (26) | scientific-open | 109 | 6:01 | 26/26 |
+| Chart (26) | few-open | 46 | 2:31 | 26/26 |
+| Time (26) | scientific-open | 115 | 4:48 | 26/26 |
+| Time (26) | few-open | 44 | 2:53 | 26/26 |
+| Mockito (38) | scientific-open | 225 + 8 (retry) | 12:59 + 0:22 | 38/38 |
+| Mockito (38) | few-open | 72 | 4:09 | 38/38 |
+
+Total: **619 calls, ~34 minutes wall-clock** across all three projects/both
+conditions. Comfortably inside the default `--daily-call-budget 1400` per
+invocation (no override needed) and a small fraction of the 7-key ~10,500/day
+aggregate.
+
+**Verification**: for every project × condition × arm, direct
+`find .../classification.<tag>.json | wc -l` matched the verified active bug
+count exactly (26/26/38 in every one of the 12 project×condition×arm cells).
+No manuscript-relevant results computed yet — this entry is classification-only;
+`study-drift`/`study-escape`/`study-ladder` (via a per-project symlink view,
+same pattern as `lang61_{prefix,postfix}_view`) and xlsx export are deferred
+to a later, explicitly-requested step.
+
+**Next**: Math (106 active bugs) and Closure (174 active bugs) remain,
+pending review of these three projects' results. `zero-free` remains
+deferred for all five projects pending a later budget/usefulness call.
+
+**Drift analysis (same day)**: built per-project symlink views
+(`.dist/study/{chart26,time26,mockito38}_{prefix,postfix}_view/`) and ran
+`study-drift` for both `scientific-open` and `few-open` on all three
+projects (`analysis_<project>_<tag>.{json,md}`). Headline: Impact drifts far
+less than Type everywhere (consistent with [[odc-alignment-audit]]). Type
+drift: Chart 7/26 (sci) / 9/26 (few), Time 3/26 (sci) / 8/26 (few), Mockito
+20/38 (sci) / 9/38 (few). **Mockito scientific-open is an outlier** — 52.6%
+type drift, κ=0.212, and 8 of its 20 drifted bugs cross ODC *family*
+boundaries entirely (vs. 0-1 in every other cell). Traced all 8
+family-crossing bugs (Mockito-5/14/16/17/20/23/30/32): every single one had
+`code_snippets` sourced 100% from the `test/` tree in pre-fix `context.json`
+— zero production-source code — confirming this is the known
+[[frame-selection-gap-and-fix-plan]] gap (code_snippets misses the buggy
+method for non-throwing bugs), not a new issue. Mechanism: prefix arm
+classifies from test-behavior inference alone (lands on CDF-family types —
+Algorithm/Method, Checking, Assignment/Initialization); postfix arm sees the
+real diff and anchors on what the patch mechanically did, which for Mockito
+often turns out to be a structural change (new wrapper class, changed method
+signature, added settings capability) → Structural-family types. 5/8 follow
+this CDF→Structural direction; the other 3 go the opposite way when the
+diff-grounded fix turns out simpler than the blind guess. **Not yet fixed —
+still flagged NOT YET IMPLEMENTED in memory.** Given Math/Closure both have
+plenty of non-throwing, internals-heavy bugs too, expect this to inflate
+their scientific-open drift similarly unless addressed first.
+
+---
+
+## 2026-07-25 — Math project run, all 3 currently-in-scope conditions (manifest_math106.json, 106 bugs)
+
+Context: continuing the multi-project expansion after Chart/Time/Mockito.
+User reviewed the Chart/Time/Mockito xlsx reports and the Mockito
+frame-selection-gap finding, then asked to proceed to Math (the first of
+the two "big" projects) running all three conditions
+(`scientific-open`/`few-open`/`zero-free`) together rather than staging
+zero-free separately again.
+
+**Active bug count**: 106, 0 deprecated (`defects4j bids -p Math`, matches
+nominal). Manifest hand-built the same way as the others —
+`manifest_math106.json`, 106/106 bugs with `context.json` in both arms
+already present in `artifacts_full`, zero collection calls.
+
+```bash
+python -m d4j_odc_pipeline study-run --manifest .dist/study/manifest_math106.json --artifacts-root .dist/study/artifacts_full --summary-output .dist/study/math106_run_summary.scientific-open.json
+python -m d4j_odc_pipeline study-run --manifest .dist/study/manifest_math106.json --artifacts-root .dist/study/artifacts_full --taxonomy open --strategy few --summary-output .dist/study/math106_run_summary.few-open.json
+python -m d4j_odc_pipeline study-run --manifest .dist/study/manifest_math106.json --artifacts-root .dist/study/artifacts_full --taxonomy free --strategy zero --summary-output .dist/study/math106_run_summary.zero-free.json
+```
+
+**Cost and wall-clock** — no failures/retries this time (unlike Mockito):
+
+| Condition | Calls | Wall-clock | Completed |
+|---|---|---|---|
+| scientific-open | 486 | 19:13 | 106/106 |
+| few-open | 208 | 11:36 | 106/106 |
+| zero-free | 208 | 8:02 | 106/106 |
+
+Total: **902 calls, ~38.85 min**. Combined with the Chart/Time/Mockito work
+earlier the same day (781 calls across all three conditions/projects), the
+day's running total is **1,683 calls** — ~16% of the 7-key ~10,500/day
+aggregate, in line with the pre-run estimate (825-1,030 predicted for Math
+vs. 902 actual — scientific-open landed mid-estimate at 4.58 calls/bug,
+between Chart/Time's ~4.2-4.4 and Mockito's outlier 6.13).
+
+**Verification**: direct file count confirmed 106/106
+`classification.<tag>.json` in both prefix and postfix arms for all three
+conditions (318 classification files total for this run).
+
+**Not yet done for Math**: drift analysis (`study-drift` + symlink views,
+same as Chart/Time/Mockito) and xlsx report. Closure (174 active bugs, 2
+deprecated) remains the only project not yet started.
+
+## 2026-07-26 — Closure project run, all 3 currently-in-scope conditions (manifest_closure174.json, 174 bugs)
+
+Context: last remaining project of the five (Chart, Time, Mockito, Math done).
+User asked to "repeat the process for closure" — same as Math: all three
+in-scope conditions (`scientific-open`/`few-open`/`zero-free`) together,
+followed by the log entry and xlsx report.
+
+**Active bug count**: 174, 2 deprecated (Closure-63, Closure-93, both
+"Duplicate" per the project plan's earlier `defects4j bids` check — not
+re-queried live this run). Manifest hand-built the same way as the others —
+`manifest_closure174.json`, built from the `artifacts_full/prefix/Closure_*`
+folder listing rather than a live `defects4j bids` call; confirmed 63 and 93
+are absent from that listing (consistent with them being deprecated) and that
+all 174 selected bug folders have `context.json` in both prefix and postfix
+arms already present in `artifacts_full`, zero collection calls needed.
+
+```bash
+python -m d4j_odc_pipeline study-run --manifest .dist/study/manifest_closure174.json --artifacts-root .dist/study/artifacts_full --summary-output .dist/study/closure174_run_summary.scientific-open.json
+python -m d4j_odc_pipeline study-run --manifest .dist/study/manifest_closure174.json --artifacts-root .dist/study/artifacts_full --taxonomy open --strategy few --summary-output .dist/study/closure174_run_summary.few-open.json
+python -m d4j_odc_pipeline study-run --manifest .dist/study/manifest_closure174.json --artifacts-root .dist/study/artifacts_full --taxonomy free --strategy zero --summary-output .dist/study/closure174_run_summary.zero-free.json
+```
+
+**Cost and wall-clock** — no failures/retries, all runs read directly off the
+pipeline's own completion progress bar:
+
+| Condition | Calls | Wall-clock | Completed |
+|---|---|---|---|
+| scientific-open | 897 | 38:33 | 174/174 |
+| few-open | 342 | 19:32 | 174/174 |
+| zero-free | 342 | 14:22 | 174/174 |
+
+Total: **1,581 calls, ~72.4 min**. This is the first study activity of the
+day (2026-07-26), so the day's running total is just **1,581 calls** — ~15%
+of the 7-key ~10,500/day aggregate. Scientific-open landed at 5.16
+calls/bug, the highest of the five projects so far (Chart/Time ~4.2-4.4,
+Mockito 6.13 outlier, Math 4.58) — plausibly Closure's larger/more complex
+codebase (JS compiler vs. Chart/Time/Math's smaller libraries) driving more
+agentic-loop turns per bug on average.
+
+**Verification**: direct file count confirmed 174/174
+`classification.<tag>.json` in both prefix and postfix arms for all three
+conditions (1,044 classification files total for this run).
+
+**Not yet done for Closure**: drift analysis and xlsx report (queued next,
+per the same "repeat the process" instruction). With this run, all five
+projects (Chart, Time, Mockito, Math, Closure) now have classification data
+for scientific-open/few-open/zero-free.

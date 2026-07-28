@@ -1,0 +1,72 @@
+{
+  "project_id": "Time",
+  "bug_id": 18,
+  "version_id": "18b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-25T12:31:32+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The test case fails when constructing a date (1500-02-29) using GJChronology. The stack trace shows an IllegalFieldValueException originating from BasicChronology.getDateMidnightMillis, which is called by GJChronology.getDateTimeMillis. GJChronology incorrectly attempts to validate the date using Gregorian rules before checking if it should be Julian.",
+  "hypothesis": "The GJChronology class delegates date validation to its internal GregorianChronology instance even for dates that fall within the Julian calendar period (before the cutover). Since GregorianChronology uses Gregorian leap year rules (where 1500 is not a leap year), it incorrectly rejects February 29th, 1500, which is a valid leap day in the Julian calendar.",
+  "prediction": "The GJChronology.getDateTimeMillis method calls iGregorianChronology.getDateTimeMillis first, which performs the validation. If the date is before the cutover, it should have used iJulianChronology for validation instead of relying on the Gregorian rules.",
+  "experiment_rationale": "The stack trace and code snippets confirm that GJChronology.getDateTimeMillis calls iGregorianChronology.getDateTimeMillis directly at line 364-365. This is a procedural error in the implementation of the chronology switching logic, as it forces Gregorian validation on dates that might be Julian.",
+  "reasoning_summary": "The bug is an algorithmic error in the GJChronology class where the validation logic is incorrectly ordered or scoped. It attempts to validate using the Gregorian chronology before determining if the date belongs to the Julian chronology, leading to incorrect rejection of valid Julian leap days.",
+  "evidence_used": [
+    "Stack trace showing IllegalFieldValueException in BasicChronology.getDateMidnightMillis",
+    "GJChronology.java snippet showing call to iGregorianChronology.getDateTimeMillis before checking cutover"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "While the error manifests as a failed check, the root cause is the incorrect selection of the validation algorithm (Gregorian vs Julian) based on the chronology state, which is a procedural/algorithmic flaw."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The GJChronology implementation incorrectly validates the date 1500-02-29 against the Gregorian calendar rules instead of the Julian calendar rules, even though 1500 is a leap year in the Julian calendar.",
+      "prediction": "The validation logic in GJChronology or its underlying BasicChronology uses a fixed or incorrect leap year check that fails to account for the Julian/Gregorian cutover correctly for dates before the cutover.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "org.joda.time.chrono.BasicChronology"
+      },
+      "observation_summary": [
+        "snippets"
+      ]
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The GJChronology class delegates date validation to its internal GregorianChronology instance even for dates that fall within the Julian calendar period (before the cutover). Since GregorianChronology uses Gregorian leap year rules (where 1500 is not a leap year), it incorrectly rejects February 29th, 1500, which is a valid leap day in the Julian calendar.",
+      "prediction": "The GJChronology.getDateTimeMillis method calls iGregorianChronology.getDateTimeMillis first, which performs the validation. If the date is before the cutover, it should have used iJulianChronology for validation instead of relying on the Gregorian rules.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Algorithm/Method"
+    }
+  ],
+  "llm_calls_used": 2,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"impact\": \"Capability\", \"confidence\": 0.9, \"needs_human_review\": false, \"observation_summary\": \"The test case fails when constructing a date (1500-02-29) using GJChronology. The stack trace shows an IllegalFieldValueException originating from BasicChronology.getDateMidnightMillis, which is called by GJChronology.getDateTimeMillis. GJChronology incorrectly attempts to validate the date using Gregorian rules before checking if it should be Julian.\", \"hypothesis\": \"The GJChronology class delegates date validation to its internal GregorianChronology instance even for dates that fall within the Julian calendar period (before the cutover). Since GregorianChronology uses Gregorian leap year rules (where 1500 is not a leap year), it incorrectly rejects February 29th, 1500, which is a valid leap day in the Julian calendar.\", \"prediction\": \"The GJChronology.getDateTimeMillis method calls iGregorianChronology.getDateTimeMillis first, which performs the validation. If the date is before the cutover, it should have used iJulianChronology for validation instead of relying on the Gregorian rules.\", \"experiment_rationale\": \"The stack trace and code snippets confirm that GJChronology.getDateTimeMillis calls iGregorianChronology.getDateTimeMillis directly at line 364-365. This is a procedural error in the implementation of the chronology switching logic, as it forces Gregorian validation on dates that might be Julian.\", \"reasoning_summary\": \"The bug is an algorithmic error in the GJChronology class where the validation logic is incorrectly ordered or scoped. It attempts to validate using the Gregorian chronology before determining if the date belongs to the Julian chronology, leading to incorrect rejection of valid Julian leap days.\", \"evidence_used\": [\"Stack trace showing IllegalFieldValueException in BasicChronology.getDateMidnightMillis\", \"GJChronology.java snippet showing call to iGregorianChronology.getDateTimeMillis before checking cutover\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Checking\", \"why_not_primary\": \"While the error manifests as a failed check, the root cause is the incorrect selection of the validation algorithm (Gregorian vs Julian) based on the chronology state, which is a procedural/algorithmic flaw.\"}]}"
+}

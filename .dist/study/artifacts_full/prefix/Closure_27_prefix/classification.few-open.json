@@ -1,0 +1,54 @@
+{
+  "project_id": "Closure",
+  "bug_id": 27,
+  "version_id": "27b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T06:57:31+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The compiler throws an IllegalStateException when constructing AST nodes for try-catch-finally blocks. The stack trace points to Preconditions.checkState failures in the IR class, specifically when validating nodes passed to block() or try-related methods.",
+  "hypothesis": "The IR.block(Node stmt) method incorrectly validates its input using mayBeStatement(stmt). A catch node is a valid component of a try-catch structure but is not technically a 'statement' in the way the validator expects, causing the checkState to fail.",
+  "prediction": "The fix will involve either updating the mayBeStatement validation logic to include catch nodes or modifying the IR.block() call site to bypass this specific check when dealing with catch nodes.",
+  "experiment_rationale": "The stack trace explicitly shows Preconditions.checkState failing inside IR.block(Node stmt) (line 97) when called by IR.tryCatch (line 233). This confirms that the validation logic is too restrictive for the input provided.",
+  "reasoning_summary": "The root cause is an incorrect validation check (Preconditions.checkState) that enforces a 'statement' requirement on a node (a catch node) that is structurally valid in that context but fails the specific predicate check. This is a classic 'Checking' defect where the guard logic is too narrow.",
+  "evidence_used": [
+    "com.google.javascript.rhino.IR.block(Node stmt) line 97",
+    "com.google.javascript.rhino.IR.tryCatch(Node tryBody, Node catchNode) line 233",
+    "java.lang.IllegalStateException at com.google.common.base.Preconditions.checkState"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The issue is not the computational procedure itself, but the validation guard that prevents the procedure from executing."
+    },
+    {
+      "type": "Interface/O-O Messages",
+      "why_not_primary": "While it involves a method call, the failure is due to an internal validation check within the callee, not a mismatch in the interface contract."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Incorrect",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The compiler throws an IllegalStateException when constructing AST nodes for try-catch-finally blocks. The stack trace points to Preconditions.checkState failures in the IR class, specifically when validating nodes passed to block() or try-related methods.\",\n  \"hypothesis\": \"The IR.block(Node stmt) method incorrectly validates its input using mayBeStatement(stmt). A catch node is a valid component of a try-catch structure but is not technically a 'statement' in the way the validator expects, causing the checkState to fail.\",\n  \"prediction\": \"The fix will involve either updating the mayBeStatement validation logic to include catch nodes or modifying the IR.block() call site to bypass this specific check when dealing with catch nodes.\",\n  \"experiment_rationale\": \"The stack trace explicitly shows Preconditions.checkState failing inside IR.block(Node stmt) (line 97) when called by IR.tryCatch (line 233). This confirms that the validation logic is too restrictive for the input provided.\",\n  \"reasoning_summary\": \"The root cause is an incorrect validation check (Preconditions.checkState) that enforces a 'statement' requirement on a node (a catch node) that is structurally valid in that context but fails the specific predicate check. This is a classic 'Checking' defect where the guard logic is too narrow.\",\n  \"evidence_used\": [\n    \"com.google.javascript.rhino.IR.block(Node stmt) line 97\",\n    \"com.google.javascript.rhino.IR.tryCatch(Node tryBody, Node catchNode) line 233\",\n    \"java.lang.IllegalStateException at com.google.common.base.Preconditions.checkState\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"The issue is not the computational procedure itself, but the validation guard that prevents the procedure from executing.\"\n    },\n    {\n      \"type\": \"Interface/O-O Messages\",\n      \"why_not_primary\": \"While it involves a method call, the failure is due to an internal validation check within the callee, not a mismatch in the interface contract.\"\n    }\n  ]\n}"
+}

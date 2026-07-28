@@ -1,0 +1,54 @@
+{
+  "project_id": "Time",
+  "bug_id": 7,
+  "version_id": "7b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-25T12:33:50+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The parsing of a date (e.g., Feb 29) fails with an IllegalFieldValueException because the year used for validation is incorrectly calculated when the time zone offset is applied before determining the year.",
+  "hypothesis": "The calculation of the 'defaultYear' used for parsing is performed on the local time (instant + offset) rather than the UTC instant. This causes the year to shift incorrectly when the offset crosses a year boundary, leading to an invalid day-of-month check (e.g., Feb 29 in a non-leap year).",
+  "prediction": "The fix will involve calculating the 'defaultYear' using the original UTC instant millis instead of the offset-adjusted local time.",
+  "experiment_rationale": "The provided diff shows that the calculation of 'defaultYear' was moved to use 'instantMillis' (the original UTC time) instead of 'instantLocal' (the time adjusted by the zone offset). This confirms that the logic for determining the base year for parsing was procedurally incorrect.",
+  "reasoning_summary": "The bug is an algorithmic error in the procedure that determines the default year for date parsing. By using the offset-adjusted time to determine the year, the code incorrectly shifts the year in certain time zones, causing subsequent validation logic (which checks if Feb 29 is valid for that year) to fail. This is a procedural/computational logic error, not a missing check or a simple initialization error.",
+  "evidence_used": [
+    "The fix_diff_oracle shows the calculation of 'defaultYear' being moved to use 'instantMillis' instead of 'instantLocal'.",
+    "The stack trace shows an IllegalFieldValueException occurring during the parsing process, specifically when verifying bounds for dayOfMonth.",
+    "The bug report mentions that the issue is related to time zones being west of Greenwich, which confirms the offset-related year shift."
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "While the failure manifests as a failed check (IllegalFieldValueException), the root cause is the incorrect computation of the 'defaultYear' variable, not a missing or incorrect guard condition."
+    },
+    {
+      "type": "Assignment/Initialization",
+      "why_not_primary": "The issue is not that the variable was initialized to the wrong constant, but that the procedural logic used to derive the value was incorrect."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Incorrect",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Algorithm/Method\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The parsing of a date (e.g., Feb 29) fails with an IllegalFieldValueException because the year used for validation is incorrectly calculated when the time zone offset is applied before determining the year.\",\n  \"hypothesis\": \"The calculation of the 'defaultYear' used for parsing is performed on the local time (instant + offset) rather than the UTC instant. This causes the year to shift incorrectly when the offset crosses a year boundary, leading to an invalid day-of-month check (e.g., Feb 29 in a non-leap year).\",\n  \"prediction\": \"The fix will involve calculating the 'defaultYear' using the original UTC instant millis instead of the offset-adjusted local time.\",\n  \"experiment_rationale\": \"The provided diff shows that the calculation of 'defaultYear' was moved to use 'instantMillis' (the original UTC time) instead of 'instantLocal' (the time adjusted by the zone offset). This confirms that the logic for determining the base year for parsing was procedurally incorrect.\",\n  \"reasoning_summary\": \"The bug is an algorithmic error in the procedure that determines the default year for date parsing. By using the offset-adjusted time to determine the year, the code incorrectly shifts the year in certain time zones, causing subsequent validation logic (which checks if Feb 29 is valid for that year) to fail. This is a procedural/computational logic error, not a missing check or a simple initialization error.\",\n  \"evidence_used\": [\n    \"The fix_diff_oracle shows the calculation of 'defaultYear' being moved to use 'instantMillis' instead of 'instantLocal'.\",\n    \"The stack trace shows an IllegalFieldValueException occurring during the parsing process, specifically when verifying bounds for dayOfMonth.\",\n    \"The bug report mentions that the issue is related to time zones being west of Greenwich, which confirms the offset-related year shift.\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Checking\",\n      \"why_not_primary\": \"While the failure manifests as a failed check (IllegalFieldValueException), the root cause is the incorrect computation of the 'defaultYear' variable, not a missing or incorrect guard condition.\"\n    },\n    {\n      \"type\": \"Assignment/Initialization\",\n      \"why_not_primary\": \"The issue is not that the variable was initialized to the wrong constant, but that the procedural logic used to derive the value was incorrect.\"\n    }\n  ]\n}"
+}

@@ -1,0 +1,50 @@
+{
+  "project_id": "Mockito",
+  "bug_id": 5,
+  "version_id": "5b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-25T12:50:53+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The application throws a NoClassDefFoundError or VerifyError when JUnit is not present on the classpath, specifically when using Mockito's timeout/after verification features. This occurs because the code explicitly catches a JUnit-dependent exception type, causing the JVM to attempt to load the missing JUnit class at runtime.",
+  "hypothesis": "The root cause is an overly specific catch block that references a class (ArgumentsAreDifferent) which inherits from a JUnit-specific class (ComparisonFailure). When JUnit is absent, the JVM fails to link the class containing this catch block. Changing the catch block to a more generic, standard exception type (AssertionError) removes the hard dependency on JUnit.",
+  "prediction": "Replacing the catch block for 'org.mockito.exceptions.verification.junit.ArgumentsAreDifferent' with 'java.lang.AssertionError' will allow the class to load successfully even when JUnit is not present, as AssertionError is part of the standard Java library.",
+  "experiment_rationale": "The fix diff shows exactly this change: replacing the specific JUnit-dependent exception type with a standard Java AssertionError. This confirms that the issue was an incorrect validation/exception handling strategy that introduced an unnecessary external dependency.",
+  "reasoning_summary": "The bug is a classic 'Checking' issue where the code's exception handling logic (the catch block) was too rigid, creating an implicit dependency on an external library (JUnit) that should not be required. By changing the caught exception type to a standard one, the code correctly validates the error condition without requiring the presence of the JUnit library.",
+  "evidence_used": [
+    "The fix diff shows the replacement of 'catch (org.mockito.exceptions.verification.junit.ArgumentsAreDifferent e)' with 'catch (AssertionError e)'.",
+    "The bug report explicitly states that the JVM fails to link the class because it cannot find 'junit.framework.ComparisonFailure' (a superclass of the caught exception).",
+    "The comments in the bug report confirm that the intention was to avoid a hard dependency on JUnit."
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Interface/O-O Messages",
+      "why_not_primary": "While it involves a class dependency, the root cause is the logic of the catch block (a control flow mechanism) rather than a mismatch in an API contract or method signature."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Incorrect",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"confidence\": 1,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The application throws a NoClassDefFoundError or VerifyError when JUnit is not present on the classpath, specifically when using Mockito's timeout/after verification features. This occurs because the code explicitly catches a JUnit-dependent exception type, causing the JVM to attempt to load the missing JUnit class at runtime.\",\n  \"hypothesis\": \"The root cause is an overly specific catch block that references a class (ArgumentsAreDifferent) which inherits from a JUnit-specific class (ComparisonFailure). When JUnit is absent, the JVM fails to link the class containing this catch block. Changing the catch block to a more generic, standard exception type (AssertionError) removes the hard dependency on JUnit.\",\n  \"prediction\": \"Replacing the catch block for 'org.mockito.exceptions.verification.junit.ArgumentsAreDifferent' with 'java.lang.AssertionError' will allow the class to load successfully even when JUnit is not present, as AssertionError is part of the standard Java library.\",\n  \"experiment_rationale\": \"The fix diff shows exactly this change: replacing the specific JUnit-dependent exception type with a standard Java AssertionError. This confirms that the issue was an incorrect validation/exception handling strategy that introduced an unnecessary external dependency.\",\n  \"reasoning_summary\": \"The bug is a classic 'Checking' issue where the code's exception handling logic (the catch block) was too rigid, creating an implicit dependency on an external library (JUnit) that should not be required. By changing the caught exception type to a standard one, the code correctly validates the error condition without requiring the presence of the JUnit library.\",\n  \"evidence_used\": [\n    \"The fix diff shows the replacement of 'catch (org.mockito.exceptions.verification.junit.ArgumentsAreDifferent e)' with 'catch (AssertionError e)'.\",\n    \"The bug report explicitly states that the JVM fails to link the class because it cannot find 'junit.framework.ComparisonFailure' (a superclass of the caught exception).\",\n    \"The comments in the bug report confirm that the intention was to avoid a hard dependency on JUnit.\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Interface/O-O Messages\",\n      \"why_not_primary\": \"While it involves a class dependency, the root cause is the logic of the catch block (a control flow mechanism) rather than a mismatch in an API contract or method signature.\"\n    }\n  ]\n}"
+}

@@ -1,0 +1,88 @@
+{
+  "project_id": "Mockito",
+  "bug_id": 13,
+  "version_id": "13b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-25T12:39:50+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 0.95,
+  "needs_human_review": false,
+  "observation_summary": "The test fails when a verification call includes an invocation on a different mock, indicating that the verification state is lost during the nested call.",
+  "hypothesis": "The MockHandler fails to re-register the verification mode when an invocation on a different mock occurs, leading to lost verification state.",
+  "prediction": "The fix involves re-registering the verification mode in the MockingProgress when a mock mismatch is detected.",
+  "experiment_rationale": "The provided fix diff confirms that the logic was missing a re-registration step (mockingProgress.verificationStarted(verificationMode)) when the mock mismatch occurred.",
+  "reasoning_summary": "The bug is a procedural error in how the MockHandler manages the verification state machine. When a nested call occurs, the current verification mode is discarded if the mock doesn't match, rather than being preserved or re-registered. This is a classic control flow/state management issue within the method.",
+  "evidence_used": [
+    "fix_diff_oracle",
+    "failing_tests"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "While it involves a check, the core issue is the failure to maintain the state (re-registering the mode), which is a procedural/algorithmic flaw in the state management."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The MockHandler fails to correctly handle verification when an invocation on a different mock occurs during the verification process. Specifically, when verification is started, the MockingProgress records it, but if an invocation on a different mock happens (e.g., inside the verify() call arguments), the verification mode is lost or not correctly re-registered for the intended mock, causing the subsequent verification to fail or be ignored.",
+      "prediction": "I expect to see that the MockHandler logic for checking the mock during verification is too restrictive or fails to re-register the verification mode when the invocation mock does not match the verification mock, leading to the loss of the verification state.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "org.mockito.internal.MockHandler"
+      },
+      "observation_summary": "no snippet matches 'org.mockito.internal.MockHandler'"
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The MockHandler class is responsible for managing verification state. Since the snippet probe failed to find it by name, it might be located in a different package or have a slightly different name. I will list all available evidence to find the correct path to the MockHandler source code.",
+      "prediction": "Listing the evidence will reveal the correct file path or class name for MockHandler, allowing me to inspect the logic that handles verification mode registration.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "list_evidence",
+        "argument": null
+      },
+      "observation_summary": [
+        "bug_report_available",
+        "coverage_classes",
+        "failing_tests",
+        "production_snippet_classes",
+        "test_snippet_classes"
+      ]
+    },
+    {
+      "turn": 3,
+      "hypothesis": "The bug is in the MockHandler's handling of verification state when nested mock calls occur. The current implementation fails to re-register the verification mode if the mock being invoked is not the one expected by the current verification mode, causing the verification state to be lost. This is a control flow issue where the state management logic is incomplete.",
+      "prediction": "The fix will involve adding logic to re-register the verification mode in the MockingProgress when the mock mismatch occurs, ensuring the verification state is preserved for the correct mock.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Algorithm/Method"
+    }
+  ],
+  "llm_calls_used": 3,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"impact\": \"Capability\", \"confidence\": 0.95, \"needs_human_review\": false, \"observation_summary\": \"The test fails when a verification call includes an invocation on a different mock, indicating that the verification state is lost during the nested call.\", \"hypothesis\": \"The MockHandler fails to re-register the verification mode when an invocation on a different mock occurs, leading to lost verification state.\", \"prediction\": \"The fix involves re-registering the verification mode in the MockingProgress when a mock mismatch is detected.\", \"experiment_rationale\": \"The provided fix diff confirms that the logic was missing a re-registration step (mockingProgress.verificationStarted(verificationMode)) when the mock mismatch occurred.\", \"reasoning_summary\": \"The bug is a procedural error in how the MockHandler manages the verification state machine. When a nested call occurs, the current verification mode is discarded if the mock doesn't match, rather than being preserved or re-registered. This is a classic control flow/state management issue within the method.\", \"evidence_used\": [\"fix_diff_oracle\", \"failing_tests\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Checking\", \"why_not_primary\": \"While it involves a check, the core issue is the failure to maintain the state (re-registering the mode), which is a procedural/algorithmic flaw in the state management.\"}]}"
+}

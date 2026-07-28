@@ -1,0 +1,51 @@
+{
+  "project_id": "Closure",
+  "bug_id": 60,
+  "version_id": "60b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T07:01:10+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The compiler incorrectly identifies 'void function() { alert('hi'); }()' as having no side effects, leading to its removal during optimization. Additionally, 'NodeUtil.getPureBooleanValue' returns 'false' instead of 'UNKNOWN' for 'void foo()', indicating an incorrect evaluation of the 'void' operator's side-effect potential.",
+  "hypothesis": "The 'void' operator is being incorrectly evaluated as having no side effects. The compiler's side-effect analysis (likely within NodeUtil) fails to correctly identify that 'void' expressions can contain function calls or other side-effect-producing operations, causing it to treat the entire expression as a constant or side-effect-free, leading to incorrect code removal.",
+  "prediction": "The code responsible for evaluating side effects (likely in NodeUtil.java or a related side-effect analysis pass) will have a missing or incorrect check for the 'void' operator, causing it to return a 'false' (no side effects) result instead of 'UNKNOWN' or 'true' when the operand has side effects.",
+  "experiment_rationale": "The test failure 'expected:<unknown> but was:<false>' in 'testGetBooleanValue' for 'void foo()' directly confirms that the logic evaluating the 'void' operator is incorrectly classifying it as having no side effects (false) when it should be unknown (due to the function call).",
+  "reasoning_summary": "The root cause is an incorrect evaluation of the 'void' operator in the compiler's side-effect analysis logic. The compiler treats 'void' expressions as having no side effects, which is a failure in the conditional logic that determines whether an expression is pure. This is a classic 'Checking' defect where the predicate logic for side-effect detection is flawed.",
+  "evidence_used": [
+    "com.google.javascript.jscomp.NodeUtilTest::testGetBooleanValue",
+    "junit.framework.AssertionFailedError: expected:<unknown> but was:<false>",
+    "com.google.javascript.jscomp.CommandLineRunnerTest::testIssue504",
+    "void function () {}(); wrongly identified as having no side effects"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the evaluation is a method, the core issue is the failure to correctly validate the side-effect status of the 'void' operator, which is a predicate/check failure."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Incorrect",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The compiler incorrectly identifies 'void function() { alert('hi'); }()' as having no side effects, leading to its removal during optimization. Additionally, 'NodeUtil.getPureBooleanValue' returns 'false' instead of 'UNKNOWN' for 'void foo()', indicating an incorrect evaluation of the 'void' operator's side-effect potential.\",\n  \"hypothesis\": \"The 'void' operator is being incorrectly evaluated as having no side effects. The compiler's side-effect analysis (likely within NodeUtil) fails to correctly identify that 'void' expressions can contain function calls or other side-effect-producing operations, causing it to treat the entire expression as a constant or side-effect-free, leading to incorrect code removal.\",\n  \"prediction\": \"The code responsible for evaluating side effects (likely in NodeUtil.java or a related side-effect analysis pass) will have a missing or incorrect check for the 'void' operator, causing it to return a 'false' (no side effects) result instead of 'UNKNOWN' or 'true' when the operand has side effects.\",\n  \"experiment_rationale\": \"The test failure 'expected:<unknown> but was:<false>' in 'testGetBooleanValue' for 'void foo()' directly confirms that the logic evaluating the 'void' operator is incorrectly classifying it as having no side effects (false) when it should be unknown (due to the function call).\",\n  \"reasoning_summary\": \"The root cause is an incorrect evaluation of the 'void' operator in the compiler's side-effect analysis logic. The compiler treats 'void' expressions as having no side effects, which is a failure in the conditional logic that determines whether an expression is pure. This is a classic 'Checking' defect where the predicate logic for side-effect detection is flawed.\",\n  \"evidence_used\": [\n    \"com.google.javascript.jscomp.NodeUtilTest::testGetBooleanValue\",\n    \"junit.framework.AssertionFailedError: expected:<unknown> but was:<false>\",\n    \"com.google.javascript.jscomp.CommandLineRunnerTest::testIssue504\",\n    \"void function () {}(); wrongly identified as having no side effects\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the evaluation is a method, the core issue is the failure to correctly validate the side-effect status of the 'void' operator, which is a predicate/check failure.\"\n    }\n  ]\n}"
+}

@@ -1,0 +1,52 @@
+{
+  "project_id": "Math",
+  "bug_id": 1,
+  "version_id": "1b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-25T16:59:08+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The Fraction and BigFraction constructors throw a FractionConversionException when converting a double value that is very close to a simple fraction, even when a maxDenominator is provided. The exception is triggered by an overflow check that occurs before verifying if the current convergent already satisfies the required precision or denominator constraints.",
+  "hypothesis": "The overflow check in the continued fraction loop is too aggressive. It throws an exception as soon as an intermediate convergent exceeds the overflow limit, without checking if the previous convergent was already a sufficiently accurate representation of the input value within the specified constraints.",
+  "prediction": "The fix will involve moving the overflow check or adding a condition to allow the loop to terminate gracefully (returning the last valid convergent) if the current approximation is already good enough, rather than immediately throwing an exception.",
+  "experiment_rationale": "The stack trace shows the exception is thrown at the start of the loop iteration when p2/q2 exceeds the limit. If the logic were to check if the current approximation is already within the desired epsilon or if the loop should terminate before the overflow occurs, the exception would be avoided.",
+  "reasoning_summary": "The issue is a missing or incorrect guard condition. The code currently treats any intermediate overflow as a fatal error, failing to account for cases where the continued fraction algorithm has already found a valid, sufficiently accurate fraction before the overflow occurs. This is a classic 'Checking' defect where the validation logic (the overflow check) is too restrictive and lacks the necessary context-aware guard to allow for early termination.",
+  "evidence_used": [
+    "org.apache.commons.math3.fraction.FractionConversionException: illegal state: Overflow trying to convert 0.5 to fraction",
+    "BigFraction.java:306",
+    "Fraction.java:215",
+    "BigFraction.java:303: if ((p2 > overflow) || (q2 > overflow)) {",
+    "Fraction.java:212: if ((FastMath.abs(p2) > overflow) || (FastMath.abs(q2) > overflow)) {"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the loop logic is involved, the root cause is specifically the lack of a proper guard/check to handle the overflow condition gracefully, which is the definition of a Checking defect."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The Fraction and BigFraction constructors throw a FractionConversionException when converting a double value that is very close to a simple fraction, even when a maxDenominator is provided. The exception is triggered by an overflow check that occurs before verifying if the current convergent already satisfies the required precision or denominator constraints.\",\n  \"hypothesis\": \"The overflow check in the continued fraction loop is too aggressive. It throws an exception as soon as an intermediate convergent exceeds the overflow limit, without checking if the previous convergent was already a sufficiently accurate representation of the input value within the specified constraints.\",\n  \"prediction\": \"The fix will involve moving the overflow check or adding a condition to allow the loop to terminate gracefully (returning the last valid convergent) if the current approximation is already good enough, rather than immediately throwing an exception.\",\n  \"experiment_rationale\": \"The stack trace shows the exception is thrown at the start of the loop iteration when p2/q2 exceeds the limit. If the logic were to check if the current approximation is already within the desired epsilon or if the loop should terminate before the overflow occurs, the exception would be avoided.\",\n  \"reasoning_summary\": \"The issue is a missing or incorrect guard condition. The code currently treats any intermediate overflow as a fatal error, failing to account for cases where the continued fraction algorithm has already found a valid, sufficiently accurate fraction before the overflow occurs. This is a classic 'Checking' defect where the validation logic (the overflow check) is too restrictive and lacks the necessary context-aware guard to allow for early termination.\",\n  \"evidence_used\": [\n    \"org.apache.commons.math3.fraction.FractionConversionException: illegal state: Overflow trying to convert 0.5 to fraction\",\n    \"BigFraction.java:306\",\n    \"Fraction.java:215\",\n    \"BigFraction.java:303: if ((p2 > overflow) || (q2 > overflow)) {\",\n    \"Fraction.java:212: if ((FastMath.abs(p2) > overflow) || (FastMath.abs(q2) > overflow)) {\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the loop logic is involved, the root cause is specifically the lack of a proper guard/check to handle the overflow condition gracefully, which is the definition of a Checking defect.\"\n    }\n  ]\n}"
+}

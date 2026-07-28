@@ -1,0 +1,50 @@
+{
+  "project_id": "Closure",
+  "bug_id": 114,
+  "version_id": "114b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T07:07:13+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The compiler crashes with an 'Unexpected variable' error during optimization, specifically when handling assignments involving function calls. The test case shows that the compiler incorrectly removes variables that are still in use within the function scope.",
+  "hypothesis": "The NameAnalyzer pass incorrectly assumes that the right-hand side of an assignment is always unused by the context, leading to premature removal of variables. The fix adds a guard to check if the assignment is part of a function call, preventing the incorrect removal in that specific scenario.",
+  "prediction": "The fix will introduce a conditional check (a guard) to verify if the current node is the function being called in an assignment, ensuring it is not incorrectly flagged for removal.",
+  "experiment_rationale": "The fix diff shows the addition of a condition `!(parent.isCall() && parent.getFirstChild() == n)` to an existing `else` block. This is a classic guard/validation check that prevents the logic from proceeding when the node is part of a function call, confirming the root cause is a missing check.",
+  "reasoning_summary": "The bug is caused by a missing validation check in the `NameAnalyzer` pass. The code was blindly assuming that the right-hand side of an assignment could be processed in a certain way, failing to account for cases where that assignment is actually a function call. Adding a guard condition to verify the context of the node correctly resolves the issue, fitting the definition of a 'Checking' defect.",
+  "evidence_used": [
+    "The fix_diff_oracle shows the addition of a conditional check: 'else if (!(parent.isCall() && parent.getFirstChild() == n))'.",
+    "The bug report mentions 'Unexpected variable l' and 'IllegalStateException', indicating a failure in the compiler's internal state management during optimization.",
+    "The test case 'testAssignWithCall' demonstrates that the compiler incorrectly removes a variable that is still needed."
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the logic was flawed, the fix is specifically the addition of a guard condition to validate the context, which is the hallmark of a Checking defect."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The compiler crashes with an 'Unexpected variable' error during optimization, specifically when handling assignments involving function calls. The test case shows that the compiler incorrectly removes variables that are still in use within the function scope.\",\n  \"hypothesis\": \"The NameAnalyzer pass incorrectly assumes that the right-hand side of an assignment is always unused by the context, leading to premature removal of variables. The fix adds a guard to check if the assignment is part of a function call, preventing the incorrect removal in that specific scenario.\",\n  \"prediction\": \"The fix will introduce a conditional check (a guard) to verify if the current node is the function being called in an assignment, ensuring it is not incorrectly flagged for removal.\",\n  \"experiment_rationale\": \"The fix diff shows the addition of a condition `!(parent.isCall() && parent.getFirstChild() == n)` to an existing `else` block. This is a classic guard/validation check that prevents the logic from proceeding when the node is part of a function call, confirming the root cause is a missing check.\",\n  \"reasoning_summary\": \"The bug is caused by a missing validation check in the `NameAnalyzer` pass. The code was blindly assuming that the right-hand side of an assignment could be processed in a certain way, failing to account for cases where that assignment is actually a function call. Adding a guard condition to verify the context of the node correctly resolves the issue, fitting the definition of a 'Checking' defect.\",\n  \"evidence_used\": [\n    \"The fix_diff_oracle shows the addition of a conditional check: 'else if (!(parent.isCall() && parent.getFirstChild() == n))'.\",\n    \"The bug report mentions 'Unexpected variable l' and 'IllegalStateException', indicating a failure in the compiler's internal state management during optimization.\",\n    \"The test case 'testAssignWithCall' demonstrates that the compiler incorrectly removes a variable that is still needed.\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the logic was flawed, the fix is specifically the addition of a guard condition to validate the context, which is the hallmark of a Checking defect.\"\n    }\n  ]\n}"
+}

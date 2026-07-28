@@ -1,0 +1,54 @@
+{
+  "project_id": "Closure",
+  "bug_id": 5,
+  "version_id": "5b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T06:55:17+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The compiler incorrectly inlines object properties even when they are subject to a 'delete' operation. This changes the semantics of the code because 'delete' on an object property behaves differently than 'delete' on a local variable, leading to incorrect program behavior.",
+  "hypothesis": "The 'InlineObjectLiterals' pass fails to check if a property is being deleted before deciding to inline it. By adding a check for 'gramps.isDelProp()' (where 'gramps' is the parent of the property access), the compiler can identify and skip inlining for properties that are deleted.",
+  "prediction": "The code will now correctly identify 'delete' operations on object properties and prevent the inlining pass from proceeding for those specific objects, preserving the original semantics.",
+  "experiment_rationale": "The fix adds a conditional check ('if (gramps.isDelProp()) { return false; }') within the inlining logic. This is a classic guard clause that validates whether the current transformation is safe given the presence of a 'delete' operation.",
+  "reasoning_summary": "The bug is caused by the absence of a validation check (a guard) that determines if an object property is safe to inline. The fix introduces this missing check, which is the definition of a 'Checking' ODC type. It is not an 'Algorithm/Method' issue because the core inlining algorithm is correct; it just lacks a necessary safety constraint. It is not 'Function/Class/Object' because it is a local procedural fix, not a design-level capability gap.",
+  "evidence_used": [
+    "The fix_diff_oracle shows the addition of an 'if (gramps.isDelProp()) { return false; }' block.",
+    "The bug report states: 'Compiler ignores 'delete' statements, can break functionality.'",
+    "The failing test 'testNoInlineDeletedProperties' confirms that the compiler incorrectly inlines properties that are subsequently deleted."
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The core inlining algorithm is not being rewritten; rather, a guard condition is being added to prevent the algorithm from executing in an invalid state."
+    },
+    {
+      "type": "Function/Class/Object",
+      "why_not_primary": "This is a local procedural fix to an existing pass, not a missing design-level capability."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 1.0,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The compiler incorrectly inlines object properties even when they are subject to a 'delete' operation. This changes the semantics of the code because 'delete' on an object property behaves differently than 'delete' on a local variable, leading to incorrect program behavior.\",\n  \"hypothesis\": \"The 'InlineObjectLiterals' pass fails to check if a property is being deleted before deciding to inline it. By adding a check for 'gramps.isDelProp()' (where 'gramps' is the parent of the property access), the compiler can identify and skip inlining for properties that are deleted.\",\n  \"prediction\": \"The code will now correctly identify 'delete' operations on object properties and prevent the inlining pass from proceeding for those specific objects, preserving the original semantics.\",\n  \"experiment_rationale\": \"The fix adds a conditional check ('if (gramps.isDelProp()) { return false; }') within the inlining logic. This is a classic guard clause that validates whether the current transformation is safe given the presence of a 'delete' operation.\",\n  \"reasoning_summary\": \"The bug is caused by the absence of a validation check (a guard) that determines if an object property is safe to inline. The fix introduces this missing check, which is the definition of a 'Checking' ODC type. It is not an 'Algorithm/Method' issue because the core inlining algorithm is correct; it just lacks a necessary safety constraint. It is not 'Function/Class/Object' because it is a local procedural fix, not a design-level capability gap.\",\n  \"evidence_used\": [\n    \"The fix_diff_oracle shows the addition of an 'if (gramps.isDelProp()) { return false; }' block.\",\n    \"The bug report states: 'Compiler ignores 'delete' statements, can break functionality.'\",\n    \"The failing test 'testNoInlineDeletedProperties' confirms that the compiler incorrectly inlines properties that are subsequently deleted.\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"The core inlining algorithm is not being rewritten; rather, a guard condition is being added to prevent the algorithm from executing in an invalid state.\"\n    },\n    {\n      \"type\": \"Function/Class/Object\",\n      \"why_not_primary\": \"This is a local procedural fix to an existing pass, not a missing design-level capability.\"\n    }\n  ]\n}"
+}

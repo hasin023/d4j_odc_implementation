@@ -1,0 +1,54 @@
+{
+  "project_id": "Time",
+  "bug_id": 10,
+  "version_id": "10b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-25T12:34:10+00:00",
+  "odc_type": "Assignment/Initialization",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The library throws an IllegalFieldValueException when calculating the difference between two MonthDay objects if one of them is February 29th. This occurs because the internal calculation defaults to the year 1970, which is not a leap year, causing the validation logic to reject the 29th day.",
+  "hypothesis": "The calculation logic in BaseSingleFieldPeriod.between uses a default epoch (0L, representing 1970-01-01) to convert partial dates into instants. Since 1970 is not a leap year, any date involving February 29th fails validation. Using a leap year as the base epoch (e.g., 1972) allows the calculation to proceed correctly for leap days.",
+  "prediction": "Changing the base epoch from 0L (1970) to a leap year (1972) in the BaseSingleFieldPeriod.between method will resolve the validation error.",
+  "experiment_rationale": "The fix diff shows that the constant START_1972 was introduced and used in place of 0L in the chrono.set calls. This confirms that the root cause was an incorrect initialization value (the epoch) used for the calculation.",
+  "reasoning_summary": "The bug is caused by an incorrect initialization value (the epoch 0L) used in a calculation. The fix involves changing this constant to a leap year (1972) to ensure that leap days are valid during the calculation process. This is a classic Assignment/Initialization defect where the initial state for a computation was incorrectly defined.",
+  "evidence_used": [
+    "The stack trace shows the error occurs in FieldUtils.verifyValueBounds, which is called by PreciseDurationDateTimeField.set, which is called by BaseSingleFieldPeriod.between.",
+    "The fix diff shows the introduction of START_1972 and its usage in place of 0L in the chrono.set calls within BaseSingleFieldPeriod.between.",
+    "The bug report comments explicitly state that 1970 is not a leap year, leading to the validation failure."
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "While the error manifests as a failed check, the root cause is the incorrect initialization of the epoch value used in the calculation, not a missing or incorrect guard condition."
+    },
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The procedural logic of the calculation is correct; the issue is specifically the input value (the epoch) provided to the calculation."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Incorrect",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Assignment/Initialization\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"confidence\": 1.0,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The library throws an IllegalFieldValueException when calculating the difference between two MonthDay objects if one of them is February 29th. This occurs because the internal calculation defaults to the year 1970, which is not a leap year, causing the validation logic to reject the 29th day.\",\n  \"hypothesis\": \"The calculation logic in BaseSingleFieldPeriod.between uses a default epoch (0L, representing 1970-01-01) to convert partial dates into instants. Since 1970 is not a leap year, any date involving February 29th fails validation. Using a leap year as the base epoch (e.g., 1972) allows the calculation to proceed correctly for leap days.\",\n  \"prediction\": \"Changing the base epoch from 0L (1970) to a leap year (1972) in the BaseSingleFieldPeriod.between method will resolve the validation error.\",\n  \"experiment_rationale\": \"The fix diff shows that the constant START_1972 was introduced and used in place of 0L in the chrono.set calls. This confirms that the root cause was an incorrect initialization value (the epoch) used for the calculation.\",\n  \"reasoning_summary\": \"The bug is caused by an incorrect initialization value (the epoch 0L) used in a calculation. The fix involves changing this constant to a leap year (1972) to ensure that leap days are valid during the calculation process. This is a classic Assignment/Initialization defect where the initial state for a computation was incorrectly defined.\",\n  \"evidence_used\": [\n    \"The stack trace shows the error occurs in FieldUtils.verifyValueBounds, which is called by PreciseDurationDateTimeField.set, which is called by BaseSingleFieldPeriod.between.\",\n    \"The fix diff shows the introduction of START_1972 and its usage in place of 0L in the chrono.set calls within BaseSingleFieldPeriod.between.\",\n    \"The bug report comments explicitly state that 1970 is not a leap year, leading to the validation failure.\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Checking\",\n      \"why_not_primary\": \"While the error manifests as a failed check, the root cause is the incorrect initialization of the epoch value used in the calculation, not a missing or incorrect guard condition.\"\n    },\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"The procedural logic of the calculation is correct; the issue is specifically the input value (the epoch) provided to the calculation.\"\n    }\n  ]\n}"
+}

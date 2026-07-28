@@ -1,0 +1,59 @@
+{
+  "project_id": "Closure",
+  "bug_id": 125,
+  "version_id": "125b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T06:41:57+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The compiler crashes with an IllegalStateException when processing a 'new' expression because it calls `getInstanceType()` on a `FunctionType` that does not have an instance type.",
+  "hypothesis": "The `visitNew` method in `TypeCheck.java` assumes that if a type is a constructor (or unknown/empty), it must have an instance type. However, some function types (like interfaces or abstract constructors) might not have an instance type, causing `fnType.getInstanceType()` to trigger an `IllegalStateException` via `Preconditions.checkState(hasInstanceType())`.",
+  "prediction": "Adding a check for `fnType.hasInstanceType()` before calling `fnType.getInstanceType()` in `TypeCheck.visitNew` will prevent the `IllegalStateException`.",
+  "experiment_rationale": "The stack trace points directly to a failed precondition check in `FunctionType.getInstanceType()`, which is called by `TypeCheck.visitNew`. The fix is a classic missing guard condition.",
+  "reasoning_summary": "The failure is caused by an unchecked assumption that a constructor-like type always has an instance type. The fix involves adding a guard (`fnType.hasInstanceType()`) to validate the state before proceeding, which fits the 'Checking' ODC category perfectly.",
+  "evidence_used": [
+    "full_stack_trace",
+    "snippet",
+    "bug_report"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The fix is not a change to the algorithm itself, but the addition of a missing validation check (guard) to prevent an invalid state transition."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The `visitNew` method in `TypeCheck.java` assumes that if a type is a constructor (or unknown/empty), it must have an instance type. However, some function types (like interfaces or abstract constructors) might not have an instance type, causing `fnType.getInstanceType()` to trigger an `IllegalStateException` via `Preconditions.checkState(hasInstanceType())`.",
+      "prediction": "Adding a check for `fnType.hasInstanceType()` before calling `fnType.getInstanceType()` in `TypeCheck.visitNew` will prevent the `IllegalStateException`.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Checking"
+    }
+  ],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"impact\": \"Reliability\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The compiler crashes with an IllegalStateException when processing a 'new' expression because it calls `getInstanceType()` on a `FunctionType` that does not have an instance type.\", \"hypothesis\": \"The `visitNew` method in `TypeCheck.java` assumes that if a type is a constructor (or unknown/empty), it must have an instance type. However, some function types (like interfaces or abstract constructors) might not have an instance type, causing `fnType.getInstanceType()` to trigger an `IllegalStateException` via `Preconditions.checkState(hasInstanceType())`.\", \"prediction\": \"Adding a check for `fnType.hasInstanceType()` before calling `fnType.getInstanceType()` in `TypeCheck.visitNew` will prevent the `IllegalStateException`.\", \"experiment_rationale\": \"The stack trace points directly to a failed precondition check in `FunctionType.getInstanceType()`, which is called by `TypeCheck.visitNew`. The fix is a classic missing guard condition.\", \"reasoning_summary\": \"The failure is caused by an unchecked assumption that a constructor-like type always has an instance type. The fix involves adding a guard (`fnType.hasInstanceType()`) to validate the state before proceeding, which fits the 'Checking' ODC category perfectly.\", \"evidence_used\": [\"full_stack_trace\", \"snippet\", \"bug_report\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"The fix is not a change to the algorithm itself, but the addition of a missing validation check (guard) to prevent an invalid state transition.\"}]}"
+}

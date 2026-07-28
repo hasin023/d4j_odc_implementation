@@ -1,0 +1,85 @@
+{
+  "project_id": "Time",
+  "bug_id": 20,
+  "version_id": "20b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-25T12:31:54+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The parser throws an IllegalArgumentException when parsing 'America/Dawson_Creek' because it incorrectly identifies 'America/Dawson' as the time zone and fails to consume the remaining '_Creek' suffix.",
+  "hypothesis": "The parser uses a greedy matching algorithm for time zone IDs that fails when one ID is a prefix of another. The parser stops at the first match it finds, leaving the remainder of the string unparsed.",
+  "prediction": "The bug is in the algorithm used to match time zone IDs, likely within a class responsible for parsing. The fix will involve changing the matching logic to prefer the longest match instead of the first match.",
+  "experiment_rationale": "The stack trace and the nature of the error (malformed at '_Creek') strongly indicate a failure in the string parsing algorithm to correctly identify the full time zone identifier when prefix collisions occur.",
+  "reasoning_summary": "The failure is a classic case of an incorrect search/matching algorithm where the implementation does not account for overlapping identifiers (prefix matching). This is a procedural logic error in the parsing method.",
+  "evidence_used": [
+    "failing_tests",
+    "stack_trace_excerpt",
+    "production_code_snippets"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "While the parser fails a check, the root cause is the underlying search algorithm that fails to find the correct match, not a missing validation check."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The parser fails to correctly identify the time zone 'America/Dawson_Creek' because it matches a prefix 'America/Dawson' first, and the parsing logic does not backtrack or handle overlapping time zone IDs correctly when one is a prefix of another.",
+      "prediction": "The parser logic in DateTimeFormatterBuilder or its internal components (like a Trie or similar structure used for zone ID matching) will show that it stops matching at 'America/Dawson' and fails to consume the remaining '_Creek' part of the string.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "org.joda.time.format.DateTimeFormatterBuilder"
+      },
+      "observation_summary": "no snippet matches 'org.joda.time.format.DateTimeFormatterBuilder'"
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The issue lies in the parsing logic for time zones within the DateTimeFormatter, specifically how it handles overlapping time zone IDs. The parser likely uses a prefix-matching approach that incorrectly terminates at 'America/Dawson' instead of continuing to match the longer 'America/Dawson_Creek'.",
+      "prediction": "The implementation of the time zone parsing logic (likely within a helper class or method used by DateTimeFormatter) will show a greedy or non-backtracking search that fails when a shorter ID is a prefix of a longer one.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "org.joda.time.format.DateTimeFormatter"
+      },
+      "observation_summary": [
+        "snippets"
+      ]
+    },
+    {
+      "turn": 3,
+      "hypothesis": "The parser uses a greedy matching algorithm for time zone IDs that fails when one ID is a prefix of another (e.g., 'America/Dawson' vs 'America/Dawson_Creek'). The parser stops at the first match it finds, leaving the remainder of the string unparsed, which causes the IllegalArgumentException.",
+      "prediction": "The bug is in the algorithm used to match time zone IDs, likely within a class responsible for parsing (e.g., DateTimeFormatterBuilder$TimeZoneId or similar). The fix will involve changing the matching logic to prefer the longest match instead of the first match.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Algorithm/Method"
+    }
+  ],
+  "llm_calls_used": 3,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"impact\": \"Capability\", \"confidence\": 0.9, \"needs_human_review\": false, \"observation_summary\": \"The parser throws an IllegalArgumentException when parsing 'America/Dawson_Creek' because it incorrectly identifies 'America/Dawson' as the time zone and fails to consume the remaining '_Creek' suffix.\", \"hypothesis\": \"The parser uses a greedy matching algorithm for time zone IDs that fails when one ID is a prefix of another. The parser stops at the first match it finds, leaving the remainder of the string unparsed.\", \"prediction\": \"The bug is in the algorithm used to match time zone IDs, likely within a class responsible for parsing. The fix will involve changing the matching logic to prefer the longest match instead of the first match.\", \"experiment_rationale\": \"The stack trace and the nature of the error (malformed at '_Creek') strongly indicate a failure in the string parsing algorithm to correctly identify the full time zone identifier when prefix collisions occur.\", \"reasoning_summary\": \"The failure is a classic case of an incorrect search/matching algorithm where the implementation does not account for overlapping identifiers (prefix matching). This is a procedural logic error in the parsing method.\", \"evidence_used\": [\"failing_tests\", \"stack_trace_excerpt\", \"production_code_snippets\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Checking\", \"why_not_primary\": \"While the parser fails a check, the root cause is the underlying search algorithm that fails to find the correct match, not a missing validation check.\"}]}"
+}

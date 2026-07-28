@@ -1,0 +1,50 @@
+{
+  "project_id": "Closure",
+  "bug_id": 126,
+  "version_id": "126b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T07:08:31+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The compiler incorrectly optimizes away 'break' or 'return' statements within 'finally' blocks, leading to incorrect program behavior where exceptions are not properly handled or control flow is altered.",
+  "hypothesis": "The optimization pass responsible for minimizing exit points (likely MinimizeExitPoints) fails to check if the current block is inside a 'finally' clause. If it is, it should not remove 'break' or 'return' statements because these statements override the completion type of the 'try' block, as per ECMA-262 specifications.",
+  "prediction": "The code responsible for removing exit points will lack a conditional check to verify if the statement being removed is contained within a 'finally' block. The fix will involve adding a check to ensure that if the target node is inside a 'finally' block, the optimization is skipped.",
+  "experiment_rationale": "The failing tests demonstrate that 'break' and 'return' statements are being removed from 'finally' blocks, which is explicitly forbidden by the language specification. The root cause is a missing guard condition that should prevent this optimization when the context is a 'finally' block.",
+  "reasoning_summary": "The defect is a classic 'missing guard' issue. The compiler's optimization logic is performing a transformation (removing exit points) that is valid in many contexts but invalid when the exit point is inside a 'finally' block. Because the logic is missing the necessary validation (checking the context of the node), 'Checking' is the most appropriate ODC type.",
+  "evidence_used": [
+    "com.google.javascript.jscomp.MinimizeExitPointsTest::testDontRemoveBreakInTryFinally",
+    "com.google.javascript.jscomp.MinimizeExitPointsTest::testFunctionReturnOptimization",
+    "Bug report description: 'The break in the finally block should prevent the exception from being passed on... F.type in this case would be 'break' and not 'normal', so 'break' overrides the 'throw' of B'"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the optimization algorithm is technically 'wrong' in its result, the root cause is specifically the lack of a guard condition to handle the 'finally' block boundary case, which is the hallmark of a Checking defect."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The compiler incorrectly optimizes away 'break' or 'return' statements within 'finally' blocks, leading to incorrect program behavior where exceptions are not properly handled or control flow is altered.\",\n  \"hypothesis\": \"The optimization pass responsible for minimizing exit points (likely MinimizeExitPoints) fails to check if the current block is inside a 'finally' clause. If it is, it should not remove 'break' or 'return' statements because these statements override the completion type of the 'try' block, as per ECMA-262 specifications.\",\n  \"prediction\": \"The code responsible for removing exit points will lack a conditional check to verify if the statement being removed is contained within a 'finally' block. The fix will involve adding a check to ensure that if the target node is inside a 'finally' block, the optimization is skipped.\",\n  \"experiment_rationale\": \"The failing tests demonstrate that 'break' and 'return' statements are being removed from 'finally' blocks, which is explicitly forbidden by the language specification. The root cause is a missing guard condition that should prevent this optimization when the context is a 'finally' block.\",\n  \"reasoning_summary\": \"The defect is a classic 'missing guard' issue. The compiler's optimization logic is performing a transformation (removing exit points) that is valid in many contexts but invalid when the exit point is inside a 'finally' block. Because the logic is missing the necessary validation (checking the context of the node), 'Checking' is the most appropriate ODC type.\",\n  \"evidence_used\": [\n    \"com.google.javascript.jscomp.MinimizeExitPointsTest::testDontRemoveBreakInTryFinally\",\n    \"com.google.javascript.jscomp.MinimizeExitPointsTest::testFunctionReturnOptimization\",\n    \"Bug report description: 'The break in the finally block should prevent the exception from being passed on... F.type in this case would be 'break' and not 'normal', so 'break' overrides the 'throw' of B'\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the optimization algorithm is technically 'wrong' in its result, the root cause is specifically the lack of a guard condition to handle the 'finally' block boundary case, which is the hallmark of a Checking defect.\"\n    }\n  ]\n}"
+}

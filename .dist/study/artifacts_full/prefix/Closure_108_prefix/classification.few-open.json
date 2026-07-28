@@ -1,0 +1,49 @@
+{
+  "project_id": "Closure",
+  "bug_id": 108,
+  "version_id": "108b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T07:06:25+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The compiler crashes with an IllegalStateException when processing a goog.scope block containing a type annotation that references an aliased namespace. The crash occurs at a Preconditions.checkState call that validates whether a type name starts with an alias name.",
+  "hypothesis": "The code assumes that any type name used in a JSDoc annotation within a goog.scope block must start with the alias name being processed. However, when the alias refers to a nested namespace (e.g., 'sub' = 'ns.sub'), the type name (e.g., 'sub.C') might not strictly start with the alias name in the way the current check expects, or the check is too restrictive for complex aliased paths.",
+  "prediction": "The fix will involve replacing or relaxing the strict Preconditions.checkState(typeName.startsWith(aliasName)) with a more robust validation or a conditional check that accounts for nested namespaces or different alias structures.",
+  "experiment_rationale": "The stack trace points directly to line 236 in ScopedAliases.java, where a Preconditions.checkState is used to enforce an assumption about the relationship between an alias name and a type name. Since this is a hard assertion that fails during valid input processing, the logic of the check itself is incorrect for the given input.",
+  "reasoning_summary": "The defect is a classic 'Checking' issue. The code uses a Preconditions.checkState to enforce a structural assumption about the input (that a type name must start with an alias name). This assumption is violated by valid code (nested namespaces), causing an IllegalStateException. The fix requires correcting the validation logic (the 'check') to be more permissive or accurate, rather than changing the underlying algorithm or data structure.",
+  "evidence_used": [
+    "com.google.javascript.jscomp.ScopedAliases$AliasedTypeNode.applyAlias(ScopedAliases.java:236)",
+    "Preconditions.checkState(typeName.startsWith(aliasName));"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the logic for applying the alias is part of a method, the immediate cause of the crash is a failed validation check (guard) that is too restrictive, not an error in the computational procedure itself."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Incorrect",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The compiler crashes with an IllegalStateException when processing a goog.scope block containing a type annotation that references an aliased namespace. The crash occurs at a Preconditions.checkState call that validates whether a type name starts with an alias name.\",\n  \"hypothesis\": \"The code assumes that any type name used in a JSDoc annotation within a goog.scope block must start with the alias name being processed. However, when the alias refers to a nested namespace (e.g., 'sub' = 'ns.sub'), the type name (e.g., 'sub.C') might not strictly start with the alias name in the way the current check expects, or the check is too restrictive for complex aliased paths.\",\n  \"prediction\": \"The fix will involve replacing or relaxing the strict Preconditions.checkState(typeName.startsWith(aliasName)) with a more robust validation or a conditional check that accounts for nested namespaces or different alias structures.\",\n  \"experiment_rationale\": \"The stack trace points directly to line 236 in ScopedAliases.java, where a Preconditions.checkState is used to enforce an assumption about the relationship between an alias name and a type name. Since this is a hard assertion that fails during valid input processing, the logic of the check itself is incorrect for the given input.\",\n  \"reasoning_summary\": \"The defect is a classic 'Checking' issue. The code uses a Preconditions.checkState to enforce a structural assumption about the input (that a type name must start with an alias name). This assumption is violated by valid code (nested namespaces), causing an IllegalStateException. The fix requires correcting the validation logic (the 'check') to be more permissive or accurate, rather than changing the underlying algorithm or data structure.\",\n  \"evidence_used\": [\n    \"com.google.javascript.jscomp.ScopedAliases$AliasedTypeNode.applyAlias(ScopedAliases.java:236)\",\n    \"Preconditions.checkState(typeName.startsWith(aliasName));\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the logic for applying the alias is part of a method, the immediate cause of the crash is a failed validation check (guard) that is too restrictive, not an error in the computational procedure itself.\"\n    }\n  ]\n}"
+}

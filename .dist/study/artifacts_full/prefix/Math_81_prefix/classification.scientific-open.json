@@ -1,0 +1,72 @@
+{
+  "project_id": "Math",
+  "bug_id": 81,
+  "version_id": "81b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-25T16:54:13+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The code in EigenDecompositionImpl.computeShiftIncrement accesses 'work[nn - 13]' and 'work[nn - 15]' without sufficient validation of the block size, leading to an ArrayIndexOutOfBoundsException when the block is too small.",
+  "hypothesis": "The ArrayIndexOutOfBoundsException occurs in computeShiftIncrement because the code assumes a minimum block size (implied by the hardcoded offsets like nn-13 and nn-15) that is not guaranteed by the surrounding logic. The condition 'if (end - start > 2)' is insufficient to protect against these specific indices when 'nn' (which is 'end') is small.",
+  "prediction": "The fix will involve adding a more robust check on the block size or adjusting the indices to be safe for smaller blocks, ensuring that the code does not attempt to access negative indices in the 'work' array.",
+  "experiment_rationale": "The stack trace and code snippet clearly point to an unchecked array access based on a block size that is not validated against the hardcoded offsets used in the calculation.",
+  "reasoning_summary": "The bug is a classic missing boundary check (Checking). The code performs arithmetic on indices based on the assumption that the block size is large enough to support the offsets (13 and 15), but the existing 'if (end - start > 2)' check is too loose, allowing execution to proceed into an invalid memory access.",
+  "evidence_used": [
+    "full_stack_trace",
+    "snippet"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The logic itself is likely correct for larger matrices; the failure is specifically due to a missing guard condition for small matrices."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The ArrayIndexOutOfBoundsException occurs in computeShiftIncrement at line 1544 because the index calculation (nn - 13) or (nn - 15) results in a negative value when the block size is small, and there is no guard condition to ensure the block is large enough before accessing these indices.",
+      "prediction": "I expect to see that the 'nn' variable, which represents the end of the current block, is small enough that 'nn - 13' or 'nn - 15' becomes negative, and that the code lacks a check for the minimum block size required for this specific calculation.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "EigenDecompositionImpl"
+      },
+      "observation_summary": [
+        "snippets"
+      ]
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The ArrayIndexOutOfBoundsException occurs in computeShiftIncrement because the code assumes a minimum block size (implied by the hardcoded offsets like nn-13 and nn-15) that is not guaranteed by the surrounding logic. The condition 'if (end - start > 2)' is insufficient to protect against these specific indices when 'nn' (which is 'end') is small.",
+      "prediction": "The fix will involve adding a more robust check on the block size or adjusting the indices to be safe for smaller blocks, ensuring that the code does not attempt to access negative indices in the 'work' array.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Checking"
+    }
+  ],
+  "llm_calls_used": 2,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"impact\": \"Reliability\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The code in EigenDecompositionImpl.computeShiftIncrement accesses 'work[nn - 13]' and 'work[nn - 15]' without sufficient validation of the block size, leading to an ArrayIndexOutOfBoundsException when the block is too small.\", \"hypothesis\": \"The ArrayIndexOutOfBoundsException occurs in computeShiftIncrement because the code assumes a minimum block size (implied by the hardcoded offsets like nn-13 and nn-15) that is not guaranteed by the surrounding logic. The condition 'if (end - start > 2)' is insufficient to protect against these specific indices when 'nn' (which is 'end') is small.\", \"prediction\": \"The fix will involve adding a more robust check on the block size or adjusting the indices to be safe for smaller blocks, ensuring that the code does not attempt to access negative indices in the 'work' array.\", \"experiment_rationale\": \"The stack trace and code snippet clearly point to an unchecked array access based on a block size that is not validated against the hardcoded offsets used in the calculation.\", \"reasoning_summary\": \"The bug is a classic missing boundary check (Checking). The code performs arithmetic on indices based on the assumption that the block size is large enough to support the offsets (13 and 15), but the existing 'if (end - start > 2)' check is too loose, allowing execution to proceed into an invalid memory access.\", \"evidence_used\": [\"full_stack_trace\", \"snippet\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"The logic itself is likely correct for larger matrices; the failure is specifically due to a missing guard condition for small matrices.\"}]}"
+}

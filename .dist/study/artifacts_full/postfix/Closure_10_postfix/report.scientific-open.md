@@ -1,0 +1,29 @@
+# Defects4J ODC Classification Report: Closure-10
+
+- Version: `10b`
+- Work directory: `C:\d4j_work\postfix\Closure_10b`
+- Generated: `2026-07-26T06:18:01+00:00`
+
+## Failure Summary
+- `com.google.javascript.jscomp.PeepholeFoldConstantsTest::testIssue821`: junit.framework.AssertionFailedError:
+
+## Suspicious Frames
+- `com.google.javascript.jscomp.CompilerTestCase.test` at `CompilerTestCase.java:892`
+- `com.google.javascript.jscomp.CompilerTestCase.test` at `CompilerTestCase.java:445`
+- `com.google.javascript.jscomp.CompilerTestCase.test` at `CompilerTestCase.java:371`
+- `com.google.javascript.jscomp.CompilerTestCase.test` at `CompilerTestCase.java:340`
+- `com.google.javascript.jscomp.CompilerTestCase.test` at `CompilerTestCase.java:328`
+- `com.google.javascript.jscomp.CompilerTestCase.testSame` at `CompilerTestCase.java:560`
+
+## ODC Result
+- **Evidence Mode**: ⚠️ Post-fix (with buggy->fixed diff)
+- ODC Type: `Checking`
+- Family: `Control and Data Flow`
+- Target: `Design/Code`
+- Confidence: `1.0`
+- Needs Human Review: `False`
+
+The bug report and the fix diff confirm that the compiler's constant folding logic relies on a predicate that was incorrectly implemented. Changing the predicate logic to correctly check if *any* branch of a ternary operator results in a string fixes the issue.
+
+## ODC Attribute Mapping (Optional)
+- Impact: `Capability`

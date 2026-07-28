@@ -1,0 +1,50 @@
+{
+  "project_id": "Closure",
+  "bug_id": 58,
+  "version_id": "58b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T07:00:56+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The compiler throws an IllegalStateException during live variable analysis when processing a 'for-in' loop where the left-hand side is an expression (e.g., 'a[i++]') rather than a simple variable name.",
+  "hypothesis": "The method 'addToSetIfLocal' assumes that the node passed to it is always a simple name (Token.NAME) and enforces this with a Preconditions.checkState(NodeUtil.isName(node)). However, in a 'for-in' loop, the left-hand side can be an expression (like an array access), which is not a simple name, causing the precondition check to fail.",
+  "prediction": "The fix will involve adding a check to verify if the node is a simple name before calling 'addToSetIfLocal', or modifying 'addToSetIfLocal' to handle non-name nodes gracefully by returning early if the node is not a simple name.",
+  "experiment_rationale": "The stack trace explicitly points to 'Preconditions.checkState(NodeUtil.isName(node))' at line 266 of LiveVariablesAnalysis.java. This is a classic guard failure where the code assumes a specific input structure (a simple name) that is not guaranteed by the language syntax in the context of a 'for-in' loop.",
+  "reasoning_summary": "The defect is a missing validation check. The code assumes that the left-hand side of a 'for-in' loop is always a simple variable name, but the language allows expressions. The failure is a direct result of a 'Preconditions.checkState' failing because the input did not meet the expected criteria. This is a textbook 'Checking' defect.",
+  "evidence_used": [
+    "com.google.javascript.jscomp.LiveVariablesAnalysis.java:266",
+    "com.google.common.base.Preconditions.checkState(Preconditions.java:129)",
+    "com.google.javascript.jscomp.LiveVariablesAnalysis.computeGenKill(LiveVariablesAnalysis.java:206)"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the logic for handling 'for-in' loops is part of the algorithm, the specific failure is a guard violation (precondition check) rather than an incorrect computational step."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The compiler throws an IllegalStateException during live variable analysis when processing a 'for-in' loop where the left-hand side is an expression (e.g., 'a[i++]') rather than a simple variable name.\",\n  \"hypothesis\": \"The method 'addToSetIfLocal' assumes that the node passed to it is always a simple name (Token.NAME) and enforces this with a Preconditions.checkState(NodeUtil.isName(node)). However, in a 'for-in' loop, the left-hand side can be an expression (like an array access), which is not a simple name, causing the precondition check to fail.\",\n  \"prediction\": \"The fix will involve adding a check to verify if the node is a simple name before calling 'addToSetIfLocal', or modifying 'addToSetIfLocal' to handle non-name nodes gracefully by returning early if the node is not a simple name.\",\n  \"experiment_rationale\": \"The stack trace explicitly points to 'Preconditions.checkState(NodeUtil.isName(node))' at line 266 of LiveVariablesAnalysis.java. This is a classic guard failure where the code assumes a specific input structure (a simple name) that is not guaranteed by the language syntax in the context of a 'for-in' loop.\",\n  \"reasoning_summary\": \"The defect is a missing validation check. The code assumes that the left-hand side of a 'for-in' loop is always a simple variable name, but the language allows expressions. The failure is a direct result of a 'Preconditions.checkState' failing because the input did not meet the expected criteria. This is a textbook 'Checking' defect.\",\n  \"evidence_used\": [\n    \"com.google.javascript.jscomp.LiveVariablesAnalysis.java:266\",\n    \"com.google.common.base.Preconditions.checkState(Preconditions.java:129)\",\n    \"com.google.javascript.jscomp.LiveVariablesAnalysis.computeGenKill(LiveVariablesAnalysis.java:206)\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the logic for handling 'for-in' loops is part of the algorithm, the specific failure is a guard violation (precondition check) rather than an incorrect computational step.\"\n    }\n  ]\n}"
+}

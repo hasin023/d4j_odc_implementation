@@ -1,0 +1,52 @@
+{
+  "project_id": "Closure",
+  "bug_id": 45,
+  "version_id": "45b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T06:59:28+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 0.8,
+  "needs_human_review": false,
+  "observation_summary": "The compiler incorrectly removes an assignment expression used as an argument to Array.push, leading to incorrect code generation where the array element is missing.",
+  "hypothesis": "The 'RemoveUnusedVars' pass incorrectly identifies the assignment 'b = []' as unused because it only checks if the variable 'b' is used later, failing to recognize that the assignment expression itself has a side effect (returning the assigned value) which is used by the 'push' method.",
+  "prediction": "The code responsible for identifying unused variables or expressions in 'RemoveUnusedVars' likely lacks a check to see if an assignment expression is being used as a return value or argument, causing it to prune the assignment prematurely.",
+  "experiment_rationale": "The failure occurs during the 'RemoveUnusedVars' pass. The test case shows that the compiler prunes the assignment 'b = []' from 'a.push(b = [])', resulting in 'a.push([])'. This indicates the algorithm for determining 'unused' code is flawed because it treats the assignment as purely redundant without considering its role as an expression result.",
+  "reasoning_summary": "The defect is in the logic of the 'RemoveUnusedVars' pass. It incorrectly determines that an assignment is 'unused' and prunes it. This is a procedural error in the optimization algorithm, not a missing guard (Checking), a wrong constant (Assignment/Initialization), or a design-level capability gap (Function/Class/Object).",
+  "evidence_used": [
+    "com.google.javascript.jscomp.RemoveUnusedVarsTest::testIssue618_1",
+    "Result: function f(){var a=[];a.push([]);return a}",
+    "Expected: function f(){var a=[];var b;a.push(b=[]);b[0]=1;return a}"
+  ],
+  "evidence_gaps": [
+    "The specific implementation file for RemoveUnusedVars was not provided, only the test harness."
+  ],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "While a check is missing, the root cause is the logic of the optimization algorithm itself, which incorrectly classifies the assignment as 'unused' rather than just missing a guard."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Incorrect",
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Algorithm/Method\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Capability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"confidence\": 0.8,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The compiler incorrectly removes an assignment expression used as an argument to Array.push, leading to incorrect code generation where the array element is missing.\",\n  \"hypothesis\": \"The 'RemoveUnusedVars' pass incorrectly identifies the assignment 'b = []' as unused because it only checks if the variable 'b' is used later, failing to recognize that the assignment expression itself has a side effect (returning the assigned value) which is used by the 'push' method.\",\n  \"prediction\": \"The code responsible for identifying unused variables or expressions in 'RemoveUnusedVars' likely lacks a check to see if an assignment expression is being used as a return value or argument, causing it to prune the assignment prematurely.\",\n  \"experiment_rationale\": \"The failure occurs during the 'RemoveUnusedVars' pass. The test case shows that the compiler prunes the assignment 'b = []' from 'a.push(b = [])', resulting in 'a.push([])'. This indicates the algorithm for determining 'unused' code is flawed because it treats the assignment as purely redundant without considering its role as an expression result.\",\n  \"reasoning_summary\": \"The defect is in the logic of the 'RemoveUnusedVars' pass. It incorrectly determines that an assignment is 'unused' and prunes it. This is a procedural error in the optimization algorithm, not a missing guard (Checking), a wrong constant (Assignment/Initialization), or a design-level capability gap (Function/Class/Object).\",\n  \"evidence_used\": [\n    \"com.google.javascript.jscomp.RemoveUnusedVarsTest::testIssue618_1\",\n    \"Result: function f(){var a=[];a.push([]);return a}\",\n    \"Expected: function f(){var a=[];var b;a.push(b=[]);b[0]=1;return a}\"\n  ],\n  \"evidence_gaps\": [\n    \"The specific implementation file for RemoveUnusedVars was not provided, only the test harness.\"\n  ],\n  \"alternative_types\": [\n    {\n      \"type\": \"Checking\",\n      \"why_not_primary\": \"While a check is missing, the root cause is the logic of the optimization algorithm itself, which incorrectly classifies the assignment as 'unused' rather than just missing a guard.\"\n    }\n  ]\n}"
+}

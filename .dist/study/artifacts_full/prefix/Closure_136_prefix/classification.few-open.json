@@ -1,0 +1,49 @@
+{
+  "project_id": "Closure",
+  "bug_id": 136,
+  "version_id": "136b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T07:09:41+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.8,
+  "needs_human_review": false,
+  "observation_summary": "The compiler crashes with an 'INTERNAL COMPILER ERROR' or produces incorrect output when processing certain JavaScript constructs, specifically involving function signatures and variable renaming (e.g., $super).",
+  "hypothesis": "The compiler's 'MethodCompilerPass' fails to correctly validate or handle certain function definitions or variable names, leading to an illegal state when it encounters unexpected structures. Specifically, the code assumes that 'VarCheck' has already validated all function definitions, but this assumption is violated in certain scenarios, causing an IllegalStateException.",
+  "prediction": "The fix will involve adding a check to verify if a variable or function name is valid or should be ignored (e.g., checking if it is an exported name or a special identifier like $super) before proceeding with signature gathering or renaming.",
+  "experiment_rationale": "The stack trace points directly to 'MethodCompilerPass.addPossibleSignature' throwing an 'IllegalStateException' because 'VarCheck' did not catch an undefined function. This indicates a missing validation check in the compiler pass logic.",
+  "reasoning_summary": "The root cause is a missing validation check. The compiler pass assumes that a variable must exist in the scope (because 'VarCheck' should have caught it otherwise), but this assumption is incorrect for certain edge cases. The fix requires adding a guard to handle these cases gracefully instead of throwing an exception.",
+  "evidence_used": [
+    "com.google.javascript.jscomp.MethodCompilerPass.addPossibleSignature(MethodCompilerPass.java:114)",
+    "java.lang.RuntimeException: INTERNAL COMPILER ERROR. VarCheck should have caught this undefined function"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The primary issue is a missing guard/validation check (Checking) rather than an incorrect implementation of a computational algorithm."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.8,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The compiler crashes with an 'INTERNAL COMPILER ERROR' or produces incorrect output when processing certain JavaScript constructs, specifically involving function signatures and variable renaming (e.g., $super).\",\n  \"hypothesis\": \"The compiler's 'MethodCompilerPass' fails to correctly validate or handle certain function definitions or variable names, leading to an illegal state when it encounters unexpected structures. Specifically, the code assumes that 'VarCheck' has already validated all function definitions, but this assumption is violated in certain scenarios, causing an IllegalStateException.\",\n  \"prediction\": \"The fix will involve adding a check to verify if a variable or function name is valid or should be ignored (e.g., checking if it is an exported name or a special identifier like $super) before proceeding with signature gathering or renaming.\",\n  \"experiment_rationale\": \"The stack trace points directly to 'MethodCompilerPass.addPossibleSignature' throwing an 'IllegalStateException' because 'VarCheck' did not catch an undefined function. This indicates a missing validation check in the compiler pass logic.\",\n  \"reasoning_summary\": \"The root cause is a missing validation check. The compiler pass assumes that a variable must exist in the scope (because 'VarCheck' should have caught it otherwise), but this assumption is incorrect for certain edge cases. The fix requires adding a guard to handle these cases gracefully instead of throwing an exception.\",\n  \"evidence_used\": [\n    \"com.google.javascript.jscomp.MethodCompilerPass.addPossibleSignature(MethodCompilerPass.java:114)\",\n    \"java.lang.RuntimeException: INTERNAL COMPILER ERROR. VarCheck should have caught this undefined function\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"The primary issue is a missing guard/validation check (Checking) rather than an incorrect implementation of a computational algorithm.\"\n    }\n  ]\n}"
+}

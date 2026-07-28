@@ -1,0 +1,88 @@
+{
+  "project_id": "Closure",
+  "bug_id": 159,
+  "version_id": "159b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T06:50:04+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The compiler fails to rename all references to a function after inlining, specifically missing references that are not direct CALL nodes (e.g., .call() or .apply() usage).",
+  "hypothesis": "The function inliner fails to correctly track and update references to functions when they are inlined, specifically because it only checks for CALL nodes rather than identifying all NAME usages of the function that might need renaming or re-binding after the inlining process.",
+  "prediction": "The InlineFunctions class will show logic that only inspects CALL nodes to update function references, missing other contexts where the function name is used, leading to inconsistent renaming.",
+  "experiment_rationale": "The provided fix diff shows that the logic was changed from checking for Token.CALL to checking for Token.NAME and verifying if it is a candidate usage. This confirms the original algorithm was too restrictive in its identification of function references.",
+  "reasoning_summary": "The bug is a classic case of an incomplete algorithm for identifying references to be updated during a transformation pass. The original code only looked for CALL nodes, which is a procedural error in the inlining logic. The fix correctly expands the scope to all NAME nodes that are candidate usages.",
+  "evidence_used": [
+    "bug_report_description",
+    "fix_diff_oracle"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Interface/O-O Messages",
+      "why_not_primary": "The issue is not a mismatch between components or an API contract violation, but an internal failure of the inliner to correctly identify all references to a function within the same module."
+    },
+    {
+      "type": "Checking",
+      "why_not_primary": "While the fix involves a check (isCandidateUsage), the primary failure is the algorithmic approach of only looking at CALL nodes instead of all relevant NAME nodes."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The function inliner fails to correctly track and update references to functions when they are inlined, specifically because it only checks for CALL nodes rather than identifying all NAME usages of the function that might need renaming or re-binding after the inlining process.",
+      "prediction": "The InlineFunctions class will show logic that only inspects CALL nodes to update function references, missing other contexts where the function name is used, leading to inconsistent renaming.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "InlineFunctions"
+      },
+      "observation_summary": [
+        "snippets"
+      ]
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The InlineFunctions class contains a method that incorrectly filters for CALL nodes when identifying function references to update, causing it to miss other valid usages of the function name (like those in .call() or .apply() chains) that need to be tracked during inlining.",
+      "prediction": "The source code for InlineFunctions will show a conditional check that restricts reference tracking to Token.CALL, which is insufficient for identifying all function usages.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "InlineFunctions"
+      },
+      "observation_summary": "probe already served this exact request \u2014 use a different probe or conclude"
+    },
+    {
+      "turn": 3,
+      "hypothesis": "The function inliner fails to correctly track and update references to functions when they are inlined, specifically because it only checks for CALL nodes rather than identifying all NAME usages of the function that might need renaming or re-binding after the inlining process.",
+      "prediction": "The InlineFunctions class will show logic that only inspects CALL nodes to update function references, missing other contexts where the function name is used, leading to inconsistent renaming.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Algorithm/Method"
+    }
+  ],
+  "llm_calls_used": 3,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"impact\": \"Capability\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The compiler fails to rename all references to a function after inlining, specifically missing references that are not direct CALL nodes (e.g., .call() or .apply() usage).\", \"hypothesis\": \"The function inliner fails to correctly track and update references to functions when they are inlined, specifically because it only checks for CALL nodes rather than identifying all NAME usages of the function that might need renaming or re-binding after the inlining process.\", \"prediction\": \"The InlineFunctions class will show logic that only inspects CALL nodes to update function references, missing other contexts where the function name is used, leading to inconsistent renaming.\", \"experiment_rationale\": \"The provided fix diff shows that the logic was changed from checking for Token.CALL to checking for Token.NAME and verifying if it is a candidate usage. This confirms the original algorithm was too restrictive in its identification of function references.\", \"reasoning_summary\": \"The bug is a classic case of an incomplete algorithm for identifying references to be updated during a transformation pass. The original code only looked for CALL nodes, which is a procedural error in the inlining logic. The fix correctly expands the scope to all NAME nodes that are candidate usages.\", \"evidence_used\": [\"bug_report_description\", \"fix_diff_oracle\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Interface/O-O Messages\", \"why_not_primary\": \"The issue is not a mismatch between components or an API contract violation, but an internal failure of the inliner to correctly identify all references to a function within the same module.\"}, {\"type\": \"Checking\", \"why_not_primary\": \"While the fix involves a check (isCandidateUsage), the primary failure is the algorithmic approach of only looking at CALL nodes instead of all relevant NAME nodes.\"}]}"
+}

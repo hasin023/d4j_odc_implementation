@@ -1,0 +1,72 @@
+{
+  "project_id": "Math",
+  "bug_id": 103,
+  "version_id": "103b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-25T16:58:04+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The NormalDistributionImpl.cumulativeProbability method fails to handle convergence exceptions as promised by its Javadoc, leading to a MaxIterationsExceededException for extreme input values.",
+  "hypothesis": "The NormalDistributionImpl.cumulativeProbability method fails to implement the logic described in its own Javadoc (lines 104-106), which states that it should catch convergence exceptions and return 0 or 1 when x is more than 20 standard deviations from the mean. The current implementation simply calls Erf.erf directly without any try-catch block.",
+  "prediction": "The implementation of cumulativeProbability will be found to lack the necessary try-catch block to handle the MathException thrown by Erf.erf, confirming that the code does not perform the promised check.",
+  "experiment_rationale": "The provided snippet for NormalDistributionImpl.cumulativeProbability shows a direct return statement without any try-catch block, confirming the absence of the required validation logic.",
+  "reasoning_summary": "The Javadoc explicitly states that the method should catch convergence exceptions for extreme values, but the code lacks the corresponding try-catch block. This is a classic missing guard/validation logic error, which falls under the 'Checking' category.",
+  "evidence_used": [
+    "snippet of NormalDistributionImpl",
+    "stack trace of failing test"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The issue is not the algorithm itself, but the missing guard/exception handling logic required to handle extreme cases."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The NormalDistributionImpl.cumulativeProbability method fails to handle extreme values because it relies on Erf.erf, which in turn calls Gamma.regularizedGammaP. The latter has a hardcoded iteration limit that is reached when the input to the error function is large, causing a MaxIterationsExceededException instead of returning the expected asymptotic value (0 or 1).",
+      "prediction": "The code in NormalDistributionImpl.cumulativeProbability will show that it does not catch the MaxIterationsExceededException (or the more general MathException) when calling Erf.erf for extreme values, despite the Javadoc claiming it should.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "NormalDistributionImpl"
+      },
+      "observation_summary": [
+        "snippets"
+      ]
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The NormalDistributionImpl.cumulativeProbability method fails to implement the logic described in its own Javadoc (lines 104-106), which states that it should catch convergence exceptions and return 0 or 1 when x is more than 20 standard deviations from the mean. The current implementation simply calls Erf.erf directly without any try-catch block.",
+      "prediction": "The implementation of cumulativeProbability will be found to lack the necessary try-catch block to handle the MathException thrown by Erf.erf, confirming that the code does not perform the promised check.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Checking"
+    }
+  ],
+  "llm_calls_used": 2,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"impact\": \"Capability\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The NormalDistributionImpl.cumulativeProbability method fails to handle convergence exceptions as promised by its Javadoc, leading to a MaxIterationsExceededException for extreme input values.\", \"hypothesis\": \"The NormalDistributionImpl.cumulativeProbability method fails to implement the logic described in its own Javadoc (lines 104-106), which states that it should catch convergence exceptions and return 0 or 1 when x is more than 20 standard deviations from the mean. The current implementation simply calls Erf.erf directly without any try-catch block.\", \"prediction\": \"The implementation of cumulativeProbability will be found to lack the necessary try-catch block to handle the MathException thrown by Erf.erf, confirming that the code does not perform the promised check.\", \"experiment_rationale\": \"The provided snippet for NormalDistributionImpl.cumulativeProbability shows a direct return statement without any try-catch block, confirming the absence of the required validation logic.\", \"reasoning_summary\": \"The Javadoc explicitly states that the method should catch convergence exceptions for extreme values, but the code lacks the corresponding try-catch block. This is a classic missing guard/validation logic error, which falls under the 'Checking' category.\", \"evidence_used\": [\"snippet of NormalDistributionImpl\", \"stack trace of failing test\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"The issue is not the algorithm itself, but the missing guard/exception handling logic required to handle extreme cases.\"}]}"
+}

@@ -1,0 +1,55 @@
+{
+  "project_id": "Mockito",
+  "bug_id": 23,
+  "version_id": "23b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-25T12:52:58+00:00",
+  "odc_type": "Relationship",
+  "family": "Structural",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The test fails with a NotSerializableException when attempting to serialize a mock created with RETURNS_DEEP_STUBS, because the internal answer implementation (an anonymous class) is not serializable.",
+  "hypothesis": "The internal state of ReturnsDeepStubs (mockitoCore and delegate) and the anonymous Answer implementation used in recordDeepStubMock are not serializable, causing serialization to fail when the mock is deep-stubbed.",
+  "prediction": "The fix will involve marking internal fields as transient, adding lazy initialization for those fields, and ensuring the anonymous Answer implementation implements Serializable.",
+  "experiment_rationale": "The diff shows that the fields 'mockitoCore' and 'delegate' were changed to 'transient' and lazy-initialized, and the anonymous 'Answer' class was replaced with a 'SerializableAnswer' (which implements Serializable). This confirms the root cause was a failure to maintain the serialization contract across related objects.",
+  "reasoning_summary": "The bug is a classic serialization failure where an object graph (the mock and its deep-stubbed answers) contains non-serializable components. The fix involves correcting the relationship between the serializable mock and its internal state by ensuring all components in the chain implement Serializable or are marked transient. This is a structural issue regarding the consistency of the object graph for serialization, fitting the 'Relationship' category.",
+  "evidence_used": [
+    "java.io.NotSerializableException: org.mockito.internal.stubbing.defaultanswers.ReturnsDeepStubs$2",
+    "unified_diff: fields marked transient",
+    "unified_diff: added SerializableAnswer interface",
+    "unified_diff: added .serializable() to mockSettings"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Assignment/Initialization",
+      "why_not_primary": "While the fix involves adding initialization logic, the root cause is the structural requirement for the object graph to be serializable, which is a relationship constraint between the mock and its internal handlers."
+    },
+    {
+      "type": "Function/Class/Object",
+      "why_not_primary": "This is not a missing capability, but a failure to correctly implement the serialization contract for existing objects."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Relationship\",\n  \"family\": \"Structural\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The test fails with a NotSerializableException when attempting to serialize a mock created with RETURNS_DEEP_STUBS, because the internal answer implementation (an anonymous class) is not serializable.\",\n  \"hypothesis\": \"The internal state of ReturnsDeepStubs (mockitoCore and delegate) and the anonymous Answer implementation used in recordDeepStubMock are not serializable, causing serialization to fail when the mock is deep-stubbed.\",\n  \"prediction\": \"The fix will involve marking internal fields as transient, adding lazy initialization for those fields, and ensuring the anonymous Answer implementation implements Serializable.\",\n  \"experiment_rationale\": \"The diff shows that the fields 'mockitoCore' and 'delegate' were changed to 'transient' and lazy-initialized, and the anonymous 'Answer' class was replaced with a 'SerializableAnswer' (which implements Serializable). This confirms the root cause was a failure to maintain the serialization contract across related objects.\",\n  \"reasoning_summary\": \"The bug is a classic serialization failure where an object graph (the mock and its deep-stubbed answers) contains non-serializable components. The fix involves correcting the relationship between the serializable mock and its internal state by ensuring all components in the chain implement Serializable or are marked transient. This is a structural issue regarding the consistency of the object graph for serialization, fitting the 'Relationship' category.\",\n  \"evidence_used\": [\n    \"java.io.NotSerializableException: org.mockito.internal.stubbing.defaultanswers.ReturnsDeepStubs$2\",\n    \"unified_diff: fields marked transient\",\n    \"unified_diff: added SerializableAnswer interface\",\n    \"unified_diff: added .serializable() to mockSettings\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Assignment/Initialization\",\n      \"why_not_primary\": \"While the fix involves adding initialization logic, the root cause is the structural requirement for the object graph to be serializable, which is a relationship constraint between the mock and its internal handlers.\"\n    },\n    {\n      \"type\": \"Function/Class/Object\",\n      \"why_not_primary\": \"This is not a missing capability, but a failure to correctly implement the serialization contract for existing objects.\"\n    }\n  ]\n}"
+}

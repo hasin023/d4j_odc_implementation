@@ -1,0 +1,54 @@
+{
+  "project_id": "Mockito",
+  "bug_id": 37,
+  "version_id": "37b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-25T12:54:26+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The system failed to prevent calling a real method on an interface when using Mockito's 'thenCallRealMethod()' feature, which is an invalid operation. The tests expected a MockitoException to be thrown, but the code proceeded without validation.",
+  "hypothesis": "The AnswersValidator class lacked a validation check to ensure that the 'CallsRealMethods' answer is not applied to an interface method. Adding a check for whether the declaring class of the method is an interface would correctly trigger the required exception.",
+  "prediction": "The fix will introduce a new conditional check in the AnswersValidator class that verifies if the invocation's method belongs to an interface when 'CallsRealMethods' is used, and throws an exception if it does.",
+  "experiment_rationale": "The provided diff shows the addition of a new 'if' block in 'AnswersValidator' that checks if the answer is an instance of 'CallsRealMethods' and subsequently calls a new private method 'validateMockingConcreteClass'. This method performs a check 'invocation.getMethod().getDeclaringClass().isInterface()' and reports an error if true. This confirms the root cause was a missing validation check.",
+  "reasoning_summary": "The bug is a classic missing validation check. The system allowed an invalid operation (calling a real method on an interface) because it lacked a guard clause to verify the type of the declaring class. The fix adds this missing check, which is the definition of the 'Checking' ODC type.",
+  "evidence_used": [
+    "The fix_diff_oracle shows the addition of an 'if' statement in 'AnswersValidator' that checks if the answer is an instance of 'CallsRealMethods'.",
+    "The new code inside 'validateMockingConcreteClass' performs a check: 'if (invocation.getMethod().getDeclaringClass().isInterface())'.",
+    "The failing tests 'shouldFailWhenCallingRealMethodOnIterface' and 'shouldFailFastWhenCallingRealMethodOnInterface' confirm that the system was expected to throw an exception but failed to do so."
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The fix is not a rewrite of an existing algorithm, but the addition of a missing guard condition to prevent an invalid state."
+    },
+    {
+      "type": "Function/Class/Object",
+      "why_not_primary": "This is not a missing design capability, but a failure to validate input parameters against existing constraints."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Capability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 1.0,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The system failed to prevent calling a real method on an interface when using Mockito's 'thenCallRealMethod()' feature, which is an invalid operation. The tests expected a MockitoException to be thrown, but the code proceeded without validation.\",\n  \"hypothesis\": \"The AnswersValidator class lacked a validation check to ensure that the 'CallsRealMethods' answer is not applied to an interface method. Adding a check for whether the declaring class of the method is an interface would correctly trigger the required exception.\",\n  \"prediction\": \"The fix will introduce a new conditional check in the AnswersValidator class that verifies if the invocation's method belongs to an interface when 'CallsRealMethods' is used, and throws an exception if it does.\",\n  \"experiment_rationale\": \"The provided diff shows the addition of a new 'if' block in 'AnswersValidator' that checks if the answer is an instance of 'CallsRealMethods' and subsequently calls a new private method 'validateMockingConcreteClass'. This method performs a check 'invocation.getMethod().getDeclaringClass().isInterface()' and reports an error if true. This confirms the root cause was a missing validation check.\",\n  \"reasoning_summary\": \"The bug is a classic missing validation check. The system allowed an invalid operation (calling a real method on an interface) because it lacked a guard clause to verify the type of the declaring class. The fix adds this missing check, which is the definition of the 'Checking' ODC type.\",\n  \"evidence_used\": [\n    \"The fix_diff_oracle shows the addition of an 'if' statement in 'AnswersValidator' that checks if the answer is an instance of 'CallsRealMethods'.\",\n    \"The new code inside 'validateMockingConcreteClass' performs a check: 'if (invocation.getMethod().getDeclaringClass().isInterface())'.\",\n    \"The failing tests 'shouldFailWhenCallingRealMethodOnIterface' and 'shouldFailFastWhenCallingRealMethodOnInterface' confirm that the system was expected to throw an exception but failed to do so.\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"The fix is not a rewrite of an existing algorithm, but the addition of a missing guard condition to prevent an invalid state.\"\n    },\n    {\n      \"type\": \"Function/Class/Object\",\n      \"why_not_primary\": \"This is not a missing design capability, but a failure to validate input parameters against existing constraints.\"\n    }\n  ]\n}"
+}

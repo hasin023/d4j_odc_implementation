@@ -1,0 +1,50 @@
+{
+  "project_id": "Closure",
+  "bug_id": 27,
+  "version_id": "27b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T06:57:34+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The compiler throws an IllegalStateException when building AST nodes for try-catch and try-finally blocks because the validation logic (Preconditions.checkState) incorrectly enforces that nodes must be label names or statements, when they should be blocks.",
+  "hypothesis": "The IR factory methods for try-catch and try-finally blocks contain overly restrictive validation checks. Specifically, they incorrectly validate that input nodes are label names or statements, causing valid AST structures to be rejected.",
+  "prediction": "The fix will involve changing the Preconditions.checkState calls to validate that the nodes are blocks (isBlock()) instead of label names, and introducing a helper method (blockUnchecked) to bypass the incorrect statement validation for catch nodes.",
+  "experiment_rationale": "The fix diff shows that the Preconditions in tryFinally were changed from isLabelName() to isBlock(), and the call in tryCatch was changed to use a new blockUnchecked method that avoids the statement validation check. This confirms the root cause was incorrect validation logic.",
+  "reasoning_summary": "The bug is a classic 'Checking' defect. The code was using incorrect validation predicates (Preconditions.checkState) that rejected valid AST nodes. The fix involved correcting these predicates to match the actual requirements of the AST structure (e.g., expecting a block instead of a label name).",
+  "evidence_used": [
+    "The stack trace shows IllegalStateException at Preconditions.checkState.",
+    "The fix_diff_oracle shows changes to Preconditions.checkState calls in tryFinally and tryCatch.",
+    "The fix_diff_oracle shows the introduction of blockUnchecked to bypass incorrect statement validation."
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the logic was changed, the root cause is the incorrect validation predicate (the check itself), not the underlying algorithm for building the AST."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Incorrect",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"confidence\": 1.0,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The compiler throws an IllegalStateException when building AST nodes for try-catch and try-finally blocks because the validation logic (Preconditions.checkState) incorrectly enforces that nodes must be label names or statements, when they should be blocks.\",\n  \"hypothesis\": \"The IR factory methods for try-catch and try-finally blocks contain overly restrictive validation checks. Specifically, they incorrectly validate that input nodes are label names or statements, causing valid AST structures to be rejected.\",\n  \"prediction\": \"The fix will involve changing the Preconditions.checkState calls to validate that the nodes are blocks (isBlock()) instead of label names, and introducing a helper method (blockUnchecked) to bypass the incorrect statement validation for catch nodes.\",\n  \"experiment_rationale\": \"The fix diff shows that the Preconditions in tryFinally were changed from isLabelName() to isBlock(), and the call in tryCatch was changed to use a new blockUnchecked method that avoids the statement validation check. This confirms the root cause was incorrect validation logic.\",\n  \"reasoning_summary\": \"The bug is a classic 'Checking' defect. The code was using incorrect validation predicates (Preconditions.checkState) that rejected valid AST nodes. The fix involved correcting these predicates to match the actual requirements of the AST structure (e.g., expecting a block instead of a label name).\",\n  \"evidence_used\": [\n    \"The stack trace shows IllegalStateException at Preconditions.checkState.\",\n    \"The fix_diff_oracle shows changes to Preconditions.checkState calls in tryFinally and tryCatch.\",\n    \"The fix_diff_oracle shows the introduction of blockUnchecked to bypass incorrect statement validation.\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the logic was changed, the root cause is the incorrect validation predicate (the check itself), not the underlying algorithm for building the AST.\"\n    }\n  ]\n}"
+}

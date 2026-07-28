@@ -1,0 +1,51 @@
+{
+  "project_id": "Closure",
+  "bug_id": 10,
+  "version_id": "10b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T06:55:46+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The Closure Compiler incorrectly optimizes an expression involving a ternary operator with mixed types (string and number) followed by additions. Specifically, it incorrectly folds the addition of constants (3+4=7) and converts a string literal ('1') to a number, changing the semantic behavior of the JavaScript code.",
+  "hypothesis": "The peephole optimization logic for folding constants is incorrectly assuming that the result of a ternary operator can be treated as a number for addition purposes, even when one branch of the ternary is a string. It fails to check if the ternary expression's result type is consistent with numeric addition before performing the fold.",
+  "prediction": "The code responsible for folding additions (likely in PeepholeFoldConstants or a similar pass) will contain logic that attempts to simplify expressions like (A + B) + C into A + (B + C) or similar, without verifying that the types involved in the addition are strictly numeric.",
+  "experiment_rationale": "The failure occurs during constant folding where the compiler incorrectly simplifies '1' + 3 + 4 into 1 + 7. This is a procedural error in the optimization algorithm where it applies a numeric simplification rule to an expression that involves string concatenation.",
+  "reasoning_summary": "The defect is an incorrect optimization procedure. The compiler's algorithm for folding constants is too aggressive and fails to account for the type-coercion rules of JavaScript (string concatenation vs. numeric addition). This is a classic 'Algorithm/Method' defect because the procedure for folding constants is fundamentally flawed in its handling of mixed-type expressions.",
+  "evidence_used": [
+    "com.google.javascript.jscomp.PeepholeFoldConstantsTest::testIssue821",
+    "Expected: var a=(Math.random()>0.5?\"1\":2)+3+4",
+    "Result: var a=(Math.random()>0.5?1:2)+7",
+    "Bug report description: 'This is obviously wrong as the '1' string literal got converted to a number, and 3+4 got combined into 7 while that's not ok as '1' + 3 + 4 = '134', not '17''"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "While a check is missing, the root cause is the implementation of the constant folding algorithm itself, which is performing an invalid transformation rather than just failing to validate a condition."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Incorrect",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Algorithm/Method\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The Closure Compiler incorrectly optimizes an expression involving a ternary operator with mixed types (string and number) followed by additions. Specifically, it incorrectly folds the addition of constants (3+4=7) and converts a string literal ('1') to a number, changing the semantic behavior of the JavaScript code.\",\n  \"hypothesis\": \"The peephole optimization logic for folding constants is incorrectly assuming that the result of a ternary operator can be treated as a number for addition purposes, even when one branch of the ternary is a string. It fails to check if the ternary expression's result type is consistent with numeric addition before performing the fold.\",\n  \"prediction\": \"The code responsible for folding additions (likely in PeepholeFoldConstants or a similar pass) will contain logic that attempts to simplify expressions like (A + B) + C into A + (B + C) or similar, without verifying that the types involved in the addition are strictly numeric.\",\n  \"experiment_rationale\": \"The failure occurs during constant folding where the compiler incorrectly simplifies '1' + 3 + 4 into 1 + 7. This is a procedural error in the optimization algorithm where it applies a numeric simplification rule to an expression that involves string concatenation.\",\n  \"reasoning_summary\": \"The defect is an incorrect optimization procedure. The compiler's algorithm for folding constants is too aggressive and fails to account for the type-coercion rules of JavaScript (string concatenation vs. numeric addition). This is a classic 'Algorithm/Method' defect because the procedure for folding constants is fundamentally flawed in its handling of mixed-type expressions.\",\n  \"evidence_used\": [\n    \"com.google.javascript.jscomp.PeepholeFoldConstantsTest::testIssue821\",\n    \"Expected: var a=(Math.random()>0.5?\\\"1\\\":2)+3+4\",\n    \"Result: var a=(Math.random()>0.5?1:2)+7\",\n    \"Bug report description: 'This is obviously wrong as the '1' string literal got converted to a number, and 3+4 got combined into 7 while that's not ok as '1' + 3 + 4 = '134', not '17''\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Checking\",\n      \"why_not_primary\": \"While a check is missing, the root cause is the implementation of the constant folding algorithm itself, which is performing an invalid transformation rather than just failing to validate a condition.\"\n    }\n  ]\n}"
+}

@@ -1,0 +1,50 @@
+{
+  "project_id": "Closure",
+  "bug_id": 29,
+  "version_id": "29b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T06:57:48+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The compiler incorrectly inlines object literals, leading to invalid code generation (e.g., replacing object property access with 'void 0'). This occurs when the compiler assumes properties exist on an object literal that are not actually defined, causing runtime errors.",
+  "hypothesis": "The 'InlineObjectLiterals' pass fails to verify if a property being accessed on an object literal is actually defined within that literal. When it encounters an access to an undefined property, it incorrectly assumes it can be inlined or optimized, leading to the generation of 'void 0' or other invalid expressions.",
+  "prediction": "The fix will introduce a validation mechanism (a set of 'validProperties') that tracks which properties are actually defined on the object literal. If the compiler encounters an access to a property not in this set, it will either register it as valid (if it's an assignment) or bail out of the inlining process.",
+  "experiment_rationale": "The fix diff shows the addition of a 'validProperties' set and a check: 'if (!validProperties.contains(propName)) { ... return false; }'. This confirms that the root cause was a missing validation check for property existence during the inlining process.",
+  "reasoning_summary": "The bug is caused by the compiler's failure to validate whether a property access is valid for a given object literal before attempting to inline it. The fix introduces a missing check (a guard) that verifies property existence, which is the definition of a 'Checking' defect.",
+  "evidence_used": [
+    "The fix diff adds a 'validProperties' set and a conditional check 'if (!validProperties.contains(propName))' to verify property existence.",
+    "The failing tests show the compiler replacing property access with 'void 0', indicating it incorrectly assumed the property existed or was safe to inline.",
+    "The bug report describes the compiler 'screwing up' by generating invalid code for property access on an object literal."
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the inlining logic is an algorithm, the specific failure is the lack of a guard/validation check for property existence, which is more precisely classified as 'Checking'."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The compiler incorrectly inlines object literals, leading to invalid code generation (e.g., replacing object property access with 'void 0'). This occurs when the compiler assumes properties exist on an object literal that are not actually defined, causing runtime errors.\",\n  \"hypothesis\": \"The 'InlineObjectLiterals' pass fails to verify if a property being accessed on an object literal is actually defined within that literal. When it encounters an access to an undefined property, it incorrectly assumes it can be inlined or optimized, leading to the generation of 'void 0' or other invalid expressions.\",\n  \"prediction\": \"The fix will introduce a validation mechanism (a set of 'validProperties') that tracks which properties are actually defined on the object literal. If the compiler encounters an access to a property not in this set, it will either register it as valid (if it's an assignment) or bail out of the inlining process.\",\n  \"experiment_rationale\": \"The fix diff shows the addition of a 'validProperties' set and a check: 'if (!validProperties.contains(propName)) { ... return false; }'. This confirms that the root cause was a missing validation check for property existence during the inlining process.\",\n  \"reasoning_summary\": \"The bug is caused by the compiler's failure to validate whether a property access is valid for a given object literal before attempting to inline it. The fix introduces a missing check (a guard) that verifies property existence, which is the definition of a 'Checking' defect.\",\n  \"evidence_used\": [\n    \"The fix diff adds a 'validProperties' set and a conditional check 'if (!validProperties.contains(propName))' to verify property existence.\",\n    \"The failing tests show the compiler replacing property access with 'void 0', indicating it incorrectly assumed the property existed or was safe to inline.\",\n    \"The bug report describes the compiler 'screwing up' by generating invalid code for property access on an object literal.\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the inlining logic is an algorithm, the specific failure is the lack of a guard/validation check for property existence, which is more precisely classified as 'Checking'.\"\n    }\n  ]\n}"
+}

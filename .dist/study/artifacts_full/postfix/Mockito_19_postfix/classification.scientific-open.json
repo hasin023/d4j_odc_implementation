@@ -1,0 +1,70 @@
+{
+  "project_id": "Mockito",
+  "bug_id": 19,
+  "version_id": "19b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-25T12:44:49+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The @InjectMocks feature incorrectly injects mocks into fields when multiple fields of the same type exist, failing to prioritize name-based matches.",
+  "hypothesis": "The injection logic lacks a validation step to check if another field in the class is a better name-based match for a mock before finalizing the injection into the current field.",
+  "prediction": "The fix involves adding a check that iterates over all fields in the class to see if any other field is a better match for the mock, and if so, skipping the current injection.",
+  "experiment_rationale": "The bug report and the provided fix diff (which shows the addition of a field-list iteration and a null-return check in the filter chain) confirm that the issue is a missing validation/guard condition in the injection logic.",
+  "reasoning_summary": "The fix adds a check in the NameBasedCandidateFilter to verify if another field exists that matches the mock name and type, which is a classic 'Checking' defect where a validation predicate was missing.",
+  "evidence_used": [
+    "bug_report",
+    "fix_diff_oracle"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The fix is primarily about adding a missing validation check (a guard) rather than changing the core algorithm of injection."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The @InjectMocks mechanism fails to correctly disambiguate between multiple potential mock candidates when multiple fields have the same type. It currently lacks the context of other fields in the class, causing it to inject a mock into the first matching field it finds, even if another field is a better name-based match for that specific mock.",
+      "prediction": "The filter chain (NameBasedCandidateFilter, TypeBasedCandidateFilter, etc.) will be missing the list of all fields in the class, preventing it from performing a look-ahead or cross-field validation to ensure the best match is selected.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "org.mockito.internal.configuration.injection.filter.NameBasedCandidateFilter"
+      },
+      "observation_summary": "no snippet matches 'org.mockito.internal.configuration.injection.filter.NameBasedCandidateFilter'"
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The injection logic in Mockito's @InjectMocks feature is missing a necessary check to disambiguate between multiple fields of the same type when one of them is a better name-based match for a specific mock. The current implementation lacks the context of other fields in the class, leading to incorrect injection.",
+      "prediction": "The code responsible for filtering mock candidates (likely in the internal configuration package) does not receive the list of all fields in the class, preventing it from performing a look-ahead or cross-field validation to ensure the best match is selected.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Checking"
+    }
+  ],
+  "llm_calls_used": 2,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"impact\": \"Capability\", \"confidence\": 0.9, \"needs_human_review\": false, \"observation_summary\": \"The @InjectMocks feature incorrectly injects mocks into fields when multiple fields of the same type exist, failing to prioritize name-based matches.\", \"hypothesis\": \"The injection logic lacks a validation step to check if another field in the class is a better name-based match for a mock before finalizing the injection into the current field.\", \"prediction\": \"The fix involves adding a check that iterates over all fields in the class to see if any other field is a better match for the mock, and if so, skipping the current injection.\", \"experiment_rationale\": \"The bug report and the provided fix diff (which shows the addition of a field-list iteration and a null-return check in the filter chain) confirm that the issue is a missing validation/guard condition in the injection logic.\", \"reasoning_summary\": \"The fix adds a check in the NameBasedCandidateFilter to verify if another field exists that matches the mock name and type, which is a classic 'Checking' defect where a validation predicate was missing.\", \"evidence_used\": [\"bug_report\", \"fix_diff_oracle\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"The fix is primarily about adding a missing validation check (a guard) rather than changing the core algorithm of injection.\"}]}"
+}

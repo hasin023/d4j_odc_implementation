@@ -1,0 +1,50 @@
+{
+  "project_id": "Math",
+  "bug_id": 60,
+  "version_id": "60b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-25T17:05:46+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The NormalDistributionImpl.cumulativeProbability method throws a ConvergenceException when evaluating extreme values (e.g., Infinity) because the underlying continued fraction algorithm fails to converge for these inputs.",
+  "hypothesis": "The method lacks a guard clause to handle extreme input values that are mathematically known to result in probabilities of 0 or 1, causing the expensive and unstable numerical approximation (Erf) to be invoked unnecessarily.",
+  "prediction": "Adding a check at the beginning of the method to return 0.0 or 1.0 for values significantly far from the mean (e.g., > 40 standard deviations) will prevent the convergence failure.",
+  "experiment_rationale": "The fix diff shows the removal of a catch block for MaxIterationsExceededException and the addition of an explicit boundary check (if (FastMath.abs(dev) > 40 * standardDeviation)) that returns the correct probability immediately, confirming that the root cause was a missing validation check for extreme inputs.",
+  "reasoning_summary": "The bug is a classic 'Checking' defect. The code failed because it attempted to perform a complex numerical calculation on inputs where the result is mathematically trivial (0 or 1). The fix introduces a missing guard condition to validate the input range before proceeding to the calculation, which is the definition of a Checking defect.",
+  "evidence_used": [
+    "The fix_diff_oracle shows the addition of an 'if' statement to check the range of 'dev' before calling 'Erf.erf'.",
+    "The bug report states: 'I am leaning toward adding top-coding outside of the catch... I propose that we top-code at 40 outside the catch.'",
+    "The stack trace shows a ConvergenceException occurring during the evaluation of extreme values."
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the fix changes the method's execution flow, the root cause is the absence of a boundary check for extreme values, not an error in the mathematical algorithm itself."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 1.0,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The NormalDistributionImpl.cumulativeProbability method throws a ConvergenceException when evaluating extreme values (e.g., Infinity) because the underlying continued fraction algorithm fails to converge for these inputs.\",\n  \"hypothesis\": \"The method lacks a guard clause to handle extreme input values that are mathematically known to result in probabilities of 0 or 1, causing the expensive and unstable numerical approximation (Erf) to be invoked unnecessarily.\",\n  \"prediction\": \"Adding a check at the beginning of the method to return 0.0 or 1.0 for values significantly far from the mean (e.g., > 40 standard deviations) will prevent the convergence failure.\",\n  \"experiment_rationale\": \"The fix diff shows the removal of a catch block for MaxIterationsExceededException and the addition of an explicit boundary check (if (FastMath.abs(dev) > 40 * standardDeviation)) that returns the correct probability immediately, confirming that the root cause was a missing validation check for extreme inputs.\",\n  \"reasoning_summary\": \"The bug is a classic 'Checking' defect. The code failed because it attempted to perform a complex numerical calculation on inputs where the result is mathematically trivial (0 or 1). The fix introduces a missing guard condition to validate the input range before proceeding to the calculation, which is the definition of a Checking defect.\",\n  \"evidence_used\": [\n    \"The fix_diff_oracle shows the addition of an 'if' statement to check the range of 'dev' before calling 'Erf.erf'.\",\n    \"The bug report states: 'I am leaning toward adding top-coding outside of the catch... I propose that we top-code at 40 outside the catch.'\",\n    \"The stack trace shows a ConvergenceException occurring during the evaluation of extreme values.\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the fix changes the method's execution flow, the root cause is the absence of a boundary check for extreme values, not an error in the mathematical algorithm itself.\"\n    }\n  ]\n}"
+}

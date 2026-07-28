@@ -1,0 +1,51 @@
+{
+  "project_id": "Time",
+  "bug_id": 5,
+  "version_id": "5b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-25T12:33:31+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The method 'normalizedStandard' attempts to add years to a period object even if the period type does not support years, leading to an UnsupportedOperationException when 'withYears' is called.",
+  "hypothesis": "The 'normalizedStandard' method fails to check if the target PeriodType supports the 'years' or 'months' fields before attempting to update them, causing an UnsupportedOperationException when the period type is restricted (e.g., months-only).",
+  "prediction": "The fix will involve adding conditional checks (e.g., 'isSupported(DurationFieldType.years())') before calling 'withYears' or 'withMonths' in the 'normalizedStandard' method.",
+  "experiment_rationale": "The stack trace explicitly points to 'PeriodType.setIndexedField' throwing an exception because the field is not supported. The 'normalizedStandard' method calls 'withYears' unconditionally if the calculated years value is non-zero, without verifying if the current PeriodType supports years.",
+  "reasoning_summary": "The root cause is a missing validation check. The code assumes that if a value (years/months) is non-zero, it can be added to the period. However, it fails to verify if the specific 'PeriodType' instance actually supports those fields, leading to an exception. This is a classic missing guard/check scenario.",
+  "evidence_used": [
+    "org.joda.time.Period.normalizedStandard(Period.java:1631)",
+    "org.joda.time.Period.withYears(Period.java:896)",
+    "org.joda.time.PeriodType.setIndexedField(PeriodType.java:690)",
+    "java.lang.UnsupportedOperationException: Field is not supported"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the logic is procedural, the failure is specifically due to the lack of a guard condition to verify field support before execution, which is the definition of a Checking defect."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The method 'normalizedStandard' attempts to add years to a period object even if the period type does not support years, leading to an UnsupportedOperationException when 'withYears' is called.\",\n  \"hypothesis\": \"The 'normalizedStandard' method fails to check if the target PeriodType supports the 'years' or 'months' fields before attempting to update them, causing an UnsupportedOperationException when the period type is restricted (e.g., months-only).\",\n  \"prediction\": \"The fix will involve adding conditional checks (e.g., 'isSupported(DurationFieldType.years())') before calling 'withYears' or 'withMonths' in the 'normalizedStandard' method.\",\n  \"experiment_rationale\": \"The stack trace explicitly points to 'PeriodType.setIndexedField' throwing an exception because the field is not supported. The 'normalizedStandard' method calls 'withYears' unconditionally if the calculated years value is non-zero, without verifying if the current PeriodType supports years.\",\n  \"reasoning_summary\": \"The root cause is a missing validation check. The code assumes that if a value (years/months) is non-zero, it can be added to the period. However, it fails to verify if the specific 'PeriodType' instance actually supports those fields, leading to an exception. This is a classic missing guard/check scenario.\",\n  \"evidence_used\": [\n    \"org.joda.time.Period.normalizedStandard(Period.java:1631)\",\n    \"org.joda.time.Period.withYears(Period.java:896)\",\n    \"org.joda.time.PeriodType.setIndexedField(PeriodType.java:690)\",\n    \"java.lang.UnsupportedOperationException: Field is not supported\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the logic is procedural, the failure is specifically due to the lack of a guard condition to verify field support before execution, which is the definition of a Checking defect.\"\n    }\n  ]\n}"
+}

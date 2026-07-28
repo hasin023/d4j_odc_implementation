@@ -1,0 +1,54 @@
+{
+  "project_id": "Math",
+  "bug_id": 78,
+  "version_id": "78b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-25T17:07:41+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The ODE solver fails to detect events when they occur very close to each other because the bracketing interval for the root-finding solver (BrentSolver) does not contain a sign change, causing an IllegalArgumentException.",
+  "hypothesis": "The root cause is that the event detection logic does not account for cases where the switching function 'g' has the same sign at both endpoints of the search interval due to a previous event being detected slightly off-target. The algorithm needs to adjust the search interval (ta) to ensure a valid sign change (bracketing) exists before invoking the solver.",
+  "prediction": "The fix will introduce a mechanism to detect when the function values at the endpoints of the search interval have the same sign (ga * gb > 0) and, if so, shift the start time (ta) iteratively until a sign change is achieved, allowing the solver to proceed.",
+  "experiment_rationale": "The provided diff shows the addition of a loop that checks if 'ga * gb > 0' and then shifts 'ta' by a small epsilon until the signs differ. This confirms that the original algorithm lacked the necessary logic to handle this specific edge case in the root-finding procedure.",
+  "reasoning_summary": "The fix involves modifying the procedural logic within 'EventState.evaluateStep' to handle a specific edge case where the root-finding algorithm (BrentSolver) fails due to a lack of bracketing. This is a correction to the computational strategy (the algorithm) used to prepare the input for the solver, rather than a simple missing check or a wrong constant assignment. It is not a design-level capability issue (Function/Class/Object) because the capability to detect events exists; it just needed a more robust algorithmic approach to handle closely spaced events.",
+  "evidence_used": [
+    "The diff adds a loop that checks 'ga * gb > 0' and shifts 'ta' to ensure a sign change.",
+    "The stack trace shows an IllegalArgumentException from BrentSolver because 'function values at endpoints do not have different signs'.",
+    "The bug report describes the issue as a failure to detect the second event in a pair of closely spaced events."
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "While the fix adds a check (ga * gb > 0), the primary purpose is to implement a corrective procedure (shifting ta) to allow the algorithm to continue, which is characteristic of an algorithmic refinement."
+    },
+    {
+      "type": "Function/Class/Object",
+      "why_not_primary": "The capability to detect events is already present; this is a refinement of the existing event detection algorithm to handle edge cases."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Incorrect",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Algorithm/Method\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The ODE solver fails to detect events when they occur very close to each other because the bracketing interval for the root-finding solver (BrentSolver) does not contain a sign change, causing an IllegalArgumentException.\",\n  \"hypothesis\": \"The root cause is that the event detection logic does not account for cases where the switching function 'g' has the same sign at both endpoints of the search interval due to a previous event being detected slightly off-target. The algorithm needs to adjust the search interval (ta) to ensure a valid sign change (bracketing) exists before invoking the solver.\",\n  \"prediction\": \"The fix will introduce a mechanism to detect when the function values at the endpoints of the search interval have the same sign (ga * gb > 0) and, if so, shift the start time (ta) iteratively until a sign change is achieved, allowing the solver to proceed.\",\n  \"experiment_rationale\": \"The provided diff shows the addition of a loop that checks if 'ga * gb > 0' and then shifts 'ta' by a small epsilon until the signs differ. This confirms that the original algorithm lacked the necessary logic to handle this specific edge case in the root-finding procedure.\",\n  \"reasoning_summary\": \"The fix involves modifying the procedural logic within 'EventState.evaluateStep' to handle a specific edge case where the root-finding algorithm (BrentSolver) fails due to a lack of bracketing. This is a correction to the computational strategy (the algorithm) used to prepare the input for the solver, rather than a simple missing check or a wrong constant assignment. It is not a design-level capability issue (Function/Class/Object) because the capability to detect events exists; it just needed a more robust algorithmic approach to handle closely spaced events.\",\n  \"evidence_used\": [\n    \"The diff adds a loop that checks 'ga * gb > 0' and shifts 'ta' to ensure a sign change.\",\n    \"The stack trace shows an IllegalArgumentException from BrentSolver because 'function values at endpoints do not have different signs'.\",\n    \"The bug report describes the issue as a failure to detect the second event in a pair of closely spaced events.\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Checking\",\n      \"why_not_primary\": \"While the fix adds a check (ga * gb > 0), the primary purpose is to implement a corrective procedure (shifting ta) to allow the algorithm to continue, which is characteristic of an algorithmic refinement.\"\n    },\n    {\n      \"type\": \"Function/Class/Object\",\n      \"why_not_primary\": \"The capability to detect events is already present; this is a refinement of the existing event detection algorithm to handle edge cases.\"\n    }\n  ]\n}"
+}

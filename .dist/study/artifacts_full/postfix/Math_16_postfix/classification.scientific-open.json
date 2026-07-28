@@ -1,0 +1,72 @@
+{
+  "project_id": "Math",
+  "bug_id": 16,
+  "version_id": "16b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-25T16:42:15+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The FastMath.cosh and FastMath.sinh methods incorrectly handle large input values by using a direct exp(x) calculation that overflows to Infinity, failing to support the same range as the standard Math library.",
+  "hypothesis": "The FastMath.cosh and FastMath.sinh methods fail for large input values because they use a direct exp(x) calculation which overflows to Infinity, even when the final result (cosh/sinh) is within the representable range of a double. The fix requires implementing a more robust calculation for these large values, such as (0.5 * exp(x/2)) * exp(x/2).",
+  "prediction": "The FastMath class implementation of cosh and sinh will show a simple return of 0.5 * exp(x) or 0.5 * exp(-x) without checking if x is near the overflow threshold of Double.MAX_VALUE.",
+  "experiment_rationale": "The bug report and test failures clearly indicate an overflow issue in the mathematical implementation of hyperbolic functions. The fix involves changing the computational strategy for large inputs to avoid intermediate overflow, which is a classic Algorithm/Method defect.",
+  "reasoning_summary": "The defect is a failure to correctly compute hyperbolic functions for large inputs due to intermediate overflow. This is a procedural/algorithmic issue where the implementation strategy (using exp(x)) is insufficient for the full range of valid double inputs. The fix involves changing the algorithm to a more stable one (splitting the exponentiation).",
+  "evidence_used": [
+    "bug_report",
+    "failing_tests"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "While the fix adds a check (if x > LOG_MAX_VALUE), the primary issue is the underlying mathematical algorithm used to compute the result, not just the validation of the input."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The FastMath.cosh and FastMath.sinh methods use an implementation (0.5 * exp(x)) that causes premature overflow when x is large, because exp(x) overflows even when the final result (cosh/sinh) would be representable as a double. The fix involves decomposing the exponentiation to avoid this intermediate overflow.",
+      "prediction": "The implementation of FastMath.cosh and FastMath.sinh will show a direct call to exp(x) or exp(-x) for large values of x, which triggers the overflow, and the fix will replace this with a split exponentiation (exp(0.5 * x) * exp(0.5 * x) * 0.5).",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "FastMath"
+      },
+      "observation_summary": [
+        "snippets"
+      ]
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The FastMath.cosh and FastMath.sinh methods fail for large input values because they use a direct exp(x) calculation which overflows to Infinity, even when the final result (cosh/sinh) is within the representable range of a double. The fix requires implementing a more robust calculation for these large values, such as (0.5 * exp(x/2)) * exp(x/2).",
+      "prediction": "The FastMath class implementation of cosh and sinh will show a simple return of 0.5 * exp(x) or 0.5 * exp(-x) without checking if x is near the overflow threshold of Double.MAX_VALUE.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Algorithm/Method"
+    }
+  ],
+  "llm_calls_used": 2,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"impact\": \"Capability\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The FastMath.cosh and FastMath.sinh methods incorrectly handle large input values by using a direct exp(x) calculation that overflows to Infinity, failing to support the same range as the standard Math library.\", \"hypothesis\": \"The FastMath.cosh and FastMath.sinh methods fail for large input values because they use a direct exp(x) calculation which overflows to Infinity, even when the final result (cosh/sinh) is within the representable range of a double. The fix requires implementing a more robust calculation for these large values, such as (0.5 * exp(x/2)) * exp(x/2).\", \"prediction\": \"The FastMath class implementation of cosh and sinh will show a simple return of 0.5 * exp(x) or 0.5 * exp(-x) without checking if x is near the overflow threshold of Double.MAX_VALUE.\", \"experiment_rationale\": \"The bug report and test failures clearly indicate an overflow issue in the mathematical implementation of hyperbolic functions. The fix involves changing the computational strategy for large inputs to avoid intermediate overflow, which is a classic Algorithm/Method defect.\", \"reasoning_summary\": \"The defect is a failure to correctly compute hyperbolic functions for large inputs due to intermediate overflow. This is a procedural/algorithmic issue where the implementation strategy (using exp(x)) is insufficient for the full range of valid double inputs. The fix involves changing the algorithm to a more stable one (splitting the exponentiation).\", \"evidence_used\": [\"bug_report\", \"failing_tests\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Checking\", \"why_not_primary\": \"While the fix adds a check (if x > LOG_MAX_VALUE), the primary issue is the underlying mathematical algorithm used to compute the result, not just the validation of the input.\"}]}"
+}

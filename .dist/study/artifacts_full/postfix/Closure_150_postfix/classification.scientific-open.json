@@ -1,0 +1,76 @@
+{
+  "project_id": "Closure",
+  "bug_id": 150,
+  "version_id": "150b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T06:48:11+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The type checker fails to recognize JSDoc annotations for functions defined within local scopes. The fix involves removing a custom, incomplete 'visit' implementation in 'TypedScopeCreator' that was bypassing standard type definition logic for function nodes.",
+  "hypothesis": "The TypedScopeCreator class contains an inner class with a 'visit' method that incorrectly overrides the default AST traversal logic, specifically by failing to call 'defineDeclaredFunction' for function nodes within local scopes. This prevents the type checker from correctly registering JSDoc annotations for functions defined inside other functions, leading to the observed assertion failures.",
+  "prediction": "The 'TypedScopeCreator' source code will reveal an inner class (likely a NodeTraversal visitor) that explicitly handles 'Token.FUNCTION' nodes in a way that skips the necessary type definition logic, which is corrected in the fixed version by delegating to the superclass's 'visit' method.",
+  "experiment_rationale": "The fix diff provided in the oracle shows the removal of a custom 'visit' method that was manually handling 'Token.FUNCTION', 'Token.CATCH', and 'Token.VAR' nodes, and replacing it with a call to 'super.visit(t, n, parent)'. This confirms that the original implementation was an incorrect algorithmic approach to AST traversal that missed necessary type definitions.",
+  "reasoning_summary": "The bug is a classic case of an incorrect algorithmic implementation in a visitor pattern. By overriding the default 'visit' method with a restricted switch-case that did not account for all necessary node types or contexts (specifically local scope function definitions), the compiler failed to propagate type information. The fix restores the standard traversal, which correctly handles these cases.",
+  "evidence_used": [
+    "fix_diff_oracle",
+    "bug_report_description"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "The issue is not a missing guard or predicate, but an incorrect procedural implementation of the AST traversal logic."
+    },
+    {
+      "type": "Function/Class/Object",
+      "why_not_primary": "The fix is a local procedural change to an existing visitor method, not a design-level capability gap."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The TypedScopeCreator class fails to correctly process function stubs defined within local scopes because it uses a custom, incomplete visitor implementation in its inner class that skips necessary type definition logic for functions, unlike the superclass's default visit method.",
+      "prediction": "The snippet of TypedScopeCreator will show that the 'visit' method in the inner class overrides the default behavior and fails to call 'defineDeclaredFunction' or equivalent logic for function nodes, leading to missing type information for functions defined in local scopes.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "TypedScopeCreator"
+      },
+      "observation_summary": [
+        "snippets"
+      ]
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The TypedScopeCreator class contains an inner class with a 'visit' method that incorrectly overrides the default AST traversal logic, specifically by failing to call 'defineDeclaredFunction' for function nodes within local scopes. This prevents the type checker from correctly registering JSDoc annotations for functions defined inside other functions, leading to the observed assertion failures.",
+      "prediction": "The 'TypedScopeCreator' source code will reveal an inner class (likely a NodeTraversal visitor) that explicitly handles 'Token.FUNCTION' nodes in a way that skips the necessary type definition logic, which is corrected in the fixed version by delegating to the superclass's 'visit' method.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Algorithm/Method"
+    }
+  ],
+  "llm_calls_used": 2,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"impact\": \"Capability\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The type checker fails to recognize JSDoc annotations for functions defined within local scopes. The fix involves removing a custom, incomplete 'visit' implementation in 'TypedScopeCreator' that was bypassing standard type definition logic for function nodes.\", \"hypothesis\": \"The TypedScopeCreator class contains an inner class with a 'visit' method that incorrectly overrides the default AST traversal logic, specifically by failing to call 'defineDeclaredFunction' for function nodes within local scopes. This prevents the type checker from correctly registering JSDoc annotations for functions defined inside other functions, leading to the observed assertion failures.\", \"prediction\": \"The 'TypedScopeCreator' source code will reveal an inner class (likely a NodeTraversal visitor) that explicitly handles 'Token.FUNCTION' nodes in a way that skips the necessary type definition logic, which is corrected in the fixed version by delegating to the superclass's 'visit' method.\", \"experiment_rationale\": \"The fix diff provided in the oracle shows the removal of a custom 'visit' method that was manually handling 'Token.FUNCTION', 'Token.CATCH', and 'Token.VAR' nodes, and replacing it with a call to 'super.visit(t, n, parent)'. This confirms that the original implementation was an incorrect algorithmic approach to AST traversal that missed necessary type definitions.\", \"reasoning_summary\": \"The bug is a classic case of an incorrect algorithmic implementation in a visitor pattern. By overriding the default 'visit' method with a restricted switch-case that did not account for all necessary node types or contexts (specifically local scope function definitions), the compiler failed to propagate type information. The fix restores the standard traversal, which correctly handles these cases.\", \"evidence_used\": [\"fix_diff_oracle\", \"bug_report_description\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Checking\", \"why_not_primary\": \"The issue is not a missing guard or predicate, but an incorrect procedural implementation of the AST traversal logic.\"}, {\"type\": \"Function/Class/Object\", \"why_not_primary\": \"The fix is a local procedural change to an existing visitor method, not a design-level capability gap.\"}]}"
+}

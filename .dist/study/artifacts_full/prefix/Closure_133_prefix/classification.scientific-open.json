@@ -1,0 +1,72 @@
+{
+  "project_id": "Closure",
+  "bug_id": 133,
+  "version_id": "133b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T06:43:31+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The JsDocInfoParser.extractMultilineTextualBlock method uses the stream's current position as the end position for a JSDoc text block. When the text is trimmed or processed, this stream position can be inconsistent with the actual length of the text, leading to an invalid range (start > end) and triggering an IllegalStateException in SourcePosition.",
+  "hypothesis": "The JsDocInfoParser.extractMultilineTextualBlock method incorrectly uses the current stream position (endLineno, endCharno) as the end position for the JSDoc text block, without accounting for the fact that the stream might have advanced past the actual end of the text or that the text itself might have been trimmed, leading to an invalid range (start > end) when passed to JSDocInfoBuilder.markText.",
+  "prediction": "The code at lines 1499-1504 in JsDocInfoParser.java will show that endLineno and endCharno are taken directly from the stream, which does not necessarily correspond to the end of the multilineText string, causing the IllegalStateException when the calculated end position is less than the start position.",
+  "experiment_rationale": "The stack trace and code snippets confirm that the parser uses the stream's current position as the end position for the text block. The error 'start-char: 14, end-char: 13' directly confirms that the logic for determining the end position is flawed, as it fails to validate or correctly calculate the end position relative to the text content.",
+  "reasoning_summary": "The bug is a classic validation error where the code assumes the stream position is the correct end position for the text block, failing to account for trimming or the actual length of the extracted string. This is a 'Checking' defect because the logic for validating the range is missing or incorrect, leading to an invalid state.",
+  "evidence_used": [
+    "full_stack_trace",
+    "snippet"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the logic is procedural, the core issue is the failure to validate the range (start vs end) before calling the builder, which is a characteristic of a Checking defect."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The JsDocInfoParser is incorrectly calculating the end character position when parsing multiline JSDoc comments, specifically when the comment contains inline tags or complex formatting, leading to an end position that is less than or equal to the start position, which triggers the IllegalStateException in SourcePosition.",
+      "prediction": "I expect to see that the 'endCharno' passed to 'jsdocBuilder.markText' in 'JsDocInfoParser.extractMultilineTextualBlock' is derived from a stream position that does not account for the length of the text being processed or is incorrectly offset, causing it to be smaller than the 'startCharno'.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "JsDocInfoParser"
+      },
+      "observation_summary": [
+        "snippets"
+      ]
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The JsDocInfoParser.extractMultilineTextualBlock method incorrectly uses the current stream position (endLineno, endCharno) as the end position for the JSDoc text block, without accounting for the fact that the stream might have advanced past the actual end of the text or that the text itself might have been trimmed, leading to an invalid range (start > end) when passed to JSDocInfoBuilder.markText.",
+      "prediction": "The code at lines 1499-1504 in JsDocInfoParser.java will show that endLineno and endCharno are taken directly from the stream, which does not necessarily correspond to the end of the multilineText string, causing the IllegalStateException when the calculated end position is less than the start position.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Checking"
+    }
+  ],
+  "llm_calls_used": 2,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"impact\": \"Reliability\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The JsDocInfoParser.extractMultilineTextualBlock method uses the stream's current position as the end position for a JSDoc text block. When the text is trimmed or processed, this stream position can be inconsistent with the actual length of the text, leading to an invalid range (start > end) and triggering an IllegalStateException in SourcePosition.\", \"hypothesis\": \"The JsDocInfoParser.extractMultilineTextualBlock method incorrectly uses the current stream position (endLineno, endCharno) as the end position for the JSDoc text block, without accounting for the fact that the stream might have advanced past the actual end of the text or that the text itself might have been trimmed, leading to an invalid range (start > end) when passed to JSDocInfoBuilder.markText.\", \"prediction\": \"The code at lines 1499-1504 in JsDocInfoParser.java will show that endLineno and endCharno are taken directly from the stream, which does not necessarily correspond to the end of the multilineText string, causing the IllegalStateException when the calculated end position is less than the start position.\", \"experiment_rationale\": \"The stack trace and code snippets confirm that the parser uses the stream's current position as the end position for the text block. The error 'start-char: 14, end-char: 13' directly confirms that the logic for determining the end position is flawed, as it fails to validate or correctly calculate the end position relative to the text content.\", \"reasoning_summary\": \"The bug is a classic validation error where the code assumes the stream position is the correct end position for the text block, failing to account for trimming or the actual length of the extracted string. This is a 'Checking' defect because the logic for validating the range is missing or incorrect, leading to an invalid state.\", \"evidence_used\": [\"full_stack_trace\", \"snippet\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"While the logic is procedural, the core issue is the failure to validate the range (start vs end) before calling the builder, which is a characteristic of a Checking defect.\"}]}"
+}

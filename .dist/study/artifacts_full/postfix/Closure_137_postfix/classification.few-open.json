@@ -1,0 +1,50 @@
+{
+  "project_id": "Closure",
+  "bug_id": 137,
+  "version_id": "137b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T07:09:52+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The compiler fails to correctly rename local variables during the 'MakeDeclaredNamesUnique' pass, leading to incorrect variable shadowing or name collisions in the generated code, as evidenced by failing tests that expect specific unique names.",
+  "hypothesis": "The original implementation of 'ContextualRenameInverter' used a post-order traversal that was insufficient for tracking variable scope and references correctly. It failed to properly manage the stack of referenced names and scope-specific variable declarations, leading to incorrect renaming decisions.",
+  "prediction": "The fix will involve replacing the 'AbstractPostOrderCallback' with a 'ScopedCallback' to properly handle scope entry and exit, and introducing a more robust mechanism to track referenced names and variable declarations within each scope.",
+  "experiment_rationale": "The diff shows a complete rewrite of the 'ContextualRenameInverter' class, changing it from an 'AbstractPostOrderCallback' to a 'ScopedCallback'. It adds explicit 'enterScope' and 'exitScope' methods to manage a stack of referenced names, which confirms that the original algorithm for tracking scope-based variable uniqueness was fundamentally flawed.",
+  "reasoning_summary": "The bug is a failure in the procedural logic of the name-inversion pass. The original implementation lacked the necessary scope-tracking infrastructure (enter/exit scope) to correctly identify and rename variables without causing collisions. This is a classic algorithmic error where the procedure for traversing the AST and managing state was insufficient for the task, requiring a rewrite of the method-level logic.",
+  "evidence_used": [
+    "The diff shows a complete rewrite of 'ContextualRenameInverter' from 'AbstractPostOrderCallback' to 'ScopedCallback'.",
+    "The diff introduces 'enterScope' and 'exitScope' methods to manage 'referenceStack' and 'referencedNames'.",
+    "The failing tests show incorrect variable renaming (e.g., 'a$$1' vs 'a' in nested functions), indicating the renaming algorithm was not correctly identifying scope boundaries."
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Relationship",
+      "why_not_primary": "While the fix involves managing relationships between scopes, the root cause is the incorrect implementation of the renaming algorithm itself, not a failure to maintain consistency between two existing, correctly-implemented structures."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Incorrect",
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Algorithm/Method\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Capability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The compiler fails to correctly rename local variables during the 'MakeDeclaredNamesUnique' pass, leading to incorrect variable shadowing or name collisions in the generated code, as evidenced by failing tests that expect specific unique names.\",\n  \"hypothesis\": \"The original implementation of 'ContextualRenameInverter' used a post-order traversal that was insufficient for tracking variable scope and references correctly. It failed to properly manage the stack of referenced names and scope-specific variable declarations, leading to incorrect renaming decisions.\",\n  \"prediction\": \"The fix will involve replacing the 'AbstractPostOrderCallback' with a 'ScopedCallback' to properly handle scope entry and exit, and introducing a more robust mechanism to track referenced names and variable declarations within each scope.\",\n  \"experiment_rationale\": \"The diff shows a complete rewrite of the 'ContextualRenameInverter' class, changing it from an 'AbstractPostOrderCallback' to a 'ScopedCallback'. It adds explicit 'enterScope' and 'exitScope' methods to manage a stack of referenced names, which confirms that the original algorithm for tracking scope-based variable uniqueness was fundamentally flawed.\",\n  \"reasoning_summary\": \"The bug is a failure in the procedural logic of the name-inversion pass. The original implementation lacked the necessary scope-tracking infrastructure (enter/exit scope) to correctly identify and rename variables without causing collisions. This is a classic algorithmic error where the procedure for traversing the AST and managing state was insufficient for the task, requiring a rewrite of the method-level logic.\",\n  \"evidence_used\": [\n    \"The diff shows a complete rewrite of 'ContextualRenameInverter' from 'AbstractPostOrderCallback' to 'ScopedCallback'.\",\n    \"The diff introduces 'enterScope' and 'exitScope' methods to manage 'referenceStack' and 'referencedNames'.\",\n    \"The failing tests show incorrect variable renaming (e.g., 'a$$1' vs 'a' in nested functions), indicating the renaming algorithm was not correctly identifying scope boundaries.\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Relationship\",\n      \"why_not_primary\": \"While the fix involves managing relationships between scopes, the root cause is the incorrect implementation of the renaming algorithm itself, not a failure to maintain consistency between two existing, correctly-implemented structures.\"\n    }\n  ]\n}"
+}

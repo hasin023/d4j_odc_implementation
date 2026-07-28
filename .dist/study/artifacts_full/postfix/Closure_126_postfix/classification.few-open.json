@@ -1,0 +1,50 @@
+{
+  "project_id": "Closure",
+  "bug_id": 126,
+  "version_id": "126b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T07:08:34+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The compiler incorrectly optimizes code by removing a 'break' statement inside a 'finally' block. This optimization changes the program's behavior because the 'break' statement is intended to override the completion type of the 'try' block (e.g., an exception).",
+  "hypothesis": "The 'MinimizeExitPoints' pass incorrectly assumes it is safe to optimize exit points within a 'finally' block. The buggy code explicitly traverses into the 'finally' block to minimize exits, failing to check if such an optimization would violate the ECMA-262 specification regarding completion types.",
+  "prediction": "The fix will involve removing the logic that traverses into the 'finally' block to perform exit point minimization, effectively disabling this optimization for 'finally' blocks.",
+  "experiment_rationale": "The provided diff shows the removal of the 'if (NodeUtil.hasFinally(n))' block, which was responsible for recursively calling 'tryMinimizeExits' on the 'finally' block. This confirms that the root cause was an incorrect attempt to optimize exit points within a 'finally' block, which is a violation of language semantics.",
+  "reasoning_summary": "The bug is a classic 'Checking' defect. The compiler pass was performing an optimization (minimizing exit points) without correctly validating whether that optimization was permissible within the context of a 'finally' block. The fix removes the logic that performed this invalid check/traversal, preventing the compiler from incorrectly modifying the control flow.",
+  "evidence_used": [
+    "The bug report explains that the 'break' in the 'finally' block should prevent the exception from being passed on, and that the compiler's optimization incorrectly removes it.",
+    "The fix diff shows the removal of the code block that was traversing into the 'finally' block to perform minimization.",
+    "The failing tests demonstrate that the compiler was incorrectly removing 'break' and 'return' statements from 'finally' blocks."
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the optimization logic is a method, the root cause is the failure to check the validity of the optimization in the context of a 'finally' block, which is a 'Checking' issue."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Incorrect",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"confidence\": 1,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The compiler incorrectly optimizes code by removing a 'break' statement inside a 'finally' block. This optimization changes the program's behavior because the 'break' statement is intended to override the completion type of the 'try' block (e.g., an exception).\",\n  \"hypothesis\": \"The 'MinimizeExitPoints' pass incorrectly assumes it is safe to optimize exit points within a 'finally' block. The buggy code explicitly traverses into the 'finally' block to minimize exits, failing to check if such an optimization would violate the ECMA-262 specification regarding completion types.\",\n  \"prediction\": \"The fix will involve removing the logic that traverses into the 'finally' block to perform exit point minimization, effectively disabling this optimization for 'finally' blocks.\",\n  \"experiment_rationale\": \"The provided diff shows the removal of the 'if (NodeUtil.hasFinally(n))' block, which was responsible for recursively calling 'tryMinimizeExits' on the 'finally' block. This confirms that the root cause was an incorrect attempt to optimize exit points within a 'finally' block, which is a violation of language semantics.\",\n  \"reasoning_summary\": \"The bug is a classic 'Checking' defect. The compiler pass was performing an optimization (minimizing exit points) without correctly validating whether that optimization was permissible within the context of a 'finally' block. The fix removes the logic that performed this invalid check/traversal, preventing the compiler from incorrectly modifying the control flow.\",\n  \"evidence_used\": [\n    \"The bug report explains that the 'break' in the 'finally' block should prevent the exception from being passed on, and that the compiler's optimization incorrectly removes it.\",\n    \"The fix diff shows the removal of the code block that was traversing into the 'finally' block to perform minimization.\",\n    \"The failing tests demonstrate that the compiler was incorrectly removing 'break' and 'return' statements from 'finally' blocks.\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the optimization logic is a method, the root cause is the failure to check the validity of the optimization in the context of a 'finally' block, which is a 'Checking' issue.\"\n    }\n  ]\n}"
+}

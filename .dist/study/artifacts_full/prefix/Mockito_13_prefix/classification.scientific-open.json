@@ -1,0 +1,72 @@
+{
+  "project_id": "Mockito",
+  "bug_id": 13,
+  "version_id": "13b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-25T12:39:43+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The test fails because a 'never()' verification detects an invocation that was actually triggered by the evaluation of an argument in a previous 'verify' call on the same line.",
+  "hypothesis": "The Mockito framework incorrectly records the invocation of 'mock.otherMethod()' when it is passed as an argument to 'verify(mockTwo).simpleMethod(...)'. Because this invocation is recorded, a subsequent 'verify(mockTwo, never()).simpleMethod(mock.otherMethod())' fails because it detects that 'mock.otherMethod()' was indeed called (during the evaluation of the argument in the previous verification line).",
+  "prediction": "The invocation recording mechanism fails to ignore calls made during the evaluation of verification arguments.",
+  "experiment_rationale": "The stack trace confirms the failure occurs at the 'fail()' call following a 'never()' verification, which is triggered by the unexpected presence of an invocation in the mock's history. This is a classic issue of the framework's internal state management (the recording algorithm) failing to account for side effects of argument evaluation.",
+  "reasoning_summary": "The bug is caused by the framework's inability to distinguish between actual test interactions and interactions caused by evaluating arguments within a verification call. This is a procedural flaw in how Mockito records invocations, fitting the Algorithm/Method category as it requires a change to the invocation recording logic.",
+  "evidence_used": [
+    "full_stack_trace",
+    "production_code_snippets"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "While the failure is in a check, the root cause is the incorrect recording of the invocation, not the logic of the check itself."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The verification process in Mockito is incorrectly recording the invocation of 'mock.otherMethod()' during the 'verify(mockTwo, never()).simpleMethod(mock.otherMethod())' call, causing the 'never()' verification to fail because it detects an unexpected interaction with 'mock'.",
+      "prediction": "I expect to see that the Mockito framework's internal invocation recording mechanism is not properly filtering out invocations that occur as part of the verification argument evaluation, leading to them being treated as actual interactions on the mock.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "full_stack_trace",
+        "argument": "org.mockitousage.bugs.VerifyingWithAnExtraCallToADifferentMockTest"
+      },
+      "observation_summary": [
+        "traces"
+      ]
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The Mockito framework incorrectly records the invocation of 'mock.otherMethod()' when it is passed as an argument to 'verify(mockTwo).simpleMethod(...)'. Because this invocation is recorded, a subsequent 'verify(mockTwo, never()).simpleMethod(mock.otherMethod())' fails because it detects that 'mock.otherMethod()' was indeed called (during the evaluation of the argument in the previous verification line).",
+      "prediction": "I expect to find that the Mockito internal state tracking for invocations does not distinguish between invocations occurring during test execution and those occurring during the evaluation of arguments within a 'verify' call.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Algorithm/Method"
+    }
+  ],
+  "llm_calls_used": 2,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"impact\": \"Capability\", \"confidence\": 0.9, \"needs_human_review\": false, \"observation_summary\": \"The test fails because a 'never()' verification detects an invocation that was actually triggered by the evaluation of an argument in a previous 'verify' call on the same line.\", \"hypothesis\": \"The Mockito framework incorrectly records the invocation of 'mock.otherMethod()' when it is passed as an argument to 'verify(mockTwo).simpleMethod(...)'. Because this invocation is recorded, a subsequent 'verify(mockTwo, never()).simpleMethod(mock.otherMethod())' fails because it detects that 'mock.otherMethod()' was indeed called (during the evaluation of the argument in the previous verification line).\", \"prediction\": \"The invocation recording mechanism fails to ignore calls made during the evaluation of verification arguments.\", \"experiment_rationale\": \"The stack trace confirms the failure occurs at the 'fail()' call following a 'never()' verification, which is triggered by the unexpected presence of an invocation in the mock's history. This is a classic issue of the framework's internal state management (the recording algorithm) failing to account for side effects of argument evaluation.\", \"reasoning_summary\": \"The bug is caused by the framework's inability to distinguish between actual test interactions and interactions caused by evaluating arguments within a verification call. This is a procedural flaw in how Mockito records invocations, fitting the Algorithm/Method category as it requires a change to the invocation recording logic.\", \"evidence_used\": [\"full_stack_trace\", \"production_code_snippets\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Checking\", \"why_not_primary\": \"While the failure is in a check, the root cause is the incorrect recording of the invocation, not the logic of the check itself.\"}]}"
+}

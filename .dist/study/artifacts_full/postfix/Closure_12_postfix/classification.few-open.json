@@ -1,0 +1,50 @@
+{
+  "project_id": "Closure",
+  "bug_id": 12,
+  "version_id": "12b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T06:56:02+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The compiler incorrectly inlines variables into try-catch blocks, causing code that should be outside the try block to be included within it. This changes the semantics of the program, leading to incorrect execution results.",
+  "hypothesis": "The `hasExceptionHandler` method in `MaybeReachingVariableUse` was failing to correctly identify whether a control flow node was protected by an exception handler. Because it returned `false` incorrectly, the compiler assumed it was safe to inline variables across boundaries that should have been protected.",
+  "prediction": "The fix should involve correctly inspecting the control flow graph (CFG) edges originating from the node to see if any represent an exception branch (`Branch.ON_EX`).",
+  "experiment_rationale": "The provided diff shows that `hasExceptionHandler` was updated to iterate through the outgoing edges of the CFG node and check for `Branch.ON_EX`. This confirms that the original implementation was missing the logic to detect exception handlers, which is a classic 'Checking' defect.",
+  "reasoning_summary": "The defect is a missing validation check. The compiler's analysis logic needed to verify if a node was part of an exception-handling path before performing an optimization (inlining). The fix adds the missing check for the `Branch.ON_EX` edge type, which is a predicate validation error.",
+  "evidence_used": [
+    "The fix diff shows the addition of a loop checking for `Branch.ON_EX` in `hasExceptionHandler`.",
+    "The bug report states that code is incorrectly being incorporated into try/catch blocks.",
+    "The failing test `testIssue794b` demonstrates that variables are being inlined into try blocks where they do not belong."
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the fix involves a small loop, the root cause is specifically the absence of a check to validate the presence of an exception handler, which is the definition of a Checking defect."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The compiler incorrectly inlines variables into try-catch blocks, causing code that should be outside the try block to be included within it. This changes the semantics of the program, leading to incorrect execution results.\",\n  \"hypothesis\": \"The `hasExceptionHandler` method in `MaybeReachingVariableUse` was failing to correctly identify whether a control flow node was protected by an exception handler. Because it returned `false` incorrectly, the compiler assumed it was safe to inline variables across boundaries that should have been protected.\",\n  \"prediction\": \"The fix should involve correctly inspecting the control flow graph (CFG) edges originating from the node to see if any represent an exception branch (`Branch.ON_EX`).\",\n  \"experiment_rationale\": \"The provided diff shows that `hasExceptionHandler` was updated to iterate through the outgoing edges of the CFG node and check for `Branch.ON_EX`. This confirms that the original implementation was missing the logic to detect exception handlers, which is a classic 'Checking' defect.\",\n  \"reasoning_summary\": \"The defect is a missing validation check. The compiler's analysis logic needed to verify if a node was part of an exception-handling path before performing an optimization (inlining). The fix adds the missing check for the `Branch.ON_EX` edge type, which is a predicate validation error.\",\n  \"evidence_used\": [\n    \"The fix diff shows the addition of a loop checking for `Branch.ON_EX` in `hasExceptionHandler`.\",\n    \"The bug report states that code is incorrectly being incorporated into try/catch blocks.\",\n    \"The failing test `testIssue794b` demonstrates that variables are being inlined into try blocks where they do not belong.\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the fix involves a small loop, the root cause is specifically the absence of a check to validate the presence of an exception handler, which is the definition of a Checking defect.\"\n    }\n  ]\n}"
+}

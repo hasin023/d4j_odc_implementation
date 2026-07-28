@@ -1,0 +1,54 @@
+{
+  "project_id": "Mockito",
+  "bug_id": 10,
+  "version_id": "10b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-25T12:51:23+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The use of RETURNS_DEEP_STUBS in Mockito 1.10.5 causes a MockitoException when the return type of a deep-stubbed method is not serializable, even though the user did not explicitly request serializable mocks. This is a regression from version 1.9.5.",
+  "hypothesis": "The Mockito framework's internal logic for deep stubs is incorrectly applying serialization validation checks to all generated mocks, regardless of whether the user requested serializable mocks or not. The root cause is a missing or overly broad conditional check that forces serialization validation on types that do not require it.",
+  "prediction": "The code in MockCreationValidator or MockSettingsImpl will contain a validation call that checks for serializability without verifying if the user actually requested serializable mocks via withSettings().serializable().",
+  "experiment_rationale": "The stack trace points directly to MockCreationValidator.validateSerializable being called during the creation of a deep stub. By adding a guard clause to check if serialization is actually enabled in the mock settings, the exception will be avoided for non-serializable types.",
+  "reasoning_summary": "The bug is a classic 'Checking' defect. The framework is performing a validation check (serializability) that is inappropriate for the context (a deep stub that wasn't explicitly configured to be serializable). The fix involves adding a guard condition to ensure this validation only runs when serialization is actually requested.",
+  "evidence_used": [
+    "org.mockito.exceptions.base.MockitoException: You are using the setting 'withSettings().serializable()' however the type you are trying to mock 'NotSerializableShouldBeMocked'",
+    "at org.mockito.internal.util.MockCreationValidator.validateSerializable(MockCreationValidator.java:63)",
+    "at org.mockito.internal.creation.MockSettingsImpl.validatedSettings(MockSettingsImpl.java:154)"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The issue is not the algorithm for creating the mock, but the incorrect application of a validation check (guard) that should be conditional."
+    },
+    {
+      "type": "Function/Class/Object",
+      "why_not_primary": "This is not a missing capability; the capability exists, but it is being applied too aggressively due to a missing guard."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The use of RETURNS_DEEP_STUBS in Mockito 1.10.5 causes a MockitoException when the return type of a deep-stubbed method is not serializable, even though the user did not explicitly request serializable mocks. This is a regression from version 1.9.5.\",\n  \"hypothesis\": \"The Mockito framework's internal logic for deep stubs is incorrectly applying serialization validation checks to all generated mocks, regardless of whether the user requested serializable mocks or not. The root cause is a missing or overly broad conditional check that forces serialization validation on types that do not require it.\",\n  \"prediction\": \"The code in MockCreationValidator or MockSettingsImpl will contain a validation call that checks for serializability without verifying if the user actually requested serializable mocks via withSettings().serializable().\",\n  \"experiment_rationale\": \"The stack trace points directly to MockCreationValidator.validateSerializable being called during the creation of a deep stub. By adding a guard clause to check if serialization is actually enabled in the mock settings, the exception will be avoided for non-serializable types.\",\n  \"reasoning_summary\": \"The bug is a classic 'Checking' defect. The framework is performing a validation check (serializability) that is inappropriate for the context (a deep stub that wasn't explicitly configured to be serializable). The fix involves adding a guard condition to ensure this validation only runs when serialization is actually requested.\",\n  \"evidence_used\": [\n    \"org.mockito.exceptions.base.MockitoException: You are using the setting 'withSettings().serializable()' however the type you are trying to mock 'NotSerializableShouldBeMocked'\",\n    \"at org.mockito.internal.util.MockCreationValidator.validateSerializable(MockCreationValidator.java:63)\",\n    \"at org.mockito.internal.creation.MockSettingsImpl.validatedSettings(MockSettingsImpl.java:154)\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"The issue is not the algorithm for creating the mock, but the incorrect application of a validation check (guard) that should be conditional.\"\n    },\n    {\n      \"type\": \"Function/Class/Object\",\n      \"why_not_primary\": \"This is not a missing capability; the capability exists, but it is being applied too aggressively due to a missing guard.\"\n    }\n  ]\n}"
+}

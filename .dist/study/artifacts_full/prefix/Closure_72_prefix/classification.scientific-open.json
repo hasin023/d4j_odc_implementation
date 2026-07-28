@@ -1,0 +1,82 @@
+{
+  "project_id": "Closure",
+  "bug_id": 72,
+  "version_id": "72b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T06:30:46+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The compiler produces an invalid AST with duplicate labels after inlining a function that contains a label into a scope that already uses the same label name.",
+  "hypothesis": "The bug is in the label renaming logic during function inlining. The inliner fails to check if a label name already exists in the target scope, leading to a collision when a function containing a label is inlined.",
+  "prediction": "The code responsible for inlining functions does not correctly rename labels to avoid collisions with existing labels in the destination scope.",
+  "experiment_rationale": "The failure is a clear case of incorrect algorithmic logic during the transformation (inlining) process, where the label renaming strategy is insufficient to maintain AST validity.",
+  "reasoning_summary": "The test failure shows a duplicate label 'lab' in the output tree. This is a classic algorithmic error in the transformation pass where the uniqueness of labels is not guaranteed during inlining.",
+  "evidence_used": [
+    "testInlineFunctions31 stack trace",
+    "bug report 435"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "While a check is missing, the primary issue is the failure of the transformation algorithm to correctly rename labels, which is a procedural logic error."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The compiler's label renaming logic (RenameLabels) fails to correctly handle nested labels when inlining functions, leading to duplicate label names or incorrect label scope resolution. The test failure 'lab:lab:4' instead of 'lab:JSCompiler_inline_label_0:4' suggests that the label name is being incorrectly transformed or shadowed during the inlining process.",
+      "prediction": "The RenameLabels class, specifically the ProcessLabels inner class, likely has a flaw in its shouldTraverse or label tracking logic that fails to account for nested labels correctly when they are introduced via inlining.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "RenameLabels"
+      },
+      "observation_summary": "no snippet matches 'RenameLabels'"
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The bug is likely in the FunctionInjector or a related class that handles label renaming during function inlining, as the failure occurs during inlining and the RenameLabels class might not be directly accessible or named as expected in the snippet search. The failure 'lab:lab:4' indicates that the inliner is not correctly generating unique labels when a function containing a label is inlined into a scope that already contains a label with the same name.",
+      "prediction": "The FunctionInjector or FunctionToBlockMutator class will contain logic that fails to check for existing labels in the target scope before inlining, or fails to rename the inlined label to a unique name.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "FunctionToBlockMutator"
+      },
+      "observation_summary": "no snippet matches 'FunctionToBlockMutator'"
+    },
+    {
+      "turn": 3,
+      "hypothesis": "The bug is in the label renaming logic during function inlining. The inliner fails to check if a label name already exists in the target scope, leading to a collision when a function containing a label is inlined. The failure in testInlineFunctions31 confirms that the label 'lab' is duplicated in the resulting AST, which is invalid.",
+      "prediction": "The code responsible for inlining functions (likely within the compiler's optimization passes) does not correctly rename labels to avoid collisions with existing labels in the destination scope.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Algorithm/Method"
+    }
+  ],
+  "llm_calls_used": 3,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"impact\": \"Reliability\", \"confidence\": 0.9, \"needs_human_review\": false, \"observation_summary\": \"The compiler produces an invalid AST with duplicate labels after inlining a function that contains a label into a scope that already uses the same label name.\", \"hypothesis\": \"The bug is in the label renaming logic during function inlining. The inliner fails to check if a label name already exists in the target scope, leading to a collision when a function containing a label is inlined.\", \"prediction\": \"The code responsible for inlining functions does not correctly rename labels to avoid collisions with existing labels in the destination scope.\", \"experiment_rationale\": \"The failure is a clear case of incorrect algorithmic logic during the transformation (inlining) process, where the label renaming strategy is insufficient to maintain AST validity.\", \"reasoning_summary\": \"The test failure shows a duplicate label 'lab' in the output tree. This is a classic algorithmic error in the transformation pass where the uniqueness of labels is not guaranteed during inlining.\", \"evidence_used\": [\"testInlineFunctions31 stack trace\", \"bug report 435\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Checking\", \"why_not_primary\": \"While a check is missing, the primary issue is the failure of the transformation algorithm to correctly rename labels, which is a procedural logic error.\"}]}"
+}

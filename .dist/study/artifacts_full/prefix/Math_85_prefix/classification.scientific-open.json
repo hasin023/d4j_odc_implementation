@@ -1,0 +1,72 @@
+{
+  "project_id": "Math",
+  "bug_id": 85,
+  "version_id": "85b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-25T16:55:03+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.95,
+  "needs_human_review": false,
+  "observation_summary": "The `bracket` method throws a `ConvergenceException` when it fails to find a sign change in the function, even if the initial value is already a root. The stack trace shows the function evaluation at the boundaries is not resulting in a sign change, and the code lacks a pre-check for the initial value.",
+  "hypothesis": "The `bracket` method in `UnivariateRealSolverUtils` fails because it does not check if the initial value itself is a root (or within tolerance of a root) before attempting to expand the bracket. In the failing test case, the function value at the initial point is already zero (or close enough), but the algorithm proceeds to expand the bracket and fails to find a sign change, throwing a `ConvergenceException` because it expects `f(a) * f(b) <= 0`.",
+  "prediction": "If I check the code for `bracket` (specifically the logic before the loop), I will find that it lacks a check for `f(initial) == 0` or `f(initial) < tolerance`, which would allow it to return the initial value as the root immediately.",
+  "experiment_rationale": "The evidence from the stack trace and the snippet confirms that the `bracket` method is strictly enforcing a sign change condition without checking if the initial point is already a solution. This is a classic missing guard/validation check.",
+  "reasoning_summary": "The `bracket` method is designed to find an interval `[a, b]` such that `f(a) * f(b) <= 0`. When the initial guess is already a root, `f(initial) = 0`. The current implementation does not check this, and the subsequent expansion logic fails to find a valid bracket, leading to an unnecessary `ConvergenceException`. Adding a check for `f(initial) == 0` at the start of the `bracket` method resolves the issue.",
+  "evidence_used": [
+    "full_stack_trace",
+    "snippet"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The primary issue is the lack of a guard condition (checking the initial value) rather than a flaw in the search algorithm itself."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The root-finding algorithm in UnivariateRealSolverUtils.bracket is failing because the initial bracket [a, b] is not correctly identifying a sign change in the function f(x) = cumulativeProbability(x) - p, specifically when the function value at the upper bound is already zero (or very close to it), causing the condition (fa * fb > 0.0) to be false immediately or incorrectly, leading to a convergence exception.",
+      "prediction": "The bracket method will show that the initial values provided to it do not properly bracket the root because the function evaluation at the boundaries is not being handled correctly when one of the boundaries is already the root.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "UnivariateRealSolverUtils"
+      },
+      "observation_summary": [
+        "snippets"
+      ]
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The `bracket` method in `UnivariateRealSolverUtils` fails because it does not check if the initial value itself is a root (or within tolerance of a root) before attempting to expand the bracket. In the failing test case, the function value at the initial point is already zero (or close enough), but the algorithm proceeds to expand the bracket and fails to find a sign change, throwing a `ConvergenceException` because it expects `f(a) * f(b) <= 0`.",
+      "prediction": "If I check the code for `bracket` (specifically the logic before the loop), I will find that it lacks a check for `f(initial) == 0` or `f(initial) < tolerance`, which would allow it to return the initial value as the root immediately.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Checking"
+    }
+  ],
+  "llm_calls_used": 2,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"impact\": \"Capability\", \"confidence\": 0.95, \"needs_human_review\": false, \"observation_summary\": \"The `bracket` method throws a `ConvergenceException` when it fails to find a sign change in the function, even if the initial value is already a root. The stack trace shows the function evaluation at the boundaries is not resulting in a sign change, and the code lacks a pre-check for the initial value.\", \"hypothesis\": \"The `bracket` method in `UnivariateRealSolverUtils` fails because it does not check if the initial value itself is a root (or within tolerance of a root) before attempting to expand the bracket. In the failing test case, the function value at the initial point is already zero (or close enough), but the algorithm proceeds to expand the bracket and fails to find a sign change, throwing a `ConvergenceException` because it expects `f(a) * f(b) <= 0`.\", \"prediction\": \"If I check the code for `bracket` (specifically the logic before the loop), I will find that it lacks a check for `f(initial) == 0` or `f(initial) < tolerance`, which would allow it to return the initial value as the root immediately.\", \"experiment_rationale\": \"The evidence from the stack trace and the snippet confirms that the `bracket` method is strictly enforcing a sign change condition without checking if the initial point is already a solution. This is a classic missing guard/validation check.\", \"reasoning_summary\": \"The `bracket` method is designed to find an interval `[a, b]` such that `f(a) * f(b) <= 0`. When the initial guess is already a root, `f(initial) = 0`. The current implementation does not check this, and the subsequent expansion logic fails to find a valid bracket, leading to an unnecessary `ConvergenceException`. Adding a check for `f(initial) == 0` at the start of the `bracket` method resolves the issue.\", \"evidence_used\": [\"full_stack_trace\", \"snippet\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"The primary issue is the lack of a guard condition (checking the initial value) rather than a flaw in the search algorithm itself.\"}]}"
+}

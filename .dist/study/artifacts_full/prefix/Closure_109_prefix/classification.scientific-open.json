@@ -1,0 +1,73 @@
+{
+  "project_id": "Closure",
+  "bug_id": 109,
+  "version_id": "109b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T06:38:22+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The parser fails to recognize '?' and '*' as valid type expressions when they appear in a constructor context (e.g., 'new:?' or 'new:*'). The stack trace confirms the error originates in 'parseTypeName' when it receives a token that is not a 'STRING'.",
+  "hypothesis": "The method 'parseContextTypeExpression' in 'JsDocInfoParser.java' is too restrictive. It currently only calls 'parseTypeName', which expects a 'STRING' token. When '?' or '*' are used in a constructor context (e.g., 'new:?' or 'new:*'), the parser encounters 'JsDocToken.QMARK' or 'JsDocToken.STAR' instead of a 'STRING', leading to a syntax error. The fix is to update 'parseContextTypeExpression' to handle these tokens, similar to how 'parseBasicTypeExpression' handles them.",
+  "prediction": "Modifying 'parseContextTypeExpression' to check for 'JsDocToken.QMARK' and 'JsDocToken.STAR' and return the appropriate nodes will resolve the syntax error and allow the tests to pass.",
+  "experiment_rationale": "The evidence from the stack trace and source code clearly shows that 'parseContextTypeExpression' delegates directly to 'parseTypeName' without checking for non-string tokens that are valid in other type contexts. This is a classic missing validation/check case.",
+  "reasoning_summary": "The bug is a failure to validate/handle valid tokens in a specific context. The parser logic for 'ContextTypeExpression' is incomplete because it assumes only 'TypeName' (which is a string) is valid, ignoring other valid type tokens like '?' and '*'.",
+  "evidence_used": [
+    "JsDocInfoParser.java:1908 (parseContextTypeExpression)",
+    "JsDocInfoParser.java:1949 (parseTypeName)",
+    "Stack trace showing failure in parseTypeName"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The fix is not a change to the algorithm itself, but rather adding a missing check for valid input tokens in a specific branch of the parser."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The parser for JSDoc type expressions fails to handle the '?' (unknown) and '*' (all) types when they appear as the context type in a constructor definition (e.g., 'new:?' or 'new:*'). The 'parseContextTypeExpression' method only calls 'parseTypeName', which expects a 'STRING' token, but '?' and '*' are not 'STRING' tokens in the JSDoc parser.",
+      "prediction": "The 'parseContextTypeExpression' method will be missing logic to handle 'JsDocToken.QMARK' and 'JsDocToken.STAR', causing it to fall through to 'parseTypeName', which then reports a syntax error because it receives a non-STRING token.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "com.google.javascript.jscomp.parsing.JsDocInfoParser"
+      },
+      "observation_summary": [
+        "snippets"
+      ]
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The method 'parseContextTypeExpression' in 'JsDocInfoParser.java' is too restrictive. It currently only calls 'parseTypeName', which expects a 'STRING' token. When '?' or '*' are used in a constructor context (e.g., 'new:?' or 'new:*'), the parser encounters 'JsDocToken.QMARK' or 'JsDocToken.STAR' instead of a 'STRING', leading to a syntax error. The fix is to update 'parseContextTypeExpression' to handle these tokens, similar to how 'parseBasicTypeExpression' handles them.",
+      "prediction": "Modifying 'parseContextTypeExpression' to check for 'JsDocToken.QMARK' and 'JsDocToken.STAR' and return the appropriate nodes will resolve the syntax error and allow the tests to pass.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Checking"
+    }
+  ],
+  "llm_calls_used": 2,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"impact\": \"Capability\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The parser fails to recognize '?' and '*' as valid type expressions when they appear in a constructor context (e.g., 'new:?' or 'new:*'). The stack trace confirms the error originates in 'parseTypeName' when it receives a token that is not a 'STRING'.\", \"hypothesis\": \"The method 'parseContextTypeExpression' in 'JsDocInfoParser.java' is too restrictive. It currently only calls 'parseTypeName', which expects a 'STRING' token. When '?' or '*' are used in a constructor context (e.g., 'new:?' or 'new:*'), the parser encounters 'JsDocToken.QMARK' or 'JsDocToken.STAR' instead of a 'STRING', leading to a syntax error. The fix is to update 'parseContextTypeExpression' to handle these tokens, similar to how 'parseBasicTypeExpression' handles them.\", \"prediction\": \"Modifying 'parseContextTypeExpression' to check for 'JsDocToken.QMARK' and 'JsDocToken.STAR' and return the appropriate nodes will resolve the syntax error and allow the tests to pass.\", \"experiment_rationale\": \"The evidence from the stack trace and source code clearly shows that 'parseContextTypeExpression' delegates directly to 'parseTypeName' without checking for non-string tokens that are valid in other type contexts. This is a classic missing validation/check case.\", \"reasoning_summary\": \"The bug is a failure to validate/handle valid tokens in a specific context. The parser logic for 'ContextTypeExpression' is incomplete because it assumes only 'TypeName' (which is a string) is valid, ignoring other valid type tokens like '?' and '*'.\", \"evidence_used\": [\"JsDocInfoParser.java:1908 (parseContextTypeExpression)\", \"JsDocInfoParser.java:1949 (parseTypeName)\", \"Stack trace showing failure in parseTypeName\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"The fix is not a change to the algorithm itself, but rather adding a missing check for valid input tokens in a specific branch of the parser.\"}]}"
+}

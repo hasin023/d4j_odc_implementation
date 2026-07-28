@@ -1,0 +1,93 @@
+{
+  "project_id": "Mockito",
+  "bug_id": 10,
+  "version_id": "10b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-25T12:39:04+00:00",
+  "odc_type": "Assignment/Initialization",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The `ReturnsDeepStubs` class was forcing all deep-stubbed mocks to be serializable by calling `.serializable()` on the `MockSettings` object, regardless of the parent mock's configuration. This caused a `MockitoException` when the mocked type did not meet the strict requirements for serialization (e.g., no-arg constructor).",
+  "hypothesis": "The bug is caused by an incorrect implementation in `ReturnsDeepStubs` where serialization settings are unconditionally applied to deep-stubbed mocks. This forces validation that fails for types not designed for serialization. The fix involves propagating the serialization settings from the parent mock instead of forcing it.",
+  "prediction": "The code in `ReturnsDeepStubs` will show an unconditional call to `.serializable()` on the `MockSettings` object, which is an incorrect assumption about the required state of the child mock.",
+  "experiment_rationale": "The stack trace explicitly points to `MockCreationValidator.validateSerializable` being called from `MockSettingsImpl.validatedSettings`, which is triggered by `ReturnsDeepStubs.newDeepStubMock`. The bug report confirms that this behavior was introduced in 1.10.5 and that the fix involves propagating serialization settings correctly.",
+  "reasoning_summary": "The defect is an incorrect initialization of the `MockSettings` object for deep-stubbed mocks. By unconditionally calling `.serializable()`, the code incorrectly initializes the state of the mock, leading to a validation failure. This is a classic Assignment/Initialization defect where the state (serialization requirement) is set incorrectly.",
+  "evidence_used": [
+    "Stack trace from failing test",
+    "Bug report description",
+    "Fix diff oracle"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "While the validation check fails, the root cause is the incorrect initialization of the mock settings that triggers the check, not the check itself."
+    },
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The fix is a simple change to how the `MockSettings` object is initialized, not a change to the overall procedural logic."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The `ReturnsDeepStubs` class is incorrectly forcing all deep-stubbed mocks to be serializable by default, regardless of whether the parent mock was configured to be serializable. This causes the `MockCreationValidator` to enforce strict serialization requirements (like no-arg constructors) on types that do not need to be serializable, leading to a `MockitoException`.",
+      "prediction": "The `ReturnsDeepStubs.withSettingsUsing` method will show an unconditional call to `.serializable()` on the `MockSettings` object, and the fix will involve checking the parent mock's serialization settings before applying them to the child mock.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "org.mockito.internal.stubbing.defaultanswers.ReturnsDeepStubs"
+      },
+      "observation_summary": "no snippet matches 'org.mockito.internal.stubbing.defaultanswers.ReturnsDeepStubs'"
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The class `ReturnsDeepStubs` is likely located in a different package or the snippet probe failed due to incorrect class name resolution. Given the stack trace, the class is `org.mockito.internal.stubbing.defaultanswers.ReturnsDeepStubs`. I will try to list all evidence to find the correct path or class name.",
+      "prediction": "Listing evidence will reveal the correct file path or class name for the `ReturnsDeepStubs` implementation.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "list_evidence",
+        "argument": null
+      },
+      "observation_summary": [
+        "bug_report_available",
+        "coverage_classes",
+        "failing_tests",
+        "production_snippet_classes",
+        "test_snippet_classes"
+      ]
+    },
+    {
+      "turn": 3,
+      "hypothesis": "The bug is caused by an incorrect implementation in `ReturnsDeepStubs` where serialization settings are unconditionally applied to deep-stubbed mocks. This forces validation that fails for types not designed for serialization. The fix involves propagating the serialization settings from the parent mock instead of forcing it.",
+      "prediction": "The code in `ReturnsDeepStubs` will show an unconditional call to `.serializable()` on the `MockSettings` object, which is an incorrect assumption about the required state of the child mock.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Assignment/Initialization"
+    }
+  ],
+  "llm_calls_used": 3,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Assignment/Initialization\", \"family\": \"Control and Data Flow\", \"impact\": \"Capability\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The `ReturnsDeepStubs` class was forcing all deep-stubbed mocks to be serializable by calling `.serializable()` on the `MockSettings` object, regardless of the parent mock's configuration. This caused a `MockitoException` when the mocked type did not meet the strict requirements for serialization (e.g., no-arg constructor).\", \"hypothesis\": \"The bug is caused by an incorrect implementation in `ReturnsDeepStubs` where serialization settings are unconditionally applied to deep-stubbed mocks. This forces validation that fails for types not designed for serialization. The fix involves propagating the serialization settings from the parent mock instead of forcing it.\", \"prediction\": \"The code in `ReturnsDeepStubs` will show an unconditional call to `.serializable()` on the `MockSettings` object, which is an incorrect assumption about the required state of the child mock.\", \"experiment_rationale\": \"The stack trace explicitly points to `MockCreationValidator.validateSerializable` being called from `MockSettingsImpl.validatedSettings`, which is triggered by `ReturnsDeepStubs.newDeepStubMock`. The bug report confirms that this behavior was introduced in 1.10.5 and that the fix involves propagating serialization settings correctly.\", \"reasoning_summary\": \"The defect is an incorrect initialization of the `MockSettings` object for deep-stubbed mocks. By unconditionally calling `.serializable()`, the code incorrectly initializes the state of the mock, leading to a validation failure. This is a classic Assignment/Initialization defect where the state (serialization requirement) is set incorrectly.\", \"evidence_used\": [\"Stack trace from failing test\", \"Bug report description\", \"Fix diff oracle\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Checking\", \"why_not_primary\": \"While the validation check fails, the root cause is the incorrect initialization of the mock settings that triggers the check, not the check itself.\"}, {\"type\": \"Algorithm/Method\", \"why_not_primary\": \"The fix is a simple change to how the `MockSettings` object is initialized, not a change to the overall procedural logic.\"}]}"
+}

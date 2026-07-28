@@ -1,0 +1,49 @@
+{
+  "project_id": "Closure",
+  "bug_id": 79,
+  "version_id": "79b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T07:03:09+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The compiler throws an internal runtime exception (Preconditions.checkState) during scope creation when encountering duplicate variable declarations in certain contexts, specifically involving externs or catch blocks.",
+  "hypothesis": "The compiler's scope creation logic (SyntacticScopeCreator) and the duplicate declaration handler (Normalize$DuplicateDeclarationHandler) assume that a 'var' node always has exactly one child. When this assumption is violated (e.g., in certain externs or complex scopes), the Preconditions.checkState(parent.hasOneChild()) fails, causing a crash.",
+  "prediction": "The fix will involve adding a check to ensure the 'var' node has children before calling hasOneChild(), or handling cases where the 'var' node might have multiple children or be structured differently than expected, preventing the crash.",
+  "experiment_rationale": "The stack trace points directly to Preconditions.checkState(parent.hasOneChild()) in Normalize.java:698. This is a classic guard failure where the code assumes a specific AST structure that is not guaranteed in all scenarios, leading to an unhandled exception.",
+  "reasoning_summary": "The defect is a missing validation check. The code assumes a 'var' node has exactly one child, but it fails to verify this assumption before proceeding, leading to an internal compiler error. This is a classic 'Checking' defect where a guard is missing or insufficient for the input data encountered.",
+  "evidence_used": [
+    "com.google.javascript.jscomp.Normalize$DuplicateDeclarationHandler.onRedeclaration(Normalize.java:698)",
+    "Preconditions.checkState(parent.hasOneChild())"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The issue is not a flaw in the computational procedure itself, but rather a failure to validate the input structure (the AST node) before performing operations on it."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The compiler throws an internal runtime exception (Preconditions.checkState) during scope creation when encountering duplicate variable declarations in certain contexts, specifically involving externs or catch blocks.\",\n  \"hypothesis\": \"The compiler's scope creation logic (SyntacticScopeCreator) and the duplicate declaration handler (Normalize$DuplicateDeclarationHandler) assume that a 'var' node always has exactly one child. When this assumption is violated (e.g., in certain externs or complex scopes), the Preconditions.checkState(parent.hasOneChild()) fails, causing a crash.\",\n  \"prediction\": \"The fix will involve adding a check to ensure the 'var' node has children before calling hasOneChild(), or handling cases where the 'var' node might have multiple children or be structured differently than expected, preventing the crash.\",\n  \"experiment_rationale\": \"The stack trace points directly to Preconditions.checkState(parent.hasOneChild()) in Normalize.java:698. This is a classic guard failure where the code assumes a specific AST structure that is not guaranteed in all scenarios, leading to an unhandled exception.\",\n  \"reasoning_summary\": \"The defect is a missing validation check. The code assumes a 'var' node has exactly one child, but it fails to verify this assumption before proceeding, leading to an internal compiler error. This is a classic 'Checking' defect where a guard is missing or insufficient for the input data encountered.\",\n  \"evidence_used\": [\n    \"com.google.javascript.jscomp.Normalize$DuplicateDeclarationHandler.onRedeclaration(Normalize.java:698)\",\n    \"Preconditions.checkState(parent.hasOneChild())\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"The issue is not a flaw in the computational procedure itself, but rather a failure to validate the input structure (the AST node) before performing operations on it.\"\n    }\n  ]\n}"
+}

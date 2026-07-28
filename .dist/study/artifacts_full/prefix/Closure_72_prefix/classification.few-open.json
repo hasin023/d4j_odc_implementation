@@ -1,0 +1,51 @@
+{
+  "project_id": "Closure",
+  "bug_id": 72,
+  "version_id": "72b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T07:02:22+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The compiler crashes with an Internal Compiler Error (IllegalStateException) during the RenameLabels pass, specifically when encountering duplicate labels in the AST.",
+  "hypothesis": "The RenameLabels pass fails to correctly validate or handle nested labels, leading to a state where a label is processed that should have been scoped or handled differently. The crash occurs because a precondition check (likely checking for label uniqueness or scope validity) fails when it encounters a label that already exists in the current scope.",
+  "prediction": "The fix will involve adding or correcting a conditional check in the RenameLabels pass (specifically within the shouldTraverse or similar traversal logic) to properly identify and handle nested labels, preventing the illegal state.",
+  "experiment_rationale": "The stack trace points directly to `RenameLabels$ProcessLabels.shouldTraverse` and `Preconditions.checkState`. This indicates that the compiler's internal logic for traversing the AST and renaming labels is missing a guard or validation check for nested label structures, which is confirmed by the test case failing on duplicate label scenarios.",
+  "reasoning_summary": "The bug is a classic 'Checking' defect. The compiler crashes because it encounters a scenario (nested labels) that it does not expect, and it lacks the necessary guard or validation logic to handle this case gracefully. The stack trace explicitly mentions a `Preconditions.checkState` failure, which is the hallmark of a missing or incorrect validation check.",
+  "evidence_used": [
+    "com.google.javascript.jscomp.InlineFunctionsTest::testInlineFunctions31",
+    "java.lang.IllegalStateException",
+    "com.google.common.base.Preconditions.checkState(Preconditions.java:129)",
+    "com.google.javascript.jscomp.RenameLabels$ProcessLabels.shouldTraverse"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the traversal logic is part of an algorithm, the root cause is specifically the failure to validate the state of the labels during traversal, which is best classified as a Checking defect."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The compiler crashes with an Internal Compiler Error (IllegalStateException) during the RenameLabels pass, specifically when encountering duplicate labels in the AST.\",\n  \"hypothesis\": \"The RenameLabels pass fails to correctly validate or handle nested labels, leading to a state where a label is processed that should have been scoped or handled differently. The crash occurs because a precondition check (likely checking for label uniqueness or scope validity) fails when it encounters a label that already exists in the current scope.\",\n  \"prediction\": \"The fix will involve adding or correcting a conditional check in the RenameLabels pass (specifically within the shouldTraverse or similar traversal logic) to properly identify and handle nested labels, preventing the illegal state.\",\n  \"experiment_rationale\": \"The stack trace points directly to `RenameLabels$ProcessLabels.shouldTraverse` and `Preconditions.checkState`. This indicates that the compiler's internal logic for traversing the AST and renaming labels is missing a guard or validation check for nested label structures, which is confirmed by the test case failing on duplicate label scenarios.\",\n  \"reasoning_summary\": \"The bug is a classic 'Checking' defect. The compiler crashes because it encounters a scenario (nested labels) that it does not expect, and it lacks the necessary guard or validation logic to handle this case gracefully. The stack trace explicitly mentions a `Preconditions.checkState` failure, which is the hallmark of a missing or incorrect validation check.\",\n  \"evidence_used\": [\n    \"com.google.javascript.jscomp.InlineFunctionsTest::testInlineFunctions31\",\n    \"java.lang.IllegalStateException\",\n    \"com.google.common.base.Preconditions.checkState(Preconditions.java:129)\",\n    \"com.google.javascript.jscomp.RenameLabels$ProcessLabels.shouldTraverse\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the traversal logic is part of an algorithm, the root cause is specifically the failure to validate the state of the labels during traversal, which is best classified as a Checking defect.\"\n    }\n  ]\n}"
+}

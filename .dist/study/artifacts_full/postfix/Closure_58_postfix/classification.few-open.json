@@ -1,0 +1,49 @@
+{
+  "project_id": "Closure",
+  "bug_id": 58,
+  "version_id": "58b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T07:01:00+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The compiler throws an IllegalStateException when encountering a 'for-in' loop where the left-hand side is an expression (e.g., 'a[i++]') rather than a simple variable name. The stack trace points to a Preconditions.checkState failure in addToSetIfLocal, which expects a name node.",
+  "hypothesis": "The code assumes that the left-hand side of a 'for-in' loop is always a simple variable name. When an expression is used instead, the code incorrectly attempts to treat it as a name node, triggering a precondition failure. The fix should validate whether the node is a name before calling addToSetIfLocal, and otherwise recursively process the expression.",
+  "prediction": "The fix will introduce a conditional check (if (NodeUtil.isName(lhs))) to verify the node type before calling addToSetIfLocal, with an 'else' branch to handle complex expressions via computeGenKill.",
+  "experiment_rationale": "The provided fix diff shows exactly this: an added 'if (NodeUtil.isName(lhs))' check, which confirms that the root cause was a missing validation of the node type before performing an operation that assumes a specific node structure.",
+  "reasoning_summary": "The bug is caused by a missing check for the node type (isName) before performing an operation that requires a name node. The fix adds this missing validation, which is the definition of a 'Checking' defect in ODC.",
+  "evidence_used": [
+    "The stack trace shows a failure in Preconditions.checkState(NodeUtil.isName(node)) inside addToSetIfLocal.",
+    "The fix diff adds an 'if (NodeUtil.isName(lhs))' check before calling addToSetIfLocal, and an 'else' branch to handle non-name nodes."
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the logic was updated, the root cause is the lack of a guard/check for the node type, which is the primary mechanism of the failure."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 1.0,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The compiler throws an IllegalStateException when encountering a 'for-in' loop where the left-hand side is an expression (e.g., 'a[i++]') rather than a simple variable name. The stack trace points to a Preconditions.checkState failure in addToSetIfLocal, which expects a name node.\",\n  \"hypothesis\": \"The code assumes that the left-hand side of a 'for-in' loop is always a simple variable name. When an expression is used instead, the code incorrectly attempts to treat it as a name node, triggering a precondition failure. The fix should validate whether the node is a name before calling addToSetIfLocal, and otherwise recursively process the expression.\",\n  \"prediction\": \"The fix will introduce a conditional check (if (NodeUtil.isName(lhs))) to verify the node type before calling addToSetIfLocal, with an 'else' branch to handle complex expressions via computeGenKill.\",\n  \"experiment_rationale\": \"The provided fix diff shows exactly this: an added 'if (NodeUtil.isName(lhs))' check, which confirms that the root cause was a missing validation of the node type before performing an operation that assumes a specific node structure.\",\n  \"reasoning_summary\": \"The bug is caused by a missing check for the node type (isName) before performing an operation that requires a name node. The fix adds this missing validation, which is the definition of a 'Checking' defect in ODC.\",\n  \"evidence_used\": [\n    \"The stack trace shows a failure in Preconditions.checkState(NodeUtil.isName(node)) inside addToSetIfLocal.\",\n    \"The fix diff adds an 'if (NodeUtil.isName(lhs))' check before calling addToSetIfLocal, and an 'else' branch to handle non-name nodes.\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the logic was updated, the root cause is the lack of a guard/check for the node type, which is the primary mechanism of the failure.\"\n    }\n  ]\n}"
+}

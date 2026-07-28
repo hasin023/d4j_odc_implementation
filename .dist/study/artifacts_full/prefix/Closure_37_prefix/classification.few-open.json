@@ -1,0 +1,55 @@
+{
+  "project_id": "Closure",
+  "bug_id": 37,
+  "version_id": "37b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T06:58:36+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The compiler crashes with an internal error when encountering an incomplete function definition in IDE mode. The stack trace points to a Preconditions.checkState failure in NodeTraversal.traverseFunction, which expects a function body to exist.",
+  "hypothesis": "The compiler's AST traversal logic assumes that all function nodes have a valid body block. When an incomplete function is parsed (e.g., 'function t'), the body node is null or missing, triggering a Preconditions failure. The fix is to add a check to validate the existence of the body before attempting to traverse it.",
+  "prediction": "The code in NodeTraversal.traverseFunction will be modified to include a null check or a more robust validation for the 'body' node before calling traverseBranch(body, n).",
+  "experiment_rationale": "The stack trace explicitly identifies a Preconditions.checkState failure at NodeTraversal.java:540, which is inside the traverseFunction method. This confirms that the code is making an assumption about the AST structure that is violated by the input, which is a classic 'missing check' scenario.",
+  "reasoning_summary": "The defect is a classic 'missing check' (Checking). The code assumes a function node always has a valid body block, but the input (an incomplete function) violates this assumption. The fix requires adding a guard to handle the case where the body is missing, rather than crashing.",
+  "evidence_used": [
+    "com.google.javascript.jscomp.NodeTraversal.traverseFunction",
+    "com.google.javascript.jscomp.NodeTraversal.java:540",
+    "Preconditions.checkState(body.getNext() == null && body.isBlock());",
+    "java.lang.RuntimeException: INTERNAL COMPILER ERROR."
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The issue is not a flaw in the traversal algorithm itself, but a missing validation of the input data (the AST node) before processing it."
+    },
+    {
+      "type": "Function/Class/Object",
+      "why_not_primary": "This is a local procedural error in handling an unexpected input state, not a missing design-level capability."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The compiler crashes with an internal error when encountering an incomplete function definition in IDE mode. The stack trace points to a Preconditions.checkState failure in NodeTraversal.traverseFunction, which expects a function body to exist.\",\n  \"hypothesis\": \"The compiler's AST traversal logic assumes that all function nodes have a valid body block. When an incomplete function is parsed (e.g., 'function t'), the body node is null or missing, triggering a Preconditions failure. The fix is to add a check to validate the existence of the body before attempting to traverse it.\",\n  \"prediction\": \"The code in NodeTraversal.traverseFunction will be modified to include a null check or a more robust validation for the 'body' node before calling traverseBranch(body, n).\",\n  \"experiment_rationale\": \"The stack trace explicitly identifies a Preconditions.checkState failure at NodeTraversal.java:540, which is inside the traverseFunction method. This confirms that the code is making an assumption about the AST structure that is violated by the input, which is a classic 'missing check' scenario.\",\n  \"reasoning_summary\": \"The defect is a classic 'missing check' (Checking). The code assumes a function node always has a valid body block, but the input (an incomplete function) violates this assumption. The fix requires adding a guard to handle the case where the body is missing, rather than crashing.\",\n  \"evidence_used\": [\n    \"com.google.javascript.jscomp.NodeTraversal.traverseFunction\",\n    \"com.google.javascript.jscomp.NodeTraversal.java:540\",\n    \"Preconditions.checkState(body.getNext() == null && body.isBlock());\",\n    \"java.lang.RuntimeException: INTERNAL COMPILER ERROR.\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"The issue is not a flaw in the traversal algorithm itself, but a missing validation of the input data (the AST node) before processing it.\"\n    },\n    {\n      \"type\": \"Function/Class/Object\",\n      \"why_not_primary\": \"This is a local procedural error in handling an unexpected input state, not a missing design-level capability.\"\n    }\n  ]\n}"
+}

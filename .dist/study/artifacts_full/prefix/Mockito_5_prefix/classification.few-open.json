@@ -1,0 +1,54 @@
+{
+  "project_id": "Mockito",
+  "bug_id": 5,
+  "version_id": "5b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-25T12:50:50+00:00",
+  "odc_type": "Relationship",
+  "family": "Structural",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The Mockito library, specifically the 'timeout' verification feature, fails with a NoClassDefFoundError or VerifyError when JUnit is not present on the classpath. This occurs because internal classes like 'VerificationOverTimeImpl' have an implicit dependency on JUnit classes (specifically 'ComparisonFailure' via 'ArgumentsAreDifferent'), which are not available in environments without JUnit.",
+  "hypothesis": "The root cause is an unintended structural dependency between Mockito's internal verification logic and JUnit classes. The 'VerificationOverTimeImpl' class references an exception type that inherits from a JUnit class, creating a hard dependency that violates the requirement that Mockito should not depend on JUnit at runtime.",
+  "prediction": "The fix will involve decoupling the internal verification logic from the JUnit-dependent exception class, likely by introducing a wrapper or removing the inheritance from the JUnit-specific class in the exception hierarchy.",
+  "experiment_rationale": "The failure occurs during class loading when the JVM attempts to resolve the hierarchy of classes used by 'VerificationOverTimeImpl'. Since the class hierarchy includes a JUnit class that is missing, the JVM throws a LinkageError. This confirms the dependency is structural and cross-cutting across the exception hierarchy.",
+  "reasoning_summary": "The defect is a structural dependency issue where internal Mockito classes are coupled to JUnit classes. This is a 'Relationship' defect because it involves the consistency and association between Mockito's internal exception hierarchy and external library (JUnit) structures. It is not an 'Algorithm/Method' issue because the logic itself is fine; it is not a 'Checking' issue because the problem is not a missing guard but an invalid structural assumption about the environment. It is not 'Function/Class/Object' because the capability exists, but its implementation is incorrectly coupled to an external dependency.",
+  "evidence_used": [
+    "The bug report states: 'In this specific case the issue is that the Timeout class wraps a VerficationOverTimeImpl that uses in try/catch block the exception org.mockito.exceptions.verification.junit.ArgumentsAreDifferent which extends junit.framework.ComparisonFailure.'",
+    "The stack trace shows a NoClassDefFoundError for junit.framework.ComparisonFailure.",
+    "The test failure 'pure_mockito_should_not_depend_JUnit' confirms the violation of the design constraint regarding JUnit dependencies."
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Interface/O-O Messages",
+      "why_not_primary": "While it involves an interface/class contract, the core issue is the structural coupling of the exception hierarchy, which is better described as a relationship between internal and external structures."
+    },
+    {
+      "type": "Function/Class/Object",
+      "why_not_primary": "The capability (timeout verification) is implemented; the issue is an incorrect structural dependency, not a missing or incorrectly designed capability."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Incorrect",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Relationship\",\n  \"family\": \"Structural\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The Mockito library, specifically the 'timeout' verification feature, fails with a NoClassDefFoundError or VerifyError when JUnit is not present on the classpath. This occurs because internal classes like 'VerificationOverTimeImpl' have an implicit dependency on JUnit classes (specifically 'ComparisonFailure' via 'ArgumentsAreDifferent'), which are not available in environments without JUnit.\",\n  \"hypothesis\": \"The root cause is an unintended structural dependency between Mockito's internal verification logic and JUnit classes. The 'VerificationOverTimeImpl' class references an exception type that inherits from a JUnit class, creating a hard dependency that violates the requirement that Mockito should not depend on JUnit at runtime.\",\n  \"prediction\": \"The fix will involve decoupling the internal verification logic from the JUnit-dependent exception class, likely by introducing a wrapper or removing the inheritance from the JUnit-specific class in the exception hierarchy.\",\n  \"experiment_rationale\": \"The failure occurs during class loading when the JVM attempts to resolve the hierarchy of classes used by 'VerificationOverTimeImpl'. Since the class hierarchy includes a JUnit class that is missing, the JVM throws a LinkageError. This confirms the dependency is structural and cross-cutting across the exception hierarchy.\",\n  \"reasoning_summary\": \"The defect is a structural dependency issue where internal Mockito classes are coupled to JUnit classes. This is a 'Relationship' defect because it involves the consistency and association between Mockito's internal exception hierarchy and external library (JUnit) structures. It is not an 'Algorithm/Method' issue because the logic itself is fine; it is not a 'Checking' issue because the problem is not a missing guard but an invalid structural assumption about the environment. It is not 'Function/Class/Object' because the capability exists, but its implementation is incorrectly coupled to an external dependency.\",\n  \"evidence_used\": [\n    \"The bug report states: 'In this specific case the issue is that the Timeout class wraps a VerficationOverTimeImpl that uses in try/catch block the exception org.mockito.exceptions.verification.junit.ArgumentsAreDifferent which extends junit.framework.ComparisonFailure.'\",\n    \"The stack trace shows a NoClassDefFoundError for junit.framework.ComparisonFailure.\",\n    \"The test failure 'pure_mockito_should_not_depend_JUnit' confirms the violation of the design constraint regarding JUnit dependencies.\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Interface/O-O Messages\",\n      \"why_not_primary\": \"While it involves an interface/class contract, the core issue is the structural coupling of the exception hierarchy, which is better described as a relationship between internal and external structures.\"\n    },\n    {\n      \"type\": \"Function/Class/Object\",\n      \"why_not_primary\": \"The capability (timeout verification) is implemented; the issue is an incorrect structural dependency, not a missing or incorrectly designed capability.\"\n    }\n  ]\n}"
+}

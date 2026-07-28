@@ -1,0 +1,96 @@
+{
+  "project_id": "Time",
+  "bug_id": 3,
+  "version_id": "3b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-25T12:28:36+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The bug report and test failures indicate that `addDays(0)` and similar methods change the state of `MutableDateTime` during DST transitions, whereas they should be no-ops. This is a classic case of missing validation/guard logic for the input parameter.",
+  "hypothesis": "The `MutableDateTime` class methods like `addDays` perform a field-based addition that triggers a recalculation of the instant and offset even when the amount added is zero. This recalculation is problematic during DST transitions because the system re-resolves the time, potentially picking the wrong offset for the ambiguous time. The fix is to add a check for `amount == 0` to return early.",
+  "prediction": "I expect to find that the `addDays` method in `MutableDateTime` (or its superclass) does not check if the input is zero, and that adding this check will prevent the incorrect offset recalculation.",
+  "experiment_rationale": "The failure is consistent with missing guard logic for a zero-value input in a state-changing method, which is a textbook 'Checking' defect.",
+  "reasoning_summary": "The bug is triggered by a zero-value input causing an unnecessary state change. The fix is to add a check to return early if the input is zero, which is a 'Checking' defect.",
+  "evidence_used": [
+    "bug_report",
+    "failing_tests"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The issue is not the algorithm itself, but the lack of a guard condition to prevent unnecessary execution of the algorithm."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The `add` methods for larger time units (days, months, years) in `MutableDateTime` (or the underlying `DateTimeField` implementation) incorrectly trigger a recalculation of the offset or instant when the amount added is zero, specifically during a DST overlap transition. This suggests an unnecessary or incorrect state update when the delta is zero.",
+      "prediction": "I expect to find that the `add` methods for days, months, and years in `MutableDateTime` or its field delegates do not check if the amount is zero before performing the field-based addition, whereas `addHours`, `addMinutes`, and `addSeconds` likely have an early return or a more robust check.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "MutableDateTime"
+      },
+      "observation_summary": [
+        "snippets"
+      ]
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The `MutableDateTime.add` methods (and specific field adders like `addDays`, `addMonths`, `addYears`) do not check if the input amount is zero before proceeding with the field-based addition logic. During a DST overlap, the underlying field-based addition logic recalculates the instant and offset, which can lead to an incorrect offset selection when the time is ambiguous, even if the duration added is zero.",
+      "prediction": "I expect to see that `MutableDateTime` methods like `addDays(int)` call a field-based addition method that lacks an early return for `amount == 0`, causing the time to be re-normalized through the `DateTimeZone` logic, which incorrectly resolves the ambiguous time during the DST overlap.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "MutableDateTime"
+      },
+      "observation_summary": "probe already served this exact request \u2014 use a different probe or conclude"
+    },
+    {
+      "turn": 3,
+      "hypothesis": "The `MutableDateTime` class lacks an early return for zero-value additions in its `addDays`, `addMonths`, and `addYears` methods. This causes the internal `DateTimeField` to re-calculate the instant and offset, which, during a DST overlap, incorrectly resolves the ambiguous time to a different offset.",
+      "prediction": "I expect to find that `MutableDateTime.addDays(int)` and similar methods call `field.add(this, amount)`, and that this field-based addition does not check if `amount == 0` before performing the calculation, whereas `addHours` or similar methods might have an optimization or different path.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "MutableDateTime.java"
+      },
+      "observation_summary": "no snippet matches 'MutableDateTime.java'"
+    },
+    {
+      "turn": 4,
+      "hypothesis": "The `MutableDateTime` class methods like `addDays` perform a field-based addition that triggers a recalculation of the instant and offset even when the amount added is zero. This recalculation is problematic during DST transitions because the system re-resolves the time, potentially picking the wrong offset for the ambiguous time. The fix is to add a check for `amount == 0` to return early.",
+      "prediction": "I expect to find that the `addDays` method in `MutableDateTime` (or its superclass) does not check if the input is zero, and that adding this check will prevent the incorrect offset recalculation.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Checking"
+    }
+  ],
+  "llm_calls_used": 4,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"impact\": \"Capability\", \"confidence\": 0.9, \"needs_human_review\": false, \"observation_summary\": \"The bug report and test failures indicate that `addDays(0)` and similar methods change the state of `MutableDateTime` during DST transitions, whereas they should be no-ops. This is a classic case of missing validation/guard logic for the input parameter.\", \"hypothesis\": \"The `MutableDateTime` class methods like `addDays` perform a field-based addition that triggers a recalculation of the instant and offset even when the amount added is zero. This recalculation is problematic during DST transitions because the system re-resolves the time, potentially picking the wrong offset for the ambiguous time. The fix is to add a check for `amount == 0` to return early.\", \"prediction\": \"I expect to find that the `addDays` method in `MutableDateTime` (or its superclass) does not check if the input is zero, and that adding this check will prevent the incorrect offset recalculation.\", \"experiment_rationale\": \"The failure is consistent with missing guard logic for a zero-value input in a state-changing method, which is a textbook 'Checking' defect.\", \"reasoning_summary\": \"The bug is triggered by a zero-value input causing an unnecessary state change. The fix is to add a check to return early if the input is zero, which is a 'Checking' defect.\", \"evidence_used\": [\"bug_report\", \"failing_tests\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"The issue is not the algorithm itself, but the lack of a guard condition to prevent unnecessary execution of the algorithm.\"}]}"
+}

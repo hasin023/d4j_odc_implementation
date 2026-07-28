@@ -1,0 +1,27 @@
+# Defects4J ODC Classification Report: Time-18
+
+- Version: `18b`
+- Work directory: `C:\d4j_work\postfix\Time_18b`
+- Generated: `2026-07-25T14:46:34+00:00`
+
+## Failure Summary
+- `org.joda.time.chrono.TestGJChronology::testLeapYearRulesConstruction`: org.joda.time.IllegalFieldValueException: Value 29 for dayOfMonth must be in the range [1,28]
+
+## Suspicious Frames
+- `org.joda.time.field.FieldUtils.verifyValueBounds` at `FieldUtils.java:235`
+- `org.joda.time.chrono.BasicChronology.getDateMidnightMillis` at `BasicChronology.java:605`
+- `org.joda.time.chrono.BasicChronology.getDateTimeMillis` at `BasicChronology.java:177`
+- `org.joda.time.chrono.GregorianChronology.getDateTimeMillis` at `GregorianChronology.java:45`
+- `org.joda.time.chrono.GJChronology.getDateTimeMillis` at `GJChronology.java:365`
+- `org.joda.time.base.BaseDateTime.<init>` at `BaseDateTime.java:254`
+- `org.joda.time.DateMidnight.<init>` at `DateMidnight.java:343`
+
+## ODC Result
+- **Evidence Mode**: ⚠️ Post-fix (with buggy->fixed diff)
+- ODC Type: `incorrect validation logic for calendar cutover`
+- Family: `None`
+- Target: `Design/Code`
+- Confidence: `1.0`
+- Needs Human Review: `False`
+
+The GJChronology class incorrectly assumed that all dates should be validated against Gregorian leap year rules before checking if they fall into the Julian period (pre-cutover). When a date like February 29, 1500, is provided, the Gregorian validator throws an IllegalFieldValueException because 1500 is not a leap year in the Gregorian calendar, even though it is a valid leap year in the Julian calendar. The fix introduces a try-catch block to handle this specific case, allowing the chronology to attempt validation against the Julian calendar if the initial Gregorian validation fails for a potential leap day.

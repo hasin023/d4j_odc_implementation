@@ -1,0 +1,51 @@
+{
+  "project_id": "Closure",
+  "bug_id": 131,
+  "version_id": "131b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T07:09:05+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The compiler incorrectly converts quoted property names containing certain Unicode characters into unquoted property names, which is invalid JavaScript syntax for those characters.",
+  "hypothesis": "The compiler's property conversion logic (likely in a pass like ConvertToDottedProperties) lacks a validation check to determine if a property name contains characters that require quotes (such as specific Unicode control characters) before deciding to convert it to a dotted property.",
+  "prediction": "The fix will involve adding a conditional check (e.g., a call to a method like 'isValidPropertyName' or a regex check) to ensure that the property name is safe to be unquoted before performing the conversion.",
+  "experiment_rationale": "The failure occurs because the compiler assumes all string keys can be converted to dotted properties. The test cases show that when a property name contains a Unicode character (like \\u0004), the compiler strips the quotes, resulting in invalid syntax. Adding a guard clause to verify the property name's validity before conversion will prevent this invalid transformation.",
+  "reasoning_summary": "The defect is a classic 'Checking' issue. The logic for converting properties to dotted notation is fundamentally sound for standard identifiers, but it fails to validate whether the property name is a valid identifier in the first place. It lacks a guard condition to check for characters that necessitate quotes, leading to invalid code generation.",
+  "evidence_used": [
+    "com.google.javascript.jscomp.ConvertToDottedPropertiesTest::testQuotedProps",
+    "com.google.javascript.jscomp.ConvertToDottedPropertiesTest::testDoNotConvert",
+    "Expected: ({\"a\\u0004b\":0})",
+    "Result: ({a\u0004b:0})"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the conversion logic is part of an algorithm, the root cause is specifically the absence of a validation check (guard) to determine if the conversion is permissible for the given input."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The compiler incorrectly converts quoted property names containing certain Unicode characters into unquoted property names, which is invalid JavaScript syntax for those characters.\",\n  \"hypothesis\": \"The compiler's property conversion logic (likely in a pass like ConvertToDottedProperties) lacks a validation check to determine if a property name contains characters that require quotes (such as specific Unicode control characters) before deciding to convert it to a dotted property.\",\n  \"prediction\": \"The fix will involve adding a conditional check (e.g., a call to a method like 'isValidPropertyName' or a regex check) to ensure that the property name is safe to be unquoted before performing the conversion.\",\n  \"experiment_rationale\": \"The failure occurs because the compiler assumes all string keys can be converted to dotted properties. The test cases show that when a property name contains a Unicode character (like \\\\u0004), the compiler strips the quotes, resulting in invalid syntax. Adding a guard clause to verify the property name's validity before conversion will prevent this invalid transformation.\",\n  \"reasoning_summary\": \"The defect is a classic 'Checking' issue. The logic for converting properties to dotted notation is fundamentally sound for standard identifiers, but it fails to validate whether the property name is a valid identifier in the first place. It lacks a guard condition to check for characters that necessitate quotes, leading to invalid code generation.\",\n  \"evidence_used\": [\n    \"com.google.javascript.jscomp.ConvertToDottedPropertiesTest::testQuotedProps\",\n    \"com.google.javascript.jscomp.ConvertToDottedPropertiesTest::testDoNotConvert\",\n    \"Expected: ({\\\"a\\\\u0004b\\\":0})\",\n    \"Result: ({a\\u0004b:0})\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the conversion logic is part of an algorithm, the root cause is specifically the absence of a validation check (guard) to determine if the conversion is permissible for the given input.\"\n    }\n  ]\n}"
+}

@@ -1,0 +1,50 @@
+{
+  "project_id": "Closure",
+  "bug_id": 131,
+  "version_id": "131b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T07:09:08+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The compiler incorrectly converts object property names containing certain control characters (like \\u0004) into unquoted identifiers, which are invalid in JavaScript. This causes the output code to be syntactically incorrect.",
+  "hypothesis": "The method responsible for validating JavaScript identifiers, `isValidIdentifierName` (in `TokenStream`), relies on `Character.isJavaIdentifierPart`, which incorrectly classifies certain control characters as valid identifier parts. The fix requires adding a check to exclude these characters using `Character.isIdentifierIgnorable`.",
+  "prediction": "The code will now explicitly check each character of the identifier string using `Character.isIdentifierIgnorable` and return `false` if any character is found to be ignorable, preventing the invalid conversion.",
+  "experiment_rationale": "The fix diff shows the addition of `Character.isIdentifierIgnorable(s.charAt(i))` to the validation logic in `TokenStream`. This confirms that the root cause was a missing validation check for control characters that were erroneously accepted as valid identifier parts.",
+  "reasoning_summary": "The bug is a classic validation error. The existing logic correctly identified standard identifier characters but failed to account for control characters that should be treated as invalid in this context. Adding a guard condition (`Character.isIdentifierIgnorable`) to the existing validation loop is the definition of a 'Checking' defect.",
+  "evidence_used": [
+    "The fix diff adds `Character.isIdentifierIgnorable` checks to the validation logic in `TokenStream`.",
+    "The bug report explicitly states that `Character.isJavaIdentifierPart` returns true for control characters like \\u0004, which are invalid in property names.",
+    "The failing tests show that the compiler incorrectly converts quoted properties with control characters into unquoted ones."
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the validation logic is part of a method, the root cause is specifically the absence of a necessary guard condition (a check) for specific character types, which fits 'Checking' more precisely."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 1,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The compiler incorrectly converts object property names containing certain control characters (like \\\\u0004) into unquoted identifiers, which are invalid in JavaScript. This causes the output code to be syntactically incorrect.\",\n  \"hypothesis\": \"The method responsible for validating JavaScript identifiers, `isValidIdentifierName` (in `TokenStream`), relies on `Character.isJavaIdentifierPart`, which incorrectly classifies certain control characters as valid identifier parts. The fix requires adding a check to exclude these characters using `Character.isIdentifierIgnorable`.\",\n  \"prediction\": \"The code will now explicitly check each character of the identifier string using `Character.isIdentifierIgnorable` and return `false` if any character is found to be ignorable, preventing the invalid conversion.\",\n  \"experiment_rationale\": \"The fix diff shows the addition of `Character.isIdentifierIgnorable(s.charAt(i))` to the validation logic in `TokenStream`. This confirms that the root cause was a missing validation check for control characters that were erroneously accepted as valid identifier parts.\",\n  \"reasoning_summary\": \"The bug is a classic validation error. The existing logic correctly identified standard identifier characters but failed to account for control characters that should be treated as invalid in this context. Adding a guard condition (`Character.isIdentifierIgnorable`) to the existing validation loop is the definition of a 'Checking' defect.\",\n  \"evidence_used\": [\n    \"The fix diff adds `Character.isIdentifierIgnorable` checks to the validation logic in `TokenStream`.\",\n    \"The bug report explicitly states that `Character.isJavaIdentifierPart` returns true for control characters like \\\\u0004, which are invalid in property names.\",\n    \"The failing tests show that the compiler incorrectly converts quoted properties with control characters into unquoted ones.\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the validation logic is part of a method, the root cause is specifically the absence of a necessary guard condition (a check) for specific character types, which fits 'Checking' more precisely.\"\n    }\n  ]\n}"
+}

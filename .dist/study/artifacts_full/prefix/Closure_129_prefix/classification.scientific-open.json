@@ -1,0 +1,90 @@
+{
+  "project_id": "Closure",
+  "bug_id": 129,
+  "version_id": "129b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T06:42:47+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The compiler incorrectly transforms a method call `(new x).abc()` into `(0, (new x).abc)()` when a type cast is present, effectively detaching the method from its object context and causing it to fail at runtime.",
+  "hypothesis": "The compiler's optimization pass is incorrectly applying a 'free_call' transformation (the (0, ...) wrapper) to a method call when a type cast is present, erroneously detaching the method from its object context.",
+  "prediction": "The logic responsible for this transformation is located in a class that handles AST node transformations for function calls, specifically checking for type casts or function types, and it will be found to lack a check to ensure the call is not a method call (GETPROP) before applying the 'free_call' flag.",
+  "experiment_rationale": "The stack trace and node tree comparison clearly show the introduction of a 'free_call' flag and the (0, ...) wrapper on a method call, which is a procedural error in the compiler's optimization logic.",
+  "reasoning_summary": "The bug is a classic case of an incorrect transformation strategy in the compiler's optimization pipeline. The compiler incorrectly assumes that all casted function calls should be treated as 'free calls' (global calls), failing to account for the fact that some of these calls are method calls that require the object context to be preserved. This is a procedural/algorithmic error in how the compiler handles function call nodes.",
+  "evidence_used": [
+    "IntegrationTest::testIssue937 stack trace",
+    "Node tree inequality comparison"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "While a missing check is the root cause, the primary issue is the incorrect implementation of the transformation algorithm itself, which is a procedural logic error."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The compiler is incorrectly applying a comma operator (0, ...) to a method call when the method is cast to a function type, which is intended to preserve the 'this' context but is unnecessary and harmful for method calls on objects.",
+      "prediction": "The code responsible for handling function calls or type casts in the compiler (likely in a pass like PeepholeOptimizations or similar) is explicitly adding the (0, ...) wrapper when it encounters a casted function call, and this logic is flawed for method calls.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "list_evidence",
+        "argument": null
+      },
+      "observation_summary": [
+        "bug_report_available",
+        "coverage_classes",
+        "failing_tests",
+        "production_snippet_classes",
+        "test_snippet_classes"
+      ]
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The compiler's 'TypeCheck' or a related optimization pass is incorrectly inserting a comma operator (0, ...) to force a function call to be treated as a global call rather than a method call when a type cast is present. This is intended to handle cases where a function is detached from its object, but it is incorrectly applied to methods that should remain bound to their object.",
+      "prediction": "The code responsible for this transformation will be found in a class related to AST manipulation or peephole optimization, likely checking for 'CAST' nodes and wrapping the expression in a comma operator.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "full_stack_trace",
+        "argument": "com.google.javascript.jscomp.IntegrationTest::testIssue937"
+      },
+      "observation_summary": [
+        "traces"
+      ]
+    },
+    {
+      "turn": 3,
+      "hypothesis": "The compiler's optimization pass (likely related to function inlining or type-based optimizations) is incorrectly applying a 'free_call' transformation (the (0, ...) wrapper) to a method call when a type cast is present. This transformation is intended to detach a function from its object context to treat it as a global function, but it is erroneously applied to methods that should remain bound to their object, causing the 'this' context to be lost.",
+      "prediction": "The logic responsible for this transformation is located in a class that handles AST node transformations for function calls, specifically checking for type casts or function types, and it will be found to lack a check to ensure the call is not a method call (GETPROP) before applying the 'free_call' flag.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Algorithm/Method"
+    }
+  ],
+  "llm_calls_used": 3,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"impact\": \"Capability\", \"confidence\": 0.9, \"needs_human_review\": false, \"observation_summary\": \"The compiler incorrectly transforms a method call `(new x).abc()` into `(0, (new x).abc)()` when a type cast is present, effectively detaching the method from its object context and causing it to fail at runtime.\", \"hypothesis\": \"The compiler's optimization pass is incorrectly applying a 'free_call' transformation (the (0, ...) wrapper) to a method call when a type cast is present, erroneously detaching the method from its object context.\", \"prediction\": \"The logic responsible for this transformation is located in a class that handles AST node transformations for function calls, specifically checking for type casts or function types, and it will be found to lack a check to ensure the call is not a method call (GETPROP) before applying the 'free_call' flag.\", \"experiment_rationale\": \"The stack trace and node tree comparison clearly show the introduction of a 'free_call' flag and the (0, ...) wrapper on a method call, which is a procedural error in the compiler's optimization logic.\", \"reasoning_summary\": \"The bug is a classic case of an incorrect transformation strategy in the compiler's optimization pipeline. The compiler incorrectly assumes that all casted function calls should be treated as 'free calls' (global calls), failing to account for the fact that some of these calls are method calls that require the object context to be preserved. This is a procedural/algorithmic error in how the compiler handles function call nodes.\", \"evidence_used\": [\"IntegrationTest::testIssue937 stack trace\", \"Node tree inequality comparison\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Checking\", \"why_not_primary\": \"While a missing check is the root cause, the primary issue is the incorrect implementation of the transformation algorithm itself, which is a procedural logic error.\"}]}"
+}

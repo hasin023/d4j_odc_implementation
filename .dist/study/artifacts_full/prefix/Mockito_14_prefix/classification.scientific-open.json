@@ -1,0 +1,76 @@
+{
+  "project_id": "Mockito",
+  "bug_id": 14,
+  "version_id": "14b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-25T12:39:55+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The test fails with an AssertionFailedError indicating that a mock method call nested inside a verify() call is not being correctly verified, and the framework reports zero interactions with the mock, suggesting the verification state was lost or corrupted.",
+  "hypothesis": "The Mockito framework's internal state (MockingProgress) is being incorrectly reset or overwritten when a mock method is called as an argument to another mock method within a verify() call.",
+  "prediction": "The inner mock call triggers a state change in MockingProgress that interferes with the ongoing verification of the outer call.",
+  "experiment_rationale": "The stack trace clearly shows the verification process being interrupted by the inner mock call, which is a classic symptom of state management issues in Mockito's thread-local or global progress tracking during nested calls.",
+  "reasoning_summary": "The failure occurs because Mockito's state machine for verification is not re-entrant or does not handle nested mock calls during the verification phase. This is a procedural logic error in how Mockito tracks the 'verification' state versus the 'invocation' state.",
+  "evidence_used": [
+    "full_stack_trace",
+    "test_code_snippets"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Interface/O-O Messages",
+      "why_not_primary": "The issue is not a mismatch in the interface contract, but rather the internal handling of the verification state during the execution of the method call."
+    },
+    {
+      "type": "Checking",
+      "why_not_primary": "While a check might be missing, the root cause is the procedural failure to maintain the correct state during nested calls, which is more fundamental than a missing guard."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The Mockito framework fails to correctly handle nested mock calls within a verify() statement because the internal state tracking (MockingProgress) is being overwritten or cleared by the inner mock call (mock.otherMethod()) before the outer verification (verify(mockTwo)) can process the argument.",
+      "prediction": "I expect to see that the MockingProgress state is updated by the inner call to mock.otherMethod() and that this update interferes with the verification process for mockTwo, likely by clearing the 'verification mode' or 'mocking progress' state.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "full_stack_trace",
+        "argument": "org.mockitousage.bugs.VerifyingWithAnExtraCallToADifferentMockTest"
+      },
+      "observation_summary": [
+        "traces"
+      ]
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The Mockito framework's internal state (MockingProgress) is being incorrectly reset or overwritten when a mock method is called as an argument to another mock method within a verify() call. Specifically, the inner call (mock.otherMethod()) triggers a state change in MockingProgress that interferes with the ongoing verification of the outer call (mockTwo.simpleMethod(...)).",
+      "prediction": "The MockingProgress class or its usage in MockHandler will show that the verification mode is cleared or interrupted by the invocation of the inner mock method, preventing the outer verify() from correctly identifying the intended invocation.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Algorithm/Method"
+    }
+  ],
+  "llm_calls_used": 2,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"impact\": \"Capability\", \"confidence\": 0.9, \"needs_human_review\": false, \"observation_summary\": \"The test fails with an AssertionFailedError indicating that a mock method call nested inside a verify() call is not being correctly verified, and the framework reports zero interactions with the mock, suggesting the verification state was lost or corrupted.\", \"hypothesis\": \"The Mockito framework's internal state (MockingProgress) is being incorrectly reset or overwritten when a mock method is called as an argument to another mock method within a verify() call.\", \"prediction\": \"The inner mock call triggers a state change in MockingProgress that interferes with the ongoing verification of the outer call.\", \"experiment_rationale\": \"The stack trace clearly shows the verification process being interrupted by the inner mock call, which is a classic symptom of state management issues in Mockito's thread-local or global progress tracking during nested calls.\", \"reasoning_summary\": \"The failure occurs because Mockito's state machine for verification is not re-entrant or does not handle nested mock calls during the verification phase. This is a procedural logic error in how Mockito tracks the 'verification' state versus the 'invocation' state.\", \"evidence_used\": [\"full_stack_trace\", \"test_code_snippets\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Interface/O-O Messages\", \"why_not_primary\": \"The issue is not a mismatch in the interface contract, but rather the internal handling of the verification state during the execution of the method call.\"}, {\"type\": \"Checking\", \"why_not_primary\": \"While a check might be missing, the root cause is the procedural failure to maintain the correct state during nested calls, which is more fundamental than a missing guard.\"}]}"
+}

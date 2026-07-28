@@ -1,0 +1,51 @@
+{
+  "project_id": "Math",
+  "bug_id": 60,
+  "version_id": "60b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-25T17:05:43+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The NormalDistributionImpl.cumulativeProbability method throws a ConvergenceException when evaluated with extreme values (like Double.MAX_VALUE or Infinity) because the underlying continued fraction calculation fails to converge, and the current exception handling only catches MaxIterationsExceededException.",
+  "hypothesis": "The cumulativeProbability method lacks a robust guard to handle extreme input values that cause the underlying continued fraction algorithm to diverge. The current implementation only catches MaxIterationsExceededException, failing to handle other convergence-related exceptions (like those caused by NaN results in the continued fraction).",
+  "prediction": "The fix will involve expanding the catch block in NormalDistributionImpl.cumulativeProbability to catch the broader ConvergenceException (or all MathExceptions) and return 0 or 1 for extreme values, similar to how it currently handles MaxIterationsExceededException.",
+  "experiment_rationale": "The stack trace shows the failure occurs in ContinuedFraction.evaluate, which is called by Gamma.regularizedGammaP, which is called by Erf.erf, which is called by NormalDistributionImpl.cumulativeProbability. The bug report explicitly suggests catching ConvergenceException to handle these extreme cases, confirming the issue is a missing validation/guard for extreme inputs.",
+  "reasoning_summary": "The root cause is a missing check for extreme input values that lead to divergence in the continued fraction algorithm. While the code attempts to handle convergence issues, it only catches a specific subclass of exception (MaxIterationsExceededException) rather than the general ConvergenceException that occurs when the fraction diverges to NaN. This is a classic 'missing guard' scenario for edge cases.",
+  "evidence_used": [
+    "org.apache.commons.math.ConvergenceException: Continued fraction diverged to NaN for value \u221e",
+    "org.apache.commons.math.distribution.NormalDistributionImpl.cumulativeProbability(NormalDistributionImpl.java:127)",
+    "org.apache.commons.math.distribution.NormalDistributionImpl.cumulativeProbability(NormalDistributionImpl.java:129)",
+    "Bug report suggestion: change in the implementation of cumulativeProbability(double) to catch all ConvergenceException"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The algorithm itself is mathematically sound for standard inputs; the failure is due to a lack of boundary/extreme-value handling, which is best classified as a missing check."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The NormalDistributionImpl.cumulativeProbability method throws a ConvergenceException when evaluated with extreme values (like Double.MAX_VALUE or Infinity) because the underlying continued fraction calculation fails to converge, and the current exception handling only catches MaxIterationsExceededException.\",\n  \"hypothesis\": \"The cumulativeProbability method lacks a robust guard to handle extreme input values that cause the underlying continued fraction algorithm to diverge. The current implementation only catches MaxIterationsExceededException, failing to handle other convergence-related exceptions (like those caused by NaN results in the continued fraction).\",\n  \"prediction\": \"The fix will involve expanding the catch block in NormalDistributionImpl.cumulativeProbability to catch the broader ConvergenceException (or all MathExceptions) and return 0 or 1 for extreme values, similar to how it currently handles MaxIterationsExceededException.\",\n  \"experiment_rationale\": \"The stack trace shows the failure occurs in ContinuedFraction.evaluate, which is called by Gamma.regularizedGammaP, which is called by Erf.erf, which is called by NormalDistributionImpl.cumulativeProbability. The bug report explicitly suggests catching ConvergenceException to handle these extreme cases, confirming the issue is a missing validation/guard for extreme inputs.\",\n  \"reasoning_summary\": \"The root cause is a missing check for extreme input values that lead to divergence in the continued fraction algorithm. While the code attempts to handle convergence issues, it only catches a specific subclass of exception (MaxIterationsExceededException) rather than the general ConvergenceException that occurs when the fraction diverges to NaN. This is a classic 'missing guard' scenario for edge cases.\",\n  \"evidence_used\": [\n    \"org.apache.commons.math.ConvergenceException: Continued fraction diverged to NaN for value \\u221E\",\n    \"org.apache.commons.math.distribution.NormalDistributionImpl.cumulativeProbability(NormalDistributionImpl.java:127)\",\n    \"org.apache.commons.math.distribution.NormalDistributionImpl.cumulativeProbability(NormalDistributionImpl.java:129)\",\n    \"Bug report suggestion: change in the implementation of cumulativeProbability(double) to catch all ConvergenceException\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"The algorithm itself is mathematically sound for standard inputs; the failure is due to a lack of boundary/extreme-value handling, which is best classified as a missing check.\"\n    }\n  ]\n}"
+}

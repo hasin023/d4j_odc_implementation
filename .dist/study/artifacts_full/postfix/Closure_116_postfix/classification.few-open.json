@@ -1,0 +1,50 @@
+{
+  "project_id": "Closure",
+  "bug_id": 116,
+  "version_id": "116b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T07:07:27+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The compiler incorrectly inlines functions in ADVANCED_OPTIMIZATIONS mode, leading to incorrect evaluation order when function arguments have side effects and the function body also contains side effects.",
+  "hypothesis": "The function inliner fails to check if both the function body and the arguments being passed have side effects. If they do, inlining the function directly (replacing the call with the body) can change the evaluation order of those side effects, violating JavaScript semantics.",
+  "prediction": "The fix will introduce a check to verify if the function body has side effects and if the arguments being passed can be side-effected. If both are true, the inliner will refuse to inline the function directly.",
+  "experiment_rationale": "The provided diff shows the addition of a check: 'if (hasSideEffects && NodeUtil.canBeSideEffected(cArg)) { return CanInlineResult.NO; }'. This confirms that the root cause was a missing validation check in the inlining logic.",
+  "reasoning_summary": "The bug is caused by the absence of a guard condition that prevents unsafe inlining when side effects are present in both the function body and the arguments. The fix adds this missing check, which is the definition of a 'Checking' ODC type.",
+  "evidence_used": [
+    "The fix_diff_oracle shows the addition of a conditional check: 'if (hasSideEffects && NodeUtil.canBeSideEffected(cArg)) { return CanInlineResult.NO; }'.",
+    "The bug report description explicitly mentions that the optimization is erroneous because it changes evaluation order when side effects are present.",
+    "The failing tests (e.g., testIssue1101) confirm that the compiler was inlining code that should not have been inlined."
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the inlining logic is a method, the specific root cause is the missing validation of side-effect conditions, which is a classic 'Checking' defect."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 1.0,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The compiler incorrectly inlines functions in ADVANCED_OPTIMIZATIONS mode, leading to incorrect evaluation order when function arguments have side effects and the function body also contains side effects.\",\n  \"hypothesis\": \"The function inliner fails to check if both the function body and the arguments being passed have side effects. If they do, inlining the function directly (replacing the call with the body) can change the evaluation order of those side effects, violating JavaScript semantics.\",\n  \"prediction\": \"The fix will introduce a check to verify if the function body has side effects and if the arguments being passed can be side-effected. If both are true, the inliner will refuse to inline the function directly.\",\n  \"experiment_rationale\": \"The provided diff shows the addition of a check: 'if (hasSideEffects && NodeUtil.canBeSideEffected(cArg)) { return CanInlineResult.NO; }'. This confirms that the root cause was a missing validation check in the inlining logic.\",\n  \"reasoning_summary\": \"The bug is caused by the absence of a guard condition that prevents unsafe inlining when side effects are present in both the function body and the arguments. The fix adds this missing check, which is the definition of a 'Checking' ODC type.\",\n  \"evidence_used\": [\n    \"The fix_diff_oracle shows the addition of a conditional check: 'if (hasSideEffects && NodeUtil.canBeSideEffected(cArg)) { return CanInlineResult.NO; }'.\",\n    \"The bug report description explicitly mentions that the optimization is erroneous because it changes evaluation order when side effects are present.\",\n    \"The failing tests (e.g., testIssue1101) confirm that the compiler was inlining code that should not have been inlined.\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the inlining logic is a method, the specific root cause is the missing validation of side-effect conditions, which is a classic 'Checking' defect.\"\n    }\n  ]\n}"
+}

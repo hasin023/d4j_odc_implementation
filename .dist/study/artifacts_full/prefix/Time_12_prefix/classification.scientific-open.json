@@ -1,0 +1,84 @@
+{
+  "project_id": "Time",
+  "bug_id": 12,
+  "version_id": "12b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-25T12:30:20+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The failing tests demonstrate that `LocalDateTime` and `LocalDate` factory methods (`fromCalendarFields` and `fromDateFields`) incorrectly handle dates before year 1 (BC). The expected output for BC dates is not matched, indicating a failure to account for the ERA field in the input `Calendar` or `Date` objects.",
+  "hypothesis": "The bug is in the implementation of `fromCalendarFields` (and likely `fromDateFields`) in `LocalDateTime` and `LocalDate` classes. These methods fail to correctly handle the `Calendar.ERA` field when converting from a `java.util.Calendar` object, leading to incorrect year calculations for dates before year 1 (BC). The fix requires checking the ERA field and adjusting the year accordingly.",
+  "prediction": "The `fromCalendarFields` method in `LocalDateTime` and `LocalDate` will be missing logic to check `calendar.get(Calendar.ERA) == GregorianCalendar.BC` and adjust the year value (e.g., `year = 1 - year` or similar).",
+  "experiment_rationale": "The failure is consistent across multiple constructors and factory methods for both `LocalDateTime` and `LocalDate` when dealing with BC dates. The bug report explicitly mentions 'Check Calendar.ERA in LocalDate.fromCalendarFields', confirming the missing validation/logic.",
+  "reasoning_summary": "The tests fail specifically for BC dates. The `Calendar` API requires explicit handling of the `ERA` field to distinguish between AD and BC. The current implementation ignores this, resulting in incorrect year values. This is a classic missing check for a boundary condition (ERA).",
+  "evidence_used": [
+    "bug_report_description",
+    "failing_tests"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the calculation is wrong, the root cause is the missing check for the ERA field, which is a predicate validation issue."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The implementation of LocalDateTime.fromCalendarFields and LocalDate.fromCalendarFields fails to account for the Calendar.ERA field when converting from a java.util.Calendar object, causing BC dates to be incorrectly interpreted as AD dates.",
+      "prediction": "The source code for LocalDateTime.fromCalendarFields and LocalDate.fromCalendarFields will lack a check for the Calendar.ERA field, or will incorrectly handle the ERA value when calculating the year.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "org.joda.time.LocalDateTime"
+      },
+      "observation_summary": "no snippet matches 'org.joda.time.LocalDateTime'"
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The class LocalDateTime is likely in a different package or file structure than expected, or the snippet tool requires a more specific class name. I will try to find the source code for LocalDateTime by listing all available files or searching for the class directly if possible, but since I cannot list files, I will try to infer the location from the package structure or try a different class name if I can find it.",
+      "prediction": "The class LocalDateTime exists and contains the fromCalendarFields method which fails to handle the ERA field.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "LocalDateTime"
+      },
+      "observation_summary": [
+        "snippets"
+      ]
+    },
+    {
+      "turn": 3,
+      "hypothesis": "The bug is in the implementation of `fromCalendarFields` (and likely `fromDateFields`) in `LocalDateTime` and `LocalDate` classes. These methods fail to correctly handle the `Calendar.ERA` field when converting from a `java.util.Calendar` object, leading to incorrect year calculations for dates before year 1 (BC). The fix requires checking the ERA field and adjusting the year accordingly.",
+      "prediction": "The `fromCalendarFields` method in `LocalDateTime` and `LocalDate` will be missing logic to check `calendar.get(Calendar.ERA) == GregorianCalendar.BC` and adjust the year value (e.g., `year = 1 - year` or similar).",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Checking"
+    }
+  ],
+  "llm_calls_used": 3,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"impact\": \"Capability\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The failing tests demonstrate that `LocalDateTime` and `LocalDate` factory methods (`fromCalendarFields` and `fromDateFields`) incorrectly handle dates before year 1 (BC). The expected output for BC dates is not matched, indicating a failure to account for the ERA field in the input `Calendar` or `Date` objects.\", \"hypothesis\": \"The bug is in the implementation of `fromCalendarFields` (and likely `fromDateFields`) in `LocalDateTime` and `LocalDate` classes. These methods fail to correctly handle the `Calendar.ERA` field when converting from a `java.util.Calendar` object, leading to incorrect year calculations for dates before year 1 (BC). The fix requires checking the ERA field and adjusting the year accordingly.\", \"prediction\": \"The `fromCalendarFields` method in `LocalDateTime` and `LocalDate` will be missing logic to check `calendar.get(Calendar.ERA) == GregorianCalendar.BC` and adjust the year value (e.g., `year = 1 - year` or similar).\", \"experiment_rationale\": \"The failure is consistent across multiple constructors and factory methods for both `LocalDateTime` and `LocalDate` when dealing with BC dates. The bug report explicitly mentions 'Check Calendar.ERA in LocalDate.fromCalendarFields', confirming the missing validation/logic.\", \"reasoning_summary\": \"The tests fail specifically for BC dates. The `Calendar` API requires explicit handling of the `ERA` field to distinguish between AD and BC. The current implementation ignores this, resulting in incorrect year values. This is a classic missing check for a boundary condition (ERA).\", \"evidence_used\": [\"bug_report_description\", \"failing_tests\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"While the calculation is wrong, the root cause is the missing check for the ERA field, which is a predicate validation issue.\"}]}"
+}

@@ -1,0 +1,50 @@
+{
+  "project_id": "Closure",
+  "bug_id": 132,
+  "version_id": "132b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T07:09:15+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The compiler incorrectly transforms an 'if-else' statement into a ternary operator when the condition contains side effects (like decrementing an array index), leading to incorrect execution order and invalid JavaScript output.",
+  "hypothesis": "The peephole optimization logic for converting 'if-else' to ternary operators fails to check if the condition expression has side effects that might conflict with the assignment in the 'then' or 'else' branches. The fix adds a guard to ensure that if the condition has side effects, the transformation is only performed if the assignment is safe (e.g., assigning to a simple name).",
+  "prediction": "The code will now include a check (likely using 'mayHaveSideEffects') on the condition node before proceeding with the transformation, preventing the incorrect reordering of operations.",
+  "experiment_rationale": "The fix diff shows the addition of a complex boolean condition `(!mayHaveSideEffects(cond) || ...)` to the existing guard `!mayEffectMutableState(lhs)`. This confirms that the root cause was a missing validation check on the condition's side effects during the optimization process.",
+  "reasoning_summary": "The bug is a classic case of an optimization pass performing a transformation that is invalid under certain conditions (side effects in the condition expression). The fix is to add a guard (a check) to prevent this transformation when those side effects are present. This fits the 'Checking' ODC type perfectly as it involves adding a missing validation predicate.",
+  "evidence_used": [
+    "The fix diff adds a check `!mayHaveSideEffects(cond)` to the existing conditional logic.",
+    "The failing test case shows that the compiler reordered operations involving `x[--y]`, which has side effects, leading to incorrect output.",
+    "The bug report explicitly states the transformation produces incorrect code when side effects are present in the condition."
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the transformation logic is part of an algorithm, the specific fix is the addition of a guard condition to validate the safety of the transformation, which is the definition of a Checking defect."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The compiler incorrectly transforms an 'if-else' statement into a ternary operator when the condition contains side effects (like decrementing an array index), leading to incorrect execution order and invalid JavaScript output.\",\n  \"hypothesis\": \"The peephole optimization logic for converting 'if-else' to ternary operators fails to check if the condition expression has side effects that might conflict with the assignment in the 'then' or 'else' branches. The fix adds a guard to ensure that if the condition has side effects, the transformation is only performed if the assignment is safe (e.g., assigning to a simple name).\",\n  \"prediction\": \"The code will now include a check (likely using 'mayHaveSideEffects') on the condition node before proceeding with the transformation, preventing the incorrect reordering of operations.\",\n  \"experiment_rationale\": \"The fix diff shows the addition of a complex boolean condition `(!mayHaveSideEffects(cond) || ...)` to the existing guard `!mayEffectMutableState(lhs)`. This confirms that the root cause was a missing validation check on the condition's side effects during the optimization process.\",\n  \"reasoning_summary\": \"The bug is a classic case of an optimization pass performing a transformation that is invalid under certain conditions (side effects in the condition expression). The fix is to add a guard (a check) to prevent this transformation when those side effects are present. This fits the 'Checking' ODC type perfectly as it involves adding a missing validation predicate.\",\n  \"evidence_used\": [\n    \"The fix diff adds a check `!mayHaveSideEffects(cond)` to the existing conditional logic.\",\n    \"The failing test case shows that the compiler reordered operations involving `x[--y]`, which has side effects, leading to incorrect output.\",\n    \"The bug report explicitly states the transformation produces incorrect code when side effects are present in the condition.\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the transformation logic is part of an algorithm, the specific fix is the addition of a guard condition to validate the safety of the transformation, which is the definition of a Checking defect.\"\n    }\n  ]\n}"
+}

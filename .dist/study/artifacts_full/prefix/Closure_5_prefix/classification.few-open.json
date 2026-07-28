@@ -1,0 +1,51 @@
+{
+  "project_id": "Closure",
+  "bug_id": 5,
+  "version_id": "5b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T06:55:13+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.8,
+  "needs_human_review": false,
+  "observation_summary": "The compiler incorrectly inlines object properties even when a 'delete' operation is performed on them. This causes the 'delete' operation to be applied to a primitive variable instead of an object property, leading to incorrect runtime behavior.",
+  "hypothesis": "The compiler's object inlining pass fails to check for the existence of 'delete' operations on the object properties it is attempting to inline. When a property is deleted, the inlining logic should either abort or handle the deletion by setting the variable to undefined, rather than simply removing the property and leaving the 'delete' statement to act on the now-primitive variable.",
+  "prediction": "The code responsible for the object inlining pass will lack a check for 'delete' operations on the properties being inlined. The fix will involve adding a condition to detect if any property of the object is subject to a 'delete' operation and preventing inlining in those cases.",
+  "experiment_rationale": "The failure occurs because the compiler assumes it is safe to inline object properties without verifying if those properties are later deleted. Adding a check to the inlining logic to identify 'delete' operations on the object's properties will confirm that the absence of this check is the root cause.",
+  "reasoning_summary": "The bug is fundamentally a missing validation check. The compiler's inlining algorithm proceeds with an optimization (inlining object properties) without verifying if the object's properties are subject to 'delete' operations. This is a classic 'Checking' defect where a guard condition (is this property deleted?) is missing from the optimization logic.",
+  "evidence_used": [
+    "The compiler ignores 'delete' statements, can break functionality.",
+    "Result: function local(){var JSCompiler_object_inline_bar_0=1;delete JSCompiler_object_inline_bar_0;return JSCompiler_object_inline_bar_0}",
+    "Expected: function local(){var foo={bar:1};delete foo.bar;return foo.bar}",
+    "com.google.javascript.jscomp.InlineObjectLiteralsTest::testNoInlineDeletedProperties"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the inlining algorithm is involved, the specific failure is the lack of a guard/check for the 'delete' operation, which is more precisely classified as a Checking defect."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.8,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The compiler incorrectly inlines object properties even when a 'delete' operation is performed on them. This causes the 'delete' operation to be applied to a primitive variable instead of an object property, leading to incorrect runtime behavior.\",\n  \"hypothesis\": \"The compiler's object inlining pass fails to check for the existence of 'delete' operations on the object properties it is attempting to inline. When a property is deleted, the inlining logic should either abort or handle the deletion by setting the variable to undefined, rather than simply removing the property and leaving the 'delete' statement to act on the now-primitive variable.\",\n  \"prediction\": \"The code responsible for the object inlining pass will lack a check for 'delete' operations on the properties being inlined. The fix will involve adding a condition to detect if any property of the object is subject to a 'delete' operation and preventing inlining in those cases.\",\n  \"experiment_rationale\": \"The failure occurs because the compiler assumes it is safe to inline object properties without verifying if those properties are later deleted. Adding a check to the inlining logic to identify 'delete' operations on the object's properties will confirm that the absence of this check is the root cause.\",\n  \"reasoning_summary\": \"The bug is fundamentally a missing validation check. The compiler's inlining algorithm proceeds with an optimization (inlining object properties) without verifying if the object's properties are subject to 'delete' operations. This is a classic 'Checking' defect where a guard condition (is this property deleted?) is missing from the optimization logic.\",\n  \"evidence_used\": [\n    \"The compiler ignores 'delete' statements, can break functionality.\",\n    \"Result: function local(){var JSCompiler_object_inline_bar_0=1;delete JSCompiler_object_inline_bar_0;return JSCompiler_object_inline_bar_0}\",\n    \"Expected: function local(){var foo={bar:1};delete foo.bar;return foo.bar}\",\n    \"com.google.javascript.jscomp.InlineObjectLiteralsTest::testNoInlineDeletedProperties\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the inlining algorithm is involved, the specific failure is the lack of a guard/check for the 'delete' operation, which is more precisely classified as a Checking defect.\"\n    }\n  ]\n}"
+}

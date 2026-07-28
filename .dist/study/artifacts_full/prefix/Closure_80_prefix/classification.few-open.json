@@ -1,0 +1,50 @@
+{
+  "project_id": "Closure",
+  "bug_id": 80,
+  "version_id": "80b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T07:03:15+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The compiler throws an IllegalStateException: 'Unexpected expression node DELPROP' when processing a 'delete' operation in JavaScript code. This occurs because the 'evaluatesToLocalValue' method in NodeUtil does not account for the 'DELPROP' (delete) token in its switch-case logic, leading to an unhandled state.",
+  "hypothesis": "The 'evaluatesToLocalValue' method is missing a case for the 'Token.DELPROP' node type. When the compiler encounters a 'delete' expression, it falls through to the default case, which throws an exception because it does not recognize the node type.",
+  "prediction": "The fix will involve adding 'case Token.DELPROP:' to the switch statement in 'NodeUtil.evaluatesToLocalValue', likely returning 'true' since a delete operation returns a boolean value (true/false) and does not reference external state in a way that violates the 'local value' contract.",
+  "experiment_rationale": "The stack trace explicitly points to 'NodeUtil.evaluatesToLocalValue' throwing an exception for 'DELPROP'. Adding the missing case to the switch statement will allow the method to handle the node type correctly instead of falling into the error-throwing default block.",
+  "reasoning_summary": "The defect is a classic missing guard/case in a switch statement. The code is designed to handle various expression types, but 'DELPROP' was omitted. This is a failure to validate/handle a specific input type within the control flow, which fits the 'Checking' ODC type perfectly.",
+  "evidence_used": [
+    "com.google.javascript.jscomp.NodeUtil.evaluatesToLocalValue",
+    "java.lang.IllegalStateException: Unexpected expression nodeDELPROP",
+    "NodeUtil.java:2923-2925 (default case throwing exception)"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the method logic is incomplete, the root cause is specifically the failure to check/handle a valid node type (DELPROP) in the switch-case, which is a 'Checking' issue."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The compiler throws an IllegalStateException: 'Unexpected expression node DELPROP' when processing a 'delete' operation in JavaScript code. This occurs because the 'evaluatesToLocalValue' method in NodeUtil does not account for the 'DELPROP' (delete) token in its switch-case logic, leading to an unhandled state.\",\n  \"hypothesis\": \"The 'evaluatesToLocalValue' method is missing a case for the 'Token.DELPROP' node type. When the compiler encounters a 'delete' expression, it falls through to the default case, which throws an exception because it does not recognize the node type.\",\n  \"prediction\": \"The fix will involve adding 'case Token.DELPROP:' to the switch statement in 'NodeUtil.evaluatesToLocalValue', likely returning 'true' since a delete operation returns a boolean value (true/false) and does not reference external state in a way that violates the 'local value' contract.\",\n  \"experiment_rationale\": \"The stack trace explicitly points to 'NodeUtil.evaluatesToLocalValue' throwing an exception for 'DELPROP'. Adding the missing case to the switch statement will allow the method to handle the node type correctly instead of falling into the error-throwing default block.\",\n  \"reasoning_summary\": \"The defect is a classic missing guard/case in a switch statement. The code is designed to handle various expression types, but 'DELPROP' was omitted. This is a failure to validate/handle a specific input type within the control flow, which fits the 'Checking' ODC type perfectly.\",\n  \"evidence_used\": [\n    \"com.google.javascript.jscomp.NodeUtil.evaluatesToLocalValue\",\n    \"java.lang.IllegalStateException: Unexpected expression nodeDELPROP\",\n    \"NodeUtil.java:2923-2925 (default case throwing exception)\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the method logic is incomplete, the root cause is specifically the failure to check/handle a valid node type (DELPROP) in the switch-case, which is a 'Checking' issue.\"\n    }\n  ]\n}"
+}

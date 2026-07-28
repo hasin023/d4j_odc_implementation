@@ -1,0 +1,50 @@
+{
+  "project_id": "Closure",
+  "bug_id": 87,
+  "version_id": "87b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T07:04:05+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The compiler incorrectly optimizes 'if (e.onchange) { e.onchange(); }' into 'e.onchange && e.onchange()', which causes an 'Object doesn't support this action' error in IE8 when the return value of the method call is consumed.",
+  "hypothesis": "The peephole optimization logic is too aggressive and fails to account for a specific IE8 bug where calling event handler methods (starting with 'on') and consuming their return value triggers an incorrect native method dispatch.",
+  "prediction": "The fix will introduce a conditional check in the peephole optimizer to detect if the expression being folded is a method call on an event handler (e.g., 'onchange') and prevent the optimization if so.",
+  "experiment_rationale": "The fix diff shows the addition of a conditional check that inspects the node type (Token.CALL) and the property name (starts with 'on') to explicitly return 'false' (preventing the optimization) when these conditions are met, confirming the hypothesis that a missing guard was the root cause.",
+  "reasoning_summary": "The bug is caused by the absence of a validation check in the peephole optimizer. The optimizer was blindly folding code that is unsafe for specific browser environments (IE8). The fix adds a conditional guard to identify and skip this unsafe optimization, which is a classic 'Checking' defect.",
+  "evidence_used": [
+    "The fix_diff_oracle shows the addition of an 'if' block that checks for 'Token.CALL' and property names starting with 'on'.",
+    "The bug report describes the failure as an IE8-specific error triggered by the optimized code.",
+    "The test case 'testIssue291' confirms the compiler's transformation behavior."
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the optimization is an algorithm, the root cause is the lack of a guard to prevent an unsafe transformation, which is more specifically a 'Checking' defect."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 1.0,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The compiler incorrectly optimizes 'if (e.onchange) { e.onchange(); }' into 'e.onchange && e.onchange()', which causes an 'Object doesn't support this action' error in IE8 when the return value of the method call is consumed.\",\n  \"hypothesis\": \"The peephole optimization logic is too aggressive and fails to account for a specific IE8 bug where calling event handler methods (starting with 'on') and consuming their return value triggers an incorrect native method dispatch.\",\n  \"prediction\": \"The fix will introduce a conditional check in the peephole optimizer to detect if the expression being folded is a method call on an event handler (e.g., 'onchange') and prevent the optimization if so.\",\n  \"experiment_rationale\": \"The fix diff shows the addition of a conditional check that inspects the node type (Token.CALL) and the property name (starts with 'on') to explicitly return 'false' (preventing the optimization) when these conditions are met, confirming the hypothesis that a missing guard was the root cause.\",\n  \"reasoning_summary\": \"The bug is caused by the absence of a validation check in the peephole optimizer. The optimizer was blindly folding code that is unsafe for specific browser environments (IE8). The fix adds a conditional guard to identify and skip this unsafe optimization, which is a classic 'Checking' defect.\",\n  \"evidence_used\": [\n    \"The fix_diff_oracle shows the addition of an 'if' block that checks for 'Token.CALL' and property names starting with 'on'.\",\n    \"The bug report describes the failure as an IE8-specific error triggered by the optimized code.\",\n    \"The test case 'testIssue291' confirms the compiler's transformation behavior.\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the optimization is an algorithm, the root cause is the lack of a guard to prevent an unsafe transformation, which is more specifically a 'Checking' defect.\"\n    }\n  ]\n}"
+}

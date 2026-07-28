@@ -1,0 +1,50 @@
+{
+  "project_id": "Closure",
+  "bug_id": 127,
+  "version_id": "127b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T07:08:41+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The compiler incorrectly removes 'break', 'continue', or 'return' statements within a 'finally' block during unreachable code elimination, leading to incorrect program behavior where control flow jumps are prematurely discarded.",
+  "hypothesis": "The unreachable code elimination pass fails to account for the special semantics of 'finally' blocks in JavaScript, where control flow statements like 'break', 'continue', or 'return' can override exceptions or normal flow. The logic incorrectly identifies these statements as unreachable or redundant because it does not check if the node is nested within a 'finally' block.",
+  "prediction": "The fix will introduce a check to determine if the node being removed is inside a 'finally' block, preventing the removal of control flow statements that are critical to the 'finally' block's execution semantics.",
+  "experiment_rationale": "The provided diff shows the addition of an 'inFinally' helper method and a corresponding guard condition '&& !inFinally(n.getParent(), n)' in the removal logic. This confirms that the root cause was a missing check for the 'finally' context.",
+  "reasoning_summary": "The bug is a classic 'Checking' defect. The compiler's optimization logic was missing a necessary validation (a guard) to check if a node was located within a 'finally' block before deciding to remove it. The fix adds this missing check, which is the definition of a 'Checking' ODC type.",
+  "evidence_used": [
+    "The diff adds a guard condition '&& !inFinally(n.getParent(), n)' to the node removal logic.",
+    "The diff adds a new helper method 'inFinally' to traverse the AST and detect if a node is within a 'finally' block.",
+    "The bug report explicitly mentions that 'break' in a 'finally' block should prevent an exception from being passed on, and the compiler was incorrectly removing it."
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the removal logic is part of an algorithm, the specific root cause is the absence of a guard condition to protect nodes within 'finally' blocks, which is more precisely classified as 'Checking'."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 1.0,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The compiler incorrectly removes 'break', 'continue', or 'return' statements within a 'finally' block during unreachable code elimination, leading to incorrect program behavior where control flow jumps are prematurely discarded.\",\n  \"hypothesis\": \"The unreachable code elimination pass fails to account for the special semantics of 'finally' blocks in JavaScript, where control flow statements like 'break', 'continue', or 'return' can override exceptions or normal flow. The logic incorrectly identifies these statements as unreachable or redundant because it does not check if the node is nested within a 'finally' block.\",\n  \"prediction\": \"The fix will introduce a check to determine if the node being removed is inside a 'finally' block, preventing the removal of control flow statements that are critical to the 'finally' block's execution semantics.\",\n  \"experiment_rationale\": \"The provided diff shows the addition of an 'inFinally' helper method and a corresponding guard condition '&& !inFinally(n.getParent(), n)' in the removal logic. This confirms that the root cause was a missing check for the 'finally' context.\",\n  \"reasoning_summary\": \"The bug is a classic 'Checking' defect. The compiler's optimization logic was missing a necessary validation (a guard) to check if a node was located within a 'finally' block before deciding to remove it. The fix adds this missing check, which is the definition of a 'Checking' ODC type.\",\n  \"evidence_used\": [\n    \"The diff adds a guard condition '&& !inFinally(n.getParent(), n)' to the node removal logic.\",\n    \"The diff adds a new helper method 'inFinally' to traverse the AST and detect if a node is within a 'finally' block.\",\n    \"The bug report explicitly mentions that 'break' in a 'finally' block should prevent an exception from being passed on, and the compiler was incorrectly removing it.\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the removal logic is part of an algorithm, the specific root cause is the absence of a guard condition to protect nodes within 'finally' blocks, which is more precisely classified as 'Checking'.\"\n    }\n  ]\n}"
+}

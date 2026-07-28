@@ -1,0 +1,49 @@
+{
+  "project_id": "Closure",
+  "bug_id": 113,
+  "version_id": "113b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T07:07:05+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The compiler was incorrectly removing 'goog.require' calls from the AST even when those requires were invalid and needed to be preserved for subsequent error reporting. This caused the compiler to fail to report missing namespaces.",
+  "hypothesis": "The logic in 'ProcessClosurePrimitives' used an incorrect condition to decide whether to remove a 'goog.require' call. It only removed the call if 'provided != null', failing to account for cases where the requirement level is active ('requiresLevel.isOn()'), which should also trigger the removal of valid requires or the preservation of invalid ones.",
+  "prediction": "The fix will involve updating the conditional statement in 'ProcessClosurePrimitives' to correctly include 'requiresLevel.isOn()' as a factor in determining whether to detach the 'goog.require' node from the AST.",
+  "experiment_rationale": "The provided diff shows that the condition 'if (provided != null)' was changed to 'if (provided != null || requiresLevel.isOn())'. This confirms that the original code was missing a check for the 'requiresLevel' state, which is a classic 'Checking' defect where a guard condition was incomplete.",
+  "reasoning_summary": "The bug is a classic 'Checking' defect. The code failed to properly validate the state of 'requiresLevel' before deciding to remove a node from the AST. By adding the missing condition '|| requiresLevel.isOn()', the developer ensured that the logic correctly handles the requirement level, which is a validation/guard logic issue.",
+  "evidence_used": [
+    "The bug report states: 'Nevertheless, the second condition (requiresLevel.isOn() -> see source code) is invalid and always causes removing of the requires when we want to check these requires.'",
+    "The fix diff shows: 'if (provided != null || requiresLevel.isOn())' replacing 'if (provided != null)'."
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the logic is procedural, the root cause is specifically a missing guard condition (a check) rather than an incorrect computational algorithm."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Capability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The compiler was incorrectly removing 'goog.require' calls from the AST even when those requires were invalid and needed to be preserved for subsequent error reporting. This caused the compiler to fail to report missing namespaces.\",\n  \"hypothesis\": \"The logic in 'ProcessClosurePrimitives' used an incorrect condition to decide whether to remove a 'goog.require' call. It only removed the call if 'provided != null', failing to account for cases where the requirement level is active ('requiresLevel.isOn()'), which should also trigger the removal of valid requires or the preservation of invalid ones.\",\n  \"prediction\": \"The fix will involve updating the conditional statement in 'ProcessClosurePrimitives' to correctly include 'requiresLevel.isOn()' as a factor in determining whether to detach the 'goog.require' node from the AST.\",\n  \"experiment_rationale\": \"The provided diff shows that the condition 'if (provided != null)' was changed to 'if (provided != null || requiresLevel.isOn())'. This confirms that the original code was missing a check for the 'requiresLevel' state, which is a classic 'Checking' defect where a guard condition was incomplete.\",\n  \"reasoning_summary\": \"The bug is a classic 'Checking' defect. The code failed to properly validate the state of 'requiresLevel' before deciding to remove a node from the AST. By adding the missing condition '|| requiresLevel.isOn()', the developer ensured that the logic correctly handles the requirement level, which is a validation/guard logic issue.\",\n  \"evidence_used\": [\n    \"The bug report states: 'Nevertheless, the second condition (requiresLevel.isOn() -> see source code) is invalid and always causes removing of the requires when we want to check these requires.'\",\n    \"The fix diff shows: 'if (provided != null || requiresLevel.isOn())' replacing 'if (provided != null)'.\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the logic is procedural, the root cause is specifically a missing guard condition (a check) rather than an incorrect computational algorithm.\"\n    }\n  ]\n}"
+}

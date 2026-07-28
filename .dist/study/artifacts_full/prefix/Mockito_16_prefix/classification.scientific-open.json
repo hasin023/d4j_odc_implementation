@@ -1,0 +1,84 @@
+{
+  "project_id": "Mockito",
+  "bug_id": 16,
+  "version_id": "16b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-25T12:50:01+00:00",
+  "odc_type": "Interface/O-O Messages",
+  "family": "Structural",
+  "confidence": 0.8,
+  "needs_human_review": false,
+  "observation_summary": "The test fails with a MissingMethodInvocationException when using RETURNS_MOCKS, indicating that the 'when' call is not correctly registering the method invocation on the mock.",
+  "hypothesis": "The Mockito framework's internal invocation recording mechanism is being bypassed or incorrectly reset when a mock is configured with RETURNS_MOCKS, because the mock's default answer is triggered during the 'when' call.",
+  "prediction": "The 'when' call fails to correctly communicate the intent to stub to the mock handler when a default answer is present.",
+  "experiment_rationale": "The failure is a classic 'MissingMethodInvocationException' which occurs when the framework's internal state machine for stubbing is not correctly updated by the method call inside 'when()'. This is a communication failure between the API call and the internal handler.",
+  "reasoning_summary": "The failure occurs because the mock, configured with RETURNS_MOCKS, returns a value during the 'when' call, which interferes with the framework's ability to record the method call as a stubbing target. This is a mismatch in the expected interaction between the 'when' API and the mock's internal handler.",
+  "evidence_used": [
+    "Stack trace showing MissingMethodInvocationException",
+    "Test code showing the use of RETURNS_MOCKS"
+  ],
+  "evidence_gaps": [
+    "Internal source code of Mockito's handler logic"
+  ],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The issue is not a local procedural error but a failure in the interaction/contract between the 'when' call and the mock handler."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "When a mock is created with RETURNS_MOCKS, the first call to a method on that mock (inside the when() block) is being intercepted and handled by the RETURNS_MOCKS answer instead of being recorded as a stubbing invocation, causing the framework to think no method was called.",
+      "prediction": "The MockHandler or the invocation recording mechanism is incorrectly identifying the call inside when() as a regular invocation rather than a stubbing registration when RETURNS_MOCKS is active.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "org.mockito.internal.MockitoCore"
+      },
+      "observation_summary": "no snippet matches 'org.mockito.internal.MockitoCore'"
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The Mockito framework's internal state for tracking stubbing is being cleared or incorrectly handled when a mock is configured with RETURNS_MOCKS, because the mock itself is already returning a value (a new mock) during the 'when' call, which confuses the framework's invocation recording.",
+      "prediction": "The issue lies in how Mockito handles the invocation recording when the mock's default answer is triggered during the 'when' call. I need to examine the internal handler logic.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "org.mockito.internal.MockHandler"
+      },
+      "observation_summary": "no snippet matches 'org.mockito.internal.MockHandler'"
+    },
+    {
+      "turn": 3,
+      "hypothesis": "The issue is that the Mockito framework's internal invocation recording mechanism is being bypassed or incorrectly reset when a mock is configured with RETURNS_MOCKS, because the mock's default answer is triggered during the 'when' call, causing the framework to fail to register the method call as a stubbing target.",
+      "prediction": "The bug is in the internal logic that handles the 'when' call, specifically in how it interacts with the mock's invocation handler when a default answer is present. Since I cannot access the internal classes directly, I will conclude based on the ODC taxonomy that this is an Interface/O-O Messages issue, as the contract between the 'when' call and the mock handler is failing to correctly communicate the intent to stub.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Interface/O-O Messages"
+    }
+  ],
+  "llm_calls_used": 3,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Interface/O-O Messages\", \"family\": \"Structural\", \"impact\": \"Capability\", \"confidence\": 0.8, \"needs_human_review\": false, \"observation_summary\": \"The test fails with a MissingMethodInvocationException when using RETURNS_MOCKS, indicating that the 'when' call is not correctly registering the method invocation on the mock.\", \"hypothesis\": \"The Mockito framework's internal invocation recording mechanism is being bypassed or incorrectly reset when a mock is configured with RETURNS_MOCKS, because the mock's default answer is triggered during the 'when' call.\", \"prediction\": \"The 'when' call fails to correctly communicate the intent to stub to the mock handler when a default answer is present.\", \"experiment_rationale\": \"The failure is a classic 'MissingMethodInvocationException' which occurs when the framework's internal state machine for stubbing is not correctly updated by the method call inside 'when()'. This is a communication failure between the API call and the internal handler.\", \"reasoning_summary\": \"The failure occurs because the mock, configured with RETURNS_MOCKS, returns a value during the 'when' call, which interferes with the framework's ability to record the method call as a stubbing target. This is a mismatch in the expected interaction between the 'when' API and the mock's internal handler.\", \"evidence_used\": [\"Stack trace showing MissingMethodInvocationException\", \"Test code showing the use of RETURNS_MOCKS\"], \"evidence_gaps\": [\"Internal source code of Mockito's handler logic\"], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"The issue is not a local procedural error but a failure in the interaction/contract between the 'when' call and the mock handler.\"}]}"
+}

@@ -1,0 +1,113 @@
+{
+  "project_id": "Mockito",
+  "bug_id": 9,
+  "version_id": "9b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-25T12:38:41+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The test 'abstractMethodStubbed' fails with a 'MockitoException: Cannot call abstract real method on java object!' when attempting to spy on an abstract class. The stack trace points to 'InvocationImpl.callRealMethod' as the location where this check is performed (or missing).",
+  "hypothesis": "The Mockito framework's 'InvocationImpl.callRealMethod' incorrectly attempts to invoke real methods on abstract classes or interfaces without verifying if the method is abstract, leading to a runtime exception when the user attempts to spy on such classes.",
+  "prediction": "The 'InvocationImpl.callRealMethod' method lacks a check for 'Modifier.isAbstract(method.getModifiers())' before proceeding with the invocation, and adding this check will prevent the exception.",
+  "experiment_rationale": "The stack trace clearly identifies the failure point in 'InvocationImpl.callRealMethod' and the error message explicitly states the cause is calling an abstract method. This is a classic missing validation check.",
+  "reasoning_summary": "The failure is caused by the framework attempting to execute a real method on an abstract class. The framework should have validated that the method is not abstract before attempting the call. This is a 'Checking' defect as it involves missing parameter/data validation (the method's abstract status).",
+  "evidence_used": [
+    "full_stack_trace"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The issue is not the algorithm itself, but the lack of a guard condition to prevent invalid execution."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The Mockito framework incorrectly attempts to call real methods on abstract classes or interfaces when using 'spy' or 'thenCallRealMethod', failing to check if the method is abstract before invoking it via CGLIB.",
+      "prediction": "The 'InvocationImpl.callRealMethod' or the 'CallsRealMethods' answer class lacks a check to verify if the method being invoked is abstract, leading to the 'Cannot call abstract real method' exception.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "org.mockito.internal.invocation.InvocationImpl"
+      },
+      "observation_summary": "no snippet matches 'org.mockito.internal.invocation.InvocationImpl'"
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The Mockito framework is failing to correctly identify abstract methods when attempting to call real methods on a spy, likely because the logic in 'CallsRealMethods' or 'InvocationImpl' does not properly check the method's modifiers before proceeding with the invocation.",
+      "prediction": "The class 'CallsRealMethods' or 'InvocationImpl' contains logic that attempts to invoke a method without checking if it is abstract, and I need to find the correct class name to inspect this logic.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "list_evidence",
+        "argument": null
+      },
+      "observation_summary": [
+        "bug_report_available",
+        "coverage_classes",
+        "failing_tests",
+        "production_snippet_classes",
+        "test_snippet_classes"
+      ]
+    },
+    {
+      "turn": 3,
+      "hypothesis": "The Mockito framework's 'CallsRealMethods' implementation is incorrectly attempting to invoke real methods on abstract classes or interfaces without checking if the method is abstract, which is a violation of the contract for 'thenCallRealMethod'.",
+      "prediction": "The 'CallsRealMethods' class will contain a method that calls 'invocation.callRealMethod()' without verifying if the method is abstract, and the fix will involve adding a check for 'Modifier.isAbstract(method.getModifiers())'.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "org.mockito.internal.stubbing.answers.CallsRealMethods"
+      },
+      "observation_summary": "no snippet matches 'org.mockito.internal.stubbing.answers.CallsRealMethods'"
+    },
+    {
+      "turn": 4,
+      "hypothesis": "The Mockito framework is failing to correctly identify abstract methods when attempting to call real methods on a spy, likely because the logic in 'InvocationImpl' does not properly check the method's modifiers before proceeding with the invocation.",
+      "prediction": "The 'InvocationImpl' class contains logic that attempts to invoke a method without checking if it is abstract, and I need to find the correct class name to inspect this logic.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "full_stack_trace",
+        "argument": "abstractMethodStubbed"
+      },
+      "observation_summary": [
+        "traces"
+      ]
+    },
+    {
+      "turn": 5,
+      "hypothesis": "The Mockito framework's 'InvocationImpl.callRealMethod' incorrectly attempts to invoke real methods on abstract classes or interfaces without verifying if the method is abstract, leading to a runtime exception when the user attempts to spy on such classes.",
+      "prediction": "The 'InvocationImpl.callRealMethod' method lacks a check for 'Modifier.isAbstract(method.getModifiers())' before proceeding with the invocation, and adding this check will prevent the exception.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Checking"
+    }
+  ],
+  "llm_calls_used": 5,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"impact\": \"Capability\", \"confidence\": 0.9, \"needs_human_review\": false, \"observation_summary\": \"The test 'abstractMethodStubbed' fails with a 'MockitoException: Cannot call abstract real method on java object!' when attempting to spy on an abstract class. The stack trace points to 'InvocationImpl.callRealMethod' as the location where this check is performed (or missing).\", \"hypothesis\": \"The Mockito framework's 'InvocationImpl.callRealMethod' incorrectly attempts to invoke real methods on abstract classes or interfaces without verifying if the method is abstract, leading to a runtime exception when the user attempts to spy on such classes.\", \"prediction\": \"The 'InvocationImpl.callRealMethod' method lacks a check for 'Modifier.isAbstract(method.getModifiers())' before proceeding with the invocation, and adding this check will prevent the exception.\", \"experiment_rationale\": \"The stack trace clearly identifies the failure point in 'InvocationImpl.callRealMethod' and the error message explicitly states the cause is calling an abstract method. This is a classic missing validation check.\", \"reasoning_summary\": \"The failure is caused by the framework attempting to execute a real method on an abstract class. The framework should have validated that the method is not abstract before attempting the call. This is a 'Checking' defect as it involves missing parameter/data validation (the method's abstract status).\", \"evidence_used\": [\"full_stack_trace\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"The issue is not the algorithm itself, but the lack of a guard condition to prevent invalid execution.\"}]}"
+}

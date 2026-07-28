@@ -1,0 +1,49 @@
+{
+  "project_id": "Mockito",
+  "bug_id": 14,
+  "version_id": "14b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-25T12:51:55+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The test fails because verification is incorrectly triggered for a mock when another mock's method is called within the same verification line (e.g., verify(mockTwo).simpleMethod(mock.otherMethod())).",
+  "hypothesis": "The verification mode was being applied globally to any mock interaction, failing to check if the current invocation actually belongs to the mock being verified. The fix introduces a check to ensure the verification mode is only applied when the mock being verified matches the mock of the current invocation.",
+  "prediction": "The code will now include a conditional check (if statement) that validates the mock identity before proceeding with the verification logic.",
+  "experiment_rationale": "The diff shows the addition of a conditional check `if (verificationMode instanceof MockAwareVerificationMode && ((MockAwareVerificationMode) verificationMode).getMock() == invocation.getMock())` in `MockHandler.java`, which directly validates the association between the verification mode and the mock being invoked.",
+  "reasoning_summary": "The bug is caused by a missing validation check that ensures verification logic is only executed for the specific mock intended. The fix adds this missing guard, which is the hallmark of a 'Checking' defect.",
+  "evidence_used": [
+    "The diff in MockHandler.java adds a conditional check to verify if the mock being verified matches the mock of the current invocation.",
+    "The diff in MockitoCore.java wraps the verification mode in a MockAwareVerificationMode, providing the necessary context for the check added in MockHandler."
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Relationship",
+      "why_not_primary": "While the fix involves ensuring a relationship between the verification mode and the mock, the root cause is the absence of a guard condition to validate this relationship during execution, making 'Checking' the more precise ODC type."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Capability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The test fails because verification is incorrectly triggered for a mock when another mock's method is called within the same verification line (e.g., verify(mockTwo).simpleMethod(mock.otherMethod())).\",\n  \"hypothesis\": \"The verification mode was being applied globally to any mock interaction, failing to check if the current invocation actually belongs to the mock being verified. The fix introduces a check to ensure the verification mode is only applied when the mock being verified matches the mock of the current invocation.\",\n  \"prediction\": \"The code will now include a conditional check (if statement) that validates the mock identity before proceeding with the verification logic.\",\n  \"experiment_rationale\": \"The diff shows the addition of a conditional check `if (verificationMode instanceof MockAwareVerificationMode && ((MockAwareVerificationMode) verificationMode).getMock() == invocation.getMock())` in `MockHandler.java`, which directly validates the association between the verification mode and the mock being invoked.\",\n  \"reasoning_summary\": \"The bug is caused by a missing validation check that ensures verification logic is only executed for the specific mock intended. The fix adds this missing guard, which is the hallmark of a 'Checking' defect.\",\n  \"evidence_used\": [\n    \"The diff in MockHandler.java adds a conditional check to verify if the mock being verified matches the mock of the current invocation.\",\n    \"The diff in MockitoCore.java wraps the verification mode in a MockAwareVerificationMode, providing the necessary context for the check added in MockHandler.\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Relationship\",\n      \"why_not_primary\": \"While the fix involves ensuring a relationship between the verification mode and the mock, the root cause is the absence of a guard condition to validate this relationship during execution, making 'Checking' the more precise ODC type.\"\n    }\n  ]\n}"
+}

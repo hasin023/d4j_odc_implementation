@@ -1,0 +1,55 @@
+{
+  "project_id": "Mockito",
+  "bug_id": 36,
+  "version_id": "36b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-25T12:54:15+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The application throws a NullPointerException or NoSuchMethodError when attempting to call a real method on an interface mock. The system fails to validate whether the method being invoked is actually capable of being called as a 'real method' (i.e., it is an interface method, which has no implementation).",
+  "hypothesis": "The `Invocation.callRealMethod()` method lacks a guard to check if the underlying method belongs to an interface. Since interfaces do not have real method implementations, attempting to invoke them via CGLIB proxying results in an invalid operation (NPE or NoSuchMethodError).",
+  "prediction": "The fix will involve adding a conditional check (e.g., `if (method.getDeclaringClass().isInterface())`) within `Invocation.callRealMethod()` to throw a descriptive `MockitoException` instead of allowing the execution to proceed to the CGLIB proxy layer.",
+  "experiment_rationale": "The stack trace shows the failure occurs inside `Invocation.callRealMethod()`. By adding a guard clause to verify the method's origin before proceeding with the proxy invocation, we prevent the invalid execution path that leads to the reported exceptions.",
+  "reasoning_summary": "The root cause is a missing validation check. The system attempts to perform an operation (calling a real method) that is fundamentally invalid for interface methods. The fix is to add a guard condition to detect this scenario and handle it gracefully, which is the definition of a Checking defect.",
+  "evidence_used": [
+    "java.lang.NullPointerException at org.mockito.internal.invocation.Invocation.callRealMethod(Invocation.java:202)",
+    "java.lang.NoSuchMethodError at org.mockito.internal.invocation.Invocation.callRealMethod(Invocation.java:202)",
+    "org.mockito.internal.invocation.InvocationTest::shouldScreamWhenCallingRealMethodOnInterface",
+    "org.mockitousage.spies.SpyingOnInterfacesTest::shouldFailInRuntimeWhenCallingRealMethodOnInterface"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Function/Class/Object",
+      "why_not_primary": "While the capability to call real methods on interfaces is missing, the failure is a runtime crash due to lack of validation, not a design-level omission of a required feature."
+    },
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The procedure itself is not wrong; it is simply missing a guard to prevent execution on invalid input (interface methods)."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The application throws a NullPointerException or NoSuchMethodError when attempting to call a real method on an interface mock. The system fails to validate whether the method being invoked is actually capable of being called as a 'real method' (i.e., it is an interface method, which has no implementation).\",\n  \"hypothesis\": \"The `Invocation.callRealMethod()` method lacks a guard to check if the underlying method belongs to an interface. Since interfaces do not have real method implementations, attempting to invoke them via CGLIB proxying results in an invalid operation (NPE or NoSuchMethodError).\",\n  \"prediction\": \"The fix will involve adding a conditional check (e.g., `if (method.getDeclaringClass().isInterface())`) within `Invocation.callRealMethod()` to throw a descriptive `MockitoException` instead of allowing the execution to proceed to the CGLIB proxy layer.\",\n  \"experiment_rationale\": \"The stack trace shows the failure occurs inside `Invocation.callRealMethod()`. By adding a guard clause to verify the method's origin before proceeding with the proxy invocation, we prevent the invalid execution path that leads to the reported exceptions.\",\n  \"reasoning_summary\": \"The root cause is a missing validation check. The system attempts to perform an operation (calling a real method) that is fundamentally invalid for interface methods. The fix is to add a guard condition to detect this scenario and handle it gracefully, which is the definition of a Checking defect.\",\n  \"evidence_used\": [\n    \"java.lang.NullPointerException at org.mockito.internal.invocation.Invocation.callRealMethod(Invocation.java:202)\",\n    \"java.lang.NoSuchMethodError at org.mockito.internal.invocation.Invocation.callRealMethod(Invocation.java:202)\",\n    \"org.mockito.internal.invocation.InvocationTest::shouldScreamWhenCallingRealMethodOnInterface\",\n    \"org.mockitousage.spies.SpyingOnInterfacesTest::shouldFailInRuntimeWhenCallingRealMethodOnInterface\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Function/Class/Object\",\n      \"why_not_primary\": \"While the capability to call real methods on interfaces is missing, the failure is a runtime crash due to lack of validation, not a design-level omission of a required feature.\"\n    },\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"The procedure itself is not wrong; it is simply missing a guard to prevent execution on invalid input (interface methods).\"\n    }\n  ]\n}"
+}

@@ -1,0 +1,72 @@
+{
+  "project_id": "Time",
+  "bug_id": 7,
+  "version_id": "7b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-25T12:29:22+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The code in DateTimeParserBucket.computeMillis forces a default year into the parsing bucket when the first field is a month or day. This causes validation errors (IllegalFieldValueException) when the default year is not a leap year, even if the actual target year is a leap year.",
+  "hypothesis": "The logic in DateTimeParserBucket.computeMillis incorrectly forces the use of iDefaultYear when parsing month/day fields. By calling saveField(DateTimeFieldType.year(), iDefaultYear) and then recursively calling computeMillis, it forces the year to be set before the actual year (if provided in the input) can be processed. If the default year is not a leap year, setting the month to February and day to 29 triggers an IllegalFieldValueException because the validation occurs against the non-leap default year.",
+  "prediction": "Removing the automatic injection of iDefaultYear or ensuring that the year field is processed before the month/day fields would resolve the issue. The current implementation is a procedural error in the order of operations during parsing.",
+  "experiment_rationale": "The code snippet confirms that the method recursively calls itself after injecting the default year, which is a clear procedural error in the parsing sequence.",
+  "reasoning_summary": "The bug is caused by an incorrect algorithmic approach to handling default years during partial date parsing. The code forces a default year into the parsing bucket, which triggers validation logic (in PreciseDurationDateTimeField) against that default year before the actual year can be parsed. This is a classic procedural/algorithmic error in the parsing flow.",
+  "evidence_used": [
+    "DateTimeParserBucket.java snippet",
+    "Stack trace showing IllegalFieldValueException in PreciseDurationDateTimeField.set"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "While the error manifests as a failed check, the root cause is the incorrect procedural logic of injecting a default year and re-triggering the computation, not a missing or incorrect guard condition."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The DateTimeParserBucket.computeMillis method incorrectly handles the year during parsing when the input date is February 29th. Specifically, when parsing a month and day, the code attempts to use a default year (often 1970 or the current year) to validate the date. If the default year is not a leap year, February 29th is invalid, causing an IllegalFieldValueException even if the actual target year (e.g., 2000 or 2004) is a leap year.",
+      "prediction": "The logic in DateTimeParserBucket.computeMillis (lines 353-360) that sets the default year is too aggressive or incorrectly ordered, causing the validation to occur against a non-leap year before the actual year is correctly applied or considered.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "DateTimeParserBucket"
+      },
+      "observation_summary": [
+        "snippets"
+      ]
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The logic in DateTimeParserBucket.computeMillis incorrectly forces the use of iDefaultYear when parsing month/day fields. By calling saveField(DateTimeFieldType.year(), iDefaultYear) and then recursively calling computeMillis, it forces the year to be set before the actual year (if provided in the input) can be processed. If the default year is not a leap year, setting the month to February and day to 29 triggers an IllegalFieldValueException because the validation occurs against the non-leap default year.",
+      "prediction": "Removing the automatic injection of iDefaultYear or ensuring that the year field is processed before the month/day fields would resolve the issue. The current implementation is a procedural error in the order of operations during parsing.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Algorithm/Method"
+    }
+  ],
+  "llm_calls_used": 2,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"impact\": \"Capability\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The code in DateTimeParserBucket.computeMillis forces a default year into the parsing bucket when the first field is a month or day. This causes validation errors (IllegalFieldValueException) when the default year is not a leap year, even if the actual target year is a leap year.\", \"hypothesis\": \"The logic in DateTimeParserBucket.computeMillis incorrectly forces the use of iDefaultYear when parsing month/day fields. By calling saveField(DateTimeFieldType.year(), iDefaultYear) and then recursively calling computeMillis, it forces the year to be set before the actual year (if provided in the input) can be processed. If the default year is not a leap year, setting the month to February and day to 29 triggers an IllegalFieldValueException because the validation occurs against the non-leap default year.\", \"prediction\": \"Removing the automatic injection of iDefaultYear or ensuring that the year field is processed before the month/day fields would resolve the issue. The current implementation is a procedural error in the order of operations during parsing.\", \"experiment_rationale\": \"The code snippet confirms that the method recursively calls itself after injecting the default year, which is a clear procedural error in the parsing sequence.\", \"reasoning_summary\": \"The bug is caused by an incorrect algorithmic approach to handling default years during partial date parsing. The code forces a default year into the parsing bucket, which triggers validation logic (in PreciseDurationDateTimeField) against that default year before the actual year can be parsed. This is a classic procedural/algorithmic error in the parsing flow.\", \"evidence_used\": [\"DateTimeParserBucket.java snippet\", \"Stack trace showing IllegalFieldValueException in PreciseDurationDateTimeField.set\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Checking\", \"why_not_primary\": \"While the error manifests as a failed check, the root cause is the incorrect procedural logic of injecting a default year and re-triggering the computation, not a missing or incorrect guard condition.\"}]}"
+}

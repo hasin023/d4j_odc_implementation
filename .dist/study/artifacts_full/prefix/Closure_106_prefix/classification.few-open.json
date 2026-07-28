@@ -1,0 +1,54 @@
+{
+  "project_id": "Closure",
+  "bug_id": 106,
+  "version_id": "106b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T07:06:11+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The compiler throws an IllegalArgumentException during the CollapseProperties pass, specifically when calling Preconditions.checkArgument(NodeUtil.isStatementBlock(parent)) in addStubsForUndeclaredProperties. This indicates that the code assumes the parent node is always a statement block, which is not always true in the AST structure during property collapsing.",
+  "hypothesis": "The method addStubsForUndeclaredProperties assumes that the 'parent' node passed to it is always a statement block (a block containing statements). However, in certain AST configurations (like nested assignments or specific comma operator usage), the parent node might be a different type of node (e.g., an expression node), causing the Preconditions check to fail.",
+  "prediction": "The fix will involve adding a check to verify if the parent node is a statement block before proceeding, or handling cases where it is not a statement block by finding the appropriate parent node or skipping the stub addition.",
+  "experiment_rationale": "The stack trace explicitly points to Preconditions.checkArgument(NodeUtil.isStatementBlock(parent)) as the source of the exception. This is a classic guard-check failure where the code assumes a structural property of the AST that does not hold in all cases.",
+  "reasoning_summary": "The defect is a classic 'Checking' issue. The code uses a Precondition to enforce an assumption (that the parent is a statement block). When this assumption is violated, the program crashes. The fix requires either a more robust check or a conditional path to handle non-statement-block parents, which falls squarely under the 'Checking' ODC type.",
+  "evidence_used": [
+    "com.google.javascript.jscomp.CollapseProperties.addStubsForUndeclaredProperties(CollapseProperties.java:813)",
+    "java.lang.IllegalArgumentException",
+    "com.google.common.base.Preconditions.checkArgument(Preconditions.java:71)"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the logic for adding stubs is part of an algorithm, the immediate cause of the crash is the failure of a validation check (the Precondition) that guards the algorithm's execution."
+    },
+    {
+      "type": "Function/Class/Object",
+      "why_not_primary": "This is not a missing capability or design-level omission; it is a failure to validate the input structure (the AST node type) before performing an operation."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The compiler throws an IllegalArgumentException during the CollapseProperties pass, specifically when calling Preconditions.checkArgument(NodeUtil.isStatementBlock(parent)) in addStubsForUndeclaredProperties. This indicates that the code assumes the parent node is always a statement block, which is not always true in the AST structure during property collapsing.\",\n  \"hypothesis\": \"The method addStubsForUndeclaredProperties assumes that the 'parent' node passed to it is always a statement block (a block containing statements). However, in certain AST configurations (like nested assignments or specific comma operator usage), the parent node might be a different type of node (e.g., an expression node), causing the Preconditions check to fail.\",\n  \"prediction\": \"The fix will involve adding a check to verify if the parent node is a statement block before proceeding, or handling cases where it is not a statement block by finding the appropriate parent node or skipping the stub addition.\",\n  \"experiment_rationale\": \"The stack trace explicitly points to Preconditions.checkArgument(NodeUtil.isStatementBlock(parent)) as the source of the exception. This is a classic guard-check failure where the code assumes a structural property of the AST that does not hold in all cases.\",\n  \"reasoning_summary\": \"The defect is a classic 'Checking' issue. The code uses a Precondition to enforce an assumption (that the parent is a statement block). When this assumption is violated, the program crashes. The fix requires either a more robust check or a conditional path to handle non-statement-block parents, which falls squarely under the 'Checking' ODC type.\",\n  \"evidence_used\": [\n    \"com.google.javascript.jscomp.CollapseProperties.addStubsForUndeclaredProperties(CollapseProperties.java:813)\",\n    \"java.lang.IllegalArgumentException\",\n    \"com.google.common.base.Preconditions.checkArgument(Preconditions.java:71)\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the logic for adding stubs is part of an algorithm, the immediate cause of the crash is the failure of a validation check (the Precondition) that guards the algorithm's execution.\"\n    },\n    {\n      \"type\": \"Function/Class/Object\",\n      \"why_not_primary\": \"This is not a missing capability or design-level omission; it is a failure to validate the input structure (the AST node type) before performing an operation.\"\n    }\n  ]\n}"
+}

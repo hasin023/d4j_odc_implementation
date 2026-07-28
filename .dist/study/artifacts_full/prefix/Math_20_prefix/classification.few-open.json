@@ -1,0 +1,50 @@
+{
+  "project_id": "Math",
+  "bug_id": 20,
+  "version_id": "20b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-25T17:01:11+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The CMAESOptimizer produces results that violate the specified upper bounds (e.g., 0.88 > 0.5). The test case confirms that the optimizer does not enforce the provided constraints during its optimization process.",
+  "hypothesis": "The optimizer fails to enforce bounds because the feasibility check is either skipped (due to a default count of zero) or the logic allows proceeding with out-of-bounds offspring when the check fails to find a feasible one.",
+  "prediction": "The fix will involve modifying the optimization loop to ensure that bounds are strictly enforced regardless of the checkFeasibleCount, likely by adding or correcting a conditional check that validates the offspring against the provided bounds before accepting them.",
+  "experiment_rationale": "The bug report explicitly states that the optimizer does not enforce bounds and mentions that the check is skipped if checkFeasibleCount is zero. This points directly to a missing or incorrect conditional validation (Checking) within the optimization loop.",
+  "reasoning_summary": "The defect is a failure to enforce constraints (bounds) provided to the optimizer. This is a classic 'Checking' defect where the validation logic is either missing or incorrectly gated by a parameter (checkFeasibleCount) that allows the code to bypass the necessary boundary enforcement.",
+  "evidence_used": [
+    "The CMAESOptimizer can exceed the bounds passed to optimize.",
+    "Looking at the generationLoop in doOptimize(), it does a bounds check by calling isFeasible() but if checkFeasableCount is zero (the default) then isFeasible() is never even called.",
+    "junit.framework.AssertionFailedError: Out of bounds (0.8812236634548753 > 0.5)"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the optimization loop is an algorithm, the specific failure is the lack of enforcement of a constraint (a boundary check), which is more precisely classified as Checking."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The CMAESOptimizer produces results that violate the specified upper bounds (e.g., 0.88 > 0.5). The test case confirms that the optimizer does not enforce the provided constraints during its optimization process.\",\n  \"hypothesis\": \"The optimizer fails to enforce bounds because the feasibility check is either skipped (due to a default count of zero) or the logic allows proceeding with out-of-bounds offspring when the check fails to find a feasible one.\",\n  \"prediction\": \"The fix will involve modifying the optimization loop to ensure that bounds are strictly enforced regardless of the checkFeasibleCount, likely by adding or correcting a conditional check that validates the offspring against the provided bounds before accepting them.\",\n  \"experiment_rationale\": \"The bug report explicitly states that the optimizer does not enforce bounds and mentions that the check is skipped if checkFeasibleCount is zero. This points directly to a missing or incorrect conditional validation (Checking) within the optimization loop.\",\n  \"reasoning_summary\": \"The defect is a failure to enforce constraints (bounds) provided to the optimizer. This is a classic 'Checking' defect where the validation logic is either missing or incorrectly gated by a parameter (checkFeasibleCount) that allows the code to bypass the necessary boundary enforcement.\",\n  \"evidence_used\": [\n    \"The CMAESOptimizer can exceed the bounds passed to optimize.\",\n    \"Looking at the generationLoop in doOptimize(), it does a bounds check by calling isFeasible() but if checkFeasableCount is zero (the default) then isFeasible() is never even called.\",\n    \"junit.framework.AssertionFailedError: Out of bounds (0.8812236634548753 > 0.5)\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the optimization loop is an algorithm, the specific failure is the lack of enforcement of a constraint (a boundary check), which is more precisely classified as Checking.\"\n    }\n  ]\n}"
+}

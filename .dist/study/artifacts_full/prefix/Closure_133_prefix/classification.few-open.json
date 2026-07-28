@@ -1,0 +1,52 @@
+{
+  "project_id": "Closure",
+  "bug_id": 133,
+  "version_id": "133b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-26T07:09:18+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The compiler throws an IllegalStateException when parsing specific JSDoc comments, specifically reporting 'Recorded bad position information' where the start character index is greater than the end character index.",
+  "hypothesis": "The JSDocInfoParser fails to validate that the calculated end position (endCharno) is greater than the start position (startCharno) before passing these values to the JSDocInfoBuilder, which enforces this constraint and throws an exception when violated.",
+  "prediction": "The fix will involve adding a check in JsDocInfoParser.extractMultilineTextualBlock to ensure that the calculated end position is valid relative to the start position, or ensuring that the values passed to markText are correctly ordered.",
+  "experiment_rationale": "The stack trace points directly to SourcePosition.setPositionInformation throwing an exception because startCharno >= endCharno. This method is called by JSDocInfoBuilder.markText, which is called by JsDocInfoParser.extractMultilineTextualBlock. The parser is responsible for calculating these positions, and it is failing to validate them before calling the builder.",
+  "reasoning_summary": "The root cause is a missing validation check in the parser logic. The parser calculates position information and passes it to a builder that enforces strict boundary conditions. Since the parser is the component responsible for generating these coordinates, it must ensure they are valid (start < end) before invoking the builder. This is a classic 'Checking' defect where a guard condition is missing.",
+  "evidence_used": [
+    "java.lang.IllegalStateException: Recorded bad position information",
+    "start-char: 14",
+    "end-char: 13",
+    "com.google.javascript.rhino.SourcePosition.setPositionInformation(SourcePosition.java:87)",
+    "com.google.javascript.jscomp.parsing.JsDocInfoParser.extractMultilineTextualBlock(JsDocInfoParser.java:1503)"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the calculation logic is flawed, the immediate failure is the lack of a guard/check to prevent invalid data from reaching the builder, which is the standard ODC classification for missing validation."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "impact": "Reliability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The compiler throws an IllegalStateException when parsing specific JSDoc comments, specifically reporting 'Recorded bad position information' where the start character index is greater than the end character index.\",\n  \"hypothesis\": \"The JSDocInfoParser fails to validate that the calculated end position (endCharno) is greater than the start position (startCharno) before passing these values to the JSDocInfoBuilder, which enforces this constraint and throws an exception when violated.\",\n  \"prediction\": \"The fix will involve adding a check in JsDocInfoParser.extractMultilineTextualBlock to ensure that the calculated end position is valid relative to the start position, or ensuring that the values passed to markText are correctly ordered.\",\n  \"experiment_rationale\": \"The stack trace points directly to SourcePosition.setPositionInformation throwing an exception because startCharno >= endCharno. This method is called by JSDocInfoBuilder.markText, which is called by JsDocInfoParser.extractMultilineTextualBlock. The parser is responsible for calculating these positions, and it is failing to validate them before calling the builder.\",\n  \"reasoning_summary\": \"The root cause is a missing validation check in the parser logic. The parser calculates position information and passes it to a builder that enforces strict boundary conditions. Since the parser is the component responsible for generating these coordinates, it must ensure they are valid (start < end) before invoking the builder. This is a classic 'Checking' defect where a guard condition is missing.\",\n  \"evidence_used\": [\n    \"java.lang.IllegalStateException: Recorded bad position information\",\n    \"start-char: 14\",\n    \"end-char: 13\",\n    \"com.google.javascript.rhino.SourcePosition.setPositionInformation(SourcePosition.java:87)\",\n    \"com.google.javascript.jscomp.parsing.JsDocInfoParser.extractMultilineTextualBlock(JsDocInfoParser.java:1503)\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the calculation logic is flawed, the immediate failure is the lack of a guard/check to prevent invalid data from reaching the builder, which is the standard ODC classification for missing validation.\"\n    }\n  ]\n}"
+}
