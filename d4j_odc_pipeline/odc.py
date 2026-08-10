@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 ODC_TYPES: dict[str, dict[str, str]] = {
     "Algorithm/Method": {
         "summary": (
@@ -330,6 +332,73 @@ def condition_tag(taxonomy: str, strategy: str) -> str:
     Used as classification.<tag>.json / report.<tag>.md / checkpoint suffixes.
     Always explicit — there is no untagged default filename."""
     return f"{strategy}-{taxonomy}"
+
+
+_SLUG_UNSAFE_RE = re.compile(r"[^A-Za-z0-9._-]+")
+
+
+def model_slug(provider: str, model: str) -> str:
+    """Filesystem-safe identifier for a (provider, model) pair, e.g.
+    ("groq", "openai/gpt-oss-120b") -> "groq-openai-gpt-oss-120b". Keyed on
+    both provider and model, not model alone, so two providers serving an
+    identically-named model can't collide on the same slug."""
+    raw = f"{provider}-{model}"
+    return _SLUG_UNSAFE_RE.sub("-", raw).strip("-")
+
+
+def resolve_effective_tag(
+    tag: str, provider: str, model: str, existing_checkpoint: dict | None
+) -> str:
+    """Decide whether a (provider, model) run needs a model-suffixed tag.
+
+    ``existing_checkpoint`` is the parsed JSON of the BARE tag's
+    checkpoint.pairs.<tag>.json (or None if it doesn't exist yet) — the
+    caller reads that file once and passes it in; this function is pure.
+
+    Rules, in order:
+      1. No existing checkpoint → first model for this (root, condition) →
+         bare tag, unchanged filenames forever.
+      2. Existing checkpoint has no "model"/"provider" keys (every
+         checkpoint written before this mechanism existed, including the
+         committed 854-bug corpus) → treated as compatible → bare tag.
+         This is what guarantees old artifacts are never renamed.
+      3. Existing checkpoint's (provider, model) matches the caller's →
+         same-model resume → bare tag (today's behavior, unchanged).
+      4. Existing checkpoint's (provider, model) differs → suffixed:
+         f"{tag}.{model_slug(provider, model)}".
+
+    See docs/condition_model.md and docs/suspicious_frame_selection.md for
+    the backward-compatibility rationale."""
+    if existing_checkpoint is None:
+        return tag
+    prior_provider = existing_checkpoint.get("provider")
+    prior_model = existing_checkpoint.get("model")
+    if prior_provider is None and prior_model is None:
+        return tag
+    if prior_provider == provider and prior_model == model:
+        return tag
+    return f"{tag}.{model_slug(provider, model)}"
+
+
+def resolve_effective_tag_from_root(artifacts_root, tag: str, provider: str | None, model: str | None) -> str:
+    """Convenience wrapper around resolve_effective_tag for read-side callers
+    (analyze_batch_artifacts, compute_coverage_metrics, study-escape's
+    pre-flight glob check): reads the bare tag's checkpoint under
+    artifacts_root (if any) and resolves it. Returns the bare tag unchanged
+    when provider or model is falsy (single-model / not specified)."""
+    if not provider or not model:
+        return tag
+    import json
+    from pathlib import Path
+
+    bare_checkpoint_path = Path(artifacts_root) / f"checkpoint.pairs.{tag}.json"
+    existing: dict | None = None
+    if bare_checkpoint_path.exists():
+        try:
+            existing = json.loads(bare_checkpoint_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            existing = None
+    return resolve_effective_tag(tag, provider, model, existing)
 
 
 def legacy_prompt_style(taxonomy: str, strategy: str) -> str:

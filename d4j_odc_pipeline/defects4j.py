@@ -309,7 +309,12 @@ class Defects4JClient:
                         covered_lines=[],
                     ),
                 )
-                for line_element in class_element.findall(".//line"):
+                # Direct children of the class's own <lines> only — NOT ".//line",
+                # which also matches each <method><lines><line/></lines></method>
+                # sub-block and double-counts every line that belongs to a method
+                # (i.e. nearly all of them): once from the class-level aggregate,
+                # once more from its containing method.
+                for line_element in class_element.findall("./lines/line"):
                     try:
                         hits = int(line_element.attrib.get("hits", "0"))
                         line_number = int(line_element.attrib.get("number", "0"))

@@ -3,6 +3,8 @@ import unittest
 
 from d4j_odc_pipeline.models import BugContext, Failure, StackFrame
 from d4j_odc_pipeline.prompting import (
+    _filter_stack_trace_noise,
+    _strip_bug_info_noise,
     build_messages,
     sanitize_bug_info,
     sanitize_bug_report,
@@ -60,10 +62,15 @@ class PromptingTests(unittest.TestCase):
 
 
     def test_few_includes_protocol(self) -> None:
+        """few's system prompt is exactly taxonomy + decision tree + worked
+        examples (docs/condition_model.md §4.3) — the "Scientific Debugging
+        Protocol" block was a vestige of the retired narrated-single-shot
+        condition (pilot-proven to change 0/6 labels) and was removed; it
+        must not resurface."""
         context = _make_context()
         messages = build_messages(context, "closed", "few")
         system = messages[0]["content"]
-        self.assertIn("Scientific Debugging Protocol", system)
+        self.assertNotIn("Scientific Debugging Protocol", system)
         self.assertIn("Classification Decision Process", system)
         self.assertIn("Classification Examples", system)
 
@@ -322,6 +329,26 @@ List of modified sources:
         self.assertNotIn("will get committed on monday", cleaned)
         self.assertNotIn('"id":1,"commenterId"', cleaned)
 
+    def test_sanitize_bug_report_formatted_comment_thread(self) -> None:
+        """Regression (found via a live Closure-150 collect): web_fetch's
+        _format_tracker_json now renders the Google Code comment array as
+        "Comment N (date): text" lines instead of raw JSON, so the old
+        _JSON_SECOND_COMMENT_RE truncation no longer matched — a
+        fix-revealing final comment ("closed by revision r2240") leaked
+        into the pre-fix arm undetected."""
+        report = (
+            "id: 61\n\n"
+            "summary: Type checker misses annotations\n"
+            "Comment 0 (2009-11-25): What steps will reproduce the problem?\n"
+            "Comment 1 (2009-12-03): thanks for the report, still investigating.\n"
+            "Comment 2 (2012-10-05): This issue was closed by revision r2240."
+        )
+        cleaned = sanitize_bug_report(report)
+        self.assertIn("What steps will reproduce the problem", cleaned)
+        self.assertNotIn("closed by revision", cleaned)
+        self.assertNotIn("still investigating", cleaned)
+        self.assertNotIn("Comment 1", cleaned)
+
     def test_sanitize_bug_report_preserves_pipes_in_description(self) -> None:
         """Only pure meta lines (every segment a known key) get rewritten —
         a description that happens to contain '|' must survive untouched."""
@@ -368,6 +395,157 @@ class PairedArmSanitizationRegressionTests(unittest.TestCase):
         self.assertIn("TheActualFixedClass", user)
         self.assertIn("Fixed in CVS", user)
         self.assertIn("Resolution:", user)
+
+
+class BugInfoNoiseStrippingTests(unittest.TestCase):
+    """Local-machine paths / corpus-size stats carry zero signal for a
+    single bug and strip in BOTH arms (unlike the fix-revealing sections),
+    see docs/suspicious_frame_selection.md."""
+
+    _RAW = """Summary of configuration for Project: Closure
+--------------------------------------------------------------------------------
+    Script dir: /root/defects4j/framework
+      Base dir: /root/defects4j
+    Major root: /root/defects4j/major
+      Repo dir: /root/defects4j/project_repos
+--------------------------------------------------------------------------------
+    Project ID: Closure
+       Program: closure-compiler
+--------------------------------------------------------------------------------
+           Vcs: Vcs::Git
+    Repository: /root/defects4j/project_repos/closure-compiler.git
+     Commit db: /root/defects4j/framework/projects/Closure/active-bugs.csv
+Number of bugs: 174
+--------------------------------------------------------------------------------"""
+
+    def test_strips_local_paths_and_corpus_stats(self) -> None:
+        cleaned = _strip_bug_info_noise(self._RAW)
+        self.assertNotIn("Script dir:", cleaned)
+        self.assertNotIn("Base dir:", cleaned)
+        self.assertNotIn("Major root:", cleaned)
+        self.assertNotIn("Repo dir:", cleaned)
+        self.assertNotIn("Commit db:", cleaned)
+        self.assertNotIn("Number of bugs:", cleaned)
+
+    def test_keeps_legitimate_project_info(self) -> None:
+        cleaned = _strip_bug_info_noise(self._RAW)
+        self.assertIn("Project ID: Closure", cleaned)
+        self.assertIn("Program: closure-compiler", cleaned)
+
+    def test_empty_input(self) -> None:
+        self.assertEqual("", _strip_bug_info_noise(""))
+
+    def test_applies_in_both_arms_via_build_messages(self) -> None:
+        prefix_context = _make_context(bug_info=self._RAW)
+        postfix_context = _make_context(bug_info=self._RAW, fix_diff="--- a\n+++ b\n")
+        prefix_user = build_messages(prefix_context, "closed", "few")[1]["content"]
+        postfix_user = build_messages(postfix_context, "closed", "few")[1]["content"]
+        self.assertNotIn("Script dir:", prefix_user)
+        self.assertNotIn("Script dir:", postfix_user)
+
+
+class StackTraceNoiseFilterTests(unittest.TestCase):
+    """The raw first-N-lines excerpt used to be dominated by JDK reflection /
+    Ant / JUnit runner boilerplate for assertion-style failures — filter
+    those out so the budget goes to signal lines instead."""
+
+    _TRACE = [
+        "junit.framework.AssertionFailedError",
+        "\tat junit.framework.Assert.fail(Assert.java:55)",
+        "\tat junit.framework.Assert.assertTrue(Assert.java:22)",
+        "\tat com.example.FooTest.testBar(FooTest.java:251)",
+        "\tat java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)",
+        "\tat org.apache.tools.ant.taskdefs.optional.junit.JUnitTestRunner.run(JUnitTestRunner.java:520)",
+    ]
+
+    def test_drops_framework_frames_keeps_signal(self) -> None:
+        filtered = _filter_stack_trace_noise(self._TRACE, limit=15)
+        self.assertIn("junit.framework.AssertionFailedError", filtered[0])
+        joined = "\n".join(filtered)
+        self.assertIn("com.example.FooTest.testBar", joined)
+        self.assertNotIn("NativeMethodAccessorImpl", joined)
+        self.assertNotIn("JUnitTestRunner", joined)
+        self.assertNotIn("junit.framework.Assert.fail", joined)
+
+    def test_respects_limit_on_kept_frames(self) -> None:
+        trace = ["Exception"] + [f"\tat com.example.Foo{i}.bar(Foo{i}.java:{i})" for i in range(20)]
+        filtered = _filter_stack_trace_noise(trace, limit=5)
+        self.assertEqual(len(filtered), 6)  # headline + 5 frames
+
+    def test_empty_trace(self) -> None:
+        self.assertEqual(_filter_stack_trace_noise([], limit=15), [])
+
+    def test_all_framework_keeps_only_headline(self) -> None:
+        trace = ["Exception", "\tat java.lang.Thread.run(Thread.java:1)"]
+        filtered = _filter_stack_trace_noise(trace, limit=15)
+        self.assertEqual(filtered, ["Exception"])
+
+
+class MetadataTestsRelevantCappingTests(unittest.TestCase):
+    def test_relevant_list_collapsed_to_count(self) -> None:
+        context = _make_context(metadata={
+            "classes.modified": "org.example.Hidden",
+            "tests.trigger": "FooTest::testOne",
+            "tests.relevant": ";".join(f"org.example.Test{i}" for i in range(23)),
+        })
+        user = build_messages(context, "closed", "few")[1]["content"]
+        self.assertNotIn("org.example.Test0", user)
+        self.assertNotIn("org.example.Test22", user)
+        self.assertIn("23 relevant test classes", user)
+        self.assertIn("FooTest::testOne", user)
+
+
+class FewContentCoverageRegressionTests(unittest.TestCase):
+    """docs/condition_model.md §4.3: few must remain "the strongest static
+    prompt" — the loop (scientific) has to outperform taxonomy + decision
+    tree + worked examples, not a handicapped version of it. This guards
+    that invariant against future conciseness edits: wording may shrink,
+    but none of the 7 type definitions or 5 worked examples may disappear."""
+
+    def test_all_seven_odc_types_present(self) -> None:
+        context = _make_context()
+        system = build_messages(context, "closed", "few")[0]["content"]
+        for name in (
+            "Algorithm/Method",
+            "Assignment/Initialization",
+            "Checking",
+            "Timing/Serialization",
+            "Function/Class/Object",
+            "Interface/O-O Messages",
+            "Relationship",
+        ):
+            self.assertIn(name, system)
+
+    def test_all_five_worked_examples_present(self) -> None:
+        context = _make_context()
+        system = build_messages(context, "closed", "few")[0]["content"]
+        for i in range(1, 6):
+            self.assertIn(f"### Example {i}:", system)
+
+    def test_decision_tree_still_covers_all_seven_boundaries(self) -> None:
+        context = _make_context()
+        system = build_messages(context, "closed", "few")[0]["content"]
+        self.assertIn("Classification Decision Process", system)
+        # 7 numbered diagnostic questions, one per type.
+        for i in range(1, 8):
+            self.assertIn(f"{i}. **", system)
+
+
+class NotesExcludedFromPayloadTests(unittest.TestCase):
+    """notes carries collection-run bookkeeping (compile/test/coverage exit
+    codes, raw Ant stderr) — zero classification signal, never forwarded to
+    the LLM. Kept in context.json for provenance only."""
+
+    def test_notes_not_in_prompt(self) -> None:
+        context = _make_context()
+        context.notes = [
+            "Compilation exit code: 0",
+            "Coverage stderr (some.Test): Running ant (compile.tests)... OK",
+        ]
+        user = build_messages(context, "closed", "few")[1]["content"]
+        self.assertNotIn("Compilation exit code", user)
+        self.assertNotIn("Running ant", user)
+        self.assertNotIn('"notes"', user)
 
 
 if __name__ == "__main__":

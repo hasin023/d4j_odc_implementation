@@ -81,6 +81,26 @@ Invalid and rejected: `closed-zero`, `open-zero`, `free-few`, `free-scientific`.
   `impact` (v5.2 §3.3 opener attribute — `few`/`scientific` only, never
   `zero-free`; see `docs/odc_alignment_audit.md` §6).
 
+**Model is a third, orthogonal axis (added 2026-08-10), never part of the
+5-combo `(taxonomy, strategy)` validation above.** Running the same
+condition under a second `--provider`/`--model` against the same
+`--artifacts-root` does not overwrite or collide with the first model's
+files: `odc.resolve_effective_tag` (used by `study-run`, and by
+`study-drift`/`study-escape` when given the same `--provider`/`--model`)
+checks the bare tag's `checkpoint.pairs.<tag>.json` — no checkpoint, or one
+with no `model`/`provider` keys (every checkpoint written before this
+existed, including the whole committed corpus), keeps the bare filenames
+forever; a *different* recorded `(provider, model)` gets a suffixed tag
+instead: `classification.<tag>.<provider>-<model-slug>.json`. First-model
+runs, resumes with the same model, and every pre-existing artifact are
+therefore byte-for-byte unaffected by this mechanism — it only activates
+when a second distinct model actually shows up. See `odc.py`'s
+`model_slug`/`resolve_effective_tag`/`resolve_effective_tag_from_root`
+docstrings for the exact rules. Resuming a model-scoped run must pass the *same*
+`--provider`/`--model` string each time — a reformatted/typo'd model string
+now starts a new suffixed run instead of resuming, unlike before this axis
+existed.
+
 ⚠️ **Artifacts written before 2026-07-07 use the OLD tokens** (`reasoning`
 field; `*-scientific` files there mean the *narrated single-shot*, and
 `*-agentic` files mean the loop). They are pilot-era exploratory data — do not

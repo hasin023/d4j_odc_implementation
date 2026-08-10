@@ -66,6 +66,8 @@ Two evidence modes matter methodologically:
 
 Only 5 conditions are valid: zero-free, few-closed, few-open, scientific-closed, scientific-open (CLI-enforced). The old narrated single-shot "scientific" condition was retired 2026-07-07 (pilot: narration changed 0/6 labels; enforcement 2/6, both toward the oracle) — its prompt content lives on as `few`. Tombstoned (print redirect + exit): `--prompt-style`, `--reasoning`, `study-baseline`/`study-naive`/`study-coverage`. Filenames are always condition-tagged — `classification.<strategy>-<taxonomy>.json` — beside the shared read-only `context.json`. ⚠️ Artifacts written before 2026-07-07 use old `reasoning` tokens with different semantics; do not mix (see study_execution_log.md).
 
+**Model is a third axis, orthogonal to the 5-combo validation above (added 2026-08-10).** `study-run`/`study-drift`/`study-escape` accept `--provider`/`--model`; running a second distinct model against the same `--artifacts-root`+condition auto-suffixes filenames (`classification.<tag>.<provider>-<model-slug>.json`) instead of colliding with or overwriting the first model's — see `docs/condition_model.md` §5 and `odc.py::resolve_effective_tag` for the exact resolution rules. First-model runs and every pre-2026-08-10 artifact are unaffected (no `model`/`provider` in an old checkpoint always resolves to the bare, untagged filename).
+
 ## Methodology invariants (do not violate)
 
 - **Scientific debugging has TWO valid orderings — never mix them.** "Observe" is ambiguous between them; be explicit about which level you mean:

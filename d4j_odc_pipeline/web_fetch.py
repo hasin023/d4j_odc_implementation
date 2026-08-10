@@ -18,6 +18,7 @@ import html
 import re
 import time
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 import requests
@@ -306,18 +307,27 @@ def _fetch_generic_page(response: requests.Response) -> str:
     if "html" in content_type.lower():
         raw = response.text
         text = html_to_text(raw)
-    elif "json" in content_type.lower():
-        # Some APIs return JSON directly
+    else:
+        # Try JSON regardless of the declared content-type: static-file-hosted
+        # trackers (e.g. Google Cloud Storage-served archive dumps) routinely
+        # serve valid JSON under a generic label like application/octet-stream
+        # or text/plain — gating on "json" in content_type missed those
+        # entirely, silently skipping _format_tracker_json's cleanup and
+        # leaving raw \uXXXX-escaped JSON in bug_report_content.
         try:
             data = response.json()
-            text = _flatten_json_for_display(data)
+            text = _format_tracker_json(data)
         except Exception:
-            text = response.text.strip()
-    else:
-        # Plain text, XML, or others — just use the text as-is
-        text = response.text.strip()
+            # Genuinely not JSON — plain text/XML/etc. Still decode any stray
+            # HTML entities (some trackers mislabel content-type this way too).
+            text = decode_html_entities(response.text.strip())
 
     return text
+
+
+# Leaf keys that never carry classification signal on tracker JSON payloads —
+# opaque commenter/user ids and empty attachment lists are pure token bulk.
+_JSON_NOISE_KEYS = {"commenterid", "authorid", "userid", "attachments"}
 
 
 def _flatten_json_for_display(data: object, max_depth: int = 3) -> str:
@@ -329,11 +339,17 @@ def _flatten_json_for_display(data: object, max_depth: int = 3) -> str:
             return
         if isinstance(obj, dict):
             for key, value in obj.items():
+                if key.lower() in _JSON_NOISE_KEYS:
+                    continue
                 full_key = f"{prefix}.{key}" if prefix else key
                 if isinstance(value, (dict, list)):
                     _walk(value, full_key, depth + 1)
                 else:
-                    str_val = str(value).strip()
+                    # html_to_text (not just decode_html_entities): tracker
+                    # JSON commonly embeds literal HTML tags in string values
+                    # (e.g. "<b>...</b>"), which JSON decoding leaves intact —
+                    # entity decoding alone doesn't strip them.
+                    str_val = html_to_text(str(value).strip())
                     if str_val and str_val != "None":
                         lines.append(f"{full_key}: {str_val}")
         elif isinstance(obj, list):
@@ -341,6 +357,53 @@ def _flatten_json_for_display(data: object, max_depth: int = 3) -> str:
                 _walk(item, f"{prefix}[{i}]", depth + 1)
 
     _walk(data)
+    return "\n".join(lines)
+
+
+def _format_tracker_comments(comments: list) -> list[str]:
+    """Render a Google-Code-archive-style comments[] array as readable lines.
+
+    Each comment carries {id, commenterId, content, timestamp, attachments}.
+    commenterId (an opaque huge int) and empty attachments carry no signal;
+    the epoch timestamp is converted to a date. No comment text is dropped.
+    """
+    lines: list[str] = []
+    for i, comment in enumerate(comments):
+        if not isinstance(comment, dict):
+            continue
+        content = html_to_text(str(comment.get("content", "")).strip())
+        if not content:
+            continue
+        label = f"Comment {i}"
+        timestamp = comment.get("timestamp")
+        if isinstance(timestamp, (int, float)):
+            try:
+                label += f" ({datetime.fromtimestamp(timestamp, tz=timezone.utc):%Y-%m-%d})"
+            except (OverflowError, OSError, ValueError):
+                pass
+        lines.append(f"{label}: {content}")
+    return lines
+
+
+def _format_tracker_json(data: object) -> str:
+    """Format a JSON bug-tracker payload for LLM consumption.
+
+    Detects the Google-Code-archive comments[] shape (id/status/summary/
+    labels + a comments[] array of commenter posts) and renders comments via
+    ``_format_tracker_comments`` instead of the generic dotted-key flatten —
+    same information (every comment's text, in order), far less noise
+    (no opaque commenter ids, no epoch ints, no empty attachment arrays).
+    Falls back to the generic flatten for any other JSON shape.
+    """
+    if not isinstance(data, dict) or not isinstance(data.get("comments"), list):
+        return _flatten_json_for_display(data)
+
+    lines: list[str] = []
+    for key in ("id", "status", "summary", "labels", "stars", "commentCount"):
+        value = data.get(key)
+        if value not in (None, "", []):
+            lines.append(f"{key}: {html_to_text(str(value))}")
+    lines.extend(_format_tracker_comments(data["comments"]))
     return "\n".join(lines)
 
 

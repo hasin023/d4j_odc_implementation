@@ -12,7 +12,7 @@ from .pipeline import classify_bug_context, collect_bug_context, load_context, w
 
 def build_parser() -> argparse.ArgumentParser:
     default_provider = os.environ.get("DEFAULT_LLM_PROVIDER", "gemini")
-    default_model = os.environ.get("DEFAULT_LLM_MODEL", "gemini-3.1-flash-lite-preview")
+    default_model = os.environ.get("DEFAULT_LLM_MODEL", "gemini-3.1-flash-lite")
     parser = argparse.ArgumentParser(
         prog="python -m d4j_odc_pipeline",
         description="Defects4J ODC Pipeline — Collect bug context and classify into ODC defect types with an LLM.",
@@ -209,6 +209,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--strategy", choices=["zero", "few", "scientific"], default="scientific",
         help="Condition to analyze (default: the pipeline default, scientific).",
     )
+    study_drift_parser.add_argument(
+        "--provider", default=None,
+        help="Optional: analyze one model of a multi-model study-run instead of the "
+             "first/default model. Must match the --provider/--model used to write it "
+             "(see docs/condition_model.md). Omit to read the bare (first-model) tag.",
+    )
+    study_drift_parser.add_argument("--model", default=None, help="Paired with --provider above.")
     study_drift_parser.add_argument("--manifest", type=Path,
                                     help="Optional manifest JSON to derive expected projects.")
     study_drift_parser.add_argument("--expected-projects", nargs="+",
@@ -237,6 +244,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--strategy", choices=["zero", "few", "scientific"], default="scientific",
         help="Strategy whose closed/open passes to compare (default: scientific).",
     )
+    study_escape_parser.add_argument(
+        "--provider", default=None,
+        help="Optional: analyze one model of a multi-model study-run instead of the "
+             "first/default model. Must match the --provider/--model used to write it. "
+             "Omit to read the bare (first-model) tags.",
+    )
+    study_escape_parser.add_argument("--model", default=None, help="Paired with --provider above.")
     study_escape_parser.add_argument("--output", type=Path, default=None,
                                      help="Path to write coverage JSON. Defaults to .dist/study/taxonomy_coverage_<N>.json.")
 
@@ -311,7 +325,11 @@ def _add_common_bug_args(parser: argparse.ArgumentParser) -> None:
 
 def _add_llm_args(parser: argparse.ArgumentParser, default_provider: str, default_model: str) -> None:
     parser.add_argument("--provider", default=default_provider, choices=["gemini", "openrouter", "groq", "openai-compatible"])
-    parser.add_argument("--model", default=default_model)
+    # default=None (NOT default_model) is deliberate: it's what lets main()
+    # tell "user didn't pass --model" apart from "user explicitly passed
+    # --model <default_model's own value>" — see the resolution comment in
+    # main(). Argparse's help text still shows the effective default.
+    parser.add_argument("--model", default=None, help=f"Model name for the selected provider (default: {default_model}, or the provider-specific env var if set).")
     parser.add_argument("--api-key-env", default=None)
     parser.add_argument("--base-url")
     parser.add_argument("--dry-run", action="store_true", help="Render the prompt but skip the LLM call.")
@@ -404,9 +422,18 @@ def main() -> int:
     # When the user switches provider (e.g. --provider groq), this auto-selects
     # the provider-specific model from env (e.g. GROQ_MODEL) instead of the
     # global DEFAULT_LLM_MODEL which might be a Gemini model ID.
-    if hasattr(args, "provider") and hasattr(args, "model"):
+    #
+    # `args.model is None` is the actual "wasn't given" check — it relies on
+    # `--model`'s argparse default being None (see _add_llm_args). Before
+    # 2026-08-10 the argparse default was the resolved DEFAULT_LLM_MODEL
+    # value itself, which made an omitted --model indistinguishable from a
+    # user explicitly passing that exact value, so an explicit --model could
+    # never override GEMINI_MODEL/GROQ_MODEL/OPENROUTER_MODEL when set —
+    # a real bug blocking a second-model run on any strategy while the
+    # provider's env var is configured (which it always is here).
+    if hasattr(args, "provider") and hasattr(args, "model") and args.model is None:
         from .llm import default_model_for_provider
-        args.model = default_model_for_provider(args.provider, args.model)
+        args.model = default_model_for_provider(args.provider, os.environ.get("DEFAULT_LLM_MODEL", "gemini-3.1-flash-lite"))
 
     # Initialize rich console (respects --quiet)
     console.init_console(quiet=args.quiet)
@@ -938,16 +965,24 @@ def _cmd_study_drift(args: argparse.Namespace) -> int:
         artifacts_folder = f"artifacts_{target_bugs}" if target_bugs else "artifacts"
         args.postfix_dir = dist_study / artifacts_folder / "postfix"
 
-    # Default output/report with _<N> suffix
+    # Default output/report with _<N> suffix, plus a .<model_slug> suffix
+    # when analyzing one model of a multi-model run — kept symmetric with
+    # study-escape/study-ladder's default filenames so study-export's
+    # sibling-file discovery (suffix string-stripping) keeps working.
+    model_suffix = ""
+    if args.provider and args.model:
+        from .odc import model_slug
+        model_suffix = f".{model_slug(args.provider, args.model)}"
+
     if args.output is None:
         suffix = f"_{target_bugs}" if target_bugs else ""
-        args.output = dist_study / f"analysis{suffix}.json"
+        args.output = dist_study / f"analysis{suffix}{model_suffix}.json"
     elif not args.output.parent.parts:
         args.output = dist_study / args.output
 
     if args.report is None:
         suffix = f"_{target_bugs}" if target_bugs else ""
-        args.report = dist_study / f"analysis{suffix}.md"
+        args.report = dist_study / f"analysis{suffix}{model_suffix}.md"
     elif not args.report.parent.parts:
         args.report = dist_study / args.report
 
@@ -966,6 +1001,8 @@ def _cmd_study_drift(args: argparse.Namespace) -> int:
         expected_projects=expected_projects,
         taxonomy=args.taxonomy,
         strategy=args.strategy,
+        provider=args.provider,
+        model=args.model,
     )
 
     if args.require_all_projects and summary.get("missing_projects"):
@@ -1013,26 +1050,40 @@ def _cmd_study_escape(args: argparse.Namespace) -> int:
     if args.prefix_dir is None:
         artifacts_folder = f"artifacts_{target_bugs}" if target_bugs else "artifacts"
         args.prefix_dir = dist_study / artifacts_folder / "prefix"
+
+    model_suffix = ""
+    if args.provider and args.model:
+        from .odc import model_slug
+        model_suffix = f".{model_slug(args.provider, args.model)}"
+
     if args.output is None:
         suffix = f"_{target_bugs}" if target_bugs else ""
-        args.output = dist_study / f"taxonomy_coverage{suffix}.json"
+        args.output = dist_study / f"taxonomy_coverage{suffix}{model_suffix}.json"
 
     if not args.prefix_dir.exists():
         console.error_panel("Prefix Directory Not Found", str(args.prefix_dir))
         return 1
 
-    closed_files = list(args.prefix_dir.glob(f"*/classification.{args.strategy}-closed.json"))
-    open_files = list(args.prefix_dir.glob(f"*/classification.{args.strategy}-open.json"))
+    from .odc import resolve_effective_tag_from_root
+    artifacts_root = args.prefix_dir.parent
+    closed_tag = resolve_effective_tag_from_root(artifacts_root, f"{args.strategy}-closed", args.provider, args.model)
+    open_tag = resolve_effective_tag_from_root(artifacts_root, f"{args.strategy}-open", args.provider, args.model)
+
+    closed_files = list(args.prefix_dir.glob(f"*/classification.{closed_tag}.json"))
+    open_files = list(args.prefix_dir.glob(f"*/classification.{open_tag}.json"))
     if not closed_files or not open_files:
         console.error_panel(
             "Missing Passes",
-            f"Need both closed and open passes for --strategy {args.strategy} in {args.prefix_dir}.",
+            f"Need both closed and open passes for --strategy {args.strategy} in {args.prefix_dir} "
+            f"(looked for classification.{closed_tag}.json / classification.{open_tag}.json).",
             hint=f"Run study-run --taxonomy closed --strategy {args.strategy} and "
                  f"study-run --taxonomy open --strategy {args.strategy} first.",
         )
         return 1
 
-    coverage = compute_coverage_metrics(prefix_dir=args.prefix_dir, strategy=args.strategy)
+    coverage = compute_coverage_metrics(
+        prefix_dir=args.prefix_dir, strategy=args.strategy, provider=args.provider, model=args.model
+    )
     write_json(args.output, coverage)
 
     console.result_panel("RQ2 coverage metrics written", [

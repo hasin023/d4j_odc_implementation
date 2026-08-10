@@ -1,0 +1,58 @@
+{
+  "project_id": "Closure",
+  "bug_id": 150,
+  "version_id": "150b",
+  "prompt_style": "scientific",
+  "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+  "provider": "openrouter",
+  "created_at": "2026-08-10T11:46:32+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 0.92,
+  "needs_human_review": false,
+  "observation_summary": "The Closure Compiler's type checker fails to recognize JSDoc annotations (e.g., @param) on functions assigned to namespace properties when those functions are defined within a local scope (IIFE/module pattern). The failing tests verify that properties like 'goog.foo' and 'x.foo' should have declared function types, but the type checker treats them as if annotations were missing, emitting incorrect warnings.",
+  "hypothesis": "The TypedScopeCreator.visit() method contained a custom switch statement handling FUNCTION, CATCH, and VAR tokens, but this logic incorrectly returned early for FUNCTION nodes whose parent was a NAME token, skipping the proper type declaration processing. This caused functions defined in local scopes and assigned to qualified names (e.g., ns.a = function() {}) to not have their JSDoc annotations registered in the type registry.",
+  "prediction": "The buggy code would show a visit() method with a switch on node type that handles FUNCTION by checking if parent is NAME and returning early, thereby bypassing defineDeclaredFunction() for locally-scoped function assignments. The fix would replace this custom logic with a delegation to the parent ScopeCreator's visit() method, which correctly processes all declaration types including functions in nested scopes.",
+  "experiment_rationale": "The unified diff confirms the hypothesis: the buggy version had a 21-line switch block handling FUNCTION/CATCH/VAR with an early return for FUNCTION when parent is NAME, while the fixed version replaces this entirely with 'super.visit(t, n, parent);'. This demonstrates the root cause was an incorrect local algorithm for AST traversal \u2014 the custom logic failed to handle the module pattern case, and delegating to the parent class's proven algorithm corrects the procedure.",
+  "reasoning_summary": "This is an Algorithm/Method defect because the fix replaces an incorrect computational procedure (custom switch-based node visitation logic) with a correct one (delegation to parent class). The bug was not a missing guard (Checking), wrong value (Assignment/Initialization), interface mismatch (Interface/O-O Messages), timing issue (Timing/Serialization), cross-entity association (Relationship), or missing design capability (Function/Class/Object) \u2014 it was specifically a flawed local algorithm in the visit() method that mishandled FUNCTION nodes in nested scopes. The diff shows a pure algorithmic rewrite at the method level.",
+  "evidence_used": [
+    "fix_diff_oracle.unified_diff showing replacement of custom switch logic with super.visit()",
+    "bug_report_description describing missing @param annotations on functions in IIFEs",
+    "failing_tests showing assertions for hasProperty and getPropertyType on locally-scoped function stubs",
+    "production_code_snippets showing test expectations for declared function types in local scopes"
+  ],
+  "evidence_gaps": [
+    "Full TypedScopeCreator.java source not provided to see parent class visit() implementation",
+    "Exact Token.NAME parent condition context not fully visible"
+  ],
+  "alternative_types": [
+    {
+      "type": "Function/Class/Object",
+      "why_not_primary": "The fix is a localized method-level algorithm change, not a design-level capability addition or structural correction. The capability (type checking) exists; its implementation procedure was flawed."
+    },
+    {
+      "type": "Checking",
+      "why_not_primary": "No validation guard or predicate was missing; the type annotation processing logic itself was bypassed due to incorrect traversal algorithm."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Incorrect",
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Algorithm/Method\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Capability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"confidence\": 0.92,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The Closure Compiler's type checker fails to recognize JSDoc annotations (e.g., @param) on functions assigned to namespace properties when those functions are defined within a local scope (IIFE/module pattern). The failing tests verify that properties like 'goog.foo' and 'x.foo' should have declared function types, but the type checker treats them as if annotations were missing, emitting incorrect warnings.\",\n  \"hypothesis\": \"The TypedScopeCreator.visit() method contained a custom switch statement handling FUNCTION, CATCH, and VAR tokens, but this logic incorrectly returned early for FUNCTION nodes whose parent was a NAME token, skipping the proper type declaration processing. This caused functions defined in local scopes and assigned to qualified names (e.g., ns.a = function() {}) to not have their JSDoc annotations registered in the type registry.\",\n  \"prediction\": \"The buggy code would show a visit() method with a switch on node type that handles FUNCTION by checking if parent is NAME and returning early, thereby bypassing defineDeclaredFunction() for locally-scoped function assignments. The fix would replace this custom logic with a delegation to the parent ScopeCreator's visit() method, which correctly processes all declaration types including functions in nested scopes.\",\n  \"experiment_rationale\": \"The unified diff confirms the hypothesis: the buggy version had a 21-line switch block handling FUNCTION/CATCH/VAR with an early return for FUNCTION when parent is NAME, while the fixed version replaces this entirely with 'super.visit(t, n, parent);'. This demonstrates the root cause was an incorrect local algorithm for AST traversal \u2014 the custom logic failed to handle the module pattern case, and delegating to the parent class's proven algorithm corrects the procedure.\",\n  \"reasoning_summary\": \"This is an Algorithm/Method defect because the fix replaces an incorrect computational procedure (custom switch-based node visitation logic) with a correct one (delegation to parent class). The bug was not a missing guard (Checking), wrong value (Assignment/Initialization), interface mismatch (Interface/O-O Messages), timing issue (Timing/Serialization), cross-entity association (Relationship), or missing design capability (Function/Class/Object) \u2014 it was specifically a flawed local algorithm in the visit() method that mishandled FUNCTION nodes in nested scopes. The diff shows a pure algorithmic rewrite at the method level.\",\n  \"evidence_used\": [\n    \"fix_diff_oracle.unified_diff showing replacement of custom switch logic with super.visit()\",\n    \"bug_report_description describing missing @param annotations on functions in IIFEs\",\n    \"failing_tests showing assertions for hasProperty and getPropertyType on locally-scoped function stubs\",\n    \"production_code_snippets showing test expectations for declared function types in local scopes\"\n  ],\n  \"evidence_gaps\": [\n    \"Full TypedScopeCreator.java source not provided to see parent class visit() implementation\",\n    \"Exact Token.NAME parent condition context not fully visible\"\n  ],\n  \"alternative_types\": [\n    {\n      \"type\": \"Function/Class/Object\",\n      \"why_not_primary\": \"The fix is a localized method-level algorithm change, not a design-level capability addition or structural correction. The capability (type checking) exists; its implementation procedure was flawed.\"\n    },\n    {\n      \"type\": \"Checking\",\n      \"why_not_primary\": \"No validation guard or predicate was missing; the type annotation processing logic itself was bypassed due to incorrect traversal algorithm.\"\n    }\n  ]\n}"
+}

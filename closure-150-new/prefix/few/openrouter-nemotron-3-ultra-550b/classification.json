@@ -1,0 +1,63 @@
+{
+  "project_id": "Closure",
+  "bug_id": 150,
+  "version_id": "150b",
+  "prompt_style": "scientific",
+  "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+  "provider": "openrouter",
+  "created_at": "2026-08-10T11:08:20+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 0.85,
+  "needs_human_review": false,
+  "observation_summary": "The type checker correctly validates JSDoc annotations on functions at global scope, but misses/ignores annotations on functions defined within anonymous functions (local scopes). Two tests fail: testNamespacedFunctionStubLocal (namespace property function stub in local scope) and testCollectedFunctionStubLocal (constructor method in local scope). Both expect property type information to be collected from JSDoc annotations inside function scopes, but the TypedScopeCreator does not find them.",
+  "hypothesis": "The TypedScopeCreator's AST traversal algorithm for collecting type annotations does not properly descend into function scopes (anonymous functions, IIFEs) to find JSDoc annotations on function expressions assigned to properties. The algorithm works for global-scope annotations but lacks the logic to visit nested function bodies when building the typed scope.",
+  "prediction": "The fix will modify TypedScopeCreator's scope traversal logic (likely in visitFunction or a similar node visitor) to recursively process nested function scopes and collect JSDoc annotations from function expressions assigned to object properties, ensuring local-scope annotations are treated equivalently to global-scope ones.",
+  "experiment_rationale": "The failing tests directly exercise the missing behavior: they define annotated functions inside anonymous functions and assert that the type information is collected. The coverage data shows TypedScopeCreator lines 242-255 (handling function stubs and property types) are heavily executed by these tests. If the algorithm were corrected to traverse into the anonymous function bodies, the annotations would be found and the assertions would pass.",
+  "reasoning_summary": "This is an Algorithm/Method defect because the root cause is an incorrect traversal procedure in TypedScopeCreator \u2014 it fails to visit nested function scopes when collecting JSDoc annotations. The fix requires reimplementing the scope-walking algorithm to handle the module pattern (functions within functions), not adding a missing guard (Checking), correcting a wrong value (Assignment/Initialization), fixing a component boundary (Interface), addressing concurrency (Timing), repairing cross-entity associations (Relationship), or adding a design-level capability (Function/Class/Object). The capability exists for global scope; the algorithm merely omits local scopes.",
+  "evidence_used": [
+    "Bug report: type checker misses annotations on functions defined within functions (module pattern)",
+    "testNamespacedFunctionStubLocal: expects hasProperty(\"foo\") and correct type from annotation inside anonymous function",
+    "testCollectedFunctionStubLocal: expects hasProperty(\"foo\") on instance from constructor method annotated inside anonymous function",
+    "TypedScopeCreator coverage: lines 242-255 (function stub/property type handling) heavily hit by trigger tests",
+    "Stack traces point to test assertions failing due to missing property/type information"
+  ],
+  "evidence_gaps": [
+    "Production code for TypedScopeCreator's traversal logic (visitFunction, scope handling) not provided \u2014 only class declaration shown",
+    "Exact location of the missing traversal logic not pinpointed"
+  ],
+  "alternative_types": [
+    {
+      "type": "Function/Class/Object",
+      "why_not_primary": "The type-checking capability exists and works for global scope; the defect is the algorithm's failure to extend that capability to local scopes, not a missing design-level capability."
+    },
+    {
+      "type": "Relationship",
+      "why_not_primary": "While annotations relate to functions, the breakage is not a cross-entity consistency issue \u2014 it's the traversal algorithm not reaching the annotation nodes in nested scopes."
+    },
+    {
+      "type": "Checking",
+      "why_not_primary": "No validation guard is missing; the annotations are simply not visited/collected due to incomplete traversal."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Algorithm/Method\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Capability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.85,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The type checker correctly validates JSDoc annotations on functions at global scope, but misses/ignores annotations on functions defined within anonymous functions (local scopes). Two tests fail: testNamespacedFunctionStubLocal (namespace property function stub in local scope) and testCollectedFunctionStubLocal (constructor method in local scope). Both expect property type information to be collected from JSDoc annotations inside function scopes, but the TypedScopeCreator does not find them.\",\n  \"hypothesis\": \"The TypedScopeCreator's AST traversal algorithm for collecting type annotations does not properly descend into function scopes (anonymous functions, IIFEs) to find JSDoc annotations on function expressions assigned to properties. The algorithm works for global-scope annotations but lacks the logic to visit nested function bodies when building the typed scope.\",\n  \"prediction\": \"The fix will modify TypedScopeCreator's scope traversal logic (likely in visitFunction or a similar node visitor) to recursively process nested function scopes and collect JSDoc annotations from function expressions assigned to object properties, ensuring local-scope annotations are treated equivalently to global-scope ones.\",\n  \"experiment_rationale\": \"The failing tests directly exercise the missing behavior: they define annotated functions inside anonymous functions and assert that the type information is collected. The coverage data shows TypedScopeCreator lines 242-255 (handling function stubs and property types) are heavily executed by these tests. If the algorithm were corrected to traverse into the anonymous function bodies, the annotations would be found and the assertions would pass.\",\n  \"reasoning_summary\": \"This is an Algorithm/Method defect because the root cause is an incorrect traversal procedure in TypedScopeCreator \u2014 it fails to visit nested function scopes when collecting JSDoc annotations. The fix requires reimplementing the scope-walking algorithm to handle the module pattern (functions within functions), not adding a missing guard (Checking), correcting a wrong value (Assignment/Initialization), fixing a component boundary (Interface), addressing concurrency (Timing), repairing cross-entity associations (Relationship), or adding a design-level capability (Function/Class/Object). The capability exists for global scope; the algorithm merely omits local scopes.\",\n  \"evidence_used\": [\n    \"Bug report: type checker misses annotations on functions defined within functions (module pattern)\",\n    \"testNamespacedFunctionStubLocal: expects hasProperty(\\\"foo\\\") and correct type from annotation inside anonymous function\",\n    \"testCollectedFunctionStubLocal: expects hasProperty(\\\"foo\\\") on instance from constructor method annotated inside anonymous function\",\n    \"TypedScopeCreator coverage: lines 242-255 (function stub/property type handling) heavily hit by trigger tests\",\n    \"Stack traces point to test assertions failing due to missing property/type information\"\n  ],\n  \"evidence_gaps\": [\n    \"Production code for TypedScopeCreator's traversal logic (visitFunction, scope handling) not provided \u2014 only class declaration shown\",\n    \"Exact location of the missing traversal logic not pinpointed\"\n  ],\n  \"alternative_types\": [\n    {\n      \"type\": \"Function/Class/Object\",\n      \"why_not_primary\": \"The type-checking capability exists and works for global scope; the defect is the algorithm's failure to extend that capability to local scopes, not a missing design-level capability.\"\n    },\n    {\n      \"type\": \"Relationship\",\n      \"why_not_primary\": \"While annotations relate to functions, the breakage is not a cross-entity consistency issue \u2014 it's the traversal algorithm not reaching the annotation nodes in nested scopes.\"\n    },\n    {\n      \"type\": \"Checking\",\n      \"why_not_primary\": \"No validation guard is missing; the annotations are simply not visited/collected due to incomplete traversal.\"\n    }\n  ]\n}"
+}

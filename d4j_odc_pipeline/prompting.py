@@ -87,8 +87,7 @@ def _build_system_prompt(
     base.extend([
         "",
         "CRITICAL RULES:",
-        "- Do NOT default to 'Function/Class/Object'. This type implies a design-level capability issue.",
-        "- Choose the type whose root-cause mechanism the evidence best supports; 'Function/Class/Object' requires evidence of a design-level capability gap, not merely wrong behaviour in existing code.",
+        "- Do NOT default to 'Function/Class/Object' — it requires evidence of a design-level capability gap, not merely wrong behaviour in existing code. Choose the type whose root-cause mechanism the evidence best supports.",
         "- Read the code snippets carefully. The type of fix needed determines the ODC type.",
         "- Do not use benchmark familiarity, project reputation, or hidden fix knowledge.",
         "",
@@ -102,72 +101,24 @@ def _build_system_prompt(
     base.extend(
         [
             "",
-            _scientific_debugging_instructions(),
-            "",
             "## Classification Decision Process",
             "",
-            "Before classifying, you MUST answer these diagnostic questions in your reasoning:",
+            "Before classifying, work through these diagnostic questions against the evidence, in order:",
             "",
-            "1. **Is a condition/guard/validation missing or wrong?**",
-            "   → Look for: missing null checks, wrong if-conditions, missing bounds checks, incorrect exception handling.",
-            "   → If YES → strongly consider **Checking**.",
+            "1. **Missing/wrong condition or guard?** (null checks, if-conditions, bounds checks, exception handling) → **Checking**",
+            "2. **Wrong value, constant, or initialization?** (default values, wrong constant, wrong variable in an assignment) → **Assignment/Initialization**",
+            "3. **Wrong computational logic or procedure?** (formula, loop logic, sort order, data-structure operation) → **Algorithm/Method**",
+            "4. **Wrong component boundary or API interaction?** (parameter order, caller/callee type mismatch, contract violation) → **Interface/O-O Messages**",
+            "5. **Depends on execution order or timing?** (race conditions, lifecycle ordering, serialization order) → **Timing/Serialization**",
+            "6. **Broken association among procedures/data structures/objects that must stay aligned?** → **Relationship**",
+            "7. **Requires a formal design-level capability correction?** (significant capability/class/object/interface structure correction) → **Function/Class/Object**",
             "",
-            "2. **Is a specific value, constant, or initialization wrong?**",
-            "   → Look for: wrong default values, wrong constants, wrong variable used in assignment.",
-            "   → If YES and the fix is a value/initialization correction → strongly consider **Assignment/Initialization**.",
-            "",
-            "3. **Is the computational logic or procedure itself wrong?**",
-            "   → Look for: wrong formula, wrong loop logic, wrong sort order, wrong data structure operation.",
-            "   → If YES → strongly consider **Algorithm/Method**.",
-            "",
-            "4. **Is the problem at a component boundary or API interaction?**",
-            "   → Look for: wrong parameter order, type mismatch between caller/callee, contract violation.",
-            "   → If YES → strongly consider **Interface/O-O Messages**.",
-            "",
-            "5. **Does the problem depend on execution order or timing?**",
-            "   → Look for: race conditions, lifecycle ordering, serialization order.",
-            "   → If YES → strongly consider **Timing/Serialization**.",
-            "",
-            "6. **Is the issue centered on associations among procedures/data structures/objects?**",
-            "   → Look for: broken assumptions between related entities that must stay aligned.",
-            "   → If YES → consider **Relationship**.",
-            "",
-            "7. **Does the defect require a formal design-level capability correction?**",
-            "   → Look for: significant capability/class/object/interface structure correction.",
-            "   → If YES → consider **Function/Class/Object**.",
-            "",
-            "Work through these questions using the evidence provided, then choose the BEST matching type.",
+            "Choose the BEST matching type from the first question that fits.",
         ]
     )
     # Worked classification examples — the "shots" that make this the few-shot strategy.
     base.extend(["", _few_shot_examples()])
     return "\n".join(base)
-
-
-def _scientific_debugging_instructions() -> str:
-    return """## Scientific Debugging Protocol
-
-Follow this structured reasoning process:
-
-**Step 1 — OBSERVE**: Examine the failure symptoms carefully.
-- What does the error message say?
-- What does the stack trace reveal about WHERE the failure occurs?
-- What does the test name tell you about WHAT is being tested?
-
-**Step 2 — HYPOTHESIZE**: Form a specific root-cause hypothesis.
-- Do NOT just say "the feature doesn't work." Be specific about the MECHANISM.
-- Is it a wrong condition? A wrong value? A wrong computation step? A missing check?
-
-**Step 3 — PREDICT**: What would we expect to see in the code if your hypothesis is correct?
-- If it's a Checking bug: we'd see a missing/wrong if-condition or guard.
-- If it's an Algorithm/Method bug: we'd see wrong iteration, formula, or procedure.
-- If it's an Assignment/Initialization bug: we'd see a wrong value or initialization.
-
-**Step 4 — EXAMINE EVIDENCE**: Look at the code snippets provided.
-- Do the code snippets confirm or refute your hypothesis?
-- What specific lines or constructs in the code support your classification?
-
-**Step 5 — CONCLUDE**: Choose the ODC type that best matches the ROOT CAUSE mechanism."""
 
 
 def _few_shot_examples() -> str:
@@ -241,8 +192,7 @@ def _build_user_prompt(
         "",
         "IMPORTANT ANALYSIS RULES:",
         "- Use ONLY the evidence in this prompt.",
-        "- Examine code snippets line-by-line to determine the root cause mechanism.",
-        "- Consider: Is the root cause a missing CHECK, a wrong VALUE, a wrong COMPUTATION, a BOUNDARY mismatch, or truly MISSING functionality?",
+        "- Examine code snippets line-by-line to determine the root cause mechanism, working through the system prompt's Classification Decision Process.",
         "- If code snippets show existing logic producing wrong results, this is usually NOT 'Function/Class/Object'.",
         "- If evidence is incomplete, lower confidence and set needs_human_review=true.",
         "- The output odc_type must be one of: " + ", ".join(allowed_type_names(taxonomy_mode)),
@@ -307,6 +257,14 @@ _REPORT_COMMENT_MARKERS = (
 # start at a specific number).
 _JSON_SECOND_COMMENT_RE = re.compile(r'\{"id":\d+,\s*"commenterId"')
 
+# web_fetch._format_tracker_json renders the same Google Code comment array
+# as "Comment N (YYYY-MM-DD): text" lines instead of raw JSON — the pattern
+# above no longer matches that shape, so without this the truncation-at-
+# second-comment safeguard silently stopped catching fix-revealing replies
+# (regression found via a live Closure-150 collect: "Comment 6 ... This
+# issue was closed by revision r2240." leaked into the pre-fix arm).
+_FORMATTED_COMMENT_N_RE = re.compile(r"\nComment (\d+) \(")
+
 # Meta segments that reveal post-open state on API-format report meta lines
 # (e.g. "Type: Bug | Priority: Major | Status: Resolved | Resolution: Fixed").
 _REPORT_META_KEYS = ("Type", "State", "Priority", "Status", "Resolution", "Labels")
@@ -331,6 +289,67 @@ _INLINE_RESOLUTION_RE = re.compile(
 def _is_separator_line(line: str) -> bool:
     stripped = line.strip()
     return len(stripped) >= 10 and set(stripped) == {"-"}
+
+
+# Local-machine paths and corpus-wide stats that leak into every `defects4j
+# info` call — carry zero classification signal for any single bug, so
+# unlike _BUG_INFO_FIX_SECTIONS these strip in BOTH arms (see
+# docs/suspicious_frame_selection.md).
+_BUG_INFO_NOISE_LINE_PREFIXES = (
+    "script dir:",
+    "base dir:",
+    "major root:",
+    "repo dir:",
+    "commit db:",
+    "number of bugs:",
+)
+
+
+def _strip_bug_info_noise(text: str) -> str:
+    """Drop collection-machine-path / dataset-size lines from `bug_info`."""
+    if not text:
+        return text
+    lines = [
+        line for line in text.splitlines()
+        if not any(line.strip().lower().startswith(prefix) for prefix in _BUG_INFO_NOISE_LINE_PREFIXES)
+    ]
+    return "\n".join(lines)
+
+
+# Mirrors pipeline._FRAMEWORK_PREFIXES — duplicated (not imported) to avoid a
+# prompting<->pipeline import cycle (pipeline.py already imports
+# build_messages from this module).
+_TRACE_FRAMEWORK_PREFIXES = (
+    "org.junit.", "junit.", "org.hamcrest.", "org.mockito.", "org.powermock.",
+    "org.easymock.", "org.assertj.", "org.apache.tools.ant.", "org.apache.maven.",
+    "org.gradle.", "java.", "javax.", "jdk.", "sun.", "com.sun.", "jdk.internal.reflect.",
+)
+
+# Optional non-capturing (?:module/)? handles Java 9+ module-qualified
+# frames, e.g. "at java.base/jdk.internal.reflect.NativeMethodAccessorImpl
+# .invoke0(...)" — without it the "/" breaks the match entirely and the
+# line falls through as unrecognized (kept instead of correctly filtered).
+_TRACE_LINE_CLASS_RE = re.compile(r"^\s*at\s+(?:[\w.]+/)?([\w.$]+)\.")
+
+
+def _filter_stack_trace_noise(stack_trace: list[str], limit: int) -> list[str]:
+    """Keep the exception headline plus up to *limit* non-framework frame
+    lines. The raw first-N-lines excerpt used to be dominated by JDK
+    reflection / Ant / JUnit runner boilerplate for assertion-style failures
+    (e.g. 10 of 15 lines for Closure-150) — this surfaces signal lines
+    instead within the same budget."""
+    if not stack_trace:
+        return []
+    kept = [stack_trace[0]]
+    for line in stack_trace[1:]:
+        match = _TRACE_LINE_CLASS_RE.match(line)
+        class_name = match.group(1) if match else ""
+        if class_name and any(class_name.startswith(prefix) for prefix in _TRACE_FRAMEWORK_PREFIXES):
+            continue
+        kept.append(line)
+        if len(kept) - 1 >= limit:
+            break
+    return kept
 
 
 def sanitize_bug_info(text: str) -> str:
@@ -381,6 +400,12 @@ def sanitize_bug_report(text: str) -> str:
     json_comments = list(_JSON_SECOND_COMMENT_RE.finditer(text))
     if len(json_comments) >= 2:
         cut = min(cut, json_comments[1].start())
+    # 1c. Same tracker shape, but already reformatted by
+    # web_fetch._format_tracker_json into "Comment N (date): text" lines —
+    # keep only "Comment 0" (the original report), drop "Comment 1" onward.
+    formatted_comments = list(_FORMATTED_COMMENT_N_RE.finditer(text))
+    if len(formatted_comments) >= 2:
+        cut = min(cut, formatted_comments[1].start())
     text = text[:cut].rstrip()
     # 2. Drop post-open segments from meta lines. Only lines whose every
     #    " | "-separated segment is a known meta key are rewritten, so
@@ -410,8 +435,20 @@ def _collapse_line_whitespace(text: str) -> str:
 
 
 def _context_payload(context: BugContext) -> dict:
-    # Filter metadata — exclude hidden oracles
-    filtered_metadata = {key: value for key, value in context.metadata.items() if key != "classes.modified"}
+    # Filter metadata — exclude hidden oracles, and collapse the long
+    # unrelated-test-class list (tests.relevant) to a count: it has no
+    # bearing on ODC type/impact and was pure token bulk (23 class names for
+    # a typical Closure bug). tests.trigger (the actually failing test) is
+    # kept verbatim.
+    filtered_metadata: dict = {}
+    for key, value in context.metadata.items():
+        if key == "classes.modified":
+            continue
+        if key == "tests.relevant" and isinstance(value, str) and value:
+            count = len([t for t in value.split(";") if t.strip()])
+            filtered_metadata[key] = f"{count} relevant test classes (list omitted — not diagnostic for ODC type/impact)"
+            continue
+        filtered_metadata[key] = value
 
     payload: dict = {
         "project_id": context.project_id,
@@ -425,9 +462,13 @@ def _context_payload(context: BugContext) -> dict:
         "coverage_summary": [],
     }
 
-    # ── Bug info / bug report (sanitized in the pre-fix arm only) ─────
+    # ── Bug info / bug report ───────────────────────────────────────────
+    # Fix-revealing sections sanitize in the pre-fix arm only; the
+    # local-path/corpus-size noise strips in both arms (it's noise either
+    # way, never fix-derived).
     prefix_arm = not context.fix_diff
     bug_info = sanitize_bug_info(context.bug_info) if prefix_arm else context.bug_info
+    bug_info = _strip_bug_info_noise(bug_info)
     if bug_info:
         payload["bug_info"] = bug_info
 
@@ -443,7 +484,7 @@ def _context_payload(context: BugContext) -> dict:
             {
                 "test_name": failure.test_name,
                 "headline": failure.headline,
-                "stack_trace_excerpt": failure.stack_trace[:15],
+                "stack_trace_excerpt": _filter_stack_trace_noise(failure.stack_trace, 15),
             }
         )
 
@@ -455,6 +496,7 @@ def _context_payload(context: BugContext) -> dict:
                 "method_name": frame.method_name,
                 "file_name": frame.file_name,
                 "line_number": frame.line_number,
+                "origin": frame.origin,
             }
         )
 
@@ -515,8 +557,12 @@ def _context_payload(context: BugContext) -> dict:
         }
 
     # ── Notes ─────────────────────────────────────────────────────────
-    if context.notes:
-        payload["notes"] = list(context.notes)
+    # Deliberately NOT forwarded to the LLM: every entry pipeline.py appends
+    # (compile/test/coverage exit codes, raw Ant build stderr excerpts,
+    # fix-diff collection status) is collection-run bookkeeping, not bug
+    # evidence — zero classification signal, pure token bulk. Kept in
+    # context.json for human debugging/provenance only. See
+    # docs/suspicious_frame_selection.md.
 
     # NOTE: the old odc_opener_hints/odc_closer_hints keyword heuristics were
     # removed (docs/odc_alignment_audit.md §4.4): they anchored the LLM's

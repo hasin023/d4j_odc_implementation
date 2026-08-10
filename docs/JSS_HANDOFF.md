@@ -86,6 +86,31 @@ an LLM, producing machine-readable artifacts for evaluation.
   oracle information; used as the reference arm for RQ3/RQ5. `bug_info`/report
   are left untouched here, since this arm legitimately knows the fix.
 
+**`docs/suspicious_frame_selection.md` (new, 2026-08-10)** covers a
+different axis than the audit above: how `suspicious_frames`/`coverage` are
+selected (stack-trace frames + trigger-test coverage union, not stack trace
+alone — fixes a case where the buggy class never appears in any stack
+trace), why bug-report JSON parsing was cleaned up (decoded entities,
+dropped opaque tracker-comment ids), and the full list of what
+`_context_payload` trims from `context.json` before it reaches the LLM
+prompt. Read it before describing evidence-selection methodology in the
+paper.
+
+**`docs/llm_prompting_architecture.md` (new, 2026-08-10)** is the exact,
+field-by-field inventory of what's sent to the LLM per strategy
+(`zero`/`few`/`scientific`, including the agentic loop's 5 probes) plus the
+literature-and-code-grounded justification for the system/user message
+split (Instruction Hierarchy paper, ChatML, prompt caching, and how our own
+Gemini/Groq/OpenRouter integrations structurally enforce it). Read it before
+writing the prompting-methodology section of the paper.
+
+**`docs/llm_model_selection.md` (new, 2026-08-10)** is the free-tier model
+tier list and per-strategy model pairing research — read it before choosing
+which model(s) back a study-run, and before writing a "models used" section
+in the paper. Also covers the model axis added to the artifact scheme
+(`docs/condition_model.md` §5): running a strategy under 2 models for the
+same condition is now collision-free.
+
 **Impact (ODC opener attribute, v5.2 §3.3)** is now first-class: the `few`/
 `scientific` prompts teach all 13 official categories + `Unknown`, and the
 LLM returns a single validated `impact` field (`odc.py`, `docs/
@@ -184,8 +209,11 @@ threats to validity):
 `docs/two_variable_refactor_spec.md` — all four are explicitly banner-marked
 stale/superseded in their own text (old RQ numbering RQ1.1/RQ2.1/etc., old
 command names, or fully superseded design docs). `docs/ARCHITECTURE.md` is
-partially stale (self-flagged) — its evidence-collection and ODC-mapping
-sections are fine, its classification-flow diagram is not.
+partially stale (self-flagged) — its classification-flow diagram/prompt-style
+content is the still-stale part; its evidence-collection and ODC-mapping
+sections were updated 2026-08-10 to reflect the coverage-augmented frame
+selection (see `docs/suspicious_frame_selection.md` for the fuller
+methodology writeup) and are current again.
 `docs/study_execution_log.md` and `RESEARCH_AGENTS.md` are useful for
 provenance/context but are working documents, not methods sources — see
 their own staleness banners for which sections are still current.

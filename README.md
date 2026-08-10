@@ -6,7 +6,7 @@ The default strategy is an **enforced scientific loop** (AutoSD-inspired): the f
 
 The default way to use the tool is now the interactive CLI: launch `d4j-odc` (or `python -m d4j_odc_pipeline`) with no arguments, then work from the `odc>` shell using slash commands such as `/run`, `/study plan`, and `/show classification`. The original argument-based command style is still supported for scripts, CI, notebooks, and existing workflows. Any old invocation like `python -m d4j_odc_pipeline run ...` remains valid.
 
-For large-scale evaluation, the CLI supports batch-study commands: `study-plan`, `study-run`, `study-drift`, `study-escape`, `study-ladder`, and `study-export`. Every classification is a coordinate of two condition variables — `--taxonomy free|closed|open` (default open) and `--strategy zero|few|scientific` (default scientific = the enforced hypothesis→probe loop) — see **docs/condition_model.md** (authoritative). Output files are always condition-tagged (`classification.<strategy>-<taxonomy>.json`).
+For large-scale evaluation, the CLI supports batch-study commands: `study-plan`, `study-run`, `study-drift`, `study-escape`, `study-ladder`, and `study-export`. Every classification is a coordinate of two condition variables — `--taxonomy free|closed|open` (default open) and `--strategy zero|few|scientific` (default scientific = the enforced hypothesis→probe loop) — see **docs/condition_model.md** (authoritative). Output files are always condition-tagged (`classification.<strategy>-<taxonomy>.json`), plus an optional `.<provider>-<model-slug>` suffix when a condition has been run under more than one LLM model (see **docs/condition_model.md** §5 and **docs/llm_model_selection.md**).
 
 For multi-fault analysis, the pipeline integrates with [defects4j-mf](https://github.com/DCallaz/defects4j-mf) data via the `multifault` and `multifault-enrich` commands.
 
@@ -133,6 +133,10 @@ Most parameters have **smart defaults** in both modes. See [docs/USAGE.md](docs/
     │   ├── prefix/
     │   ├── postfix/
     │   └── checkpoint.pairs.scientific-open.json  # per-condition, study-run
+    │       # + checkpoint.pairs.scientific-open.<provider>-<model-slug>.json
+    │       #   only if a SECOND distinct model was run against this same
+    │       #   condition (model axis, see docs/condition_model.md §5) —
+    │       #   the first model's files stay exactly as above
     ├── latex/                         # LaTeX table exports (study-export)
     │   ├── type_distribution.tex
     │   ├── accuracy.tex

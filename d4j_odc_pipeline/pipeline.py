@@ -6,7 +6,7 @@ from pathlib import Path
 
 from .defects4j import DEFAULT_EXPORT_PROPERTIES, DEFAULT_QUERY_FIELDS, Defects4JClient
 from .llm import LLMClient, LLMError, classification_response_schema, naive_response_schema
-from .models import BugContext, ClassificationResult, CodeSnippet, StackFrame, ensure_parent, utc_now_iso
+from .models import BugContext, ClassificationResult, CodeSnippet, CoverageClass, StackFrame, ensure_parent, utc_now_iso
 from .odc import (
     DEFAULT_STRATEGY,
     DEFAULT_TAXONOMY,
@@ -114,6 +114,72 @@ def collect_bug_context(
     source_dirs = _discover_source_dirs(work_dir, exports)
     console.step(f"Source directories: {len(source_dirs)}")
 
+    hidden_oracles = {}
+    if metadata.get("classes.modified"):
+        hidden_oracles["classes.modified"] = metadata["classes.modified"]
+        notes.append("Stored classes.modified as hidden oracle only; it is excluded from the LLM prompt by default.")
+        console.step("Hidden oracle stored", detail="classes.modified (excluded from prompt)")
+
+    # ── Coverage (independent of the suspicious-frame guess) ───────────
+    # Instrumented classes are every production class under dir.src.classes —
+    # NOT the classes.modified oracle (Defects4J defaults to that when no
+    # instrument file is given, which would leak the fix location into
+    # evidence selection) and NOT the suspicious_frames guess (that was the
+    # old circular dependency: a bug whose stack trace never touches the
+    # buggy class, e.g. an assertion failure inside the test itself, could
+    # never be rescued by coverage because coverage only looked at classes
+    # already guessed suspicious). See docs/suspicious_frame_selection.md.
+    coverage: list[CoverageClass] = []
+    if run_coverage:
+        production_classes = _discover_production_classes(work_dir, exports)
+        if production_classes:
+            instrument_file = output_path.parent / "instrument_classes.txt"
+            ensure_parent(instrument_file)
+            instrument_file.write_text("\n".join(sorted(production_classes)), encoding="utf-8")
+
+            coverage_by_class: dict[str, CoverageClass] = {}
+            trigger_tests = list(dict.fromkeys(f.test_name for f in failures))
+            for test_name in trigger_tests:
+                with console.spinner_step(f"Running coverage for {test_name}"):
+                    coverage_result = defects4j.coverage(
+                        work_dir,
+                        single_test=test_name,
+                        instrument_classes_file=instrument_file,
+                    )
+                notes.append(f"Coverage exit code ({test_name}): {coverage_result.returncode}")
+
+                if coverage_result.returncode not in (0, 1):
+                    console.warn(
+                        f"Coverage failed for {test_name} (exit {coverage_result.returncode}), retrying without instrument file..."
+                    )
+                    if coverage_result.stderr:
+                        notes.append(f"Coverage stderr ({test_name}, attempt 1): {coverage_result.stderr[:300]}")
+                    with console.spinner_step(f"Retrying coverage for {test_name} without instrument filter"):
+                        coverage_result = defects4j.coverage(work_dir, single_test=test_name)
+                    notes.append(f"Coverage retry exit code ({test_name}): {coverage_result.returncode}")
+
+                parsed = defects4j.parse_coverage_reports(work_dir, interesting_classes=production_classes)
+                if not parsed and coverage_result.stderr:
+                    notes.append(f"Coverage stderr ({test_name}): {coverage_result.stderr[:300]}")
+                _merge_coverage(coverage_by_class, parsed)
+
+            coverage = list(coverage_by_class.values())
+            if coverage:
+                console.step(f"Coverage parsed: {len(coverage)} class(es) across {len(trigger_tests)} trigger test(s)")
+            else:
+                console.warn("No parseable coverage XML found after running defects4j coverage")
+                notes.append("No parseable coverage XML was found after running defects4j coverage.")
+        else:
+            console.step("Coverage skipped", detail="no production source classes discovered")
+            notes.append("Coverage skipped because no production source classes were discovered under dir.src.classes.")
+    else:
+        console.step("Coverage skipped", detail="--skip-coverage flag set")
+
+    # ── Extend suspicious_frames with coverage-only classes ────────────
+    added = _augment_frames_with_coverage(suspicious_frames, coverage)
+    if added:
+        console.step("Suspicious frames extended with coverage", detail=f"+{added} class(es), no stack-trace signal")
+
     # ── Extract production code snippets ──────────────────────────────
     with console.timed_step("Extracting code snippets from suspicious frames"):
         code_snippets = _extract_code_snippets(source_dirs, suspicious_frames, radius=snippet_radius)
@@ -121,66 +187,11 @@ def collect_bug_context(
 
     # ── Extract test source code snippets ─────────────────────────────
     with console.timed_step("Extracting test source code"):
-        test_snippets = _extract_test_source(source_dirs, failures, radius=snippet_radius + 6)
+        test_snippets = _extract_test_source(
+            source_dirs, failures, radius=snippet_radius + 6, existing_snippets=code_snippets
+        )
     console.step(f"Test code snippets: {len(test_snippets)}")
     code_snippets.extend(test_snippets)
-
-    hidden_oracles = {}
-    if metadata.get("classes.modified"):
-        hidden_oracles["classes.modified"] = metadata["classes.modified"]
-        notes.append("Stored classes.modified as hidden oracle only; it is excluded from the LLM prompt by default.")
-        console.step("Hidden oracle stored", detail="classes.modified (excluded from prompt)")
-
-    coverage = []
-    if run_coverage:
-        interesting_classes = {frame.class_name for frame in suspicious_frames}
-        if interesting_classes:
-            instrument_file = output_path.parent / "instrument_classes.txt"
-            ensure_parent(instrument_file)
-            instrument_file.write_text("\n".join(sorted(interesting_classes)), encoding="utf-8")
-            single_test = failures[0].test_name if failures else None
-
-            # Attempt 1: Run coverage with instrument file for focused results
-            with console.spinner_step(f"Running coverage on {len(interesting_classes)} class(es)"):
-                coverage_result = defects4j.coverage(
-                    work_dir,
-                    single_test=single_test,
-                    instrument_classes_file=instrument_file,
-                )
-            notes.append(f"Coverage exit code: {coverage_result.returncode}")
-
-            # If coverage command failed, retry without instrument file
-            if coverage_result.returncode not in (0, 1):
-                console.warn(
-                    f"Coverage failed (exit {coverage_result.returncode}), retrying without instrument file..."
-                )
-                if coverage_result.stderr:
-                    notes.append(f"Coverage stderr (attempt 1): {coverage_result.stderr[:300]}")
-                with console.spinner_step("Retrying coverage without instrument filter"):
-                    coverage_result = defects4j.coverage(
-                        work_dir,
-                        single_test=single_test,
-                    )
-                notes.append(f"Coverage retry exit code: {coverage_result.returncode}")
-
-            coverage = defects4j.parse_coverage_reports(work_dir, interesting_classes=interesting_classes)
-            if coverage:
-                console.step(f"Coverage parsed: {len(coverage)} class(es)")
-            else:
-                # Try parsing without the class filter as a last resort
-                coverage = defects4j.parse_coverage_reports(work_dir)
-                if coverage:
-                    console.step(f"Coverage parsed (unfiltered): {len(coverage)} class(es)")
-                else:
-                    console.warn("No parseable coverage XML found after running defects4j coverage")
-                    notes.append("No parseable coverage XML was found after running defects4j coverage.")
-                    if coverage_result.stderr:
-                        notes.append(f"Coverage stderr: {coverage_result.stderr[:300]}")
-        else:
-            console.step("Coverage skipped", detail="no suspicious source frames available")
-            notes.append("Coverage skipped because no suspicious source frames were available.")
-    else:
-        console.step("Coverage skipped", detail="--skip-coverage flag set")
 
     context = BugContext(
         project_id=project_id,
@@ -220,7 +231,7 @@ def collect_bug_context(
             console.warn("Could not collect fix diff")
             context.notes.append("Fix diff requested but could not be collected.")
 
-    console.step(f"Writing context → {output_path}")
+    console.step(f"Writing context -> {output_path}")
     write_json(output_path, context.to_dict())
 
     total_snippets_prod = len(code_snippets) - len(test_snippets)
@@ -588,6 +599,99 @@ def _discover_source_dirs(work_dir: Path, exports: dict[str, str]) -> list[Path]
     return deduped
 
 
+def _discover_production_classes(work_dir: Path, exports: dict[str, str]) -> set[str]:
+    """Enumerate every production (non-test) class under dir.src.classes.
+
+    Used to scope coverage instrumentation without depending on the
+    suspicious_frames guess or the classes.modified oracle (Defects4J
+    defaults to instrumenting only classes.modified when no instrument
+    file is passed, which would leak the fix location into evidence
+    selection — see the coverage block in collect_bug_context)."""
+    classes: set[str] = set()
+    value = exports.get("dir.src.classes")
+    if not value:
+        return classes
+    for part in value.split(":"):
+        part = part.strip()
+        if not part:
+            continue
+        src_dir = (work_dir / part).resolve()
+        if not src_dir.exists():
+            continue
+        for java_file in src_dir.rglob("*.java"):
+            relative = java_file.relative_to(src_dir).with_suffix("")
+            fqcn = ".".join(relative.parts)
+            if fqcn:
+                classes.add(fqcn)
+    return classes
+
+
+def _merge_coverage(accumulated: dict[str, CoverageClass], new_classes: list[CoverageClass]) -> None:
+    """Merge a per-test coverage parse into the running per-class accumulator."""
+    for cov in new_classes:
+        existing = accumulated.get(cov.class_name)
+        if existing is None:
+            accumulated[cov.class_name] = cov
+            continue
+        if (cov.line_rate or 0.0) > (existing.line_rate or 0.0):
+            existing.line_rate = cov.line_rate
+        if (cov.branch_rate or 0.0) > (existing.branch_rate or 0.0):
+            existing.branch_rate = cov.branch_rate
+        existing.filename = existing.filename or cov.filename
+        seen_lines = {line.line_number for line in existing.covered_lines}
+        for line in cov.covered_lines:
+            if line.line_number in seen_lines:
+                continue
+            existing.covered_lines.append(line)
+            seen_lines.add(line.line_number)
+
+
+def _augment_frames_with_coverage(
+    suspicious_frames: list[StackFrame], coverage: list[CoverageClass], cap: int = 12
+) -> int:
+    """Extend suspicious_frames in place with coverage-only classes.
+
+    Stack-trace frames keep priority (higher-precision signal); coverage-
+    derived classes — touched by a trigger test but never present in any
+    stack trace, e.g. an assertion failure inside the test itself never
+    throws through the buggy class — fill remaining slots up to *cap*,
+    ranked by line_rate. Focused on the class's most-executed line (top of
+    covered_lines, already hits-sorted by parse_coverage_reports) — falling
+    back to no line number would make code-snippet extraction show the top
+    of the file (license header/imports) instead of anything relevant.
+    Returns the number of frames added."""
+    if not coverage:
+        return 0
+    known_classes = {frame.class_name for frame in suspicious_frames}
+    ranked_coverage = sorted(coverage, key=lambda c: (c.line_rate or 0.0), reverse=True)
+    remaining_slots = max(0, cap - len(suspicious_frames))
+    added = 0
+    for cov in ranked_coverage:
+        if added >= remaining_slots:
+            break
+        if cov.class_name in known_classes:
+            continue
+        if _is_framework_class(cov.class_name) or _looks_like_test_class(cov.class_name):
+            continue
+        if not cov.line_rate:
+            continue
+        hottest_line = cov.covered_lines[0].line_number if cov.covered_lines else None
+        suspicious_frames.append(
+            StackFrame(
+                class_name=cov.class_name,
+                method_name="",
+                file_name=cov.filename,
+                line_number=hottest_line,
+                raw=f"coverage: line_rate={cov.line_rate:.2f}"
+                + (f", hottest line {hottest_line}" if hottest_line else ""),
+                origin="coverage",
+            )
+        )
+        known_classes.add(cov.class_name)
+        added += 1
+    return added
+
+
 def _extract_code_snippets(source_dirs: list[Path], frames: list[StackFrame], radius: int) -> list[CodeSnippet]:
     snippets: list[CodeSnippet] = []
     seen_paths: set[tuple[str, int | None]] = set()
@@ -611,6 +715,10 @@ def _extract_code_snippets(source_dirs: list[Path], frames: list[StackFrame], ra
         for line_no in range(start_line, end_line + 1):
             marker = ">>" if focus_line == line_no else "  "
             snippet_lines.append(f"{marker} {line_no:4d}: {content[line_no - 1]}")
+        if frame.origin == "coverage":
+            reason = f"Most-executed line in {frame.class_name} (touched by the trigger test, not in its stack trace)"
+        else:
+            reason = f"Stack frame from {frame.class_name}.{frame.method_name}"
         snippets.append(
             CodeSnippet(
                 class_name=frame.class_name,
@@ -618,7 +726,7 @@ def _extract_code_snippets(source_dirs: list[Path], frames: list[StackFrame], ra
                 start_line=start_line,
                 end_line=end_line,
                 focus_line=focus_line,
-                reason=f"Stack frame from {frame.class_name}.{frame.method_name}",
+                reason=reason,
                 content="\n".join(snippet_lines),
             )
         )
@@ -762,21 +870,33 @@ def _extract_test_source(
     source_dirs: list[Path],
     failures: list,
     radius: int = 18,
+    existing_snippets: list[CodeSnippet] | None = None,
 ) -> list[CodeSnippet]:
     """Extract source code of failing test methods.
 
     The test code shows WHAT the expected behavior is, which is critical
     for ODC classification — e.g., a null-check test hints at Checking,
     a numerical assertion hints at Algorithm/Assignment.
+
+    Skips a test whose (class_name, assertion line) is already covered by
+    an existing snippet — this happens when _select_suspicious_frames fell
+    back to test frames (no project frame in the stack trace), so
+    _extract_code_snippets already pulled a near-identical window around
+    the same line under the "Stack frame from ..." reason.
     """
     snippets: list[CodeSnippet] = []
     seen_tests: set[str] = set()
+    covered_lines = {(s.class_name, s.focus_line) for s in (existing_snippets or [])}
 
     for failure in failures[:3]:  # Limit to first 3 failures
         test_class = failure.test_class
         if not test_class or test_class in seen_tests:
             continue
         seen_tests.add(test_class)
+
+        assertion_line = _find_test_assertion_line(failure)
+        if (test_class, assertion_line) in covered_lines:
+            continue
 
         # Build a StackFrame-like object to resolve the test file
         test_frame = StackFrame(
@@ -805,7 +925,6 @@ def _extract_test_source(
             end_line = min(len(content), method_end + 2)
         else:
             # Fallback: extract a chunk around the assertion line from the stack trace
-            assertion_line = _find_test_assertion_line(failure)
             if assertion_line:
                 start_line = max(1, assertion_line - radius)
                 end_line = min(len(content), assertion_line + radius)
@@ -824,7 +943,7 @@ def _extract_test_source(
                 file_path=str(source_file),
                 start_line=start_line,
                 end_line=end_line,
-                focus_line=_find_test_assertion_line(failure),
+                focus_line=assertion_line,
                 reason=f"Test source: {failure.test_name} (shows expected behavior)",
                 content="\n".join(snippet_lines),
             )

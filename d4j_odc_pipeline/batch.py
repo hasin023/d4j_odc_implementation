@@ -18,7 +18,13 @@ from .analysis import (
 from .comparison import compare_classifications, compute_cohens_kappa, compute_per_project_kappa
 from .defects4j import Defects4JClient
 from .models import ensure_parent, utc_now_iso
-from .odc import DEFAULT_STRATEGY, DEFAULT_TAXONOMY, condition_tag, validate_condition
+from .odc import (
+    DEFAULT_STRATEGY,
+    DEFAULT_TAXONOMY,
+    condition_tag,
+    resolve_effective_tag_from_root,
+    validate_condition,
+)
 from .pipeline import (
     classify_bug_context,
     collect_bug_context,
@@ -83,6 +89,9 @@ def _write_checkpoint(
     records: list[dict[str, Any]],
     manifest_hash: str,
     interrupted: bool,
+    *,
+    provider: str | None = None,
+    model: str | None = None,
 ) -> None:
     data = {
         "manifest_hash": manifest_hash,
@@ -90,6 +99,12 @@ def _write_checkpoint(
         "completed_keys": [r["bug_key"] for r in records if _is_entry_complete(r)],
         "total_attempted": len(records),
         "interrupted": interrupted,
+        # Additive-only — old readers (and every checkpoint written before
+        # this existed) simply don't have these keys; that absence is what
+        # odc.resolve_effective_tag treats as "legacy, compatible with
+        # anything" (see its docstring).
+        "provider": provider,
+        "model": model,
     }
     write_json(checkpoint_path, data)
 
@@ -253,9 +268,18 @@ def run_batch_from_manifest(
     ensure_parent(artifacts_root / "placeholder.json")
     ensure_parent(work_root / "placeholder.txt")
 
+    # ── Resolve model-scoped tag ────────────────────────────────────────
+    # A second --model against an already-used (root, condition) gets a
+    # suffixed tag instead of colliding with or silently skipping the first
+    # model's artifacts. Always probes the BARE tag's checkpoint (never a
+    # previously-suffixed one) as the anchor — see odc.resolve_effective_tag.
+    effective_tag = resolve_effective_tag_from_root(artifacts_root, tag, provider, model)
+    if effective_tag != tag:
+        console.step(f"Model-scoped run: {tag} -> {effective_tag}", detail=f"{provider}/{model}")
+
     # ── Checkpoint setup ──────────────────────────────────────────────
     manifest_hash = _compute_manifest_hash(entries)
-    checkpoint_path = artifacts_root / f"checkpoint.pairs.{tag}.json"
+    checkpoint_path = artifacts_root / f"checkpoint.pairs.{effective_tag}.json"
     completed_keys = _load_checkpoint(checkpoint_path, manifest_hash)
 
     records: list[dict[str, Any]] = []
@@ -348,9 +372,9 @@ def run_batch_from_manifest(
                 run_artifacts_dir = artifacts_root / evidence_mode / run_name
                 run_work_dir = work_root / evidence_mode / f"{project_id}_{bug_id}b"
                 context_path = run_artifacts_dir / "context.json"
-                classification_path = run_artifacts_dir / f"classification.{tag}.json"
-                report_path = run_artifacts_dir / f"report.{tag}.md"
-                prompt_path = run_artifacts_dir / f"prompt.{tag}.json" if prompt_output else None
+                classification_path = run_artifacts_dir / f"classification.{effective_tag}.json"
+                report_path = run_artifacts_dir / f"report.{effective_tag}.md"
+                prompt_path = run_artifacts_dir / f"prompt.{effective_tag}.json" if prompt_output else None
 
                 status_key = f"{evidence_mode}_status"
                 path_key = f"{evidence_mode}_paths"
@@ -432,7 +456,7 @@ def run_batch_from_manifest(
                 break
             if budget_reached:
                 records.append(record)
-                _write_checkpoint(checkpoint_path, records, manifest_hash, interrupted=False)
+                _write_checkpoint(checkpoint_path, records, manifest_hash, interrupted=False, provider=provider, model=model)
                 console.warn(
                     f"Daily call budget reached ({llm_calls_made}/{daily_call_budget}) — "
                     f"stopped cleanly after {index}/{len(entries)} entries. "
@@ -455,12 +479,12 @@ def run_batch_from_manifest(
             records.append(record)
 
             # ── Write checkpoint after each completed entry ────────────
-            _write_checkpoint(checkpoint_path, records, manifest_hash, interrupted=False)
+            _write_checkpoint(checkpoint_path, records, manifest_hash, interrupted=False, provider=provider, model=model)
 
             progress.advance(task_id)
 
     # ── Final checkpoint ──────────────────────────────────────────────
-    _write_checkpoint(checkpoint_path, records, manifest_hash, interrupted=interrupted)
+    _write_checkpoint(checkpoint_path, records, manifest_hash, interrupted=interrupted, provider=provider, model=model)
 
     completed_count = sum(1 for r in records if _is_entry_complete(r))
 
@@ -469,6 +493,9 @@ def run_batch_from_manifest(
         "taxonomy": taxonomy,
         "strategy": strategy,
         "condition_tag": tag,
+        "effective_tag": effective_tag,
+        "provider": provider,
+        "model": model,
         "llm_calls_made": llm_calls_made,
         "self_consistency": self_consistency,
         "daily_call_budget": daily_call_budget,
@@ -494,16 +521,26 @@ def analyze_batch_artifacts(
     expected_projects: list[str] | None = None,
     taxonomy: str = DEFAULT_TAXONOMY,
     strategy: str = DEFAULT_STRATEGY,
+    provider: str | None = None,
+    model: str | None = None,
 ) -> dict[str, Any]:
     """Cross-artifact prefix/postfix analysis for ONE condition.
 
     Defaults to the pipeline default condition (open-scientific). Pass
     taxonomy/strategy explicitly to analyze another condition.
+
+    provider/model are optional: when both are given, resolves the same
+    model-scoped tag run_batch_from_manifest would have written (see
+    odc.resolve_effective_tag) so a multi-model run's classifications can be
+    analyzed individually. Omitted (the default): reads the bare tag exactly
+    as before this parameter existed — zero behavior change for every
+    existing single-model call site.
     """
     validate_condition(taxonomy, strategy)
     tag = condition_tag(taxonomy, strategy)
-    classification_name = f"classification.{tag}.json"
-    report_name = f"report.{tag}.md"
+    effective_tag = resolve_effective_tag_from_root(prefix_dir.parent, tag, provider, model)
+    classification_name = f"classification.{effective_tag}.json"
+    report_name = f"report.{effective_tag}.md"
     pairs = _discover_pairs(prefix_dir, postfix_dir, classification_name=classification_name)
     rows: list[dict[str, Any]] = []
     transitions: dict[str, dict[str, Any]] = {}
@@ -686,6 +723,10 @@ def analyze_batch_artifacts(
 
     summary = {
         "created_at": utc_now_iso(),
+        "condition_tag": tag,
+        "effective_tag": effective_tag,
+        "provider": provider,
+        "model": model,
         "total_pairs": total,
         "unique_projects": len(projects_seen),
         "projects_seen": projects_seen,

@@ -17,6 +17,10 @@ class StackFrame:
     file_name: str | None
     line_number: int | None
     raw: str
+    # "stack_trace" (appeared in a failing test's trace) or "coverage" (added
+    # because the trigger test(s) exercised this class but it never appeared
+    # in any stack trace — see pipeline._select_suspicious_frames).
+    origin: str = "stack_trace"
 
 
 @dataclass

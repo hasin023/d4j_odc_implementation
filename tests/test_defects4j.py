@@ -1,4 +1,5 @@
 import os
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -26,6 +27,49 @@ class Defects4JClientTests(unittest.TestCase):
                 os.environ.pop("DEFECTS4J_PATH_STYLE", None)
             else:
                 os.environ["DEFECTS4J_PATH_STYLE"] = old_value
+
+
+class ParseCoverageReportsTests(unittest.TestCase):
+    """Regression: Cobertura XML lists each line under BOTH the class-level
+    aggregate <lines> AND its containing <method>'s <lines> sub-block.
+    Matching ".//line" (any descendant) double-counted every line that
+    belongs to a method — i.e. nearly all of them. Found via a live Closure-
+    150 collect once coverage started actually populating (see
+    docs/suspicious_frame_selection.md): every covered_lines entry appeared
+    exactly twice."""
+
+    _COBERTURA_XML = """<?xml version="1.0"?>
+<coverage line-rate="0.78" branch-rate="0.42">
+  <packages>
+    <package name="com.example">
+      <classes>
+        <class name="com/example/Foo" filename="com/example/Foo.java" line-rate="0.78" branch-rate="0.42">
+          <methods>
+            <method name="bar" signature="()V" line-rate="1.0" branch-rate="1.0">
+              <lines>
+                <line number="87" hits="58" branch="false"/>
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="87" hits="58" branch="false"/>
+            <line number="254" hits="33" branch="false"/>
+          </lines>
+        </class>
+      </classes>
+    </package>
+  </packages>
+</coverage>"""
+
+    def test_line_covered_by_a_method_is_not_double_counted(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            work_dir = Path(tmp)
+            (work_dir / "coverage.xml").write_text(self._COBERTURA_XML, encoding="utf-8")
+            client = Defects4JClient(command="defects4j")
+            classes = client.parse_coverage_reports(work_dir)
+            self.assertEqual(len(classes), 1)
+            line_numbers = [line.line_number for line in classes[0].covered_lines]
+            self.assertEqual(sorted(line_numbers), [87, 254])  # not [87, 87, 254, 254]
 
 
 if __name__ == "__main__":

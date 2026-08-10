@@ -71,7 +71,7 @@ pip install -e .
 
 ```dotenv
 DEFAULT_LLM_PROVIDER=gemini
-DEFAULT_LLM_MODEL=gemini-3.1-flash-lite-preview
+DEFAULT_LLM_MODEL=gemini-3.1-flash-lite
 GEMINI_API_KEY=your_real_key_here
 DEFECTS4J_CMD=wsl perl <D4J_HOME>/framework/bin/defects4j
 DEFECTS4J_PATH_STYLE=wsl
@@ -125,7 +125,7 @@ pip install -e .
 
 ```dotenv
 DEFAULT_LLM_PROVIDER=gemini
-DEFAULT_LLM_MODEL=gemini-3.1-flash-lite-preview
+DEFAULT_LLM_MODEL=gemini-3.1-flash-lite
 GEMINI_API_KEY=your_real_key_here
 DEFECTS4J_CMD=perl <D4J_HOME>/framework/bin/defects4j
 DEFECTS4J_PATH_STYLE=native

@@ -688,6 +688,8 @@ def compute_coverage_metrics(
     strategy: str = "scientific",
     closed_prefix_dir: "Path | None" = None,
     open_prefix_dir: "Path | None" = None,
+    provider: str | None = None,
+    model: str | None = None,
 ) -> dict[str, Any]:
     """Compute the RQ2 coverage metrics from a closed pass (7 types) and an
     open pass (7 + Other) over the same manifest.
@@ -698,6 +700,13 @@ def compute_coverage_metrics(
 
     Legacy usage (old parallel-roots layout with untagged classification.json):
     pass ``closed_prefix_dir`` + ``open_prefix_dir`` instead.
+
+    provider/model are optional (only meaningful with ``prefix_dir``): when
+    both are given, resolves the model-scoped tag for the closed AND open
+    passes independently (see odc.resolve_effective_tag) so a multi-model
+    run's coverage can be analyzed per model. Omitted (the default): reads
+    the bare strategy-closed/strategy-open tags exactly as before — zero
+    behavior change for every existing single-model call site.
 
     Only bugs present in BOTH passes enter the paired metrics (kappa, KL);
     escape metrics use all open-pass bugs.
@@ -732,9 +741,18 @@ def compute_coverage_metrics(
                 continue
         return runs
 
+    closed_tag = f"{strategy}-closed"
+    open_tag = f"{strategy}-open"
+    if provider and model and prefix_dir is not None:
+        from .odc import resolve_effective_tag_from_root
+
+        artifacts_root = prefix_dir.parent
+        closed_tag = resolve_effective_tag_from_root(artifacts_root, closed_tag, provider, model)
+        open_tag = resolve_effective_tag_from_root(artifacts_root, open_tag, provider, model)
+
     if prefix_dir is not None:
-        closed_runs = _load_runs(prefix_dir, f"classification.{strategy}-closed.json")
-        open_runs = _load_runs(prefix_dir, f"classification.{strategy}-open.json")
+        closed_runs = _load_runs(prefix_dir, f"classification.{closed_tag}.json")
+        open_runs = _load_runs(prefix_dir, f"classification.{open_tag}.json")
     else:
         closed_runs = _load_runs(closed_prefix_dir, "classification.json")
         open_runs = _load_runs(open_prefix_dir, "classification.json")
@@ -803,6 +821,10 @@ def compute_coverage_metrics(
         kl_open_to_closed = round(sum(qi * math.log2(qi / pi) for pi, qi in zip(p, q)), 4)
 
     return {
+        "closed_tag": closed_tag,
+        "open_tag": open_tag,
+        "provider": provider,
+        "model": model,
         "total_open_pass_bugs": total_open,
         "total_paired_bugs": len(pairs),
         "escape_count": escape_count,

@@ -453,6 +453,126 @@ class BatchResumeTests(unittest.TestCase):
         self.assertTrue(second_run_calls)
         self.assertTrue(all(call[1] == "Math" and call[2] == 2 for call in second_run_calls))
 
+    def _run_minimal_batch(self, *, artifacts_root: Path, work_root: Path, provider: str, model: str) -> dict:
+        """Shared minimal fake for the multi-model plumbing tests below —
+        doesn't need the shutdown/interrupt machinery BatchResumeTests above
+        exercises, just needs collect/classify/report to produce real files
+        so checkpoint + artifact paths can be inspected."""
+        from d4j_odc_pipeline.batch import run_batch_from_manifest
+
+        manifest = {
+            "target_bugs": 1,
+            "entries": [{"project_id": "Lang", "bug_id": 1}],
+        }
+        client = _FakeDefects4JClient()
+
+        def fake_collect(*, project_id: str, bug_id: int, output_path: Path, **kwargs):
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(json.dumps({"project_id": project_id, "bug_id": bug_id}), encoding="utf-8")
+            return {"project_id": project_id, "bug_id": bug_id}
+
+        def fake_classify(*, context: dict, output_path: Path, **kwargs):
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(
+                json.dumps({
+                    "project_id": context["project_id"],
+                    "bug_id": context["bug_id"],
+                    "version_id": f"{context['bug_id']}b",
+                    "odc_type": "Checking",
+                    "family": "Control and Data Flow",
+                    "confidence": 0.9,
+                }),
+                encoding="utf-8",
+            )
+            return {"project_id": context["project_id"], "bug_id": context["bug_id"]}
+
+        def fake_report(*, context: dict, classification: dict, output_path: Path):
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text("# report", encoding="utf-8")
+
+        def fake_load_context(path: Path) -> dict:
+            # A second --model run reuses the FIRST model's already-written
+            # context.json (shared evidence, per CLAUDE.md) via the real
+            # load_context — patched here to skip actual BugContext parsing
+            # since fake_collect's context.json is a minimal stub.
+            return json.loads(path.read_text(encoding="utf-8"))
+
+        with (
+            patch("d4j_odc_pipeline.batch.collect_bug_context", side_effect=fake_collect),
+            patch("d4j_odc_pipeline.pipeline.load_context", side_effect=fake_load_context),
+            patch("d4j_odc_pipeline.batch.classify_bug_context", side_effect=fake_classify),
+            patch("d4j_odc_pipeline.batch.write_markdown_report", side_effect=fake_report),
+            patch("d4j_odc_pipeline.batch.compare_classifications", return_value=_FakeCompareResult()),
+        ):
+            return run_batch_from_manifest(
+                defects4j=client,
+                manifest=manifest,
+                artifacts_root=artifacts_root,
+                work_root=work_root,
+                provider=provider,
+                model=model,
+                api_key_env=None,
+                base_url=None,
+                taxonomy="closed",
+                strategy="few",
+            )
+
+    def test_second_model_does_not_collide_with_first(self) -> None:
+        """The capability this whole mechanism exists for: running the same
+        condition under a second --model must not overwrite or skip the
+        first model's artifacts."""
+        temp_root = self._scratch_dir("multi_model_no_collision")
+        artifacts_root = temp_root / "artifacts"
+        work_root = temp_root / "work"
+
+        first_summary = self._run_minimal_batch(
+            artifacts_root=artifacts_root, work_root=work_root, provider="gemini", model="model-a"
+        )
+        self.assertEqual(first_summary["effective_tag"], "few-closed")
+
+        run_dir = artifacts_root / "prefix" / "Lang_1_prefix"
+        bare_classification = run_dir / "classification.few-closed.json"
+        self.assertTrue(bare_classification.exists())
+        bare_content_before = bare_classification.read_text(encoding="utf-8")
+
+        second_summary = self._run_minimal_batch(
+            artifacts_root=artifacts_root, work_root=work_root, provider="sambanova", model="model-b"
+        )
+        self.assertEqual(second_summary["effective_tag"], "few-closed.sambanova-model-b")
+
+        # First model's file untouched.
+        self.assertEqual(bare_classification.read_text(encoding="utf-8"), bare_content_before)
+        # Second model got its own suffixed file, same run folder.
+        suffixed_classification = run_dir / "classification.few-closed.sambanova-model-b.json"
+        self.assertTrue(suffixed_classification.exists())
+        # Both checkpoints exist, separately.
+        self.assertTrue((artifacts_root / "checkpoint.pairs.few-closed.json").exists())
+        self.assertTrue((artifacts_root / "checkpoint.pairs.few-closed.sambanova-model-b.json").exists())
+        # Second model actually processed the bug, not skipped.
+        self.assertEqual(second_summary["completed_entries"], 1)
+
+    def test_legacy_checkpoint_without_model_keys_is_untouched(self) -> None:
+        """A checkpoint written before this mechanism existed (every file in
+        the committed 854-bug corpus) has no model/provider keys — any
+        --model run against it must keep writing the bare tag, never rename
+        or suffix it."""
+        temp_root = self._scratch_dir("multi_model_legacy_checkpoint")
+        artifacts_root = temp_root / "artifacts"
+        work_root = temp_root / "work"
+        artifacts_root.mkdir(parents=True, exist_ok=True)
+        legacy_checkpoint = artifacts_root / "checkpoint.pairs.few-closed.json"
+        legacy_checkpoint.write_text(
+            json.dumps({"manifest_hash": "stale", "completed_keys": [], "total_attempted": 0, "interrupted": False}),
+            encoding="utf-8",
+        )
+
+        summary = self._run_minimal_batch(
+            artifacts_root=artifacts_root, work_root=work_root, provider="gemini", model="any-model"
+        )
+        self.assertEqual(summary["effective_tag"], "few-closed")
+        run_dir = artifacts_root / "prefix" / "Lang_1_prefix"
+        self.assertTrue((run_dir / "classification.few-closed.json").exists())
+
     def test_resume_continues_partial_bug_via_skip_existing(self) -> None:
         from d4j_odc_pipeline.batch import _request_shutdown, reset_shutdown, run_batch_from_manifest
 

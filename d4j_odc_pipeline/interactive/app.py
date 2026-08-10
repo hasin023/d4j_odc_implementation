@@ -35,7 +35,10 @@ class ODCApp:
     """Interactive REPL application for the D4J ODC Pipeline."""
 
     def __init__(self) -> None:
-        self.console = Console(theme=_THEME, highlight=False)
+        # legacy_windows=False: see console.py::init_console for why —
+        # avoids a UnicodeEncodeError crash on non-cp1252 status characters
+        # when stdout isn't a real interactive terminal.
+        self.console = Console(theme=_THEME, highlight=False, legacy_windows=False)
         self.state = SessionState.auto_resume()
         self.prompt_session: PromptSession | None = None
 

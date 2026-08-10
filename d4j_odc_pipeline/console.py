@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 import time
 from contextlib import contextmanager
 from typing import Generator
@@ -11,6 +12,22 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 from rich.theme import Theme
+
+# On Windows, Python's stdout/stderr TextIOWrapper defaults to the system
+# locale codepage (cp1252) whenever the process isn't attached to a real
+# interactive terminal (redirected/piped output — any non-interactive
+# script run). Every non-cp1252 status character this module or its callers
+# print (→, •, etc.) then raises UnicodeEncodeError deep in Rich's write
+# path, aborting the run *before* the actual result gets written to disk.
+# Reconfiguring both streams to UTF-8 here — as early as possible, before
+# any Console is constructed — fixes it at the source instead of requiring
+# every caller to remember `PYTHONIOENCODING=utf-8`.
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+        except (ValueError, OSError):
+            pass
 
 _THEME = Theme(
     {
@@ -32,7 +49,15 @@ def init_console(*, quiet: bool = False) -> None:
     """Initialize the global console. Call once at CLI entry."""
     global _console, _quiet
     _quiet = quiet
-    _console = Console(theme=_THEME, highlight=False) if not quiet else None
+    # legacy_windows=False: Rich's "legacy Windows terminal" render path
+    # writes through Windows' console-codepage-bound charmap encoder
+    # (rich._win32_console.LegacyWindowsTerm), which raises UnicodeEncodeError
+    # on any non-cp1252 character (→, •, etc. — used throughout this file's
+    # own status messages) whenever stdout isn't a real interactive terminal
+    # (redirected/piped output, as in any non-interactive script run). Forcing
+    # this off makes Rich fall back to plain ANSI/text rendering instead,
+    # which handles UTF-8 output fine.
+    _console = Console(theme=_THEME, highlight=False, legacy_windows=False) if not quiet else None
 
 
 def bind_console(console: Console | None, *, quiet: bool = False) -> None:

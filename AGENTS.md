@@ -147,22 +147,22 @@ Sequence:
 6. Run tests.
 7. Parse failures from `failing_tests` or raw test output.
 8. Export relevant Defects4J properties.
-9. Select suspicious stack frames from parsed failures.
+9. Select suspicious stack frames from parsed failures (`_select_suspicious_frames`).
 10. Discover Java source roots.
-11. Extract production snippets around suspicious frames.
-12. Extract failing test source snippets to show expected behavior.
-13. Optionally run coverage and parse Cobertura-style XML.
+11. Run coverage (once per trigger test, over ALL production classes — see below) and augment `suspicious_frames` with coverage-only classes (`_augment_frames_with_coverage`).
+12. Extract production snippets around the (now possibly coverage-augmented) suspicious frames.
+13. Extract failing test source snippets to show expected behavior (skips a class/line already covered by a production snippet — see below).
 14. Optionally collect buggy-to-fixed diff as post-fix oracle information.
 15. Serialize `BugContext` to JSON.
 
 Important behavior:
 
 - `classes.modified` is stored in `hidden_oracles` and deliberately excluded from the LLM prompt.
-- `context.json` itself is never sanitized — the pre-fix payload's `bug_info`/`bug_report_content` are stripped of fix-derived sections (`prompting.sanitize_bug_info`/`sanitize_bug_report`) at *payload-build time* only, in `_context_payload` and `agent.execute_probe`'s `bug_report` probe. See §5.2 and `docs/odc_alignment_audit.md` §7.
-- Suspicious production frames are preferred over test frames.
+- `context.json` itself is never sanitized — the pre-fix payload's `bug_info`/`bug_report_content` are stripped of fix-derived sections (`prompting.sanitize_bug_info`/`sanitize_bug_report`) at *payload-build time* only, in `_context_payload` and `agent.execute_probe`'s `bug_report` probe. `_context_payload` additionally strips local-machine-path/corpus-size noise from `bug_info` in BOTH arms, filters `stack_trace_excerpt` through the framework blocklist, caps `metadata.tests.relevant` to a count, and never forwards `notes` (collection bookkeeping) to the LLM at all — none of this touches `context.json` on disk. See §5.2, `docs/odc_alignment_audit.md` §7, and `docs/suspicious_frame_selection.md`.
+- Suspicious frames come from TWO sources, tagged via `StackFrame.origin`: `"stack_trace"` (project frames from the parsed failure, preferred, kept in trace order, capped 12) and `"coverage"` (classes the trigger test(s) actually touched but that never appear in any stack trace — e.g. an assertion failure inside the test itself never throws through the buggy class — ranked by coverage line_rate, filling remaining slots up to the same cap of 12, focused on the class's most-executed covered line). See `docs/suspicious_frame_selection.md` for why (SBEST, Kim et al. 2024) and the worked Closure-150 example.
 - Framework, JDK, build-tool, and test-runner frames are aggressively filtered out before source snippet extraction.
-- Test source extraction is capped to the first 3 failures.
-- Coverage is targeted at suspicious classes first, then retried without the instrumentation filter if the first coverage command fails.
+- Test source extraction is capped to the first 3 failures, and skips a test whose `(class, assertion line)` is already covered by a production snippet (this happens whenever frame selection fell back to test frames) to avoid emitting two near-identical snippets of the same method.
+- Coverage instruments ALL production classes discovered under `dir.src.classes` (`_discover_production_classes`) — **not** the suspicious-frame guess and **not** `classes.modified` (Defects4J's own no-instrument-file default would use the fix oracle, which would leak evidence-selection scope) — deliberately decoupled to fix the old circular dependency where coverage could never rescue a bug the frame guess already missed. Runs once per trigger test, merging results (`_merge_coverage`); each run retries without the instrument file if the first attempt fails.
 - If coverage XML cannot be parsed with the class filter, parsing is retried without the filter as a last resort.
 - `fix_diff` is collected only when `--include-fix-diff` is requested, but the `fix_diff` field still exists on `BugContext` as a string and is usually `""` when absent.
 
@@ -186,7 +186,7 @@ Important behavior:
 
 - `build_messages()` always returns exactly two messages: one `system`, one `user`.
 - **`docs/condition_model.md` is the single authoritative condition spec.** Two variables: `taxonomy` (free | closed | open; default open) and `strategy` (zero = zero-shot, taxonomy-free by definition | few = static prompt with taxonomy + tree + worked examples | scientific = the enforced loop in agent.py; default scientific). Only 5 valid conditions (validate_condition in odc.py). `--prompt-style` and `--reasoning` are tombstoned. Artifacts written before 2026-07-07 carry old `reasoning` tokens with DIFFERENT semantics ("scientific" meant the narrated single-shot, now retired; "agentic" meant the loop, now called scientific) — never mix old and new artifacts.
-- `build_messages()` only handles the two static strategies: `few` (`prompting.py::_build_system_prompt`) includes taxonomy guidance, JSON contract text, anti-bias rules, the scientific debugging protocol text, 7-question diagnostic tree, and 5 few-shot examples — this is the full content of the old narrated "scientific" single-shot, renamed (see `condition_model.md` §3). `zero` (taxonomy-free by definition; only valid with `--taxonomy free`) includes no ODC taxonomy, no type names, no anti-bias rules — the LLM classifies in its own words using a simplified JSON schema (`defect_type`, `confidence`, `reasoning_summary`).
+- `build_messages()` only handles the two static strategies: `few` (`prompting.py::_build_system_prompt`) includes taxonomy guidance, ODC Impact guidance, JSON contract text, anti-bias rules, a 7-question diagnostic tree, and 5 few-shot examples. The vestigial "Scientific Debugging Protocol" narration block (a leftover of the retired narrated single-shot condition, pilot-proven to change 0/6 labels) was removed 2026-08-10 — `few` is now exactly the 3 components `docs/condition_model.md` §4.3 defines it as (taxonomy + tree + worked examples), ~13% shorter, same content coverage (see `docs/llm_prompting_architecture.md` §1.3 for the full breakdown). `zero` (taxonomy-free by definition; only valid with `--taxonomy free`) includes no ODC taxonomy, no type names, no anti-bias rules — the LLM classifies in its own words using a simplified JSON schema (`defect_type`, `confidence`, `reasoning_summary`).
 - `scientific` never calls `build_messages` — it's the enforced loop in `agent.py` (see §5.4/§6 below), with its own system prompt and per-turn schema.
 - `zero` and `few` receive identical user evidence payloads (same snippet budget of 8) to avoid confounding comparisons. The `zero` user payload omits ODC-specific hints.
 - The user payload separates `production_code_snippets` and `test_code_snippets`.
@@ -253,7 +253,7 @@ Important details:
 - `study-run --manifest` and `study-drift --manifest` resolve bare filenames under `.dist/study/`.
 - `study-drift` defaults `--prefix-dir`, `--postfix-dir`, `--output`, `--report` using the manifest's `target_bugs`.
 - `study-escape`/`study-ladder` default `--prefix-dir` to `.dist/study/artifacts_<target_bugs>/prefix` (via `--manifest`) and read the SAME bug folders `study-run` wrote into (bug-centric layout: all conditions beside one shared `context.json`).
-- Classification/report filenames are ALWAYS condition-tagged: `classification.<strategy>-<taxonomy>.json`, `report.<strategy>-<taxonomy>.md`. Checkpoints are per condition: `checkpoint.pairs.<tag>.json` (study-run) — keyed by `(artifacts_root, tag)`, NOT by manifest name (see the manifest/artifacts-root gotcha in §7).
+- Classification/report filenames are ALWAYS condition-tagged: `classification.<strategy>-<taxonomy>.json`, `report.<strategy>-<taxonomy>.md`. Checkpoints are per condition: `checkpoint.pairs.<tag>.json` (study-run) — keyed by `(artifacts_root, tag)`, NOT by manifest name (see the manifest/artifacts-root gotcha in §7). **Model is a third, orthogonal axis (added 2026-08-10):** `study-run`'s existing `--provider`/`--model` (and the same flags newly added to `study-drift`/`study-escape`) feed `odc.resolve_effective_tag` — a SECOND distinct model against the same artifacts-root+condition gets a suffixed tag (`classification.<tag>.<provider>-<model-slug>.json`, `checkpoint.pairs.<tag>.<provider>-<model-slug>.json`) instead of colliding with the first model's files; the first model, same-model resumes, and every pre-2026-08-10 checkpoint (no `model`/`provider` keys) keep the bare, untagged filenames. See `docs/condition_model.md` §5.
 - `study-drift` and `compare-batch` default to the pipeline default condition (scientific-open) — pass `--taxonomy/--strategy` to analyze another condition.
 - `--strategy scientific` (agent.py) runs the enforced scientific loop: each turn commits hypothesis+prediction, then either requests one evidence probe (list_evidence / full_stack_trace / snippet / coverage / bug_report — served from the FULL context.json held-back evidence; no Defects4J, no filesystem) or concludes. Max 6 turns; forced conclusion sets needs_human_review; full transcript persisted in classification.json `turns`; artifacts record `llm_calls_used` and budget accounting uses it.
 - `study-run` has a budget guard: `--daily-call-budget` (default 1400; 0 disables) stops the run cleanly with a checkpoint before hitting provider daily rate limits (Gemini free ~1,500 RPD); re-running the same command resumes. Summaries record `llm_calls_made` / `budget_reached`.
@@ -270,12 +270,12 @@ Manages large-scale batch workflows.
 Key responsibilities:
 
 - Manifest generation with balanced per-project sampling (`generate_study_manifest`)
-- Batch execution with paired prefix/postfix runs, one condition (`run_batch_from_manifest`) — backs `study-run`, any of the 5 valid conditions
+- Batch execution with paired prefix/postfix runs, one condition (`run_batch_from_manifest`) — backs `study-run`, any of the 5 valid conditions. Resolves the model-scoped `effective_tag` once at the top (`odc.resolve_effective_tag_from_root`) and uses it for every checkpoint/classification/report/prompt path — see §5.1's model-axis note.
 - Signal handling: SIGINT sets a shutdown flag; checked at every loop iteration and between collect/classify steps
-- Checkpoint persistence: `checkpoint.pairs.<tag>.json` written after each entry; loaded on restart to skip completed entries
+- Checkpoint persistence: `checkpoint.pairs.<tag>.json` (or `.<tag>.<provider>-<model-slug>.json` for a second model) written after each entry, now including `provider`/`model` fields; loaded on restart to skip completed entries
 - Manifest hash: SHA-256 of sorted entry keys detects stale checkpoints from different manifests
 - Progress bar: Rich progress bar showing current bug and completion count
-- Cross-artifact drift analysis (`analyze_batch_artifacts`): discovers prefix/postfix pairs, computes transition matrices, identifies divergence patterns, plus RQ1 (`type_distribution_prefix`, via `compute_type_distribution`), RQ3 (`strict_match_count/rate`, `cohens_kappa`, `per_type_metrics`, `type_confusion_matrix`), and RQ5 (`per_project_kappa`) — backs `study-drift`. These three were previously computed by standalone functions in `analysis.py`/`comparison.py` that existed and were tested but were never called from this path — `study-drift` + `study-export` silently produced empty/wrong tables (confirmed 2026-07-08 against real pilot data) until wired in here.
+- Cross-artifact drift analysis (`analyze_batch_artifacts`, optional `provider`/`model` params — omitted reads the bare tag, unchanged from before 2026-08-10): discovers prefix/postfix pairs, computes transition matrices, identifies divergence patterns, plus RQ1 (`type_distribution_prefix`, via `compute_type_distribution`), RQ3 (`strict_match_count/rate`, `cohens_kappa`, `per_type_metrics`, `type_confusion_matrix`), and RQ5 (`per_project_kappa`) — backs `study-drift`. These three were previously computed by standalone functions in `analysis.py`/`comparison.py` that existed and were tested but were never called from this path — `study-drift` + `study-export` silently produced empty/wrong tables (confirmed 2026-07-08 against real pilot data) until wired in here.
 - Ladder discovery (`discover_ladder`): collects `classification.<tag>.json` across bug folders for an arbitrary list of condition tags in ONE prefix dir (vs `_discover_pairs`' one tag across two dirs) — feeds `compute_taxonomy_grounding_metrics` (analysis.py), backs `study-ladder`
 
 Important behavior:
@@ -344,14 +344,15 @@ Contains:
 
 - ODC defect-type taxonomy instructions
 - ODC Impact attribute instructions (`odc.impact_markdown()`; few/scientific only, never `zero`)
-- scientific debugging protocol
+- 7-question diagnostic decision tree (`few` only)
 - 5 few-shot examples
-- evidence payload shaping, incl. pre-fix-only sanitization (`sanitize_bug_info`, `sanitize_bug_report`)
+- evidence payload shaping, incl. pre-fix-only sanitization (`sanitize_bug_info`, `sanitize_bug_report`) and always-on noise trimming (both arms)
 
 Important details:
 
 - Hidden oracle metadata (`classes.modified`) is filtered out before prompt construction, for both arms.
-- The pre-fix arm additionally has `bug_info`/`bug_report_description` sanitized to remove fix-derived sections (modified-sources list, fixed-revision id/date, tracker comments/status/resolution) — post-fix keeps them untouched. This is the only difference between the two arms' payloads besides `fix_diff_oracle`.
+- The pre-fix arm additionally has `bug_info`/`bug_report_description` sanitized to remove fix-derived sections (modified-sources list, fixed-revision id/date, tracker comments/status/resolution) — post-fix keeps them untouched.
+- Independent of the arm: `bug_info`'s local-machine-path/corpus-size lines are stripped in both arms, `stack_trace_excerpt` is filtered through the framework blocklist, `metadata.tests.relevant` is collapsed to a count, and `notes` is never forwarded to the LLM at all (added 2026-08-10, see `docs/suspicious_frame_selection.md`).
 - The old `odc_opener_hints`/`odc_closer_hints` keyword heuristics (Activity/Trigger/Impact candidates, `qualifier_hint`, `age_hint`, `source_hint` always `null`) are REMOVED — see `docs/odc_alignment_audit.md` §4.4 for why (anchoring bias, unsound heuristics, ODC-vocabulary leak into `zero-free`).
 - All strategies (`zero`/`few`/`scientific`) use the same production snippet budget of 8 (no confound between evidence and prompt engineering).
 
@@ -386,12 +387,13 @@ Also contains:
 - contrastive "distinguish from" guidance
 - a backward-compatible `coarse_group_for()` alias
 - `ODC_IMPACTS` — the 13 v5.2 §3.3 Impact categories with verbatim-faithful definitions, plus `IMPACT_UNKNOWN` ("Unknown", per §5.1); `allowed_impact_names()`, `impact_markdown()` (the prompt section for `few`/`scientific`)
+- `model_slug(provider, model)`, `resolve_effective_tag(tag, provider, model, existing_checkpoint)`, `resolve_effective_tag_from_root(artifacts_root, tag, provider, model)` — added 2026-08-10, the model-axis mechanism (see `cli.py` note above and `docs/condition_model.md` §5). Pure functions; `_from_root` is the convenience wrapper that reads the bare tag's checkpoint file for `batch.py`/`analysis.py`/`cli.py` callers.
 
 ### `models.py`
 
 Defines the persisted dataclasses:
 
-- `StackFrame`
+- `StackFrame` — `origin: str = "stack_trace"` (added 2026-08-10; `"coverage"` for frames added by `_augment_frames_with_coverage`, see `pipeline.py`/§5.1 above)
 - `Failure`
 - `CodeSnippet`
 - `CoverageLine`
@@ -536,6 +538,8 @@ Design choices:
 - normalizes `http` to `https` unless localhost
 - truncates fetched content with `max_chars=12000` by default
 - the generic extractor is the real backbone path
+- JSON parsing is attempted regardless of the declared Content-Type header (added 2026-08-10) — static-file-hosted trackers (e.g. Google Cloud Storage-served archive dumps like Closure's) routinely serve valid JSON under a generic label (`application/octet-stream`); gating strictly on `"json" in content_type` silently skipped cleanup for exactly that case
+- `_format_tracker_json`/`_format_tracker_comments` (added 2026-08-10) detect the Google-Code-archive `comments[]` shape and render it as `Comment N (date): text` lines instead of the generic dotted-key flatten — decodes HTML entities/tags, drops opaque `commenterId`/`attachments` noise, keeps every comment's text. See `docs/suspicious_frame_selection.md` §2.
 
 ### `console.py`
 

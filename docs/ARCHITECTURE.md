@@ -2,7 +2,7 @@
 
 This document describes the pipeline's internal architecture, evidence flows, ODC taxonomy, and schema contracts.
 
-> ⚠️ **STALE (pre-2026-07-07).** This document still describes the retired `prompt-style` (scientific/direct/naive) system and shows `classification.json` as an untagged filename. The current classification engine is a two-variable condition model — `--taxonomy free|closed|open` × `--strategy zero|few|scientific` (the `scientific` strategy is the enforced loop implemented in `agent.py`) — and every output filename is condition-tagged (`classification.<strategy>-<taxonomy>.json`, `report.<strategy>-<taxonomy>.md`). See **`docs/condition_model.md`** (authoritative) and **`AGENTS.md`**. The evidence-collection (`collect`) flow and Defects4J-artifact-to-LLM-input mapping in this document remain accurate; only the classification-flow diagrams, prompt-style content, and `classification.json` schema table are stale.
+> ⚠️ **STALE (pre-2026-07-07, and further stale as of 2026-08-10).** This document still describes the retired `prompt-style` (scientific/direct/naive) system and shows `classification.json` as an untagged filename. The current classification engine is a two-variable condition model — `--taxonomy free|closed|open` × `--strategy zero|few|scientific` (the `scientific` strategy is the enforced loop implemented in `agent.py`), plus an orthogonal model axis added 2026-08-10 — and every output filename is condition-tagged (`classification.<strategy>-<taxonomy>.json`, `report.<strategy>-<taxonomy>.md`, optionally `.{provider}-{model-slug}` suffixed). See **`docs/condition_model.md`** (authoritative) and **`AGENTS.md`**. As of 2026-08-10 the evidence-collection (`collect`) flow below is ALSO stale, not just the classification-flow diagram: suspicious-frame selection now gets augmented by coverage (not just filtered from the stack trace), and coverage instruments ALL production classes per trigger test rather than only the suspicious ones. See **`docs/suspicious_frame_selection.md`** for the current, accurate description of evidence collection.
 
 ---
 
@@ -23,20 +23,26 @@ flowchart TD
     H --> |"d4j compile -w <work_dir>"| I[d4j test]
     I --> |"d4j test -w <work_dir>"| J[Parse Failing Tests]
     J --> |"failing_tests file + stderr\n→ test_name, headline, stack_trace, frames"| K[d4j export properties]
-    K --> |"dir.src.classes, dir.bin.classes,\ndir.src.tests, dir.bin.tests,\ncp.compile, cp.test,\ntests.trigger, tests.relevant"| L[Select Suspicious Frames]
-    L --> |"Filter framework classes\n→ prioritize project source\n→ max 12 source frames"| M[Discover Source Dirs]
-    M --> N[Extract Production Code Snippets]
+    K --> |"dir.src.classes, dir.bin.classes,\ndir.src.tests, dir.bin.tests,\ncp.compile, cp.test,\ntests.trigger, tests.relevant"| L[Select Suspicious Frames\nfrom stack trace]
+    L --> |"Filter framework classes\n→ prioritize project source\n→ max 12 source frames\norigin=stack_trace"| M[Discover Source Dirs]
+    M --> P{Coverage enabled?}
+    P -->|No| N[Extract Production Code Snippets]
+    P -->|Yes| Q[d4j coverage: ALL production\nclasses, once per trigger test]
+    Q --> |"Cobertura XML → line_rate,\nbranch_rate, covered_lines\n(merged across trigger tests)"| QA[Augment suspicious frames\nwith coverage-only classes]
+    QA --> |"Classes touched by the trigger test\nbut never in any stack trace,\nfocused on the hottest covered line,\norigin=coverage, fills remaining\nslots up to the same cap of 12"| N
     N --> |"Source around each suspicious frame\n±12 lines, with focus-line marker"| O[Extract Test Source Code]
-    O --> |"Failing test method source\n±18 lines, shows expected behavior"| P{Coverage enabled?}
-    P -->|Yes| Q[d4j coverage on suspicious classes]
-    P -->|No| R[Build BugContext]
-    Q --> |"Cobertura XML → line_rate,\nbranch_rate, covered_lines"| R
+    O --> |"Failing test method source\n±18 lines, shows expected behavior\n(skipped if a production snippet\nalready covers the same class/line)"| R[Build BugContext]
     R --> S{--include-fix-diff?}
     S -->|Yes| T[Checkout fixed version\nDiff modified classes → fix_diff]
     S -->|No| U[Write context.json]
     T --> U
     U --> V["✅ context.json saved"]
 ```
+
+See `docs/suspicious_frame_selection.md` for why coverage instruments ALL
+production classes (not just the suspicious-frame guess — that was the old
+circular dependency where coverage could never rescue a bug the frame guess
+already missed) and the worked Closure-150 example where this matters.
 
 ### Classification Flow (`classify`)
 
@@ -131,7 +137,7 @@ This `bug_info` text is sent verbatim as `bug_info` in the user prompt evidence 
 - `stack_trace` — raw stack trace lines (first 15 lines sent to LLM per failure)
 - `frames` — parsed structured frames: `class_name`, `method_name`, `file_name`, `line_number`
 
-The **suspicious frames** are selected from these parsed frames by filtering out framework/JDK/build-tool classes (`org.junit.*`, `java.*`, `org.apache.tools.ant.*`, etc.) and preferring project source frames (up to 12).
+The **suspicious frames** come from TWO sources, as of 2026-08-10 (tagged via `origin`): filtering the parsed stack-trace frames to drop framework/JDK/build-tool classes (`org.junit.*`, `java.*`, `org.apache.tools.ant.*`, etc.) and preferring project source frames (`origin="stack_trace"`), **plus** classes the trigger test(s) actually touched but that never appear in any stack trace — added via coverage (`origin="coverage"`, see below), ranked by line_rate, filling remaining slots up to the same cap of 12. See `docs/suspicious_frame_selection.md` for why (a bug whose failure is an assertion inside the test itself, e.g. Closure-150, never puts the buggy class in the trace at all — stack-trace filtering alone can't find it).
 
 ### From `defects4j export` (via `export_properties`)
 
@@ -162,12 +168,12 @@ Using the directory paths from `defects4j export`, the pipeline reads Java sourc
 Each code snippet carries:
 
 - `class_name`, `file_path`, `start_line`, `end_line`, `focus_line`
-- `reason` — why this snippet was selected (e.g. "Stack frame from Foo.bar" or "Test source: BarTest::testFoo")
+- `reason` — why this snippet was selected: `"Stack frame from Foo.bar"`, `"Test source: BarTest::testFoo"`, or (added 2026-08-10) `"Most-executed line in Foo (touched by the trigger test, not in its stack trace)"` for a coverage-derived frame. A test-source snippet is skipped entirely when a production snippet already covers the same `(class, line)` — happens whenever frame selection fell back to test frames, avoiding two near-identical snippets of the same method.
 - `content` — the actual lines with line numbers
 
 ### From `defects4j coverage` (optional, `--skip-coverage` to disable)
 
-When coverage is enabled, the pipeline runs `defects4j coverage -w <work_dir> [-t <test>] [-i <instrument_file>]`. It parses the resulting Cobertura XML reports (`coverage*.xml`, `cobertura*.xml`) to extract per-class coverage data:
+When coverage is enabled, the pipeline runs `defects4j coverage -w <work_dir> -t <test> -i <instrument_file>` **once per trigger test**, merging results across tests. As of 2026-08-10, `<instrument_file>` lists **every production class** discovered under `dir.src.classes` (`_discover_production_classes`) — deliberately NOT the suspicious-frame guess and NOT `classes.modified` (Defects4J's own no-instrument-file default would use the fix oracle, leaking evidence-selection scope). This was a circular dependency until 2026-08-10: coverage used to be scoped to the already-selected suspicious frames, so it could never rescue a bug whose stack trace missed the buggy class. It parses the resulting Cobertura XML reports (`coverage*.xml`, `cobertura*.xml`, only the class-level `<lines>` — not each method's nested duplicate, a double-counting bug fixed the same day) to extract per-class coverage data:
 
 | Coverage field  | Sent to LLM as                                     |
 | --------------- | -------------------------------------------------- |
@@ -176,7 +182,7 @@ When coverage is enabled, the pipeline runs `defects4j coverage -w <work_dir> [-
 | `branch_rate`   | Fraction of executed branches (0.0–1.0)            |
 | `covered_lines` | Top-10 hit lines per class (`line_number`, `hits`) |
 
-Coverage is focused on the **suspicious classes** (those appearing in selected stack frames) to avoid noisy irrelevant data.
+Coverage results also feed `suspicious_frames` (see above), not just `coverage_summary` — any class touched by a trigger test but never seen in a stack trace becomes an additional suspicious frame. See `docs/suspicious_frame_selection.md`.
 
 ### From JIRA / GitHub (via `web_fetch`)
 
@@ -252,16 +258,17 @@ The pipeline classifies into 7 ODC **Defect Type** categories:
 6. **Runs tests** via `defects4j test` — always fails on the buggy version; generates `failing_tests` file.
 7. **Parses test failures** — reads `failing_tests`, extracts structured stack frames (`class_name`, `method_name`, `file_name`, `line_number`).
 8. **Exports Defects4J properties** via `defects4j export` — obtains source directory paths and classpaths.
-9. **Filters suspicious frames** — removes JUnit, Ant, JDK, Hamcrest, Mockito, and 20+ other framework prefixes; keeps up to 12 project source frames.
-10. **Extracts production code snippets** — reads Java source ±12 lines around each suspicious frame with focus-line marker.
-11. **Extracts test source code** — reads the failing test method body (±18 lines or exact method bounds) from the test source tree.
-12. **Optionally runs coverage** via `defects4j coverage` — instruments suspicious classes, parses Cobertura XML for line/branch rates. Retries without instrument file if first attempt fails.
+9. **Filters suspicious frames from the stack trace** — removes JUnit, Ant, JDK, Hamcrest, Mockito, and 20+ other framework prefixes; keeps up to 12 project source frames (`origin="stack_trace"`).
+10. **Optionally runs coverage** via `defects4j coverage`, once per trigger test (2026-08-10: instruments ALL production classes, not just the suspicious ones — deliberately decoupled from the frame guess to avoid the old circular dependency; retries without instrument file if first attempt fails) and **augments the suspicious frames** with coverage-only classes (touched by the trigger test, never in the stack trace, `origin="coverage"`, focused on the hottest covered line) up to the same cap of 12.
+11. **Extracts production code snippets** — reads Java source ±12 lines around each (now possibly coverage-augmented) suspicious frame with focus-line marker.
+12. **Extracts test source code** — reads the failing test method body (±18 lines or exact method bounds) from the test source tree; skips a test whose `(class, line)` a production snippet already covers.
 13. **Optionally collects fix diff** (`--include-fix-diff`) — checks out `<bug>f`, diffs modified classes, stores as post-fix oracle.
 14. **Writes `context.json`** — serialised `BugContext` with all of the above.
-15. **Classifies using LLM** — sends structured evidence to Gemini/OpenRouter with a scientific debugging prompt containing:
+15. **Classifies using LLM** — sends the shared evidence payload (§ above) to the configured provider (Gemini/Groq/OpenRouter/openai-compatible). The `few` strategy's system prompt contains:
     - Contrastive ODC taxonomy (7 types with indicators, boundaries, and examples)
     - 5 canonical few-shot examples with explicit `NOT X` reasoning
     - 7-question diagnostic decision tree
+    `scientific` shares the taxonomy but replaces the tree/examples with the enforced hypothesis→prediction→probe→observation loop (`agent.py`); `zero` gets none of this. See `docs/llm_prompting_architecture.md` for the exact per-strategy breakdown.
     - Anti-bias rules preventing default-to-Function behavior
 16. **Adds ODC mapping hints** (optional) — Includes heuristic opener/closer-aligned metadata in prompt evidence (`odc_opener_hints`, `odc_closer_hints`) to improve traceability to ODC concepts.
 17. **Writes outputs** — `context.json`, `classification.json`, and a markdown report.
