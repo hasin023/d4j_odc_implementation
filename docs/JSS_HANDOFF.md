@@ -6,12 +6,25 @@
 > 2026-07-10. Where a claim needs more depth than fits here, it points to the
 > specific doc that has it — you should not need to go doc-hunting.
 
-**`docs/odc_alignment_audit.md` (new, 2026-07-10) is the ODC v5.2 alignment
-audit** — the corrected Defects4J-artifact→ODC-attribute mapping, the Impact
-opener attribute (now first-class and v5.2-grounded), and the pre-fix
-evidence-leak fixes described in the status flag below. Read it before writing
-the paper's mapping/Impact/threats-to-validity sections; `latex/jss/main.tex`
-already reflects it.
+**`docs/odc_alignment_audit.md` (new, 2026-07-10, addendum 2026-08-16) is the
+ODC v5.2 alignment audit** — the corrected Defects4J-artifact→ODC-attribute
+mapping, the Impact opener attribute (now first-class and v5.2-grounded), and
+the pre-fix evidence-leak fixes described in the status flag below. Read it
+before writing the paper's mapping/Impact/threats-to-validity sections;
+`latex/jss/main.tex` already reflects it. Its §9 addendum (2026-08-16)
+quantifies the Trigger retrospective-reproduction claim (33/40 sampled
+trigger tests postdate the buggy revision, corroborated by a peer-reviewed
+MSR 2025 paper) and reframes Age from "not in the evidence set" to "not
+currently extracted, but recoverable via git blame/SZZ" — this is the
+grounding evidence behind the JSS paper's §2.3 draft.
+
+**`docs/related_work_literature_leads.md` (new, 2026-08-15) holds pending
+related-work fixes and citation candidates** — a citation misattribution in
+the current SVM/Naive-Bayes sentence, a wrong ODC Source value in the new
+`tab:odc-attributes` table, and ~15 new candidate citations (the LSTM ODC
+paper, memorization-advantage rebuttal, agentic-loop analogues, etc.) from a
+two-agent literature survey. Not yet acted on — read before resuming work on
+`latex/jss/sections/03_related_work.tex`.
 
 ## Status flag (read before citing any number below)
 

@@ -17,30 +17,81 @@ Xuan \textit{et al.} \citep{xuan2017better} manually examined 50 randomly select
 
 Collectively, these studies provide valuable perspectives on defect structure, repair actions, and fixability. However, they examine relatively limited subsets of \textit{Defects4J}, rely primarily on code-structural or patch-based taxonomies, and do not apply a semantic defect-type taxonomy to the full set of bugs. Our work addresses this gap by investigating ODC-based semantic defect classification across the \textit{Defects4J} dataset using large language models.
 \subsection{Orthogonal Defect Classification} \label{subsec:ODC}
-\textcolor{red}{Add a table representing the following Content}
-ODC was introduced by Chillarege \textit{et al.}\ \citep{chillarege1992odc} as a
-framework that classifies defects using orthogonal (non-overlapping) attributes
-to produce actionable in-process measurements. Its attributes split into two
-phases. \emph{Opener} attributes are recorded at discovery: Activity (the
-development phase underway), Trigger (the condition that exposed the defect), and
-Impact (the user-visible consequence). \emph{Closer} attributes are recorded at
-fix time: Defect Type (the actual correction made), Target (Design or Code),
-Qualifier (Missing, Incorrect, or Extraneous), Age, and Source.
+
+ODC was introduced by Chillarege \textit{et al.}\ \citep{chillarege1992odc} as
+a framework that classifies defects along orthogonal attributes. It was
+originally designed to give an in-process signal during active development. This study applies the same attribute vocabulary
+to defects already resolved in a static benchmark. These attributes are
+recorded in two phases: \emph{Opener} attributes at discovery time and
+\emph{Closer} attributes at fix time, summarised in
+Table~\ref{tab:odc-attributes}.
+
+\begin{table}[H]
+\centering
+\caption{ODC Opener and Closer attributes \citep{ibm2013odc}.}
+\label{tab:odc-attributes}
+\setlength{\tabcolsep}{5pt}
+\begin{tabularx}{\columnwidth}{@{}llX@{}}
+\toprule
+\thead{Phase} & \thead{Attribute} & \thead{Description} \\
+\midrule
+\multirow{3}{*}{Opener} & Activity    & Specific activity being performed when the defect was found (e.g.\ code inspection or unit test) \\
+                         & Trigger     & Condition that exposed the defect \\
+                         & Impact      & User-visible consequence of the defect \\
+\midrule
+\multirow{5}{*}{Closer} & Defect Type & The actual correction made \\
+                         & Target      & Design or Code \\
+                         & Qualifier   & Missing, Incorrect, or Extraneous \\
+                         & Age         & Whether the faulty code is base, new, rewritten, or refixed \\
+                         & Source      & Whether the faulty code is developed in-house, reused from a library, outsourced, or ported \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Of the eight attributes above, this study classifies Defect Type and Impact.
+The Defect Type values for Design/Code targets are further organised into
+seven types.
+
 \subsection{\textcolor{red}{mapping}}
-For Design/Code targets, ODC defines seven defect types in two families. The
-\emph{Control and Data Flow} family comprises \textit{Algorithm/Method} (wrong
-computational logic), \textit{Assignment/Initialization} (wrong value or
-initialisation), \textit{Checking} (missing or wrong validation), and
-\textit{Timing/Serialization} (concurrency or ordering). The \emph{Structural}
-family comprises \textit{Function/Class/Object} (design-level gap),
-\textit{Interface/O-O Messages} (component-boundary issue), and
-\textit{Relationship} (entity-association problem). We use this two-family
-grouping later (Section~\ref{sec:eval}) as the coarser Tier-3 agreement level;
-it is our own grouping for that purpose, not a named attribute of the v5.2
-document itself \citep{ibm2013odc}, which defines the seven types individually. ODC is still in
-active use: Pan \textit{et al.}\ \citep{pan2024understanding} applied it in 2024
-to defects in LLM-generated code, showing the taxonomy generalises beyond
-human-written software.
+Going through the eight attributes from Table~\ref{tab:odc-attributes} in
+order shows how much of each one Defects4J can actually support.
+
+\begin{itemize}
+\item \textbf{Activity.} Defects4J bugs are reproduced by running a unit
+  test, so Unit Test is the natural fit for this attribute. Bug reports
+  sometimes describe how the problem was noticed, which could point to a
+  different activity such as inspection, but this shows up inconsistently
+  across reports.
+\item \textbf{Trigger.} The same reasoning applies here. The unit test that
+  reproduces the bug is the closest available signal for the condition that
+  exposed it, and a report's own description could suggest something else,
+  again inconsistently.
+\item \textbf{Impact.} This is what we derive directly from the bug report
+  and the failure behavior, one of the two attributes this study actually
+  classifies.
+\item \textbf{Defect Type.} This is what the study tries to predict from the
+  buggy code, then checks that prediction once the fixed code becomes
+  available.
+\item \textbf{Target.} By definition this is Code. Defects4J bugs are fixed
+  in source, and there is no separate design document ODC's Design target
+  would require.
+\item \textbf{Qualifier.} This becomes available once the fix itself is
+  visible, since it describes whether the fix supplied something missing,
+  corrected something wrong, or removed something unneeded.
+\item \textbf{Age.} Defects4J bugs come from real project histories with
+  full commit logs, so age could plausibly be traced through the commit
+  history of the affected code. This is not something pursued in this
+  study.
+\item \textbf{Source.} Most Defects4J projects are long running, community
+  maintained Java libraries, so Source would intuitively be Developed
+  In-House for nearly all of them. This is a reasonable expectation, though
+  unconfirmed.
+\end{itemize}
+
+That leaves Defect Type and Impact as the two attributes this study
+classifies. The others fall into three groups: fixed by how the dataset is
+built, a reasonable guess without confirmation, or visible only once the
+fix itself is known.
 
 \subsection{LLM-based Defect Classification}
 
