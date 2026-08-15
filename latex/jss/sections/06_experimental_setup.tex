@@ -1,0 +1,125 @@
+\section{Experimental Setup}
+\label{sec:setup}
+
+\subsection{Dataset: Defects4J v2.0}
+
+Experiments use \textit{Defects4J}~v2.0, which provides over 830 active bugs
+across 17 open-source Java projects \citep{just2014defects4j}.
+Table~\ref{tab:projects} lists the projects with approximate per-project active
+counts. From this benchmark we pre-collected a shared evidence corpus of 854
+buggy and 854 fixed \texttt{context.json} payloads spanning all 17 projects; every
+study reuses this corpus, so no manifest triggers fresh \textit{Defects4J}
+checkout or test execution.
+
+\begin{table}[H]
+\centering
+\caption{\textit{Defects4J}~v2.0 projects and approximate active-bug counts.
+         Per-project counts are approximate and version-dependent; the shared
+         evidence corpus covers 854 bugs across these projects.}
+\label{tab:projects}
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{@{}llr@{}}
+\toprule
+\thead{Project} & \thead{Description} & \thead{Bugs} \\
+\midrule
+Chart           & JFreeChart plotting library     & 26  \\
+Cli             & Apache Commons CLI              & 40  \\
+Closure         & Google Closure Compiler         & 174 \\
+Codec           & Apache Commons Codec            & 18  \\
+Collections     & Apache Commons Collections      & 4   \\
+Compress        & Apache Commons Compress         & 47  \\
+Csv             & Apache Commons CSV              & 16  \\
+Gson            & Google Gson                     & 18  \\
+JacksonCore     & Jackson JSON core               & 26  \\
+JacksonDatabind & Jackson data binding            & 112 \\
+JacksonXml      & Jackson XML                     & 6   \\
+Jsoup           & HTML parser                     & 93  \\
+JxPath          & Apache JXPath                   & 22  \\
+Lang            & Apache Commons Lang             & 64  \\
+Math            & Apache Commons Math             & 106 \\
+Mockito         & Mocking framework               & 38  \\
+Time            & Joda-Time                       & 26  \\
+\midrule
+\textbf{Total}  &                                 & \textbf{836} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Context File Structure}
+
+Section~\ref{sec:collection} describes how each bug's case file is built; here
+we list exactly what it contains. Every \texttt{context.json} holds: the bug ID,
+project name, and report URL; failing-test summaries, exception messages, and
+stack-trace frames; production-code and failing-test snippets; optional
+Cobertura coverage summaries; hidden-oracle fields (\texttt{classes.modified} and
+the optional fix diff); and the buggy/fixed revision-pair metadata.
+
+\subsection{Execution Environment}
+
+Classifications were executed against the Google Gemini API (model
+\texttt{gemini-3.1-flash-lite-preview}) with schema-enforced structured output.
+\textit{Defects4J} tooling is invoked through WSL for the collection stage, but
+because evidence is reused from the pre-collected corpus, the reported runs
+involve only LLM calls. Commands are scripted and dependency versions pinned for
+reproducibility, and each run records context-reuse counts and per-classification
+turn/call counts.
+
+\subsection{Evidence Collection Configuration}
+
+Stack-frame filtering retains only project source frames, discarding JUnit,
+TestNG, Hamcrest, JDK-internal, and build-tool frames. Production snippets capture
+$\pm$12 lines around each suspicious frame; test snippets capture $\pm$18 lines
+and are limited to the first three failing tests per bug. Coverage analysis is
+optional and focuses on suspicious classes parsed from Cobertura XML.
+
+\subsection{Condition Configuration}
+
+Each research question fixes the taxonomy and strategy it needs
+(Table~\ref{tab:rqmap}). The default \textit{scientific-open} configuration
+supplies RQ1, RQ3, and RQ5; RQ2 additionally runs the \textit{scientific-closed}
+pass; and RQ4 runs the \textit{zero-free} and \textit{few-open} rungs. The
+few-closed condition is valid but is not required by any current question and is
+omitted. All conditions draw on the same evidence corpus and the same prompt
+components described in Section~\ref{sec:strategies}. Table~\ref{tab:rqmap}
+lays out, for every research question, which metrics answer it and which
+analysis command computes them. 
+
+\begin{table}[H]
+\centering
+\caption{Research questions, the metrics they use, and the analysis command that
+         computes each.}
+\label{tab:rqmap}
+\setlength{\tabcolsep}{5pt}
+\begin{tabularx}{\columnwidth}{@{}lXl@{}}
+\toprule
+\thead{RQ} & \thead{Metric(s)} & \thead{Command} \\
+\midrule
+RQ1 & ODC type distribution; per-project variation     & \texttt{study-drift}  \\
+RQ2 & Escape rate; coverage rate; closed$\leftrightarrow$open shift-$\kappa$
+                                                        & \texttt{study-escape} \\
+RQ3 & Four-tier: strict / top-2 / family / $\kappa$     & \texttt{study-drift}  \\
+RQ4 & Unique labels; entropy; ODC coverage; vocab.\ reduction
+                                                        & \texttt{study-ladder} \\
+RQ5 & Pre/post drift transitions; per-project $\kappa$  & \texttt{study-drift}  \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Study Plan}
+
+Two development-validation runs (a six-bug pilot and a larger balanced sample)
+confirmed that every study command produces correctly tagged, well-formed metrics
+end to end. These runs are not intended to yield the paper's quantitative
+findings. The reported results (Section~\ref{sec:results}) are populated by a
+\emph{confirmatory} run: a project-balanced manifest of 68--100 bugs
+(\texttt{study-plan} with a per-project minimum of four to five, sufficient to
+make per-project $\kappa$ non-degenerate everywhere), classified under the four
+conditions the five questions require.
+
+A multi-fault consideration bounds interpretation. Callaghan
+\citep{callaghan2024mf} reports that real program versions contain an average of
+about 9.2 co-existing faults, so symptom evidence from one fault can contaminate
+the classification of another. The pipeline can query the \texttt{defects4j-mf}
+dataset to flag such cases during analysis.
+
+%% =============================================================================

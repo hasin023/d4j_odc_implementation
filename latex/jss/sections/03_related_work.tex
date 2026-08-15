@@ -1,0 +1,85 @@
+\section{Related Work}
+\label{sec:related}
+
+%Before we lay out our approach, it helps to see exactly what has already been tried on this problem, and where each attempt stops short.
+
+\textit{Defects4J} \citep{just2014defects4j} is one of the most widely used benchmark datasets for software debugging and defect analysis research. It provides a curated collection of reproducible real-world bugs from 17 open-source Java projects, along with their original bug reports, reproducible failures, buggy and fixed source code, and buggy-to-fixed patches. This rich and reproducible set of artifacts makes \textit{Defects4J} particularly suitable for automated defect classification. In this research, we leverage these artifacts to investigate the classification of \textit{Defects4J} bugs into ODC defect categories using large language models (LLMs). The remainder of this section provides the necessary background on \textit{Defects4J}, ODC, and LLM-based defect classification.
+
+\subsection{Existing \textit{Defects4J} Classification Attempts}
+
+%Prior work on classifying \textit{Defects4J} bugs falls into three lines, each covering a different slice of the dataset with a different goal.
+
+Van der Spuy et al. \citep{vanderspuy2025anatomy} manually classified 488 faults using control-flow and data-flow graph abstractions, identifying six control-flow and two data-flow categories. This structural perspective provides insight into how defects alter program execution; however, it does not necessarily capture the underlying reason for the defect. For example, a missing null check and an omitted feature may result in similar control-flow changes while representing fundamentally different defect causes.
+
+Sobreira \textit{et al.} \citep{sobreira2018dissection} analyzed 395 bugs from \textit{Defects4J} v1.2, focusing on repair actions and patch patterns. Their findings showed that a substantial proportion of patches involve modifications to conditional blocks. Although patch-based analysis is valuable for understanding how developers repair defects, patch characteristics primarily describe the changes made to the program rather than the underlying defect mechanism that necessitated those changes.
+
+Xuan \textit{et al.} \citep{xuan2017better} manually examined 50 randomly selected bugs to investigate test-suite quality and fault fixability. While their analysis provides detailed insights into individual defects, the relatively small sample limits the generalizability of the findings to the broader \textit{Defects4J} dataset.
+
+Collectively, these studies provide valuable perspectives on defect structure, repair actions, and fixability. However, they examine relatively limited subsets of \textit{Defects4J}, rely primarily on code-structural or patch-based taxonomies, and do not apply a semantic defect-type taxonomy to the full set of bugs. Our work addresses this gap by investigating ODC-based semantic defect classification across the \textit{Defects4J} dataset using large language models.
+\subsection{Orthogonal Defect Classification} \label{subsec:ODC}
+\textcolor{red}{Add a table representing the following Content}
+ODC was introduced by Chillarege \textit{et al.}\ \citep{chillarege1992odc} as a
+framework that classifies defects using orthogonal (non-overlapping) attributes
+to produce actionable in-process measurements. Its attributes split into two
+phases. \emph{Opener} attributes are recorded at discovery: Activity (the
+development phase underway), Trigger (the condition that exposed the defect), and
+Impact (the user-visible consequence). \emph{Closer} attributes are recorded at
+fix time: Defect Type (the actual correction made), Target (Design or Code),
+Qualifier (Missing, Incorrect, or Extraneous), Age, and Source.
+\subsection{\textcolor{red}{mapping}}
+For Design/Code targets, ODC defines seven defect types in two families. The
+\emph{Control and Data Flow} family comprises \textit{Algorithm/Method} (wrong
+computational logic), \textit{Assignment/Initialization} (wrong value or
+initialisation), \textit{Checking} (missing or wrong validation), and
+\textit{Timing/Serialization} (concurrency or ordering). The \emph{Structural}
+family comprises \textit{Function/Class/Object} (design-level gap),
+\textit{Interface/O-O Messages} (component-boundary issue), and
+\textit{Relationship} (entity-association problem). We use this two-family
+grouping later (Section~\ref{sec:eval}) as the coarser Tier-3 agreement level;
+it is our own grouping for that purpose, not a named attribute of the v5.2
+document itself \citep{ibm2013odc}, which defines the seven types individually. ODC is still in
+active use: Pan \textit{et al.}\ \citep{pan2024understanding} applied it in 2024
+to defects in LLM-generated code, showing the taxonomy generalises beyond
+human-written software.
+
+\subsection{LLM-based Defect Classification}
+
+Give an LLM the right constraints and it classifies software artefacts
+effectively. Colavito \textit{et al.}\ \citep{colavito2024llm} showed that LLMs
+classify issue reports at an accuracy competitive with supervised ML, without
+any labelled training data, and Koyuncu \citep{koyuncu2025exploring} extended
+this to fine-grained bug-report categorisation using few-shot templates. Earlier
+automated ODC approaches based on SVM and Naive Bayes reached only 77--82\%
+accuracy and struggled with sparse text
+\citep{huang2011autoodc,thung2012automatic}; LLMs sidestep these limits through
+code-aware reasoning over code, tests, and error messages.
+
+Chain-of-thought prompting improves classification by forcing structured
+reasoning \citep{nong2024cot}. \textcolor{red}{Separately, Kang \textit{et al.}\
+\citep{kang2023autosd} embedded Zeller's scientific debugging method
+\citep{zeller2009why} directly into LLM prompts (AutoSD): the model generates a
+hypothesis, runs a debugger command to test it, and uses the result to decide
+whether to conclude, for explainable fault localization. We build on the same
+iterative hypothesis--predict--experiment structure as AutoSD
+\citep{kang2023autosd}, but repurpose it: our loop does not localize or repair
+a fault, it \emph{classifies} the defect's ODC type, using probes into
+held-back evidence as its experiments.} Gao \textit{et al.}\ \citep{gao2024rcegen} likewise showed that
+LLMs can produce ODC-aligned root-cause explanations from reports and stack
+traces given taxonomy guidance. Across these studies, taxonomy-free LLM
+classification remains fragile: without a constraining label space, runs disagree
+on the same bug \citep{koyuncu2025exploring}, and hallucinated labels are most
+common when trace context is missing or ambiguous \citep{gao2024rcegen}.
+
+
+
+\subsection{Research Gap}
+
+The gap we address is the lack of a pipeline that is all four of these at once:
+(i) \emph{context-rich}, grounded in multi-modal \textit{Defects4J} artefacts;
+(ii) \emph{semantic}, classifying by defect type rather than syntactic
+pattern; (iii) \emph{coverage-aware}, using an open-set ODC formulation that
+measures rather than assumes taxonomy fit; and (iv) \emph{evaluable without
+ground truth}, through paired pre-fix/post-fix self-consistency comparison. The
+rest of this paper builds exactly that pipeline.
+
+%% =============================================================================
