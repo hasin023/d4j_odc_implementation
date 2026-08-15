@@ -308,7 +308,7 @@ def classify_bug_context(
     schema = (
         naive_response_schema()
         if taxonomy == TAXONOMY_FREE
-        else classification_response_schema(taxonomy)
+        else classification_response_schema(taxonomy, strategy=strategy)
     )
     client = LLMClient.from_env(
         provider=provider,

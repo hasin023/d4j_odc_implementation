@@ -30,7 +30,7 @@ Verified against Zeller (*Why Programs Fail*, Ch. 6) and the AutoSD paper (Kang 
 
 | Level | Order | Source | Where used |
 |---|---|---|---|
-| **Process level** | Observe → Hypothesize → Predict → Experiment/Examine → Conclude | Zeller Ch. 6 (failure observed first; hypotheses must be consistent with prior observations) | Single-shot prompt (`prompting.py::_scientific_debugging_instructions`), overall pipeline framing |
+| **Process level** | Observe → Hypothesize → Predict → Experiment/Examine → Conclude | Zeller Ch. 6 (failure observed first; hypotheses must be consistent with prior observations) | Overall pipeline framing only — the single-shot prompt's narrated version (`_scientific_debugging_instructions`) was removed 2026-08-10 (pilot: 0/6 label changes) |
 | **Loop-iteration level** | Hypothesis → Prediction → Experiment → Observation (the experiment's *result*) → Conclusion | AutoSD Fig. 1 (the initial failure observation is the *prompt input*) | Each turn of the new agentic engine |
 
 The agentic engine implements **both**: the failure evidence from `context.json` seeds the loop (process-level observe-first), then each turn runs the AutoSD iteration order.

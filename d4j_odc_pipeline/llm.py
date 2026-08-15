@@ -317,7 +317,7 @@ def naive_response_schema() -> dict:
     }
 
 
-def classification_response_schema(taxonomy_mode: str = "closed") -> dict:
+def classification_response_schema(taxonomy_mode: str = "closed", strategy: str = "scientific") -> dict:
     """JSON schema for the classification response.
 
     In open taxonomy mode (RQ2 coverage study) three extra fields are added
@@ -325,6 +325,12 @@ def classification_response_schema(taxonomy_mode: str = "closed") -> dict:
     that they be present when odc_type == "Other" is enforced in
     pipeline._validate_classification_payload, keeping the schema
     perturbation between the closed and open passes minimal.
+
+    hypothesis/prediction/experiment_rationale only apply to `scientific`,
+    where they're earned by the turn loop's real commit-before-observe
+    ordering. `few` sees all evidence in one shot before writing anything, so
+    those fields would just be post-hoc narration; it gets observation_summary
+    + reasoning_summary only (observe, then explain the classification).
     """
     other_properties: dict[str, dict] = {}
     if taxonomy_mode == "open":
@@ -333,6 +339,15 @@ def classification_response_schema(taxonomy_mode: str = "closed") -> dict:
             "nearest_type": {"type": ["string", "null"]},
             "other_confidence": {"type": ["number", "null"]},
         }
+    scientific_properties: dict[str, dict] = {}
+    scientific_required: list[str] = []
+    if strategy != "few":
+        scientific_properties = {
+            "hypothesis": {"type": "string"},
+            "prediction": {"type": "string"},
+            "experiment_rationale": {"type": "string"},
+        }
+        scientific_required = ["hypothesis", "prediction", "experiment_rationale"]
     return {
         "type": "object",
         "properties": {
@@ -348,9 +363,7 @@ def classification_response_schema(taxonomy_mode: str = "closed") -> dict:
             "confidence": {"type": "number"},
             "needs_human_review": {"type": "boolean"},
             "observation_summary": {"type": "string"},
-            "hypothesis": {"type": "string"},
-            "prediction": {"type": "string"},
-            "experiment_rationale": {"type": "string"},
+            **scientific_properties,
             "reasoning_summary": {"type": "string"},
             "evidence_used": {"type": "array", "items": {"type": "string"}},
             "evidence_gaps": {"type": "array", "items": {"type": "string"}},
@@ -373,9 +386,7 @@ def classification_response_schema(taxonomy_mode: str = "closed") -> dict:
             "confidence",
             "needs_human_review",
             "observation_summary",
-            "hypothesis",
-            "prediction",
-            "experiment_rationale",
+            *scientific_required,
             "reasoning_summary",
             "evidence_used",
             "evidence_gaps",
