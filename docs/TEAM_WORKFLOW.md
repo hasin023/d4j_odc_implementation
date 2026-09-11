@@ -27,6 +27,18 @@ So: to split work between people, give them **different manifests** and the **sa
 
 ## 2. Roles
 
+**These are roles, not people.** One person can do both Collector and Classifier — the split above
+exists so the Collector doesn't *need* an LLM key, not so they're forbidden from having one.
+
+Current assignment: **Nahiyan collects first — that's the priority, and it's the slow, disk-heavy
+part.** If he finishes the six manifests with time left over, he moves on to classifying the same
+manifests, following the Classifier section below exactly (same conditions, same
+`--artifacts-root`). His `.env`'s LLM key is sent to him directly by the project owner, out of band —
+**never through git.** `.env` is gitignored on purpose (see `docs/SETUP.md`); nothing about receiving
+a key changes that. If he doesn't get to classification, that's fine — collection alone is the
+bottleneck this handoff exists to unblock, and whoever classifies later just needs `docs/TEAM_WORKFLOW.md`
+§2 Classifier and the same repo state he already pushed.
+
 ### Collector — generates `context.json` (the slow step)
 
 **Needs:** Defects4J installed, **Java 11**. That's it — **no LLM API key**, no `DEFAULT_LLM_PROVIDER`
@@ -106,7 +118,9 @@ Notes:
 
 ### Classifier — turns contexts into labels
 
-**Needs:** an LLM API key. **Nothing else.** No Defects4J, no Java, no checkouts.
+**Needs:** an LLM API key. **Nothing else.** No Defects4J, no Java, no checkouts. If you're picking
+this up after collecting, the key was sent to you directly (Slack/email/etc.), not through git — put
+it in your local `.env` (copy `.env.example`) and never commit that file, gitignored or not.
 
 That is a real guarantee, not a hope: `classify` has no `--defects4j-cmd` at all, and `study-run`
 skips collection entirely when `context.json` already exists, so it never calls Defects4J.
