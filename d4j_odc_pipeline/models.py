@@ -155,16 +155,10 @@ class ClassificationResult:
     qualifier: str | None = None
     age: str | None = None
     source: str | None = None
-    # Opener attribute (v5.2 §3.3): single-select from the 13 ODC impact
-    # categories + "Unknown", validated against odc.allowed_impact_names().
-    # Judged from failure behaviour/bug report — fix-independent by definition,
-    # which makes it the negative control in the drift analysis.
-    impact: str | None = None
     # Legacy opener fields — populated by pre-2026-07-10 artifacts only; the
     # prompts no longer request them (see docs/odc_alignment_audit.md §3).
     inferred_activity: str | None = None
     inferred_triggers: list[str] = field(default_factory=list)
-    inferred_impact: list[str] = field(default_factory=list)
     evidence_mode: str = "pre-fix"
     # Condition variables — see docs/condition_model.md.
     # taxonomy_mode: "free" | "closed" | "open".
@@ -182,12 +176,24 @@ class ClassificationResult:
     consistency_k: int = 1
     consistency_confidence: float | None = None
     sample_labels: list[str] = field(default_factory=list)
-    # Agentic engine (--reasoning agentic): full turn transcript
-    # (hypothesis/prediction/action/probe/observation per turn) — the
-    # explainability artifact. llm_calls_used = actual API calls consumed
-    # by this classification (turns x samples; 1 for single-shot k=1).
+    # Scientific strategy: the turn transcript — hypothesis / prediction /
+    # probe / observation per turn. This is the explainability artifact, and
+    # the observation payload is the half that makes the loop falsifiable:
+    # without it you can see what the model predicted but not what came back.
+    # llm_calls_used = actual API calls consumed by this classification
+    # (turns x samples; 1 for single-shot k=1).
     turns: list[dict[str, Any]] = field(default_factory=list)
     llm_calls_used: int = 1
+    # Why the loop stopped: "concluded" (the model concluded on its own) or
+    # "forced_max_turns" (it was told to conclude because turns ran out).
+    # None for the single-shot strategies, which have no loop.
+    termination_reason: str | None = None
+    # Wall-clock seconds for the whole loop, and the number of turns whose
+    # probe returned an error (bad argument, or a repeat of an already-served
+    # request). Both are unrecoverable after the fact, so they are recorded
+    # at run time.
+    loop_duration_seconds: float | None = None
+    probe_misses: int = 0
     other_justification: str | None = None
     nearest_type: str | None = None
     other_confidence: float | None = None

@@ -14,7 +14,6 @@ from .odc import (
     OTHER_TYPE_NAME,
     STRATEGY_SCIENTIFIC,
     TAXONOMY_FREE,
-    allowed_impact_names,
     allowed_type_names,
     family_for,
     legacy_prompt_style,
@@ -371,8 +370,6 @@ def classify_bug_context(
     if result.odc_type == OTHER_TYPE_NAME:
         optional_rows.append(("Nearest Type", result.nearest_type or "—"))
         optional_rows.append(("Other Confidence", f"{result.other_confidence:.2f}" if result.other_confidence is not None else "—"))
-    if result.impact:
-        optional_rows.append(("Impact", result.impact))
     if result.target:
         optional_rows.append(("Target", result.target))
     if result.qualifier:
@@ -385,8 +382,6 @@ def classify_bug_context(
         optional_rows.append(("Inferred Activity", result.inferred_activity))
     if result.inferred_triggers:
         optional_rows.append(("Inferred Triggers", ", ".join(result.inferred_triggers)))
-    if result.inferred_impact:
-        optional_rows.append(("Inferred Impact", ", ".join(result.inferred_impact)))
 
     summary_rows = [
         ("ODC Type", result.odc_type),
@@ -460,22 +455,105 @@ def write_markdown_report(
         if classification.source:
             closer_lines.append(f"- Source: `{classification.source}`")
         opener_lines = []
-        if classification.impact:
-            opener_lines.append(f"- Impact: `{classification.impact}`")
         if classification.inferred_activity:
             opener_lines.append(f"- Inferred Activity: `{classification.inferred_activity}`")
         if classification.inferred_triggers:
             opener_lines.append(f"- Inferred Triggers: `{', '.join(classification.inferred_triggers)}`")
-        if classification.inferred_impact:
-            opener_lines.append(f"- Inferred Impact: `{', '.join(classification.inferred_impact)}`")
 
         if closer_lines or opener_lines:
             lines.extend(["", "## ODC Attribute Mapping (Optional)"])
             lines.extend(closer_lines)
             lines.extend(opener_lines)
+
+        lines.extend(_scientific_loop_lines(classification))
     ensure_parent(output_path)
     output_path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
     console.step(f"Report written → {output_path}")
+
+
+def _derive_termination(turns: list[dict]) -> str | None:
+    """Termination reason for a transcript recorded before the field existed."""
+    if not turns:
+        return None
+    last = turns[-1]
+    if last.get("action") != "conclude":
+        return None
+    return "forced_max_turns" if last.get("forced") else "concluded"
+
+
+def _derive_probe_misses(turns: list[dict]) -> int:
+    """Probe misses for a pre-2026-09 transcript.
+
+    A served probe stored `sorted(observation.keys())` (a list); a miss stored
+    the error string, so a string observation_summary IS the miss marker."""
+    return sum(1 for turn in turns if isinstance(turn.get("observation_summary"), str))
+
+
+def _scientific_loop_lines(classification: ClassificationResult) -> list[str]:
+    """Render the scientific loop's transcript into the report.
+
+    Without this the report is byte-identical in shape for every strategy, and
+    a forced 6-turn conclusion is indistinguishable from a confident 1-turn one.
+    Returns [] for the single-shot strategies, which have no loop."""
+    turns = classification.turns or []
+    if not turns:
+        return []
+
+    # Artifacts written before 2026-09-10 carry neither field, so derive both
+    # from the transcript rather than reporting "unknown" and a false zero.
+    # `termination_reason` is the marker for "recorded by the current code": it
+    # is None on every legacy artifact and always set on a new one. Gate on it
+    # rather than on truthiness — probe_misses is an int, and a clean run with
+    # a genuine 0 must not fall through to the derivation.
+    recorded = classification.termination_reason is not None
+    termination = classification.termination_reason if recorded else _derive_termination(turns)
+    misses = classification.probe_misses if recorded else _derive_probe_misses(turns)
+
+    reason = {
+        "concluded": "model concluded on its own",
+        "forced_max_turns": "forced — turn budget ran out",
+    }.get(termination or "", termination or "unknown")
+
+    lines = [
+        "",
+        "## Scientific Loop",
+        "",
+        f"- Turns: `{len(turns)}`",
+        f"- Termination: `{reason}`",
+    ]
+    if classification.loop_duration_seconds is not None:
+        lines.append(f"- Loop duration: `{classification.loop_duration_seconds}s`")
+    lines.append(f"- Probe misses: `{misses}`")
+
+    for turn in turns:
+        probe = turn.get("probe") or {}
+        header = f"### Turn {turn.get('turn')}"
+        if turn.get("forced"):
+            header += " (forced to conclude)"
+        lines.extend(["", header, ""])
+        if turn.get("hypothesis"):
+            lines.extend([f"**Hypothesis.** {turn['hypothesis']}", ""])
+        if turn.get("prediction"):
+            lines.extend([f"**Prediction.** {turn['prediction']}", ""])
+
+        if turn.get("action") == "conclude":
+            lines.append(f"**Concluded**: `{turn.get('conclusion_odc_type')}`")
+        elif probe:
+            argument = probe.get("argument")
+            target = f" `{argument}`" if argument else ""
+            lines.append(f"**Probe.** `{probe.get('name')}`{target}")
+            observation = turn.get("observation")
+            if observation:
+                suffix = ""
+                if turn.get("observation_truncated"):
+                    suffix = f"\n... [truncated — full observation was {turn.get('observation_chars')} chars]"
+                lines.extend(["", "**Observation.**", "", "```json", observation + suffix, "```"])
+            elif turn.get("observation_summary"):
+                # Pre-2026-09 artifacts stored only the observation's key names.
+                lines.append(f"**Observation.** `{turn['observation_summary']}`")
+        if turn.get("duration_seconds") is not None:
+            lines.extend(["", f"_{turn['duration_seconds']}s_"])
+    return lines
 
 
 def write_json(path: Path, payload: dict) -> None:
@@ -1066,10 +1144,8 @@ def _validate_classification_payload(
             qualifier=None,
             age=None,
             source=None,
-            impact=None,  # zero-free stays ODC-free: no impact vocabulary in that cell
             inferred_activity=None,
             inferred_triggers=[],
-            inferred_impact=[],
             evidence_mode="post-fix" if context.fix_diff else "pre-fix",
             strategy=strategy,
             taxonomy_mode=taxonomy,
@@ -1106,16 +1182,6 @@ def _validate_classification_payload(
                 f"odc_type is 'Other' but other_confidence {raw_other_confidence!r} is not a number"
             ) from None
 
-    # Opener attribute (v5.2 §3.3): single-select, strictly validated like
-    # odc_type. Tolerate absence (None) so providers without response-schema
-    # enforcement don't hard-fail an otherwise valid classification.
-    impact = _opt_text(payload.get("impact"))
-    if impact is not None and impact not in allowed_impact_names():
-        raise LLMError(
-            f"Invalid impact in LLM output: {impact!r} "
-            f"(expected one of {', '.join(allowed_impact_names())})"
-        )
-
     confidence = float(payload.get("confidence", 0.0))
     confidence = min(1.0, max(0.0, confidence))
     return ClassificationResult(
@@ -1147,10 +1213,8 @@ def _validate_classification_payload(
         qualifier=_opt_text(payload.get("qualifier")),
         age=_opt_text(payload.get("age")),
         source=_opt_text(payload.get("source")),
-        impact=impact,
         inferred_activity=_opt_text(payload.get("inferred_activity")),
         inferred_triggers=_opt_list(payload.get("inferred_triggers")),
-        inferred_impact=_opt_list(payload.get("inferred_impact")),
         evidence_mode="post-fix" if context.fix_diff else "pre-fix",
         strategy=strategy,
         taxonomy_mode=taxonomy,

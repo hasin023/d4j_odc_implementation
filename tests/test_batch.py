@@ -6,7 +6,15 @@ import uuid
 from pathlib import Path
 from unittest.mock import patch
 
-from d4j_odc_pipeline.batch import analyze_batch_artifacts, generate_study_manifest, write_analysis_markdown
+from d4j_odc_pipeline.batch import (
+    _compute_collect_manifest_hash,
+    _compute_manifest_hash,
+    _discard_work_dir,
+    analyze_batch_artifacts,
+    append_run_ledger,
+    generate_study_manifest,
+    write_analysis_markdown,
+)
 
 
 class _FakeDefects4JClient:
@@ -140,70 +148,6 @@ class BatchAnalysisTests(unittest.TestCase):
             # RQ5: per-project kappa is None for projects with < 2 bugs (both here).
             self.assertIsNone(summary["per_project_kappa"]["Lang"])
             self.assertIsNone(summary["per_project_kappa"]["Math"])
-
-    def test_impact_distribution_and_stability_wired_into_summary(self) -> None:
-        """Impact (opener attribute) analyses ride alongside type drift in the
-        same study-drift summary (docs/odc_alignment_audit.md §6)."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            root = Path(temp_dir)
-            prefix_dir = root / "prefix"
-            postfix_dir = root / "postfix"
-
-            self._write_case(
-                prefix_dir / "Lang_1_prefix",
-                classification={
-                    "project_id": "Lang", "bug_id": 1, "version_id": "1b",
-                    "odc_type": "Checking", "family": "Control and Data Flow",
-                    "impact": "Reliability", "confidence": 0.7,
-                    "alternative_types": [], "reasoning_summary": "prefix",
-                },
-            )
-            self._write_case(
-                postfix_dir / "Lang_1_postfix",
-                classification={
-                    "project_id": "Lang", "bug_id": 1, "version_id": "1b",
-                    "odc_type": "Checking", "family": "Control and Data Flow",
-                    "impact": "Reliability", "confidence": 0.9,
-                    "alternative_types": [], "reasoning_summary": "postfix",
-                },
-            )
-            self._write_case(
-                prefix_dir / "Math_2_prefix",
-                classification={
-                    "project_id": "Math", "bug_id": 2, "version_id": "2b",
-                    "odc_type": "Algorithm/Method", "family": "Control and Data Flow",
-                    "impact": "Capability", "confidence": 0.6,
-                    "alternative_types": [], "reasoning_summary": "prefix",
-                },
-            )
-            self._write_case(
-                postfix_dir / "Math_2_postfix",
-                classification={
-                    "project_id": "Math", "bug_id": 2, "version_id": "2b",
-                    "odc_type": "Algorithm/Method", "family": "Control and Data Flow",
-                    "impact": "Reliability", "confidence": 0.9,
-                    "alternative_types": [], "reasoning_summary": "postfix",
-                },
-            )
-
-            summary = analyze_batch_artifacts(
-                prefix_dir=prefix_dir, postfix_dir=postfix_dir,
-                taxonomy="closed", strategy="scientific",
-            )
-
-            self.assertEqual(2, summary["impact_distribution_prefix"]["with_impact"])
-            self.assertEqual(1, summary["impact_distribution_prefix"]["impact_counts"]["Reliability"])
-            self.assertEqual(1, summary["impact_distribution_prefix"]["impact_counts"]["Capability"])
-            self.assertTrue(summary["impact_vs_type_prefix"]["impact_type_pairs"])
-            # Lang-1 impact agrees prefix/postfix; Math-2 impact disagrees.
-            self.assertEqual(2, summary["impact_stability"]["pairs_with_impact"])
-            self.assertEqual(1, summary["impact_stability"]["agreement_count"])
-
-            md_path = root / "analysis.md"
-            write_analysis_markdown(summary, md_path)
-            markdown = md_path.read_text()
-            self.assertIn("Impact (Opener Attribute", markdown)
-            self.assertIn("Impact Stability", markdown)
 
     @staticmethod
     def _write_case(case_dir: Path, *, classification: dict) -> None:
@@ -786,3 +730,305 @@ class BudgetGuardTests(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             discover_ladder(Path("/nonexistent/prefix/dir"), ["zero-free"])
+
+
+class RunSignatureHashTests(unittest.TestCase):
+    """The checkpoint hash must identify the RUN, not just the bug set.
+
+    Before this, re-running one manifest under a different strategy or model
+    produced a matching hash, so the checkpoint resumed and every bug was
+    skipped as already-complete — an empty run rather than a comparison."""
+
+    ENTRIES = [
+        {"project_id": "Lang", "bug_id": 1},
+        {"project_id": "Math", "bug_id": 2},
+    ]
+
+    def _hash(self, **kwargs):
+        base = dict(
+            taxonomy="open", strategy="few",
+            provider="gemini", model="gemini-3.1-flash-lite", self_consistency=1,
+        )
+        base.update(kwargs)
+        return _compute_manifest_hash(self.ENTRIES, **base)
+
+    def test_identical_parameters_produce_identical_hash(self) -> None:
+        self.assertEqual(self._hash(), self._hash())
+
+    def test_bug_order_does_not_matter(self) -> None:
+        reordered = list(reversed(self.ENTRIES))
+        self.assertEqual(
+            self._hash(),
+            _compute_manifest_hash(
+                reordered, taxonomy="open", strategy="few",
+                provider="gemini", model="gemini-3.1-flash-lite", self_consistency=1,
+            ),
+        )
+
+    def test_strategy_change_changes_hash(self) -> None:
+        self.assertNotEqual(self._hash(), self._hash(strategy="scientific"))
+
+    def test_taxonomy_change_changes_hash(self) -> None:
+        self.assertNotEqual(self._hash(), self._hash(taxonomy="closed"))
+
+    def test_model_change_changes_hash(self) -> None:
+        self.assertNotEqual(self._hash(), self._hash(model="other-model"))
+
+    def test_provider_change_changes_hash(self) -> None:
+        self.assertNotEqual(self._hash(), self._hash(provider="groq"))
+
+    def test_self_consistency_change_changes_hash(self) -> None:
+        self.assertNotEqual(self._hash(), self._hash(self_consistency=3))
+
+    def test_different_bug_set_changes_hash(self) -> None:
+        other = _compute_manifest_hash(
+            [{"project_id": "Lang", "bug_id": 99}], taxonomy="open", strategy="few",
+            provider="gemini", model="gemini-3.1-flash-lite", self_consistency=1,
+        )
+        self.assertNotEqual(self._hash(), other)
+
+
+class RunLedgerTests(unittest.TestCase):
+    """The ledger is append-only: it is what makes "did results change?"
+    answerable across runs."""
+
+    def test_appends_one_line_per_run_and_preserves_order(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            append_run_ledger(root, {"run_id": "aaa", "effective_tag": "few-open"})
+            append_run_ledger(root, {"run_id": "bbb", "effective_tag": "scientific-open"})
+
+            lines = (root / "runs.jsonl").read_text(encoding="utf-8").strip().splitlines()
+            self.assertEqual(2, len(lines))
+            self.assertEqual("aaa", json.loads(lines[0])["run_id"])
+            self.assertEqual("bbb", json.loads(lines[1])["run_id"])
+            self.assertEqual("scientific-open", json.loads(lines[1])["effective_tag"])
+
+    def test_creates_the_root_directory_if_absent(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir) / "not_yet" / "artifacts_v2"
+            path = append_run_ledger(root, {"run_id": "ccc"})
+            self.assertTrue(path.exists())
+
+
+class WorkDirCleanupTests(unittest.TestCase):
+    """Checkouts are per (bug, arm) and nothing reads them once context.json
+    exists — but this is an rmtree, so the guards matter more than the happy
+    path."""
+
+    def _checkout(self, root: Path, name: str) -> Path:
+        d = root / "prefix" / name
+        (d / "src" / "main").mkdir(parents=True)
+        (d / "src" / "main" / "Foo.java").write_text("x" * 4096, encoding="utf-8")
+        return d
+
+    def test_removes_checkout_and_reports_bytes_freed(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir) / "work"
+            checkout = self._checkout(root, "Lang_1b")
+            freed = _discard_work_dir(checkout, root)
+            self.assertFalse(checkout.exists())
+            self.assertGreaterEqual(freed, 4096)
+
+    def test_sibling_checkouts_are_untouched(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir) / "work"
+            target = self._checkout(root, "Lang_1b")
+            sibling = self._checkout(root, "Lang_2b")
+            _discard_work_dir(target, root)
+            self.assertFalse(target.exists())
+            self.assertTrue(sibling.exists())
+
+    def test_refuses_to_delete_outside_the_work_root(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir) / "work"
+            root.mkdir(parents=True)
+            outsider = Path(temp_dir) / "precious"
+            outsider.mkdir()
+            (outsider / "keep.txt").write_text("do not delete", encoding="utf-8")
+            self.assertIsNone(_discard_work_dir(outsider, root))
+            self.assertTrue((outsider / "keep.txt").exists())
+
+    def test_refuses_to_delete_the_work_root_itself(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir) / "work"
+            root.mkdir(parents=True)
+            self.assertIsNone(_discard_work_dir(root, root))
+            self.assertTrue(root.exists())
+
+    def test_missing_checkout_is_a_no_op(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir) / "work"
+            root.mkdir(parents=True)
+            self.assertIsNone(_discard_work_dir(root / "prefix" / "Gone_1b", root))
+
+
+class CollectManifestHashTests(unittest.TestCase):
+    """Collection has no taxonomy/strategy/provider/model — the hash must not
+    fold those in, unlike `_compute_manifest_hash` (see its docstring)."""
+
+    def test_bug_order_does_not_matter(self) -> None:
+        a = [{"project_id": "Lang", "bug_id": 1}, {"project_id": "Math", "bug_id": 2}]
+        b = [{"project_id": "Math", "bug_id": 2}, {"project_id": "Lang", "bug_id": 1}]
+        self.assertEqual(_compute_collect_manifest_hash(a), _compute_collect_manifest_hash(b))
+
+    def test_different_bug_set_changes_hash(self) -> None:
+        a = [{"project_id": "Lang", "bug_id": 1}]
+        b = [{"project_id": "Lang", "bug_id": 2}]
+        self.assertNotEqual(_compute_collect_manifest_hash(a), _compute_collect_manifest_hash(b))
+
+
+class CollectOnlyBatchTests(unittest.TestCase):
+    """study-collect's core promise: writes context.json for every bug,
+    never touches classify_bug_context, and needs no provider/model/LLM
+    config to run at all."""
+
+    @staticmethod
+    def _scratch_dir(name: str) -> Path:
+        base = Path(".dist") / "test_tmp_batch" / f"{name}_{uuid.uuid4().hex[:8]}"
+        base.mkdir(parents=True, exist_ok=True)
+        return base
+
+    def setUp(self) -> None:
+        from d4j_odc_pipeline.batch import reset_shutdown
+        reset_shutdown()
+
+    def tearDown(self) -> None:
+        from d4j_odc_pipeline.batch import reset_shutdown
+        reset_shutdown()
+
+    def _fake_collect(self, *, project_id: str, bug_id: int, output_path: Path, **kwargs):
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(
+            json.dumps({"project_id": project_id, "bug_id": bug_id}),
+            encoding="utf-8",
+        )
+        return {"project_id": project_id, "bug_id": bug_id}
+
+    def test_writes_context_for_every_bug_and_never_calls_classify(self) -> None:
+        from d4j_odc_pipeline.batch import collect_batch_from_manifest
+
+        manifest = {
+            "target_bugs": 2,
+            "entries": [
+                {"project_id": "Lang", "bug_id": 1},
+                {"project_id": "Math", "bug_id": 2},
+            ],
+        }
+        client = _FakeDefects4JClient()
+        temp_root = self._scratch_dir("collect_writes_context")
+        artifacts_root = temp_root / "artifacts"
+        work_root = temp_root / "work"
+
+        with (
+            patch("d4j_odc_pipeline.batch.collect_bug_context", side_effect=self._fake_collect),
+            patch("d4j_odc_pipeline.batch.classify_bug_context") as mock_classify,
+        ):
+            summary = collect_batch_from_manifest(
+                defects4j=client,
+                manifest=manifest,
+                artifacts_root=artifacts_root,
+                work_root=work_root,
+            )
+
+        mock_classify.assert_not_called()
+        self.assertEqual(2, summary["completed_entries"])
+        self.assertEqual("collect-only", summary["mode"])
+        self.assertTrue((artifacts_root / "prefix" / "Lang_1_prefix" / "context.json").exists())
+        self.assertTrue((artifacts_root / "postfix" / "Lang_1_postfix" / "context.json").exists())
+        self.assertTrue((artifacts_root / "checkpoint.collect.json").exists())
+        self.assertNotIn("provider", summary)
+        self.assertNotIn("condition_tag", summary)
+
+    def test_resume_skips_completed_bugs_via_checkpoint(self) -> None:
+        from d4j_odc_pipeline.batch import _request_shutdown, collect_batch_from_manifest
+
+        manifest = {
+            "target_bugs": 2,
+            "entries": [
+                {"project_id": "Lang", "bug_id": 1},
+                {"project_id": "Math", "bug_id": 2},
+            ],
+        }
+        client = _FakeDefects4JClient()
+        temp_root = self._scratch_dir("collect_resume")
+        artifacts_root = temp_root / "artifacts"
+        work_root = temp_root / "work"
+        calls: list[tuple[str, int]] = []
+        shutdown_once = {"done": False}
+
+        def fake_collect(*, project_id: str, bug_id: int, output_path: Path, **kwargs):
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(
+                json.dumps({"project_id": project_id, "bug_id": bug_id}),
+                encoding="utf-8",
+            )
+            calls.append((project_id, bug_id))
+            if project_id == "Lang" and bug_id == 1 and output_path.parent.name == "Lang_1_postfix" and not shutdown_once["done"]:
+                shutdown_once["done"] = True
+                _request_shutdown(2, None)
+            return {"project_id": project_id, "bug_id": bug_id}
+
+        with patch("d4j_odc_pipeline.batch.collect_bug_context", side_effect=fake_collect):
+            first_summary = collect_batch_from_manifest(
+                defects4j=client, manifest=manifest, artifacts_root=artifacts_root, work_root=work_root,
+            )
+            from d4j_odc_pipeline.batch import reset_shutdown
+            reset_shutdown()
+            second_summary = collect_batch_from_manifest(
+                defects4j=client, manifest=manifest, artifacts_root=artifacts_root, work_root=work_root,
+            )
+
+        self.assertTrue(first_summary["interrupted"])
+        self.assertEqual(1, first_summary["completed_entries"])
+        self.assertFalse(second_summary["interrupted"])
+        self.assertEqual(2, second_summary["completed_entries"])
+        self.assertTrue(all(call[0] == "Math" for call in calls[2:]))
+
+    def test_keep_work_preserves_checkout(self) -> None:
+        from d4j_odc_pipeline.batch import collect_batch_from_manifest
+
+        manifest = {"target_bugs": 1, "entries": [{"project_id": "Lang", "bug_id": 1}]}
+        client = _FakeDefects4JClient()
+        temp_root = self._scratch_dir("collect_keep_work")
+        artifacts_root = temp_root / "artifacts"
+        work_root = temp_root / "work"
+
+        captured_work_dirs: list[Path] = []
+
+        def fake_collect(*, project_id: str, bug_id: int, work_dir: Path, output_path: Path, **kwargs):
+            work_dir.mkdir(parents=True, exist_ok=True)
+            (work_dir / "marker.txt").write_text("checkout", encoding="utf-8")
+            captured_work_dirs.append(work_dir)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(json.dumps({"project_id": project_id, "bug_id": bug_id}), encoding="utf-8")
+            return {"project_id": project_id, "bug_id": bug_id}
+
+        with patch("d4j_odc_pipeline.batch.collect_bug_context", side_effect=fake_collect):
+            collect_batch_from_manifest(
+                defects4j=client, manifest=manifest, artifacts_root=artifacts_root,
+                work_root=work_root, keep_work=True,
+            )
+
+        self.assertTrue(all(d.exists() for d in captured_work_dirs))
+
+    def test_ledger_entry_has_no_condition_or_provider_fields(self) -> None:
+        from d4j_odc_pipeline.batch import collect_batch_from_manifest
+
+        manifest = {"target_bugs": 1, "entries": [{"project_id": "Lang", "bug_id": 1}]}
+        client = _FakeDefects4JClient()
+        temp_root = self._scratch_dir("collect_ledger")
+        artifacts_root = temp_root / "artifacts"
+        work_root = temp_root / "work"
+
+        with patch("d4j_odc_pipeline.batch.collect_bug_context", side_effect=self._fake_collect):
+            collect_batch_from_manifest(
+                defects4j=client, manifest=manifest, artifacts_root=artifacts_root, work_root=work_root,
+            )
+
+        ledger_lines = (artifacts_root / "runs.jsonl").read_text(encoding="utf-8").strip().splitlines()
+        entry = json.loads(ledger_lines[-1])
+        self.assertEqual("collect-only", entry["mode"])
+        self.assertNotIn("provider", entry)
+        self.assertNotIn("condition_tag", entry)
+        self.assertNotIn("llm_calls_made", entry)

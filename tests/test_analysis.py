@@ -5,9 +5,6 @@ import unittest
 from d4j_odc_pipeline.analysis import (
     compute_type_distribution,
     compute_project_type_correlation,
-    analyze_impact_vs_type,
-    compute_impact_distribution,
-    compute_impact_stability,
     compute_per_type_metrics,
     compare_baseline_vs_scientific,
     compute_semantic_gap_metrics,
@@ -25,10 +22,6 @@ def _make_cls(project: str, bug: int, odc_type: str, **kwargs) -> dict:
         "confidence": kwargs.get("confidence", 0.85),
         "family": kwargs.get("family", ""),
         "alternative_types": kwargs.get("alternative_types", []),
-        "impact": kwargs.get("impact"),
-        # Legacy field — still accepted as a fallback by analysis._extract_impact
-        # for pre-2026-07-10 artifacts.
-        "inferred_impact": kwargs.get("inferred_impact", []),
         "evidence_mode": kwargs.get("evidence_mode", "pre-fix"),
     }
 
@@ -75,127 +68,6 @@ class TestProjectTypeCorrelation(unittest.TestCase):
         result = compute_project_type_correlation(data)
         self.assertIn("observed", result)
         self.assertEqual(len(result["observed"]), 2)
-
-
-class TestImpactVsType(unittest.TestCase):
-    """Impact×Type cross-tab — the empirical orthogonality check
-    (docs/odc_alignment_audit.md §6.2). No naive symptom→type map anymore:
-    that mapping was invented with no literature basis and was removed."""
-
-    def test_basic_impact_tracking(self) -> None:
-        data = [
-            _make_cls("Lang", 1, "Checking", impact="Reliability"),
-            _make_cls("Lang", 2, "Algorithm/Method", impact="Performance"),
-        ]
-        result = analyze_impact_vs_type(data)
-        self.assertEqual(result["total_with_impact"], 2)
-        self.assertTrue(len(result["impact_type_pairs"]) > 0)
-
-    def test_cross_tab_pairs_are_counted(self) -> None:
-        data = [
-            _make_cls("Lang", 1, "Checking", impact="Reliability"),
-            _make_cls("Lang", 2, "Checking", impact="Reliability"),
-            _make_cls("Lang", 3, "Algorithm/Method", impact="Performance"),
-        ]
-        result = analyze_impact_vs_type(data)
-        pair = next(p for p in result["impact_type_pairs"] if p["impact"] == "Reliability")
-        self.assertEqual(pair["odc_type"], "Checking")
-        self.assertEqual(pair["count"], 2)
-
-    def test_falls_back_to_legacy_inferred_impact_list(self) -> None:
-        """Pre-2026-07-10 artifacts carry inferred_impact (a list); the first
-        entry is used when the new single-select `impact` field is absent."""
-        data = [_make_cls("Lang", 1, "Checking", inferred_impact=["Reliability", "Usability"])]
-        result = analyze_impact_vs_type(data)
-        self.assertEqual(result["total_with_impact"], 1)
-        self.assertEqual(result["impact_type_pairs"][0]["impact"], "Reliability")
-
-    def test_no_impact_returns_empty(self) -> None:
-        data = [_make_cls("Lang", 1, "Checking")]
-        result = analyze_impact_vs_type(data)
-        self.assertEqual(result["total_with_impact"], 0)
-        self.assertEqual(result["impact_type_pairs"], [])
-
-
-class TestImpactDistribution(unittest.TestCase):
-    def test_counts_and_rates(self) -> None:
-        data = [
-            _make_cls("Lang", 1, "Checking", impact="Reliability"),
-            _make_cls("Lang", 2, "Checking", impact="Reliability"),
-            _make_cls("Math", 3, "Algorithm/Method", impact="Capability"),
-        ]
-        result = compute_impact_distribution(data)
-        self.assertEqual(result["with_impact"], 3)
-        self.assertEqual(result["without_impact"], 0)
-        self.assertEqual(result["impact_counts"]["Reliability"], 2)
-        self.assertAlmostEqual(result["impact_rates"]["Reliability"], 2 / 3, places=3)
-
-    def test_missing_impact_counted_separately(self) -> None:
-        data = [
-            _make_cls("Lang", 1, "Checking", impact="Reliability"),
-            _make_cls("Lang", 2, "Checking"),
-        ]
-        result = compute_impact_distribution(data)
-        self.assertEqual(result["with_impact"], 1)
-        self.assertEqual(result["without_impact"], 1)
-        self.assertEqual(result["total"], 2)
-
-    def test_empty_input(self) -> None:
-        result = compute_impact_distribution([])
-        self.assertEqual(result["total"], 0)
-        self.assertEqual(result["impact_counts"], {})
-
-
-class TestImpactStability(unittest.TestCase):
-    """The prefix/postfix drift negative control: impact is fix-independent
-    per v5.2 §3.3, so its disagreement measures pure instrument noise."""
-
-    def test_perfect_agreement(self) -> None:
-        pairs = [
-            (
-                _make_cls("Lang", 1, "Checking", impact="Reliability"),
-                _make_cls("Lang", 1, "Assignment/Initialization", impact="Reliability"),
-            ),
-            (
-                _make_cls("Lang", 2, "Checking", impact="Capability"),
-                _make_cls("Lang", 2, "Checking", impact="Capability"),
-            ),
-        ]
-        result = compute_impact_stability(pairs)
-        self.assertEqual(result["pairs_with_impact"], 2)
-        self.assertEqual(result["agreement_count"], 2)
-        self.assertEqual(result["agreement_rate"], 1.0)
-
-    def test_disagreement_lowers_agreement_rate(self) -> None:
-        pairs = [
-            (
-                _make_cls("Lang", 1, "Checking", impact="Reliability"),
-                _make_cls("Lang", 1, "Checking", impact="Capability"),
-            ),
-        ]
-        result = compute_impact_stability(pairs)
-        self.assertEqual(result["agreement_count"], 0)
-        self.assertEqual(result["agreement_rate"], 0.0)
-
-    def test_pairs_missing_impact_are_excluded(self) -> None:
-        pairs = [
-            (_make_cls("Lang", 1, "Checking"), _make_cls("Lang", 1, "Checking", impact="Reliability")),
-        ]
-        result = compute_impact_stability(pairs)
-        self.assertEqual(result["pairs_with_impact"], 0)
-        self.assertIsNone(result["agreement_rate"])
-
-    def test_degenerate_distribution_notes_caveat(self) -> None:
-        """Fewer than 3 distinct labels across all pairs → kappa is unreliable;
-        the raw agreement rate is the number to read."""
-        pairs = [
-            (
-                _make_cls("Lang", 1, "Checking", impact="Reliability"),
-                _make_cls("Lang", 1, "Checking", impact="Reliability"),
-            ),
-        ]
-        result = compute_impact_stability(pairs)
-        self.assertIsNotNone(result["note"])
 
 
 class TestPerTypeMetrics(unittest.TestCase):

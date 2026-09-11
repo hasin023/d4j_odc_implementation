@@ -3,15 +3,14 @@ from __future__ import annotations
 import hashlib
 import json
 import random
+import shutil
 import signal
 import threading
+import uuid
 from pathlib import Path
 from typing import Any
 
 from .analysis import (
-    analyze_impact_vs_type,
-    compute_impact_distribution,
-    compute_impact_stability,
     compute_per_type_metrics,
     compute_type_distribution,
 )
@@ -71,10 +70,87 @@ def is_shutdown_requested() -> bool:
 # Checkpoint persistence for resume capability
 # ---------------------------------------------------------------------------
 
-def _compute_manifest_hash(entries: list[dict[str, Any]]) -> str:
-    """Deterministic hash of manifest entries so we can detect stale checkpoints."""
+def _compute_manifest_hash(
+    entries: list[dict[str, Any]],
+    *,
+    taxonomy: str = "",
+    strategy: str = "",
+    provider: str | None = None,
+    model: str | None = None,
+    self_consistency: int = 1,
+) -> str:
+    """Deterministic hash identifying THIS run, so stale checkpoints are detected.
+
+    Covers the bug set *and* the run parameters. Bug keys alone are not enough:
+    re-running the same manifest under a different strategy or model used to
+    produce a matching hash, so the checkpoint resumed and every bug was skipped
+    as "already complete" — an empty run instead of a second measurement."""
     keys = sorted(f"{e.get('project_id', '')}_{e.get('bug_id', '')}" for e in entries)
-    return hashlib.sha256("|".join(keys).encode()).hexdigest()[:16]
+    parts = [
+        "|".join(keys),
+        f"taxonomy={taxonomy}",
+        f"strategy={strategy}",
+        f"provider={provider or ''}",
+        f"model={model or ''}",
+        f"k={self_consistency}",
+    ]
+    return hashlib.sha256("\u241f".join(parts).encode()).hexdigest()[:16]
+
+
+def _discard_work_dir(work_dir: Path, work_root: Path) -> int | None:
+    """Delete a Defects4J checkout once its context.json is safely written.
+
+    The checkout is per (bug, evidence_mode) and nothing reuses it: snippet
+    CONTENT is embedded in context.json, and the classification step never
+    touches the filesystem (agent.py probes serve from the loaded context), so
+    the checkout is dead weight the moment the context write succeeds. Keeping
+    them costs ~115 MB per bug, which is what makes a full-corpus run run out
+    of disk. Returns bytes freed, or None if nothing was removed.
+
+    Refuses to delete anything outside work_root — this is an rmtree."""
+    try:
+        resolved = work_dir.resolve()
+        root = work_root.resolve()
+    except OSError:
+        return None
+    if resolved == root or not resolved.is_relative_to(root):
+        console.warn(f"Refusing to delete work dir outside the work root: {work_dir}")
+        return None
+    if not resolved.is_dir():
+        return None
+    size = sum(f.stat().st_size for f in resolved.rglob("*") if f.is_file())
+    try:
+        shutil.rmtree(resolved)
+    except OSError as exc:
+        console.warn(f"Could not remove work dir {work_dir}: {exc}")
+        return None
+    return size
+
+
+def _git_sha() -> str | None:
+    """Short SHA of the working tree, for the run ledger. None outside a repo."""
+    import subprocess
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True, text=True, timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return out.stdout.strip() or None if out.returncode == 0 else None
+
+
+def append_run_ledger(artifacts_root: Path, entry: dict[str, Any]) -> Path:
+    """Append one run record to the artifacts root's append-only ledger.
+
+    Filename tagging alone cannot answer "did results get better or worse" —
+    that needs an index of what each run actually was. One JSON object per
+    line; never rewritten, so a crashed run still leaves its predecessors."""
+    ledger_path = artifacts_root / "runs.jsonl"
+    ensure_parent(ledger_path)
+    with ledger_path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(entry, sort_keys=True) + "\n")
+    return ledger_path
 
 
 def _is_entry_complete(record: dict[str, Any]) -> bool:
@@ -249,6 +325,7 @@ def run_batch_from_manifest(
     prompt_output: bool = False,
     daily_call_budget: int | None = 1400,
     self_consistency: int = 1,
+    keep_work: bool = False,
 ) -> dict[str, Any]:
     entries = list(manifest.get("entries", []))
     if not entries:
@@ -261,6 +338,10 @@ def run_batch_from_manifest(
         daily_call_budget = None
     llm_calls_made = 0
     budget_reached = False
+
+    run_started_at = utc_now_iso()
+    run_id = uuid.uuid4().hex[:12]
+    work_bytes_freed = 0
 
     validate_condition(taxonomy, strategy)
     tag = condition_tag(taxonomy, strategy)
@@ -278,7 +359,14 @@ def run_batch_from_manifest(
         console.step(f"Model-scoped run: {tag} -> {effective_tag}", detail=f"{provider}/{model}")
 
     # ── Checkpoint setup ──────────────────────────────────────────────
-    manifest_hash = _compute_manifest_hash(entries)
+    manifest_hash = _compute_manifest_hash(
+        entries,
+        taxonomy=taxonomy,
+        strategy=strategy,
+        provider=provider,
+        model=model,
+        self_consistency=self_consistency,
+    )
     checkpoint_path = artifacts_root / f"checkpoint.pairs.{effective_tag}.json"
     completed_keys = _load_checkpoint(checkpoint_path, manifest_hash)
 
@@ -413,6 +501,17 @@ def run_batch_from_manifest(
                             run_coverage=run_coverage,
                             include_fix_diff=include_fix_diff,
                         )
+                        # Only once the context write has actually landed. A
+                        # failed collection raises before this, so its checkout
+                        # survives for debugging.
+                        if not keep_work and context_path.exists():
+                            freed = _discard_work_dir(run_work_dir, work_root)
+                            if freed:
+                                work_bytes_freed += freed
+                                console.step(
+                                    "Work dir discarded",
+                                    detail=f"{run_work_dir.name} ({freed / 1024 / 1024:.0f} MB freed)",
+                                )
 
                     # Check shutdown between collect and classify
                     if is_shutdown_requested():
@@ -490,6 +589,9 @@ def run_batch_from_manifest(
 
     summary = {
         "created_at": utc_now_iso(),
+        "run_id": run_id,
+        "started_at": run_started_at,
+        "git_sha": _git_sha(),
         "taxonomy": taxonomy,
         "strategy": strategy,
         "condition_tag": tag,
@@ -509,8 +611,235 @@ def run_batch_from_manifest(
         "postfix_ok": sum(1 for r in records if r.get("postfix_status") in {"ok", "skipped-existing"}),
         "paired_for_compare": sum(1 for r in records if isinstance(r.get("comparison"), dict)),
         "projects_covered": sorted({str(r.get("project_id", "")) for r in records if r.get("project_id")}),
+        "keep_work": keep_work,
+        "work_mb_freed": round(work_bytes_freed / 1024 / 1024, 1),
         "records": records,
     }
+
+    # ── Run ledger (B3) ───────────────────────────────────────────────
+    # Everything except the per-bug `records` blob, so the ledger stays
+    # greppable. Never fatal: a ledger failure must not lose a finished run.
+    try:
+        ledger_path = append_run_ledger(
+            artifacts_root,
+            {k: v for k, v in summary.items() if k != "records"}
+            | {"manifest_hash": manifest_hash, "checkpoint": checkpoint_path.name},
+        )
+        console.step(f"Run recorded in ledger: {ledger_path}", detail=f"run_id={run_id}")
+    except OSError as exc:
+        console.warn(f"Could not write run ledger: {exc}")
+
+    return summary
+
+
+def _compute_collect_manifest_hash(entries: list[dict[str, Any]]) -> str:
+    """Hash for collect-only runs: covers the bug set only, no condition.
+
+    `collect_bug_context` has no taxonomy/strategy/provider/model parameter —
+    those don't apply to collection. Folding them into this hash (the way
+    `_compute_manifest_hash` does for the collect+classify run) would make a
+    collect-only checkpoint spuriously sensitive to CLI arguments a Collector
+    has no reason to hold constant across runs."""
+    keys = sorted(f"{e.get('project_id', '')}_{e.get('bug_id', '')}" for e in entries)
+    return hashlib.sha256("|".join(keys).encode()).hexdigest()[:16]
+
+
+def collect_batch_from_manifest(
+    *,
+    defects4j: Defects4JClient,
+    manifest: dict[str, Any],
+    artifacts_root: Path,
+    work_root: Path,
+    snippet_radius: int = 12,
+    run_coverage: bool = True,
+    skip_existing: bool = True,
+    keep_work: bool = False,
+) -> dict[str, Any]:
+    """Collect-only batch pass: writes context.json for every bug, no LLM call.
+
+    Exists so the Collector role needs only Defects4J + Java 11 (+ WSL on
+    Windows) — no LLM key, no budget, no taxonomy/strategy knowledge. See
+    docs/TEAM_WORKFLOW.md. A later `study-run` over the same
+    --artifacts-root reuses these contexts automatically (it loads
+    context.json instead of re-collecting whenever the file already exists).
+
+    Deliberately a standalone function rather than a flag on
+    run_batch_from_manifest: that function's checkpoint filename, manifest
+    hash, and status semantics are all condition-keyed, and collection has no
+    condition. Forking that logic in place risks the same entanglement bug
+    `_compute_manifest_hash` was fixed for once already (see its docstring).
+    This function shares only what's genuinely condition-agnostic:
+    `collect_bug_context`, `_discard_work_dir`, `_write_checkpoint`,
+    `_load_checkpoint`, `_is_entry_complete`, `append_run_ledger`.
+    """
+    entries = list(manifest.get("entries", []))
+    if not entries:
+        raise ValueError("Manifest contains no entries.")
+
+    run_started_at = utc_now_iso()
+    run_id = uuid.uuid4().hex[:12]
+    work_bytes_freed = 0
+
+    ensure_parent(artifacts_root / "placeholder.json")
+    ensure_parent(work_root / "placeholder.txt")
+
+    manifest_hash = _compute_collect_manifest_hash(entries)
+    checkpoint_path = artifacts_root / "checkpoint.collect.json"
+    completed_keys = _load_checkpoint(checkpoint_path, manifest_hash)
+
+    records: list[dict[str, Any]] = []
+    interrupted = False
+
+    from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, MofNCompleteColumn, TimeElapsedColumn
+
+    con = console.get_console()
+    progress_ctx = Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        MofNCompleteColumn(),
+        TimeElapsedColumn(),
+        console=con,
+        disable=console.is_quiet() or con is None,
+    )
+
+    with progress_ctx as progress:
+        task_id = progress.add_task("Collecting contexts", total=len(entries))
+
+        for index, entry in enumerate(entries, start=1):
+            if is_shutdown_requested():
+                console.warn(f"Shutdown requested — stopping after {index - 1}/{len(entries)} entries")
+                interrupted = True
+                break
+
+            project_id = str(entry.get("project_id", "")).strip()
+            bug_id = int(entry.get("bug_id", 0))
+            if not project_id or bug_id <= 0:
+                records.append(
+                    {
+                        "index": index,
+                        "project_id": project_id,
+                        "bug_id": bug_id,
+                        "prefix_status": "invalid-manifest-entry",
+                        "postfix_status": "invalid-manifest-entry",
+                        "error": "Entry must include valid project_id and bug_id",
+                    }
+                )
+                progress.advance(task_id)
+                continue
+
+            bug_key = f"{project_id}_{bug_id}"
+
+            if bug_key in completed_keys:
+                progress.update(task_id, description=f"[dim]{bug_key} (checkpoint-skip)[/dim]")
+                records.append(
+                    {
+                        "index": index,
+                        "project_id": project_id,
+                        "bug_id": bug_id,
+                        "bug_key": bug_key,
+                        "prefix_status": "skipped-existing",
+                        "postfix_status": "skipped-existing",
+                    }
+                )
+                progress.advance(task_id)
+                continue
+
+            progress.update(task_id, description=f"[cyan]{bug_key}[/cyan] [{index}/{len(entries)}]")
+
+            record: dict[str, Any] = {
+                "index": index,
+                "project_id": project_id,
+                "bug_id": bug_id,
+                "bug_key": bug_key,
+                "prefix_status": "pending",
+                "postfix_status": "pending",
+            }
+
+            for evidence_mode in ("prefix", "postfix"):
+                if is_shutdown_requested():
+                    record[f"{evidence_mode}_status"] = "interrupted"
+                    interrupted = True
+                    break
+
+                run_name = f"{bug_key}_{evidence_mode}"
+                include_fix_diff = evidence_mode == "postfix"
+                run_artifacts_dir = artifacts_root / evidence_mode / run_name
+                run_work_dir = work_root / evidence_mode / f"{project_id}_{bug_id}b"
+                context_path = run_artifacts_dir / "context.json"
+
+                status_key = f"{evidence_mode}_status"
+                record[f"{evidence_mode}_paths"] = {"context": str(context_path)}
+
+                if skip_existing and context_path.exists():
+                    record[status_key] = "skipped-existing"
+                    continue
+
+                try:
+                    collect_bug_context(
+                        defects4j=defects4j,
+                        project_id=project_id,
+                        bug_id=bug_id,
+                        work_dir=run_work_dir,
+                        output_path=context_path,
+                        snippet_radius=snippet_radius,
+                        run_coverage=run_coverage,
+                        include_fix_diff=include_fix_diff,
+                    )
+                    if not keep_work and context_path.exists():
+                        freed = _discard_work_dir(run_work_dir, work_root)
+                        if freed:
+                            work_bytes_freed += freed
+                            console.step(
+                                "Work dir discarded",
+                                detail=f"{run_work_dir.name} ({freed / 1024 / 1024:.0f} MB freed)",
+                            )
+                    record[status_key] = "ok"
+                except Exception as exc:  # noqa: BLE001
+                    record[status_key] = "failed"
+                    record[f"{evidence_mode}_error"] = str(exc)
+
+            if interrupted:
+                records.append(record)
+                break
+
+            records.append(record)
+            _write_checkpoint(checkpoint_path, records, manifest_hash, interrupted=False)
+            progress.advance(task_id)
+
+    _write_checkpoint(checkpoint_path, records, manifest_hash, interrupted=interrupted)
+
+    completed_count = sum(1 for r in records if _is_entry_complete(r))
+
+    summary = {
+        "created_at": utc_now_iso(),
+        "run_id": run_id,
+        "started_at": run_started_at,
+        "git_sha": _git_sha(),
+        "mode": "collect-only",
+        "manifest_target_bugs": manifest.get("target_bugs"),
+        "manifest_selected_bugs": len(entries),
+        "total_entries": len(records),
+        "completed_entries": completed_count,
+        "interrupted": interrupted,
+        "prefix_ok": sum(1 for r in records if r.get("prefix_status") in {"ok", "skipped-existing"}),
+        "postfix_ok": sum(1 for r in records if r.get("postfix_status") in {"ok", "skipped-existing"}),
+        "projects_covered": sorted({str(r.get("project_id", "")) for r in records if r.get("project_id")}),
+        "keep_work": keep_work,
+        "work_mb_freed": round(work_bytes_freed / 1024 / 1024, 1),
+        "records": records,
+    }
+
+    try:
+        ledger_path = append_run_ledger(
+            artifacts_root,
+            {k: v for k, v in summary.items() if k != "records"}
+            | {"manifest_hash": manifest_hash, "checkpoint": checkpoint_path.name},
+        )
+        console.step(f"Run recorded in ledger: {ledger_path}", detail=f"run_id={run_id}")
+    except OSError as exc:
+        console.warn(f"Could not write run ledger: {exc}")
+
     return summary
 
 
@@ -705,13 +1034,6 @@ def analyze_batch_artifacts(
     type_distribution = compute_type_distribution(prefix_classifications)
     per_type_metrics = compute_per_type_metrics(type_metric_pairs)
     per_project_kappa = compute_per_project_kappa(cmp_results)
-    # Impact (opener attribute): distribution + impact×type cross-tab over the
-    # prefix arm, and the prefix↔postfix stability negative control — impact is
-    # fix-independent per v5.2 §3.3, so its drift estimates pure instrument
-    # noise (docs/odc_alignment_audit.md §6.3).
-    impact_distribution = compute_impact_distribution(prefix_classifications)
-    impact_vs_type = analyze_impact_vs_type(prefix_classifications)
-    impact_stability = compute_impact_stability(type_metric_pairs)
     cohens_kappa = compute_cohens_kappa(
         [(r.prefix_odc_type, r.postfix_odc_type) for r in cmp_results]
     ) if len(cmp_results) >= 2 else None
@@ -752,9 +1074,6 @@ def analyze_batch_artifacts(
         "per_project_kappa": per_project_kappa,
         "type_distribution_prefix": type_distribution,
         "per_type_metrics": per_type_metrics,
-        "impact_distribution_prefix": impact_distribution,
-        "impact_vs_type_prefix": impact_vs_type,
-        "impact_stability": impact_stability,
         "type_confusion_matrix": type_confusion_matrix,
         "type_transitions_changed": transitions_changed,
         "type_transitions_unchanged": transitions_unchanged,
@@ -788,53 +1107,6 @@ def write_analysis_markdown(summary: dict[str, Any], output_path: Path) -> None:
         for item in missing:
             lines.append(f"- {item}")
         lines.append("")
-
-    # Impact (opener attribute): distribution, orthogonality cross-tab, and
-    # the drift negative control (see docs/odc_alignment_audit.md §6).
-    impact_dist = summary.get("impact_distribution_prefix") or {}
-    if impact_dist.get("with_impact"):
-        lines.extend(["## Impact (Opener Attribute, Prefix Arm)", ""])
-        lines.append(
-            f"- Classifications with impact: **{impact_dist.get('with_impact', 0)}**"
-            f" of {impact_dist.get('total', 0)}"
-        )
-        for impact, count in (impact_dist.get("impact_counts") or {}).items():
-            rate = (impact_dist.get("impact_rates") or {}).get(impact, 0.0)
-            lines.append(f"- {impact}: {count} ({rate:.1%})")
-        lines.append("")
-
-        stability = summary.get("impact_stability") or {}
-        if stability.get("pairs_with_impact"):
-            lines.extend(["### Impact Stability (Drift Negative Control)", ""])
-            lines.append(
-                f"- Prefix↔postfix agreement: **{stability.get('agreement_count', 0)}"
-                f"/{stability.get('pairs_with_impact', 0)}**"
-                + (
-                    f" ({stability['agreement_rate']:.1%})"
-                    if stability.get("agreement_rate") is not None
-                    else ""
-                )
-            )
-            if stability.get("kappa") is not None:
-                lines.append(f"- Kappa: {stability['kappa']}")
-            if stability.get("note"):
-                lines.append(f"- Note: {stability['note']}")
-            lines.append(
-                "- Reading: impact is fix-independent (v5.2 §3.3), so its drift is "
-                "pure instrument noise; type drift meaningfully above it indicates "
-                "genuine fix-dependence."
-            )
-            lines.append("")
-
-        cross = summary.get("impact_vs_type_prefix") or {}
-        cross_pairs = cross.get("impact_type_pairs") or []
-        if cross_pairs:
-            lines.extend(["### Impact × Type Cross-Tab (Orthogonality Check)", ""])
-            for item in cross_pairs:
-                lines.append(
-                    f"- {item.get('impact')} × {item.get('odc_type')}: {item.get('count')}"
-                )
-            lines.append("")
 
     lines.extend([
         "## Alternative Match Cases (Type Changed)",

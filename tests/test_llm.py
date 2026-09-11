@@ -46,18 +46,6 @@ class LLMTests(unittest.TestCase):
         self.assertIn("qualifier", schema["properties"])
         self.assertNotIn("target", schema["required"])
 
-    def test_classification_schema_impact_is_enum_and_required(self) -> None:
-        """Impact (v5.2 §3.3 opener attribute) is single-select and required —
-        'Unknown' is the escape hatch, not an unconstrained/omittable field."""
-        schema = classification_response_schema()
-        self.assertIn("impact", schema["required"])
-        impact_prop = schema["properties"]["impact"]
-        self.assertEqual("string", impact_prop["type"])
-        self.assertIn("Reliability", impact_prop["enum"])
-        self.assertIn("Capability", impact_prop["enum"])
-        self.assertIn("Unknown", impact_prop["enum"])
-        self.assertEqual(14, len(impact_prop["enum"]))  # 13 v5.2 categories + Unknown
-
     def test_naive_schema_has_no_odc_or_impact_fields(self) -> None:
         """zero-free's schema must stay ODC-free — no impact field either."""
         schema = naive_response_schema()
