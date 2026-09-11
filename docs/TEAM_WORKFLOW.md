@@ -67,8 +67,19 @@ python -m d4j_odc_pipeline collect --project Lang --bug 1 --include-fix-diff    
 ```
 
 If both produce a `context.json` (`.dist/runs/Lang_1_prefix/` and `.dist/runs/Lang_1_postfix/`) with
-a non-empty `coverage` section, run the batch command — it will pick up on both smoke-test contexts
-existing and skip re-collecting Lang_1:
+a non-empty `coverage` section, Defects4J and coverage work. **That single-bug `collect` command does
+NOT test checkout cleanup** — it never deletes its own work dir (only the batch command does). Move
+on to the real check below before trusting a long unattended run.
+
+**Verify checkout cleanup actually works on your machine before walking away from a full run.** This
+matters specifically because you're on WSL: the automatic deletion (`shutil.rmtree` on a Defects4J
+checkout) has real test coverage on native Linux but has never been exercised against a
+`/mnt/c/...`-style path, which is what `docs/SETUP.md`'s recommended layout puts your `work-root` on.
+If it silently fails there, checkouts pile up instead of being deleted (~115–234 MB each) and your
+disk fills over the course of a multi-hour run with no error, just increasingly full.
+
+Start the first real manifest, but check in after the first couple of bugs instead of leaving it
+unattended immediately:
 
 ```bash
 python -m d4j_odc_pipeline study-collect \
@@ -76,6 +87,23 @@ python -m d4j_odc_pipeline study-collect \
   --artifacts-root .dist/study/artifacts_v2 \
   --work-root .dist/study/work_v2
 ```
+
+After the first 1–2 bugs finish (or Ctrl+C once they do — it's safe, it checkpoints), run this in
+another terminal or after stopping:
+
+```bash
+du -sh .dist/study/work_v2
+```
+
+This should be a few KB, not hundreds of MB — the checkout for each finished bug should already be
+gone. **If it's not near-zero, stop. Do not let the run continue unattended.** That means cleanup is
+silently failing on this machine and every bug is going to leave a checkout behind — report it rather
+than deleting the directory yourself or patching the pipeline (see the note below on why). Re-run the
+same `study-collect` command to resume once whatever's blocking it is fixed.
+
+Once you've confirmed `du -sh` stays small after a couple of bugs, resume the same command and let it
+run the rest of the manifest — but it's still worth an occasional `du -sh .dist/study/work_v2` check
+during a long overnight run rather than trusting it blindly the whole way through.
 
 **The six projects, in the order to run them** — cheapest first, so an interrupted session still
 leaves whole projects finished rather than six half-finished ones. Every manifest listed here already
