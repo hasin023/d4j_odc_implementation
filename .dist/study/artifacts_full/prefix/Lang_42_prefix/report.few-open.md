@@ -2,7 +2,7 @@
 
 - Version: `42b`
 - Work directory: `C:\d4j_work\prefix\Lang_42b`
-- Generated: `2026-07-10T19:25:11+00:00`
+- Generated: `2026-08-04T17:40:04+00:00`
 
 ## Failure Summary
 - `org.apache.commons.lang.StringEscapeUtilsTest::testEscapeHtmlHighUnicode`: junit.framework.ComparisonFailure: High unicode was not escaped correctly expected:<&#[119650];> but was:<&#[55348;&#57186];>
@@ -14,12 +14,11 @@
 - **Evidence Mode**: ✅ Pre-fix only
 - ODC Type: `Algorithm/Method`
 - Family: `Control and Data Flow`
-- Target: `Code`
+- Target: `Design/Code`
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The issue is a procedural error in the string processing algorithm. It treats surrogate pairs as two distinct characters rather than one, which is a classic algorithmic flaw in handling Unicode. It is not a missing check (Checking), a wrong constant (Assignment), or a design-level capability gap (Function/Class/Object).
+The issue is that the current implementation of the escape logic iterates over the string using standard char-based processing, which splits high-unicode characters (represented as surrogate pairs in Java) into two separate entities. This is a procedural logic error in how the string is traversed and encoded, requiring a change to the algorithm to correctly handle supplementary characters as single codepoints.
 
 ## ODC Attribute Mapping (Optional)
-- Qualifier: `Incorrect`
 - Impact: `Capability`

@@ -2,7 +2,7 @@
 
 - Version: `6b`
 - Work directory: `C:\d4j_work\postfix\Lang_6b`
-- Generated: `2026-07-10T19:22:10+00:00`
+- Generated: `2026-08-04T17:36:32+00:00`
 
 ## Failure Summary
 - `org.apache.commons.lang3.StringUtilsTest::testEscapeSurrogatePairs`: java.lang.StringIndexOutOfBoundsException: index 2,length 2
@@ -20,7 +20,7 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The defect is a classic algorithmic error where the wrong index variable was used in a loop calculation. It is not a missing check (Checking), nor a simple value assignment error (Assignment/Initialization), but a flaw in the procedural logic of the translation loop. Therefore, it is classified as Algorithm/Method.
+The bug is caused by an incorrect implementation of the loop advancement logic. In the buggy code, the `pos` variable was being incremented using `Character.codePointAt(input, pos)` inside a loop that was intended to skip over consumed characters. However, the loop variable `pt` was ignored, and the logic incorrectly used the absolute position `pos` to calculate the character count, leading to an out-of-bounds access. The fix corrects the algorithm by using the loop index `pt` to correctly advance the position, which is a procedural correction within the method.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Incorrect`

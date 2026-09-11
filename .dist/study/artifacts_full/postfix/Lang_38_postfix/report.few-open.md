@@ -2,7 +2,7 @@
 
 - Version: `38b`
 - Work directory: `C:\d4j_work\postfix\Lang_38b`
-- Generated: `2026-07-10T19:24:52+00:00`
+- Generated: `2026-08-04T17:39:44+00:00`
 
 ## Failure Summary
 - `org.apache.commons.lang3.time.FastDateFormatTest::testLang538`: junit.framework.ComparisonFailure: dateTime expected:<2009-10-16T[16]:42:16.000Z> but was:<2009-10-16T[08]:42:16.000Z>
@@ -18,7 +18,7 @@
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The fix involves adding a method call (calendar.getTime()) to ensure the internal state of the Calendar object is correctly initialized before performing a clone and timezone adjustment. This is a procedural correction to the formatting algorithm to ensure it operates on a fully initialized object, fitting the Algorithm/Method category.
+The fix involves adding a call to 'calendar.getTime()' before cloning and modifying the Calendar's timezone. This is a procedural correction to ensure the Calendar object is in a consistent, fully-initialized state before the formatting algorithm proceeds. It is not a simple value assignment, nor a guard/check, nor a design-level capability gap, but rather a correction to the internal procedural steps required to correctly process the Calendar object.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Missing`

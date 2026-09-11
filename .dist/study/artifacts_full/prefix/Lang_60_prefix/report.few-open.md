@@ -2,7 +2,7 @@
 
 - Version: `60b`
 - Work directory: `C:\d4j_work\prefix\Lang_60b`
-- Generated: `2026-07-10T18:04:02+00:00`
+- Generated: `2026-08-04T17:41:46+00:00`
 
 ## Failure Summary
 - `org.apache.commons.lang.text.StrBuilderTest::testLang295`: junit.framework.AssertionFailedError: The contains(char) method is looking beyond the end of the string
@@ -18,7 +18,7 @@
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The defect is a boundary condition error where the search logic uses the wrong limit (buffer capacity vs. current string size). This is a classic 'Checking' defect because the loop condition or boundary validation is incorrect.
+The bug report explicitly states that the methods are using the wrong boundary (buffer length instead of size). This is a classic boundary check error where the loop or search condition is incorrectly bounded, which falls under the 'Checking' category in ODC.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Incorrect`

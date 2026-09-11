@@ -2,7 +2,7 @@
 
 - Version: `50b`
 - Work directory: `C:\d4j_work\postfix\Lang_50b`
-- Generated: `2026-07-10T19:25:46+00:00`
+- Generated: `2026-08-04T17:40:51+00:00`
 
 ## Failure Summary
 - `org.apache.commons.lang.time.FastDateFormatTest::test_changeDefault_Locale_DateInstance`: junit.framework.AssertionFailedError: expected same:<de_DE> was not:<en_US>
@@ -20,7 +20,7 @@
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The defect is an algorithmic error in how the cache key is constructed. The procedure for generating the key was incomplete because it failed to include the resolved locale when the input was null, leading to incorrect cache hits. This is a procedural logic error in the caching mechanism, fitting the Algorithm/Method category.
+The bug is in the caching logic (the algorithm for generating the cache key). The original implementation conditionally added the locale to the key only if it was non-null, which meant that if the locale was null, the cache key did not reflect the current default locale. When the default locale changed, the cache returned an object created with the old default locale. The fix modifies the algorithm to ensure the locale is always part of the cache key, correctly using the default locale if the provided one is null. This is a procedural correction to the caching strategy.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Incorrect`

@@ -2,7 +2,7 @@
 
 - Version: `60b`
 - Work directory: `C:\d4j_work\postfix\Lang_60b`
-- Generated: `2026-07-10T18:04:04+00:00`
+- Generated: `2026-08-04T17:41:49+00:00`
 
 ## Failure Summary
 - `org.apache.commons.lang.text.StrBuilderTest::testLang295`: junit.framework.AssertionFailedError: The contains(char) method is looking beyond the end of the string
@@ -18,7 +18,7 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The bug is an algorithmic error where the iteration strategy for searching the string builder was incorrect. It was scanning the entire allocated buffer rather than the active portion of the string. This is a procedural logic error within the methods, fitting the Algorithm/Method category perfectly.
+The defect is an algorithmic error in the loop termination condition. The methods were using the buffer's capacity (thisBuf.length) as the loop bound instead of the current string size (this.size). This is a procedural logic error in how the search algorithm traverses the data structure, which is corrected by updating the loop condition.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Incorrect`

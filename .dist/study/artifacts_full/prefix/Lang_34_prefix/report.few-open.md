@@ -2,7 +2,7 @@
 
 - Version: `34b`
 - Work directory: `C:\d4j_work\prefix\Lang_34b`
-- Generated: `2026-07-10T19:24:27+00:00`
+- Generated: `2026-08-04T17:39:11+00:00`
 
 ## Failure Summary
 - `org.apache.commons.lang3.builder.ToStringBuilderTest::testObjectCycle`: junit.framework.AssertionFailedError: Expected: <null> but was: {}
@@ -43,13 +43,13 @@
 
 ## ODC Result
 - **Evidence Mode**: ✅ Pre-fix only
-- ODC Type: `Algorithm/Method`
+- ODC Type: `Assignment/Initialization`
 - Family: `Control and Data Flow`
 - Target: `Code`
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The defect is an algorithmic failure in managing the lifecycle of a ThreadLocal resource. It is not a missing guard (Checking), a wrong constant (Assignment), or a design-level capability gap (Function/Class/Object). It is a procedural error in the implementation of the string building process where the cleanup step is missing, which is best classified as an Algorithm/Method defect.
+The root cause is the failure to properly manage the lifecycle of a ThreadLocal variable. The registry is initialized but never cleaned up (reset to null or removed), which is a classic state management/initialization error. It is not an algorithmic error (the logic works, but the state persists incorrectly), nor a missing guard (the check is present, but the state is wrong).
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Incorrect`

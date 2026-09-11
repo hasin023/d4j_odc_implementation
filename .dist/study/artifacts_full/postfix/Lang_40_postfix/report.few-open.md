@@ -2,7 +2,7 @@
 
 - Version: `40b`
 - Work directory: `C:\d4j_work\postfix\Lang_40b`
-- Generated: `2026-07-10T19:25:03+00:00`
+- Generated: `2026-08-04T17:39:54+00:00`
 
 ## Failure Summary
 - `org.apache.commons.lang.StringUtilsEqualsIndexOfTest::testContainsIgnoreCase_LocaleIndependence`: junit.framework.AssertionFailedError: en: 0 ß SS
@@ -18,7 +18,7 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The defect is in the computational procedure used to perform case-insensitive matching. The original implementation used an incorrect algorithmic strategy (locale-dependent case conversion) that failed for specific characters. The fix replaces this with a correct, locale-independent algorithm (regionMatches). This is a classic Algorithm/Method defect as it involves rewriting the local procedure to achieve the correct computational result.
+The original implementation relied on converting both strings to uppercase using the default locale, which is locale-sensitive and error-prone for case-insensitive comparisons. The fix replaces this flawed approach with a regionMatches-based algorithm that performs a locale-independent, character-by-character comparison. This is a fundamental change to the computational procedure of the method, fitting the Algorithm/Method category.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Incorrect`

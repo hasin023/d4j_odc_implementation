@@ -2,7 +2,7 @@
 
 - Version: `29b`
 - Work directory: `C:\d4j_work\prefix\Lang_29b`
-- Generated: `2026-07-10T19:23:59+00:00`
+- Generated: `2026-08-04T17:38:39+00:00`
 
 ## Failure Summary
 - `org.apache.commons.lang3.SystemUtilsTest::testJavaVersionAsInt`: junit.framework.AssertionFailedError: expected:<0> but was:<0.0>
@@ -14,11 +14,12 @@
 - **Evidence Mode**: ✅ Pre-fix only
 - ODC Type: `Algorithm/Method`
 - Family: `Control and Data Flow`
-- Target: `Design/Code`
+- Target: `Code`
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The bug is an algorithmic issue where the method 'toJavaVersionInt' is not correctly producing an integer result. It is not a missing guard (Checking) because the method is executing but returning the wrong type/value. It is not an Assignment/Initialization issue because the logic itself is flawed in its computational strategy. It is not a design-level capability issue (Function/Class/Object) because the method exists and is intended to perform this conversion; it just does so incorrectly.
+The failure indicates that the internal logic of 'toJavaVersionInt' is likely performing an incorrect conversion or using an incorrect data type during its calculation process, leading to a floating-point result where an integer is expected. This is a procedural error in the implementation of the conversion algorithm, not a missing guard or a simple initialization error.
 
 ## ODC Attribute Mapping (Optional)
-- Impact: `Capability`
+- Qualifier: `Incorrect`
+- Impact: `Reliability`

@@ -2,7 +2,7 @@
 
 - Version: `31b`
 - Work directory: `C:\d4j_work\prefix\Lang_31b`
-- Generated: `2026-07-10T19:24:10+00:00`
+- Generated: `2026-08-04T17:38:52+00:00`
 
 ## Failure Summary
 - `org.apache.commons.lang3.StringUtilsEqualsIndexOfTest::testContainsAnyCharArrayWithSupplementaryChars`: junit.framework.AssertionFailedError: expected:<false> but was:<true>
@@ -20,7 +20,7 @@
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The defect is in the procedural logic of the containsAny method. It fails to correctly handle Unicode supplementary characters because its internal search algorithm does not account for surrogate pairs, treating them as individual characters. This is a classic algorithmic error where the procedure for matching characters is insufficient for the data type being processed.
+The issue is that the internal logic of StringUtils.containsAny does not correctly account for Unicode supplementary characters (represented as surrogate pairs in Java). This is a procedural error in how the method iterates or compares characters, requiring a correction to the underlying algorithm used to perform the search, rather than a missing guard or a simple value assignment.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Incorrect`

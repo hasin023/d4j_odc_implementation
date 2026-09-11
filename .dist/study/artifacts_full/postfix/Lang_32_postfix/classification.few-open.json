@@ -5,31 +5,30 @@
   "prompt_style": "scientific",
   "model": "gemini-3.1-flash-lite-preview",
   "provider": "gemini",
-  "created_at": "2026-07-10T19:24:18+00:00",
+  "created_at": "2026-08-04T17:39:03+00:00",
   "odc_type": "Algorithm/Method",
   "family": "Control and Data Flow",
   "confidence": 0.9,
   "needs_human_review": false,
-  "observation_summary": "The HashCodeBuilder uses a ThreadLocal registry to track objects during reflection-based hashCode calculation to prevent infinite recursion in cyclic object graphs. The registry was initialized eagerly and never removed, causing memory leaks in container environments and failing to clean up after itself, leading to assertion failures in tests expecting a null registry.",
-  "hypothesis": "The root cause is an incorrect lifecycle management of the ThreadLocal registry. The registry was initialized eagerly and lacked a mechanism to remove itself when empty, leading to both memory leaks and incorrect state persistence between calls.",
-  "prediction": "The fix will involve changing the ThreadLocal initialization to be lazy, adding null checks when accessing the registry, and implementing a cleanup mechanism (removing the ThreadLocal entry) when the registry becomes empty.",
-  "experiment_rationale": "The fix diff shows the removal of the initialValue() override in the ThreadLocal definition, the addition of null checks in isRegistered, and the addition of logic in register and unregister to manage the lifecycle of the registry (creating it on demand and removing it when empty). This confirms the issue was the procedural logic governing the registry's lifecycle.",
-  "reasoning_summary": "The defect is a procedural error in how the registry is managed. It is not a missing guard (Checking) because the logic for managing the lifecycle of the ThreadLocal was fundamentally flawed in its implementation (eager vs lazy, lack of removal). It is not an Assignment/Initialization issue because the fix involves a multi-step procedural change to the lifecycle management (lazy creation, null checks, and explicit removal). Therefore, it is an Algorithm/Method defect.",
+  "observation_summary": "The HashCodeBuilder used a ThreadLocal registry that was never cleaned up, causing memory leaks in container environments and failing to properly manage the lifecycle of the registry set.",
+  "hypothesis": "",
+  "prediction": "",
+  "experiment_rationale": "",
+  "reasoning_summary": "The fix involves changing the lifecycle management of the ThreadLocal registry. Specifically, it changes how the registry is initialized (lazy initialization instead of eager), how it is checked for existence (null checks), and crucially, it adds logic to remove the ThreadLocal entry when the registry becomes empty. This is a procedural change to the algorithm managing the registry's lifecycle, ensuring it is cleaned up properly to prevent memory leaks. It is not a simple missing guard (Checking) because it involves a fundamental change to the lifecycle management strategy of the shared resource.",
   "evidence_used": [
-    "fix_diff_oracle: Removed initialValue() from ThreadLocal",
-    "fix_diff_oracle: Added null checks in isRegistered",
-    "fix_diff_oracle: Added synchronized block in register to lazily initialize the registry",
-    "fix_diff_oracle: Added logic in unregister to remove the ThreadLocal when the set is empty"
+    "The fix adds synchronization and explicit removal of the ThreadLocal entry when the registry is empty.",
+    "The fix changes the initialization of the ThreadLocal from an eager initialValue() to a lazy approach.",
+    "The fix adds null checks for the registry in isRegistered and unregister methods."
   ],
   "evidence_gaps": [],
   "alternative_types": [
     {
       "type": "Checking",
-      "why_not_primary": "While null checks were added, the core issue is the lifecycle management of the ThreadLocal, which is a procedural/algorithmic concern rather than just a missing guard."
+      "why_not_primary": "While the fix adds null checks, the core issue is the lack of a cleanup mechanism for the ThreadLocal, which is a procedural/algorithmic lifecycle management problem."
     },
     {
-      "type": "Assignment/Initialization",
-      "why_not_primary": "The fix is not just changing a value or initialization constant; it is a complete rewrite of the registry's lifecycle management logic."
+      "type": "Timing/Serialization",
+      "why_not_primary": "The fix adds synchronization, but this is to protect the lazy initialization of the registry, not to fix a race condition or serialization order issue."
     }
   ],
   "target": "Code",
@@ -51,5 +50,5 @@
   "other_justification": null,
   "nearest_type": null,
   "other_confidence": null,
-  "raw_response": "{\n  \"odc_type\": \"Algorithm/Method\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The HashCodeBuilder uses a ThreadLocal registry to track objects during reflection-based hashCode calculation to prevent infinite recursion in cyclic object graphs. The registry was initialized eagerly and never removed, causing memory leaks in container environments and failing to clean up after itself, leading to assertion failures in tests expecting a null registry.\",\n  \"hypothesis\": \"The root cause is an incorrect lifecycle management of the ThreadLocal registry. The registry was initialized eagerly and lacked a mechanism to remove itself when empty, leading to both memory leaks and incorrect state persistence between calls.\",\n  \"prediction\": \"The fix will involve changing the ThreadLocal initialization to be lazy, adding null checks when accessing the registry, and implementing a cleanup mechanism (removing the ThreadLocal entry) when the registry becomes empty.\",\n  \"experiment_rationale\": \"The fix diff shows the removal of the initialValue() override in the ThreadLocal definition, the addition of null checks in isRegistered, and the addition of logic in register and unregister to manage the lifecycle of the registry (creating it on demand and removing it when empty). This confirms the issue was the procedural logic governing the registry's lifecycle.\",\n  \"reasoning_summary\": \"The defect is a procedural error in how the registry is managed. It is not a missing guard (Checking) because the logic for managing the lifecycle of the ThreadLocal was fundamentally flawed in its implementation (eager vs lazy, lack of removal). It is not an Assignment/Initialization issue because the fix involves a multi-step procedural change to the lifecycle management (lazy creation, null checks, and explicit removal). Therefore, it is an Algorithm/Method defect.\",\n  \"evidence_used\": [\n    \"fix_diff_oracle: Removed initialValue() from ThreadLocal\",\n    \"fix_diff_oracle: Added null checks in isRegistered\",\n    \"fix_diff_oracle: Added synchronized block in register to lazily initialize the registry\",\n    \"fix_diff_oracle: Added logic in unregister to remove the ThreadLocal when the set is empty\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Checking\",\n      \"why_not_primary\": \"While null checks were added, the core issue is the lifecycle management of the ThreadLocal, which is a procedural/algorithmic concern rather than just a missing guard.\"\n    },\n    {\n      \"type\": \"Assignment/Initialization\",\n      \"why_not_primary\": \"The fix is not just changing a value or initialization constant; it is a complete rewrite of the registry's lifecycle management logic.\"\n    }\n  ]\n}"
+  "raw_response": "{\n  \"odc_type\": \"Algorithm/Method\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Reliability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The HashCodeBuilder used a ThreadLocal registry that was never cleaned up, causing memory leaks in container environments and failing to properly manage the lifecycle of the registry set.\",\n  \"reasoning_summary\": \"The fix involves changing the lifecycle management of the ThreadLocal registry. Specifically, it changes how the registry is initialized (lazy initialization instead of eager), how it is checked for existence (null checks), and crucially, it adds logic to remove the ThreadLocal entry when the registry becomes empty. This is a procedural change to the algorithm managing the registry's lifecycle, ensuring it is cleaned up properly to prevent memory leaks. It is not a simple missing guard (Checking) because it involves a fundamental change to the lifecycle management strategy of the shared resource.\",\n  \"evidence_used\": [\n    \"The fix adds synchronization and explicit removal of the ThreadLocal entry when the registry is empty.\",\n    \"The fix changes the initialization of the ThreadLocal from an eager initialValue() to a lazy approach.\",\n    \"The fix adds null checks for the registry in isRegistered and unregister methods.\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Checking\",\n      \"why_not_primary\": \"While the fix adds null checks, the core issue is the lack of a cleanup mechanism for the ThreadLocal, which is a procedural/algorithmic lifecycle management problem.\"\n    },\n    {\n      \"type\": \"Timing/Serialization\",\n      \"why_not_primary\": \"The fix adds synchronization, but this is to protect the lazy initialization of the registry, not to fix a race condition or serialization order issue.\"\n    }\n  ]\n}"
 }

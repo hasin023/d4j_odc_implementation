@@ -2,7 +2,7 @@
 
 - Version: `12b`
 - Work directory: `C:\d4j_work\prefix\Lang_12b`
-- Generated: `2026-07-10T19:22:40+00:00`
+- Generated: `2026-08-04T17:37:07+00:00`
 
 ## Failure Summary
 - `org.apache.commons.lang3.RandomStringUtilsTest::testExceptions`: java.lang.ArrayIndexOutOfBoundsException: Index 304389849 out of bounds for length 0
@@ -14,14 +14,14 @@
 
 ## ODC Result
 - **Evidence Mode**: ✅ Pre-fix only
-- ODC Type: `Checking`
+- ODC Type: `Algorithm/Method`
 - Family: `Control and Data Flow`
 - Target: `Code`
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The root cause is a missing validation check (a guard) for the input parameters and the character array bounds. While the code performs a computation, the failure is fundamentally due to the lack of a check to ensure the index is valid for the given array, which is a classic 'Checking' defect.
+The root cause is an incorrect index calculation in the character selection logic (line 248). The code uses 'random.nextInt(gap) + start' as an index into the 'chars' array without validating that this index is within the array's bounds. This is a procedural error in the algorithm used to select a random character, rather than a missing guard (though a guard might prevent the crash, the underlying logic for index selection is fundamentally flawed).
 
 ## ODC Attribute Mapping (Optional)
-- Qualifier: `Missing`
+- Qualifier: `Incorrect`
 - Impact: `Reliability`

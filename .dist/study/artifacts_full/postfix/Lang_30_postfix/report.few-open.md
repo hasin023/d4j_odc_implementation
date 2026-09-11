@@ -2,7 +2,7 @@
 
 - Version: `30b`
 - Work directory: `C:\d4j_work\postfix\Lang_30b`
-- Generated: `2026-07-10T19:24:07+00:00`
+- Generated: `2026-08-04T17:38:49+00:00`
 
 ## Failure Summary
 - `org.apache.commons.lang3.StringUtilsEqualsIndexOfTest::testContainsNone_CharArrayWithSupplementaryChars`: junit.framework.AssertionFailedError: expected:<true> but was:<false>
@@ -32,7 +32,7 @@
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The defect is a failure in the computational logic of the search methods. The methods were correctly iterating through the string but lacked the necessary logic to handle the specific data structure of Unicode supplementary characters (surrogate pairs). This is a classic algorithmic correction where the procedure for identifying a match was updated to include the correct handling of surrogate pairs.
+The fix involves rewriting the core iteration logic within several StringUtils methods to correctly identify and handle surrogate pairs. The original implementation only checked individual characters, whereas the fixed version adds logic to detect high surrogates and verify the subsequent low surrogate before confirming a match. This is a procedural correction to the search algorithm, not a simple guard or initialization issue.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Incorrect`

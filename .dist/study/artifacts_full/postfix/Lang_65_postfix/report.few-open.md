@@ -2,7 +2,7 @@
 
 - Version: `65b`
 - Work directory: `C:\d4j_work\postfix\Lang_65b`
-- Generated: `2026-07-10T19:27:05+00:00`
+- Generated: `2026-08-04T17:42:21+00:00`
 
 ## Failure Summary
 - `org.apache.commons.lang.time.DateUtilsTest::testTruncateLang59`: junit.framework.AssertionFailedError: Truncate Calendar.SECOND expected:<Sun Oct 31 01:02:03 MDT 2004> but was:<Sun Oct 31 01:02:03 MST 2004>
@@ -18,7 +18,7 @@
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The fix is an algorithmic rewrite of the truncation procedure. It replaces a reliance on a library method (Calendar.set) that had unintended side effects with a manual computational strategy that calculates the truncated time directly. This is a classic procedural correction to an incorrect computational strategy.
+The fix replaces the reliance on Calendar.set() for lower-level time units (milliseconds, seconds, minutes) with direct arithmetic on the underlying time (long) value. This is a fundamental change to the computational strategy of the truncation algorithm to avoid side effects of the Calendar API. While the fix also includes a guard (if offset != 0), the primary mechanism is the rewrite of the truncation logic to avoid the problematic API calls, making it an Algorithm/Method defect.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Incorrect`

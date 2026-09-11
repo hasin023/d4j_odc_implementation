@@ -2,7 +2,7 @@
 
 - Version: `30b`
 - Work directory: `C:\d4j_work\prefix\Lang_30b`
-- Generated: `2026-07-10T19:24:04+00:00`
+- Generated: `2026-08-04T17:38:45+00:00`
 
 ## Failure Summary
 - `org.apache.commons.lang3.StringUtilsEqualsIndexOfTest::testContainsNone_CharArrayWithSupplementaryChars`: junit.framework.AssertionFailedError: expected:<true> but was:<false>
@@ -32,7 +32,7 @@
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The defect is in the procedural logic of the StringUtils methods. They are designed to perform character-based searches but fail to correctly handle the multi-char representation of Unicode supplementary characters. This is a classic algorithmic flaw where the iteration strategy (char-by-char) is insufficient for the data type (Unicode strings containing surrogate pairs).
+The issue is that the internal logic of these StringUtils methods iterates over strings using char-by-char processing, which incorrectly splits surrogate pairs. This is a procedural/algorithmic flaw in how the methods traverse and compare string data, requiring a change to the iteration strategy to correctly handle supplementary characters as code points rather than individual 16-bit chars.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Incorrect`
