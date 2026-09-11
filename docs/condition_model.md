@@ -76,10 +76,13 @@ Invalid and rejected: `closed-zero`, `open-zero`, `free-few`, `free-scientific`.
 - Filenames: `classification.<strategy>-<taxonomy>.json`, `report.<tag>.md`,
   `checkpoint.{pairs|prefix}.<tag>.json` — always explicit, all conditions
   side by side in the bug folder next to the shared read-only `context.json`.
-- Result fields: `taxonomy_mode`, `strategy`, plus `turns`/`llm_calls_used`
-  (scientific), `consistency_*` (self-consistency), `other_*` (open escapes),
-  `impact` (v5.2 §3.3 opener attribute — `few`/`scientific` only, never
-  `zero-free`; see `docs/odc_alignment_audit.md` §6).
+- Result fields: `taxonomy_mode`, `strategy`, plus `turns`/`llm_calls_used`/
+  `termination_reason`/`loop_duration_seconds`/`probe_misses` (scientific),
+  `consistency_*` (self-consistency), `other_*` (open escapes).
+  ⚠️ The `impact` field (ODC opener attribute) was REMOVED from the pipeline on
+  2026-09-10 — no RQ depended on it and the attribute was not sufficiently
+  justified. Artifacts written before that date still carry `impact` and
+  `inferred_impact`; readers use raw `.get()` so they load unchanged.
 
 **Model is a third, orthogonal axis (added 2026-08-10), never part of the
 5-combo `(taxonomy, strategy)` validation above.** Running the same

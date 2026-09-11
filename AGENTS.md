@@ -2,6 +2,12 @@
 
 This file is the working map for future agentic LLMs operating in this repository.
 
+**Running this as a team, or handing collection/classification work to a teammate? Read
+`docs/TEAM_WORKFLOW.md` first.** It has the three roles (Collector / Classifier / Reporter), the
+exact commands each one runs, how `context.json` moves between machines, and an ACTIVE/STALE verdict
+on every directory under `.dist/`. This map describes the codebase; that doc describes the workflow —
+read both before running a study command someone else will build on.
+
 ## 1. What This Repository Is
 
 This repo implements a research pipeline that:
@@ -46,6 +52,9 @@ Notes:
 - `docs/SETUP.md` contains installation and environment setup instructions.
 - `docs/USAGE.md` contains CLI usage examples and parameter reference.
 - `docs/ARCHITECTURE.md` contains technical architecture, ODC taxonomy, and schema documentation.
+- `docs/TEAM_WORKFLOW.md` contains the multi-person workflow: who runs what (Collector / Classifier /
+  Reporter), the exact commands, and how output moves between machines. Read it before running any
+  `study-*` command on behalf of, or in coordination with, someone else.
 - Existing experiment outputs in `artifacts/` span multiple schema generations and should not be treated as the current contract.
 
 ## 3. High-Level Mental Model
@@ -255,7 +264,7 @@ Important details:
 - `study-escape`/`study-ladder` default `--prefix-dir` to `.dist/study/artifacts_<target_bugs>/prefix` (via `--manifest`) and read the SAME bug folders `study-run` wrote into (bug-centric layout: all conditions beside one shared `context.json`).
 - Classification/report filenames are ALWAYS condition-tagged: `classification.<strategy>-<taxonomy>.json`, `report.<strategy>-<taxonomy>.md`. Checkpoints are per condition: `checkpoint.pairs.<tag>.json` (study-run) — keyed by `(artifacts_root, tag)`, NOT by manifest name (see the manifest/artifacts-root gotcha in §7). **Model is a third, orthogonal axis (added 2026-08-10):** `study-run`'s existing `--provider`/`--model` (and the same flags newly added to `study-drift`/`study-escape`) feed `odc.resolve_effective_tag` — a SECOND distinct model against the same artifacts-root+condition gets a suffixed tag (`classification.<tag>.<provider>-<model-slug>.json`, `checkpoint.pairs.<tag>.<provider>-<model-slug>.json`) instead of colliding with the first model's files; the first model, same-model resumes, and every pre-2026-08-10 checkpoint (no `model`/`provider` keys) keep the bare, untagged filenames. See `docs/condition_model.md` §5.
 - `study-drift` and `compare-batch` default to the pipeline default condition (scientific-open) — pass `--taxonomy/--strategy` to analyze another condition.
-- `--strategy scientific` (agent.py) runs the enforced scientific loop: each turn commits hypothesis+prediction, then either requests one evidence probe (list_evidence / full_stack_trace / snippet / coverage / bug_report — served from the FULL context.json held-back evidence; no Defects4J, no filesystem) or concludes. Max 6 turns; forced conclusion sets needs_human_review; full transcript persisted in classification.json `turns`; artifacts record `llm_calls_used` and budget accounting uses it.
+- `--strategy scientific` (agent.py) runs the enforced scientific loop: each turn commits hypothesis+prediction, then either requests one evidence probe (list_evidence / full_stack_trace / snippet / coverage / bug_report — served from the FULL context.json held-back evidence; no Defects4J, no filesystem) or concludes. Max 6 turns; forced conclusion sets needs_human_review; the transcript is persisted in classification.json `turns` — per turn: hypothesis, prediction, probe, the probe's actual return payload (`observation`, truncated to 2000 chars with `observation_truncated`/`observation_chars` alongside), and `duration_seconds`. The result also carries `termination_reason` (`concluded` | `forced_max_turns`), `loop_duration_seconds` and `probe_misses`. Artifacts record `llm_calls_used` and budget accounting uses it. ⚠️ Artifacts written before 2026-09-10 store only the observation's KEY NAMES in `observation_summary` and carry none of the new fields; `pipeline._derive_termination`/`_derive_probe_misses` reconstruct the last two from such a transcript for reporting.
 - `study-run` has a budget guard: `--daily-call-budget` (default 1400; 0 disables) stops the run cleanly with a checkpoint before hitting provider daily rate limits (Gemini free ~1,500 RPD); re-running the same command resumes. Summaries record `llm_calls_made` / `budget_reached`.
 - Taxonomy modes: `classify`/`run` accept `--taxonomy free|closed|open` (default `open`; `free` is only valid paired with `--strategy zero`). Open mode adds the "Other" escape label; when chosen, `classification.<tag>.json` carries mandatory `other_justification`, `nearest_type`, `other_confidence`, plus `taxonomy_mode`, and `needs_human_review` is forced true. "Other" has no family (`family_for` returns None).
 - `study-export` writes LaTeX tables to `<output-dir>/latex/` and CSV files to `<output-dir>/csv/`.
@@ -612,7 +621,7 @@ Serialized from `ClassificationResult`. Important top-level fields:
 - `raw_response`
 - `other_justification`, `nearest_type`, `other_confidence` — present when `odc_type == "Other"` (`--taxonomy open` escape; see §5.2/§11)
 - `consistency_k`, `consistency_confidence`, `sample_labels` — present when `--self-consistency k>1` (majority-vote metadata; see §5.2)
-- `turns`, `llm_calls_used` — present for `--strategy scientific`: `turns` is the full hypothesis/prediction/probe/observation transcript, `llm_calls_used` is the call count the budget guard accounts against
+- `turns`, `llm_calls_used`, `termination_reason`, `loop_duration_seconds`, `probe_misses` — present for `--strategy scientific`: `turns` is the hypothesis/prediction/probe/observation transcript (observation payload truncated to 2000 chars), `llm_calls_used` is the call count the budget guard accounts against
 
 Important notes:
 

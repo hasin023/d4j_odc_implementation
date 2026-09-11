@@ -124,15 +124,24 @@ in the paper. Also covers the model axis added to the artifact scheme
 (`docs/condition_model.md` §5): running a strategy under 2 models for the
 same condition is now collision-free.
 
-**Impact (ODC opener attribute, v5.2 §3.3)** is now first-class: the `few`/
-`scientific` prompts teach all 13 official categories + `Unknown`, and the
-LLM returns a single validated `impact` field (`odc.py`, `docs/
-odc_alignment_audit.md` §6). It is the only opener attribute the pipeline
-claims — Activity/Trigger are documented as not reliably determinable from
-Defects4J evidence. Impact feeds RQ1 descriptively (distribution) and RQ5 as
-a drift *negative control* (impact is fix-independent, so its prefix/postfix
-disagreement estimates pure instrument noise against which Defect-Type drift
-can be read) — both wired into `study-drift`'s output, no new RQ.
+**Impact (ODC opener attribute) was REMOVED from the pipeline on 2026-09-10.**
+It is no longer taught in any prompt, no longer in the response schema, no
+longer written to `classification.*.json`, and the three `study-drift` Impact
+analyses (distribution, impact×type cross-tab, stability) are gone along with
+the three Impact tabs in `scripts/reports/generate_combined_report.py`.
+
+Reason: the attribute was not sufficiently justified, and **no RQ depended on
+it** — all five RQs are Defect Type only. Impact had been a descriptive
+companion to RQ1 and an optional noise-floor reading for RQ5's drift, wired
+into `study-drift`'s output with no RQ of its own. The only thing lost is that
+optional RQ5 discussion point; if a reviewer later wants a noise baseline,
+repeated same-evidence-mode runs answer it better than a fix-independent attribute does.
+
+⚠️ `docs/odc_alignment_audit.md` §6 still describes Impact as first-class and
+is now stale on that point — the rest of that document (the attribute mapping,
+the pre-fix leak fixes, the §9 Trigger/Age addendum) is unaffected. Artifacts
+written before 2026-09-10 still carry `impact`/`inferred_impact`; every reader
+uses raw `.get()`, so they load unchanged.
 
 **Every classification is a coordinate of two independent condition
 variables** (full spec: `docs/condition_model.md`, authoritative — read it
