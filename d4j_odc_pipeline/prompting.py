@@ -10,9 +10,7 @@ from .odc import (
     TAXONOMY_CLOSED,
     TAXONOMY_FREE,
     TAXONOMY_OPEN,
-    allowed_impact_names,
     allowed_type_names,
-    impact_markdown,
     taxonomy_markdown,
     validate_condition,
 )
@@ -92,8 +90,6 @@ def _build_system_prompt(
         "- Do not use benchmark familiarity, project reputation, or hidden fix knowledge.",
         "",
         taxonomy_markdown(taxonomy_mode),
-        "",
-        impact_markdown(),
         "",
         "Return only valid JSON matching this schema:",
         _json_contract(taxonomy_mode),
@@ -196,9 +192,6 @@ def _build_user_prompt(
         "- If code snippets show existing logic producing wrong results, this is usually NOT 'Function/Class/Object'.",
         "- If evidence is incomplete, lower confidence and set needs_human_review=true.",
         "- The output odc_type must be one of: " + ", ".join(allowed_type_names(taxonomy_mode)),
-        "- Also set `impact` (ODC opener attribute) per the Impact section of the system prompt: "
-        "judged from the bug report and failure behaviour, one of "
-        + ", ".join(allowed_impact_names()) + ".",
     ]
     if taxonomy_mode == TAXONOMY_OPEN:
         rules.append(
@@ -585,15 +578,11 @@ def _json_contract(taxonomy_mode: str = TAXONOMY_CLOSED) -> str:
         '"odc_type": "one of the allowed ODC types", '
         + other_fields +
         '"family": "Control and Data Flow or Structural", '
-        '"impact": "ODC opener Impact — exactly one of: ' + ", ".join(allowed_impact_names()) + '", '
         '"target": "Design/Code (optional; closer attribute)", '
         '"qualifier": "Missing or Incorrect or Extraneous (optional; closer attribute, determinable from the fix diff)", '
         '"confidence": "number between 0 and 1", '
         '"needs_human_review": "boolean", '
         '"observation_summary": "short paragraph describing failure symptoms", '
-        '"hypothesis": "short paragraph with specific root-cause mechanism", '
-        '"prediction": "short paragraph predicting what the code would look like", '
-        '"experiment_rationale": "short paragraph explaining how evidence confirms or weakens the hypothesis", '
         '"reasoning_summary": "short paragraph explaining WHY this ODC type was chosen over alternatives", '
         '"evidence_used": ["specific evidence items from the input"], '
         '"evidence_gaps": ["missing evidence or ambiguity"], '

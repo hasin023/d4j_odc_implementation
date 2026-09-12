@@ -2,7 +2,7 @@
 
 - Version: `20b`
 - Work directory: `C:\d4j_work\postfix\Lang_20b`
-- Generated: `2026-07-10T19:23:23+00:00`
+- Generated: `2026-08-04T17:37:55+00:00`
 
 ## Failure Summary
 - `org.apache.commons.lang3.StringUtilsTest::testJoin_ArrayChar`: java.lang.NullPointerException
@@ -22,7 +22,7 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The bug is an algorithmic flaw in how the initial capacity of the StringBuilder is calculated. It is not a missing check (the code already had a null check for the array element itself, but not for the result of toString()), nor is it a simple assignment error. It is a procedural error in the computational strategy for memory allocation, which is best classified as Algorithm/Method.
+The fix replaces a complex, error-prone calculation (which attempted to estimate the initial capacity of a StringBuilder by calling toString().length() on the first element) with a simpler, more robust algorithmic approach (using a fixed multiplier of 16). This is a correction of the procedural logic used to initialize the buffer, fitting the Algorithm/Method category as it re-implements the capacity estimation strategy.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Incorrect`

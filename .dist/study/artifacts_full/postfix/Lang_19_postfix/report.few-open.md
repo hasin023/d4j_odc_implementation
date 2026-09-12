@@ -2,7 +2,7 @@
 
 - Version: `19b`
 - Work directory: `C:\d4j_work\postfix\Lang_19b`
-- Generated: `2026-07-10T19:23:17+00:00`
+- Generated: `2026-08-04T17:37:49+00:00`
 
 ## Failure Summary
 - `org.apache.commons.lang3.text.translate.NumericEntityUnescaperTest::testUnfinishedEntity`: java.lang.StringIndexOutOfBoundsException: String index out of range: 19
@@ -22,7 +22,7 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The defect is a classic 'Checking' issue. The code failed to validate the input bounds before performing character access, leading to an exception. The fix adds the necessary conditional logic to ensure the index remains within the valid range of the input string.
+The root cause is a missing boundary check. The original code assumed that an entity would always be terminated by a semicolon or that the string would be long enough to contain the entity, leading to an out-of-bounds access when the string ended prematurely. The fix introduces explicit checks (e.g., 'index < seqEnd - 2', 'start == seqEnd', and 'end < seqEnd') to validate the input bounds before attempting to read characters, which is the definition of a 'Checking' defect.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Missing`

@@ -1,0 +1,101 @@
+\section{Introduction}
+\label{sec:intro}
+
+Software bugs are unavoidable, but how much they cost depends on how quickly and
+accurately a team can classify them. Defect classification is what turns a raw
+bug report into that identification: different defect types call for
+different debugging strategies, resource allocations, and repair approaches
+\citep{catolino2019not,hirsch2022using}. Manual triage still gives the best results, but it does not scale to large
+benchmark datasets \citep{andrade2025empirical}, so we need a dataset large
+enough to test automated classification on, and a benchmark rich enough to
+classify from.
+
+\textit{Defects4J} \citep{just2014defects4j} is exactly that benchmark, the one
+most empirical Java fault studies already build on. It gives us a large,
+curated set of reproducible bugs across 17 open-source projects, and every bug
+comes with a rich bundle of evidence: the original bug report, the tests that
+trigger it, the buggy and fixed source, and the buggy-to-fixed diff. That
+richness is exactly what makes \textit{Defects4J} such a good fit for automated
+classification research.
+
+And yet, despite this richness, no one has produced a full, semantic
+labelling of the benchmark. We looked at why, and existing classification work
+falls into three groups, each with a different focus: control- and data-flow
+analyses capture \emph{how} a bug manifests syntactically
+\citep{vanderspuy2025anatomy}; patch taxonomies describe \emph{what} developers
+changed \citep{sobreira2018dissection}; and small-scale manual inspections do
+not scale \citep{xuan2017better}. None of them classifies bugs into a semantic
+defect-type taxonomy at the scale of the full benchmark.
+
+So where does that leave us? LLMs have shown that code-aware reasoning can
+classify software artefacts competitively, as long as the prompt is designed
+well \citep{colavito2024llm,koyuncu2025exploring,nong2024cot}. Left
+unconstrained, though, LLM classification suffers from label drift and
+hallucination \citep{gao2024rcegen}: with no fixed label space, different runs
+assign incompatible categories to the same bug. This can be solved with
+Orthogonal Defect Classification (ODC), a taxonomy that classifies each defect
+into one of \textbf{seven} Design/Code defect types capturing the semantics of the bug itself \citep{chillarege1992odc,ibm2013odc}.
+Pairing LLMs with ODC fixes that by turning classification into
+a bounded, semantically grounded decision problem, but a forced, fixed schema
+brings back the opposite failure: it manufactures false certainty for defects
+that do not fit. Our answer is to treat the taxonomy's own coverage as
+something to measure rather than assume, by giving the model an explicit escape
+category \textbf{"Other":} a defect that falls outside the seven types becomes recorded data
+instead of a mislabelled forced choice.
+
+\subsection{Research Questions}
+\label{sec:rqs}
+
+Turning that idea into something we can actually test means asking five
+concrete questions. We organise this work around them:
+
+\begin{description}
+  \item[RQ1: Defect-type distribution across projects.] What is the
+        distribution of ODC defect types across the \textit{Defects4J} benchmark,
+        and does this distribution vary significantly across projects?
+  \item[RQ2: Coverage of the ODC taxonomy.] How much of \textit{Defects4J} is
+        covered by the seven standard ODC defect types, and how often does a
+        bug instead need the \textbf{Other} escape category?
+  \item[RQ3: Classification accuracy.] How well does the LLM-based pipeline,
+        using the enforced scientific reasoning loop and the ODC taxonomy,
+        classify \textit{Defects4J} bugs into the correct defect types under a
+        four-level accuracy evaluation?
+  \item[RQ4: Contribution of each component.] How much do the scientific
+        reasoning loop and explicit ODC taxonomy grounding each improve
+        classification accuracy, label consistency, and vocabulary reduction
+        relative to an unstructured LLM baseline?
+  \item[RQ5: Effect of seeing the fix.] What is the magnitude and pattern of
+        semantic divergence between pre-fix and post-fix ODC classifications, and
+        how does per-project classification reliability vary across projects?
+\end{description}
+
+RQ1 and RQ2 characterise the dataset and the taxonomy's fit to it; RQ3 measures
+how accurately our default configuration classifies; RQ4 isolates what the
+structured components contribute; and RQ5 quantifies how much the available
+evidence, not just the bug, shapes the assigned type.
+
+\subsection{Contributions}
+\label{sec:contributions}
+
+Our main contributions are:
+\begin{itemize}
+  \item We separate \emph{what label space} the model uses (the taxonomy) from
+        \emph{how it reasons} toward a label (the strategy), giving a small set
+        of controlled, comparable conditions instead of one all-in-one prompt.
+  \item We give ODC an open ``Other'' escape category that requires a written
+        justification, which turns the taxonomy's coverage into something we
+        measure directly instead of assume.
+  \item We build an enforced scientific reasoning loop, adapted from fault
+        localization to defect-type classification, where the model has to
+        commit to a hypothesis and probe held-back evidence before it is
+        allowed to conclude, leaving behind a full, auditable reasoning
+        transcript.
+  \item We classify every bug in two evidence modes, pre-fix and post-fix,
+        mirroring ODC's own opener/closer split. This lets us check the
+        pipeline's self-consistency without ground-truth labels, and lets us
+        use the fix-independent Impact attribute (Section~\ref{sec:impact}) as
+        a check on how much of the pre-fix/post-fix drift is genuine versus
+        just noise.
+\end{itemize}
+
+%% =============================================================================

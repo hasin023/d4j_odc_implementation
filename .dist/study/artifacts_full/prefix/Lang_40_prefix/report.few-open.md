@@ -2,7 +2,7 @@
 
 - Version: `40b`
 - Work directory: `C:\d4j_work\prefix\Lang_40b`
-- Generated: `2026-07-10T19:25:00+00:00`
+- Generated: `2026-08-04T17:39:52+00:00`
 
 ## Failure Summary
 - `org.apache.commons.lang.StringUtilsEqualsIndexOfTest::testContainsIgnoreCase_LocaleIndependence`: junit.framework.AssertionFailedError: en: 0 ß SS
@@ -14,11 +14,12 @@
 - **Evidence Mode**: ✅ Pre-fix only
 - ODC Type: `Algorithm/Method`
 - Family: `Control and Data Flow`
-- Target: `Design/Code`
+- Target: `Code`
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The defect is in the computational procedure of the 'containsIgnoreCase' method. It uses a locale-sensitive method for case conversion, which is an incorrect algorithmic strategy for a general-purpose case-insensitive comparison. This is not a missing check (Checking), a wrong value (Assignment), or a design-level capability gap (Function/Class/Object), but a flaw in the implementation of the comparison algorithm itself.
+The bug report indicates that String.toUpperCase() and String.toLowerCase() are locale-sensitive, which causes incorrect behavior in case-insensitive comparisons. The fix requires changing the algorithmic approach to use locale-independent case conversion (e.g., using Locale.ROOT or similar mechanisms) rather than relying on the default locale. This is a procedural/algorithmic correction in how the comparison is performed, not a missing guard or a simple value assignment.
 
 ## ODC Attribute Mapping (Optional)
+- Qualifier: `Incorrect`
 - Impact: `Capability`

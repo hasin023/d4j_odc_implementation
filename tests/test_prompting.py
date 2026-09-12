@@ -171,29 +171,6 @@ class PromptingTests(unittest.TestCase):
         self.assertNotIn('"impact"', combined)
 
 
-class ImpactPromptTests(unittest.TestCase):
-    """The v5.2 §3.3 Impact attribute must be taught to few/scientific prompts."""
-
-    def test_few_includes_impact_definitions(self) -> None:
-        context = _make_context()
-        system = build_messages(context, "open", "few")[0]["content"]
-        self.assertIn("ODC Impact", system)
-        # Spot-check a handful of the 13 categories are actually defined.
-        for name in ("Reliability", "Performance", "Capability", "Usability", "Accessibility"):
-            self.assertIn(name, system)
-        self.assertIn("Unknown", system)
-
-    def test_few_json_contract_requires_impact(self) -> None:
-        context = _make_context()
-        system = build_messages(context, "closed", "few")[0]["content"]
-        self.assertIn('"impact"', system)
-
-    def test_few_user_prompt_instructs_impact_selection(self) -> None:
-        context = _make_context()
-        user = build_messages(context, "closed", "few")[1]["content"]
-        self.assertIn("impact", user.lower())
-
-
 class SanitizationTests(unittest.TestCase):
     """Pre-fix payloads must contain no fix-derived information
     (docs/odc_alignment_audit.md §7)."""

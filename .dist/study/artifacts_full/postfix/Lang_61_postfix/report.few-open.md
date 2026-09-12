@@ -2,7 +2,7 @@
 
 - Version: `61b`
 - Work directory: `C:\d4j_work\postfix\Lang_61b`
-- Generated: `2026-07-10T19:26:41+00:00`
+- Generated: `2026-08-04T17:41:56+00:00`
 
 ## Failure Summary
 - `org.apache.commons.lang.text.StrBuilderTest::testIndexOfLang294`: junit.framework.AssertionFailedError: expected:<-1> but was:<6>
@@ -20,7 +20,7 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The bug is a classic algorithmic error where the search procedure uses an incorrect boundary (buffer capacity vs. actual string size). This is a procedural logic error in the implementation of the search algorithm, fitting the 'Algorithm/Method' category perfectly. It is not a missing check (Checking) because the logic itself is fundamentally flawed in its calculation of the search range, nor is it a simple initialization error.
+The bug is in the search algorithm (indexOf). The original implementation used the full length of the buffer array as the search limit, ignoring the 'size' variable that tracks the actual valid string length. This caused the search to scan into invalid memory areas. The fix corrects the loop boundary condition in the search algorithm to respect the 'size' variable, which is a procedural/algorithmic correction.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Incorrect`

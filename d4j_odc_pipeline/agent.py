@@ -18,6 +18,7 @@ Tier-1 probes serve ONLY held-back parts of the already-collected context.json
 from __future__ import annotations
 
 import json
+import time
 from typing import Any
 
 from .llm import LLMClient, LLMError, classification_response_schema
@@ -26,13 +27,20 @@ from .odc import (
     OTHER_TYPE_NAME,
     TAXONOMY_OPEN,
     allowed_type_names,
-    impact_markdown,
     taxonomy_markdown,
 )
 from .parsing import extract_json_object
 from .prompting import sanitize_bug_report
 
 AGENT_MAX_TURNS = 6
+
+# Per-turn cap on the persisted observation payload. The observation is what
+# makes the loop auditable — without it the transcript shows what the model
+# predicted but never what came back, so a prediction can never be scored
+# confirmed or refuted. Full payloads are unbounded (a `snippet` probe can
+# return a whole Java class), so they are stored truncated, with the original
+# length recorded alongside.
+OBSERVATION_MAX_CHARS = 2000
 
 PROBE_NAMES = (
     "list_evidence",
@@ -202,12 +210,8 @@ def _agent_system_prompt(taxonomy: str) -> str:
         "- Do NOT default to 'Function/Class/Object'; it requires evidence of a "
         "design-level capability gap, not merely wrong behaviour in existing code.",
         f"- The final odc_type must be one of: {', '.join(allowed_type_names(taxonomy))}.",
-        "- The conclusion MUST also set `impact` — the ODC opener Impact attribute "
-        "(see the Impact section below).",
         "",
         taxonomy_markdown(taxonomy),
-        "",
-        impact_markdown(),
         "",
         "Every response must be a single JSON object matching the turn schema "
         "(hypothesis, prediction, action, probe?, conclusion?).",
@@ -263,8 +267,11 @@ def run_agentic_classification(
     transcript: list[dict[str, Any]] = []
     served_probes: set[tuple[str, str]] = set()
     forced = False
+    probe_misses = 0
+    loop_started = time.monotonic()
 
     for turn_index in range(1, max_turns + 1):
+        turn_started = time.monotonic()
         raw = client.complete(messages, response_schema=schema)
         turn = extract_json_object(raw)
         messages.append({"role": "assistant", "content": raw})
@@ -274,14 +281,20 @@ def run_agentic_classification(
             "hypothesis": str(turn.get("hypothesis", "")).strip(),
             "prediction": str(turn.get("prediction", "")).strip(),
             "action": turn.get("action"),
+            # True only on a turn that ran AFTER the force-conclude message,
+            # i.e. the model was told turns had run out.
             "forced": forced,
         }
 
         if turn.get("action") == "conclude" and isinstance(turn.get("conclusion"), dict):
             record["conclusion_odc_type"] = turn["conclusion"].get("odc_type")
+            record["duration_seconds"] = round(time.monotonic() - turn_started, 3)
             transcript.append(record)
             result = validate_conclusion(turn["conclusion"])
             result.turns = transcript
+            result.termination_reason = "forced_max_turns" if forced else "concluded"
+            result.loop_duration_seconds = round(time.monotonic() - loop_started, 3)
+            result.probe_misses = probe_misses
             if forced:
                 result.needs_human_review = True
             return result
@@ -303,6 +316,10 @@ def run_agentic_classification(
         record["observation_summary"] = (
             sorted(observation.keys()) if "error" not in observation else observation["error"]
         )
+        if "error" in observation:
+            probe_misses += 1
+        record.update(_render_observation(observation))
+        record["duration_seconds"] = round(time.monotonic() - turn_started, 3)
         transcript.append(record)
 
         remaining = max_turns - turn_index
@@ -314,5 +331,19 @@ def run_agentic_classification(
 
     raise LLMError(
         f"Agentic loop exhausted {max_turns} turns without a conclusion "
-        f"(transcript: {json.dumps(transcript)[:500]})"
+        f"(probe misses: {probe_misses}; transcript: {json.dumps(transcript)[:500]})"
     )
+
+
+def _render_observation(observation: dict[str, Any]) -> dict[str, Any]:
+    """Persist what the probe actually returned, capped at OBSERVATION_MAX_CHARS.
+
+    Records the full length either way, so a truncated observation is still
+    honest about how much was withheld."""
+    text = json.dumps(observation, indent=2, default=str)
+    truncated = len(text) > OBSERVATION_MAX_CHARS
+    return {
+        "observation": text[:OBSERVATION_MAX_CHARS],
+        "observation_truncated": truncated,
+        "observation_chars": len(text),
+    }

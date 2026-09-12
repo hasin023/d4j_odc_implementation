@@ -2,7 +2,7 @@
 
 - Version: `23b`
 - Work directory: `C:\d4j_work\prefix\Lang_23b`
-- Generated: `2026-07-10T19:23:36+00:00`
+- Generated: `2026-08-04T17:38:10+00:00`
 
 ## Failure Summary
 - `org.apache.commons.lang3.text.ExtendedMessageFormatTest::testEqualsHashcode`: junit.framework.AssertionFailedError: registry, hashcode()
@@ -18,7 +18,7 @@
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The defect is a failure to correctly implement the 'hashCode()' and 'equals()' contract for a class that adds state ('registry') to its parent. This is a procedural logic error in the implementation of the class's identity methods, which falls under Algorithm/Method as it requires correcting the computational strategy for object equality and hashing.
+The bug report indicates that ExtendedMessageFormat extends a class but fails to override equals() and hashCode() to account for its own fields (like the registry). This is a procedural logic error in the implementation of the object's equality contract. Since the fix involves implementing these methods correctly to include the class's state, it falls under Algorithm/Method as it is a local procedural correction to the class's internal logic.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Incorrect`

@@ -2,7 +2,7 @@
 
 - Version: `22b`
 - Work directory: `C:\d4j_work\postfix\Lang_22b`
-- Generated: `2026-07-10T19:23:34+00:00`
+- Generated: `2026-08-04T17:38:07+00:00`
 
 ## Failure Summary
 - `org.apache.commons.lang3.math.FractionTest::testReducedFactory_int_int`: junit.framework.AssertionFailedError: expected:<-1073741824> but was:<-2147483648>
@@ -20,7 +20,7 @@
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The bug is a failure in the computational logic of the greatestCommonDivisor method. The fix involves rewriting the method's internal procedure to correctly handle edge cases (zero and Integer.MIN_VALUE) that were previously causing incorrect results or overflow. This is a classic algorithmic correction within a method, not a simple guard (Checking) or a simple value assignment (Assignment/Initialization).
+The bug is in the greatestCommonDivisor method, which is a computational procedure. The fix involves modifying the algorithm to correctly handle the edge case of Integer.MIN_VALUE (which cannot be represented as a positive integer via Math.abs) and adding a check for zero inputs. This is a procedural correction to the GCD algorithm, not a missing guard or a simple initialization error.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Incorrect`

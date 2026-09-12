@@ -2,7 +2,7 @@
 
 - Version: `21b`
 - Work directory: `C:\d4j_work\postfix\Lang_21b`
-- Generated: `2026-07-10T19:23:28+00:00`
+- Generated: `2026-08-04T17:38:01+00:00`
 
 ## Failure Summary
 - `org.apache.commons.lang3.time.DateUtilsTest::testIsSameLocalTime_Cal`: junit.framework.AssertionFailedError: LANG-677
@@ -18,7 +18,7 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The bug is a classic case of using the wrong computational parameter (the wrong Calendar field) within a method's logic. This is an algorithmic error in the implementation of the comparison procedure, not a missing check or a simple initialization error. It fits the definition of Algorithm/Method as it corrects the procedural logic used to determine equality.
+The bug is a logic error in the computational procedure of the method. The method was intended to compare the local time components of two Calendar objects, but it used the wrong field constant (Calendar.HOUR) for the hour comparison. This is a procedural error in the implementation of the comparison logic, which is best classified as Algorithm/Method.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Incorrect`

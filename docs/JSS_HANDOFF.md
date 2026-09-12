@@ -6,12 +6,25 @@
 > 2026-07-10. Where a claim needs more depth than fits here, it points to the
 > specific doc that has it — you should not need to go doc-hunting.
 
-**`docs/odc_alignment_audit.md` (new, 2026-07-10) is the ODC v5.2 alignment
-audit** — the corrected Defects4J-artifact→ODC-attribute mapping, the Impact
-opener attribute (now first-class and v5.2-grounded), and the pre-fix
-evidence-leak fixes described in the status flag below. Read it before writing
-the paper's mapping/Impact/threats-to-validity sections; `latex/jss/main.tex`
-already reflects it.
+**`docs/odc_alignment_audit.md` (new, 2026-07-10, addendum 2026-08-16) is the
+ODC v5.2 alignment audit** — the corrected Defects4J-artifact→ODC-attribute
+mapping, the Impact opener attribute (now first-class and v5.2-grounded), and
+the pre-fix evidence-leak fixes described in the status flag below. Read it
+before writing the paper's mapping/Impact/threats-to-validity sections;
+`latex/jss/main.tex` already reflects it. Its §9 addendum (2026-08-16)
+quantifies the Trigger retrospective-reproduction claim (33/40 sampled
+trigger tests postdate the buggy revision, corroborated by a peer-reviewed
+MSR 2025 paper) and reframes Age from "not in the evidence set" to "not
+currently extracted, but recoverable via git blame/SZZ" — this is the
+grounding evidence behind the JSS paper's §2.3 draft.
+
+**`docs/related_work_literature_leads.md` (new, 2026-08-15) holds pending
+related-work fixes and citation candidates** — a citation misattribution in
+the current SVM/Naive-Bayes sentence, a wrong ODC Source value in the new
+`tab:odc-attributes` table, and ~15 new candidate citations (the LSTM ODC
+paper, memorization-advantage rebuttal, agentic-loop analogues, etc.) from a
+two-agent literature survey. Not yet acted on — read before resuming work on
+`latex/jss/sections/03_related_work.tex`.
 
 ## Status flag (read before citing any number below)
 
@@ -111,15 +124,24 @@ in the paper. Also covers the model axis added to the artifact scheme
 (`docs/condition_model.md` §5): running a strategy under 2 models for the
 same condition is now collision-free.
 
-**Impact (ODC opener attribute, v5.2 §3.3)** is now first-class: the `few`/
-`scientific` prompts teach all 13 official categories + `Unknown`, and the
-LLM returns a single validated `impact` field (`odc.py`, `docs/
-odc_alignment_audit.md` §6). It is the only opener attribute the pipeline
-claims — Activity/Trigger are documented as not reliably determinable from
-Defects4J evidence. Impact feeds RQ1 descriptively (distribution) and RQ5 as
-a drift *negative control* (impact is fix-independent, so its prefix/postfix
-disagreement estimates pure instrument noise against which Defect-Type drift
-can be read) — both wired into `study-drift`'s output, no new RQ.
+**Impact (ODC opener attribute) was REMOVED from the pipeline on 2026-09-10.**
+It is no longer taught in any prompt, no longer in the response schema, no
+longer written to `classification.*.json`, and the three `study-drift` Impact
+analyses (distribution, impact×type cross-tab, stability) are gone along with
+the three Impact tabs in `scripts/reports/generate_combined_report.py`.
+
+Reason: the attribute was not sufficiently justified, and **no RQ depended on
+it** — all five RQs are Defect Type only. Impact had been a descriptive
+companion to RQ1 and an optional noise-floor reading for RQ5's drift, wired
+into `study-drift`'s output with no RQ of its own. The only thing lost is that
+optional RQ5 discussion point; if a reviewer later wants a noise baseline,
+repeated same-evidence-mode runs answer it better than a fix-independent attribute does.
+
+⚠️ `docs/odc_alignment_audit.md` §6 still describes Impact as first-class and
+is now stale on that point — the rest of that document (the attribute mapping,
+the pre-fix leak fixes, the §9 Trigger/Age addendum) is unaffected. Artifacts
+written before 2026-09-10 still carry `impact`/`inferred_impact`; every reader
+uses raw `.get()`, so they load unchanged.
 
 **Every classification is a coordinate of two independent condition
 variables** (full spec: `docs/condition_model.md`, authoritative — read it

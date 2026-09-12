@@ -2,7 +2,7 @@
 
 - Version: `41b`
 - Work directory: `C:\d4j_work\postfix\Lang_41b`
-- Generated: `2026-07-10T19:25:08+00:00`
+- Generated: `2026-08-04T17:40:02+00:00`
 
 ## Failure Summary
 - `org.apache.commons.lang.ClassUtilsTest::test_getShortClassName_Class`: junit.framework.ComparisonFailure: expected:<String[[]]> but was:<String[;]>
@@ -20,7 +20,7 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The defect is a procedural error in how the class name string is processed. The existing algorithm failed to account for the specific string representation of array types in Java, leading to incorrect output. The fix involves rewriting the parsing logic to correctly handle these strings, which is a classic Algorithm/Method defect.
+The fix involves rewriting the procedural logic for parsing class names. Specifically, it adds a loop to strip array brackets ('[') and handles the 'L...;' encoding for object arrays, then reconstructs the array suffix. This is a procedural correction to the algorithm used to derive class/package names from internal JVM representations, not a simple value assignment or a missing guard.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Incorrect`

@@ -168,7 +168,9 @@ def build_parser() -> argparse.ArgumentParser:
     study_run_parser.add_argument("--work-root", type=Path, default=None,
                                   help="Root directory for Defects4J checkouts. Defaults to .dist/study/work.")
     study_run_parser.add_argument("--summary-output", type=Path, default=None,
-                                  help="Path to write batch execution summary JSON. Defaults to .dist/study/summary.json.")
+                                  help="Path to write batch execution summary JSON. Defaults to "
+                                       ".dist/study/summary.<condition-tag>.json, auto-named from the "
+                                       "condition the run actually used.")
     _add_condition_args(study_run_parser)
     _add_consistency_arg(study_run_parser)
     _add_budget_arg(study_run_parser)
@@ -178,6 +180,11 @@ def build_parser() -> argparse.ArgumentParser:
                                   help="Re-run artifacts even when output files already exist.")
     study_run_parser.add_argument("--prompt-output", action="store_true",
                                   help="Persist prompt JSON for each run.")
+    study_run_parser.add_argument("--keep-work", action="store_true",
+                                  help="Keep each Defects4J checkout after its context.json is "
+                                       "written. Off by default: checkouts are ~115MB per bug and "
+                                       "nothing reads them once the context exists, so a "
+                                       "full-corpus run otherwise fills the disk.")
     study_run_parser.add_argument("--require-all-projects", action="store_true",
                                   help="Fail when the manifest does not include all discovered projects.")
     study_run_parser.add_argument(
@@ -186,6 +193,36 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional Defects4J command prefix.",
     )
     _add_llm_args(study_run_parser, default_provider, default_model)
+
+    # ── study-collect ──────────────────────────────────────────────────
+    study_collect_parser = subparsers.add_parser(
+        "study-collect",
+        help="Collect-only batch pass: writes context.json for every bug in a "
+             "manifest, no LLM call. For the Collector role (Defects4J + Java "
+             "11 only, no LLM key needed) — see docs/TEAM_WORKFLOW.md.",
+    )
+    study_collect_parser.add_argument("--manifest", type=Path, required=True, help="Path to study manifest JSON. Bare filenames are resolved under .dist/study/.")
+    study_collect_parser.add_argument("--artifacts-root", type=Path, default=None,
+                                      help="Root directory for generated context.json files. Defaults to .dist/study/artifacts_<target_bugs>.")
+    study_collect_parser.add_argument("--work-root", type=Path, default=None,
+                                      help="Root directory for Defects4J checkouts. Defaults to .dist/study/work.")
+    study_collect_parser.add_argument("--summary-output", type=Path, default=None,
+                                      help="Path to write batch execution summary JSON. Defaults to "
+                                           ".dist/study/summary.collect.json.")
+    study_collect_parser.add_argument("--snippet-radius", type=int, default=12)
+    study_collect_parser.add_argument("--skip-coverage", action="store_true")
+    study_collect_parser.add_argument("--no-skip-existing", action="store_true",
+                                      help="Re-collect contexts even when context.json already exists.")
+    study_collect_parser.add_argument("--keep-work", action="store_true",
+                                      help="Keep each Defects4J checkout after its context.json is "
+                                           "written. Off by default: checkouts are ~115MB per bug and "
+                                           "nothing reads them once the context exists, so a "
+                                           "full-corpus run otherwise fills the disk.")
+    study_collect_parser.add_argument(
+        "--defects4j-cmd",
+        default=None,
+        help="Optional Defects4J command prefix.",
+    )
 
     # ── study-drift ──────────────────────────────────────────────────────
     study_drift_parser = subparsers.add_parser(
@@ -453,6 +490,8 @@ def main() -> int:
             return _cmd_study_plan(args)
         if args.command == "study-run":
             return _cmd_study_run(args)
+        if args.command == "study-collect":
+            return _cmd_study_collect(args)
         if args.command == "study-drift":
             return _cmd_study_drift(args)
         if args.command == "study-escape":
@@ -878,14 +917,20 @@ def _cmd_study_run(args: argparse.Namespace) -> int:
         args.artifacts_root = dist_study / f"artifacts_{target_bugs}"
     if args.work_root is None:
         args.work_root = dist_study / "work"
-    if args.summary_output is None:
-        args.summary_output = dist_study / "summary.json"
+    # B2: `summary.json` used to be the one study artifact with no condition
+    # tag, so a second study-run under a different condition silently clobbered
+    # the first. Resolved after the run instead, from the effective tag the run
+    # actually used (which may carry a model suffix).
+    summary_output_explicit = args.summary_output is not None
 
     console.header_panel("Study Run Configuration", None)
     console.step(f"Manifest: {args.manifest}")
     console.step(f"Artifacts: {args.artifacts_root}")
     console.step(f"Work dir: {args.work_root}")
-    console.step(f"Summary: {args.summary_output}")
+    console.step(
+        f"Summary: {args.summary_output}" if summary_output_explicit
+        else "Summary: .dist/study/summary.<condition-tag>.json (auto-named)"
+    )
     console.step("Ctrl+C to gracefully stop and save checkpoint")
 
     if args.require_all_projects:
@@ -915,8 +960,11 @@ def _cmd_study_run(args: argparse.Namespace) -> int:
         prompt_output=args.prompt_output,
         daily_call_budget=args.daily_call_budget,
         self_consistency=args.self_consistency,
+        keep_work=args.keep_work,
     )
 
+    if not summary_output_explicit:
+        args.summary_output = dist_study / f"summary.{summary.get('effective_tag', 'unknown')}.json"
     write_json(args.summary_output, summary)
 
     if summary.get("budget_reached"):
@@ -935,6 +983,62 @@ def _cmd_study_run(args: argparse.Namespace) -> int:
         ("Postfix ready", str(summary.get("postfix_ok", 0))),
         ("Paired compare", str(summary.get("paired_for_compare", 0))),
         ("Projects covered", str(len(summary.get("projects_covered", [])))),
+    ])
+    return 0
+
+
+def _cmd_study_collect(args: argparse.Namespace) -> int:
+    from .batch import collect_batch_from_manifest, install_signal_handlers, load_manifest, reset_shutdown
+    from .pipeline import write_json
+
+    install_signal_handlers()
+    reset_shutdown()
+
+    if args.manifest and not args.manifest.parent.parts:
+        args.manifest = Path(".dist") / "study" / args.manifest
+
+    client = Defects4JClient(command=args.defects4j_cmd)
+    manifest = load_manifest(args.manifest)
+
+    target_bugs = manifest.get("target_bugs", manifest.get("selected_bugs", 0))
+    dist_study = Path(".dist") / "study"
+    if args.artifacts_root is None:
+        args.artifacts_root = dist_study / f"artifacts_{target_bugs}"
+    if args.work_root is None:
+        args.work_root = dist_study / "work"
+    if args.summary_output is None:
+        args.summary_output = dist_study / "summary.collect.json"
+
+    console.header_panel("Study Collect Configuration", None)
+    console.step(f"Manifest: {args.manifest}")
+    console.step(f"Artifacts: {args.artifacts_root}")
+    console.step(f"Work dir: {args.work_root}")
+    console.step("No LLM call in this pass — collection only.")
+    console.step("Ctrl+C to gracefully stop and save checkpoint")
+
+    summary = collect_batch_from_manifest(
+        defects4j=client,
+        manifest=manifest,
+        artifacts_root=args.artifacts_root,
+        work_root=args.work_root,
+        snippet_radius=args.snippet_radius,
+        run_coverage=not args.skip_coverage,
+        skip_existing=not args.no_skip_existing,
+        keep_work=args.keep_work,
+    )
+
+    write_json(args.summary_output, summary)
+
+    status_label = "Study collect interrupted (checkpoint saved)" if summary.get("interrupted") else "Study collect complete"
+    console.result_panel(status_label, [
+        ("Summary", str(args.summary_output)),
+        ("Total entries", str(summary.get("total_entries", 0))),
+        ("Completed", str(summary.get("completed_entries", 0))),
+        ("Interrupted", "Yes" if summary.get("interrupted") else "No"),
+        ("Prefix ready", str(summary.get("prefix_ok", 0))),
+        ("Postfix ready", str(summary.get("postfix_ok", 0))),
+        ("Projects covered", str(len(summary.get("projects_covered", [])))),
+        ("Work freed (MB)", str(summary.get("work_mb_freed", 0))),
     ])
     return 0
 

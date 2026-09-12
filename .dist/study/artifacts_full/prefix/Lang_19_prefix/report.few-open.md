@@ -2,7 +2,7 @@
 
 - Version: `19b`
 - Work directory: `C:\d4j_work\prefix\Lang_19b`
-- Generated: `2026-07-10T19:23:14+00:00`
+- Generated: `2026-08-04T17:37:46+00:00`
 
 ## Failure Summary
 - `org.apache.commons.lang3.text.translate.NumericEntityUnescaperTest::testUnfinishedEntity`: java.lang.StringIndexOutOfBoundsException: String index out of range: 19
@@ -22,7 +22,7 @@
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The defect is a classic missing boundary check. The procedure (parsing a numeric entity) is logically sound for well-formed entities, but it lacks the necessary guard to prevent an out-of-bounds access when the input string ends prematurely. This fits the definition of 'Checking' perfectly.
+The root cause is a missing boundary check in the while loop (line 54) of NumericEntityUnescaper.java. The code assumes that a semicolon will always be found within the string bounds, but it fails to validate if the 'end' index has reached the end of the input string before calling charAt(end). This is a classic missing guard/boundary check.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Missing`

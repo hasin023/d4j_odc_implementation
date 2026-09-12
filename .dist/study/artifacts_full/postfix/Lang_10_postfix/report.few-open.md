@@ -2,7 +2,7 @@
 
 - Version: `10b`
 - Work directory: `C:\d4j_work\postfix\Lang_10b`
-- Generated: `2026-07-10T19:22:32+00:00`
+- Generated: `2026-08-04T17:36:56+00:00`
 
 ## Failure Summary
 - `org.apache.commons.lang3.time.FastDateFormat_ParserTest::testLANG_831`: junit.framework.AssertionFailedError: Parsed dates should be equal expected:<null> but was:<Mon Mar 02 21:00:00 PST 1970>
@@ -18,10 +18,10 @@
 - ODC Type: `Algorithm/Method`
 - Family: `Control and Data Flow`
 - Target: `Code`
-- Confidence: `1.0`
+- Confidence: `0.9`
 - Needs Human Review: `False`
 
-The defect is an incorrect implementation of the parsing logic (regex construction). The code was designed to treat whitespace as a flexible match, which is a procedural error in how the parser constructs its internal state machine. This fits 'Algorithm/Method' as it involves correcting the computational strategy for regex generation.
+The fix involved removing the logic that automatically converted whitespace characters in the format string into a flexible regex pattern (\s*+). This is a procedural change to the parsing algorithm, specifically how the regex pattern is constructed from the format string. It is not a missing check (the logic was present but wrong), nor an assignment error, nor a design-level capability gap.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Incorrect`

@@ -1,0 +1,50 @@
+{
+  "project_id": "Lang",
+  "bug_id": 4,
+  "version_id": "4b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-07-10T19:21:59+00:00",
+  "odc_type": "Interface/O-O Messages",
+  "family": "Structural",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The LookupTranslator fails to correctly translate inputs when the input CharSequence is not a String (e.g., StringBuffer), because the internal HashMap uses CharSequence as a key, and CharSequence implementations do not guarantee consistent equals/hashCode behavior.",
+  "hypothesis": "The root cause is an interface contract mismatch where the LookupTranslator assumes that any CharSequence can be used as a reliable key in a HashMap. Since CharSequence does not mandate equals/hashCode behavior, using it as a key leads to lookup failures when the input type differs from the stored key type.",
+  "prediction": "Changing the HashMap key type from CharSequence to String and converting all keys to String during insertion and lookup will resolve the issue by ensuring consistent equality checks.",
+  "experiment_rationale": "The fix diff shows that the HashMap key type was changed from CharSequence to String, and all put/get operations were updated to use .toString() on the keys. This confirms that the issue was the reliance on the CharSequence interface's undefined equality contract for map keys.",
+  "reasoning_summary": "The defect is a classic interface contract mismatch. The component (LookupTranslator) expected a contract (reliable equality/hashing) from the CharSequence interface that the interface does not provide. By forcing the key to a String, the component enforces the contract it requires, which is a structural fix at the boundary of the component's internal data structure.",
+  "evidence_used": [
+    "The bug report explicitly states that CharSequence does not refine equals/hashCode and is inappropriate for use as a map key.",
+    "The fix diff shows the change of the HashMap key type from CharSequence to String.",
+    "The fix diff shows the addition of .toString() calls when putting into and getting from the map."
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the fix involves changing method calls, the root cause is the structural mismatch between the expected contract of the map key and the actual contract provided by the CharSequence interface."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Incorrect",
+  "age": null,
+  "source": null,
+  "impact": "Capability",
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "inferred_impact": [],
+  "evidence_mode": "post-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Interface/O-O Messages\",\n  \"family\": \"Structural\",\n  \"impact\": \"Capability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"confidence\": 1,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The LookupTranslator fails to correctly translate inputs when the input CharSequence is not a String (e.g., StringBuffer), because the internal HashMap uses CharSequence as a key, and CharSequence implementations do not guarantee consistent equals/hashCode behavior.\",\n  \"hypothesis\": \"The root cause is an interface contract mismatch where the LookupTranslator assumes that any CharSequence can be used as a reliable key in a HashMap. Since CharSequence does not mandate equals/hashCode behavior, using it as a key leads to lookup failures when the input type differs from the stored key type.\",\n  \"prediction\": \"Changing the HashMap key type from CharSequence to String and converting all keys to String during insertion and lookup will resolve the issue by ensuring consistent equality checks.\",\n  \"experiment_rationale\": \"The fix diff shows that the HashMap key type was changed from CharSequence to String, and all put/get operations were updated to use .toString() on the keys. This confirms that the issue was the reliance on the CharSequence interface's undefined equality contract for map keys.\",\n  \"reasoning_summary\": \"The defect is a classic interface contract mismatch. The component (LookupTranslator) expected a contract (reliable equality/hashing) from the CharSequence interface that the interface does not provide. By forcing the key to a String, the component enforces the contract it requires, which is a structural fix at the boundary of the component's internal data structure.\",\n  \"evidence_used\": [\n    \"The bug report explicitly states that CharSequence does not refine equals/hashCode and is inappropriate for use as a map key.\",\n    \"The fix diff shows the change of the HashMap key type from CharSequence to String.\",\n    \"The fix diff shows the addition of .toString() calls when putting into and getting from the map.\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the fix involves changing method calls, the root cause is the structural mismatch between the expected contract of the map key and the actual contract provided by the CharSequence interface.\"\n    }\n  ]\n}"
+}

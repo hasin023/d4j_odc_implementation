@@ -5,29 +5,30 @@
   "prompt_style": "scientific",
   "model": "gemini-3.1-flash-lite-preview",
   "provider": "gemini",
-  "created_at": "2026-07-10T19:23:55+00:00",
+  "created_at": "2026-08-04T17:38:37+00:00",
   "odc_type": "Algorithm/Method",
   "family": "Control and Data Flow",
-  "confidence": 1.0,
+  "confidence": 0.9,
   "needs_human_review": false,
   "observation_summary": "The NumericEntityUnescaper failed to correctly unescape numeric entities representing supplementary characters (code points > 0xFFFF), resulting in incorrect character output.",
-  "hypothesis": "The unescaper was incorrectly handling supplementary characters by treating them as single 16-bit characters instead of converting them into the appropriate surrogate pair required for UTF-16 representation.",
-  "prediction": "The code would need to check if the entity value exceeds 0xFFFF and, if so, use Character.toChars() to correctly write the surrogate pair to the output stream.",
-  "experiment_rationale": "The fix diff shows the addition of a conditional check for entityValue > 0xFFFF, followed by the use of Character.toChars() to write the two surrogate characters. This confirms that the original algorithm for writing the unescaped character was insufficient for supplementary characters.",
-  "reasoning_summary": "The defect is an algorithmic failure in the procedure that writes the unescaped character to the output. The original implementation assumed all characters fit into a single 16-bit char, which is incorrect for supplementary characters. The fix implements the correct logic to handle these characters by converting them to surrogate pairs, which is a procedural/algorithmic correction.",
+  "hypothesis": "",
+  "prediction": "",
+  "experiment_rationale": "",
+  "reasoning_summary": "The fix involves changing the logic for writing the unescaped character to the output stream. Specifically, it adds a conditional check to handle supplementary characters (code points > 0xFFFF) by converting them into a pair of UTF-16 surrogate characters using Character.toChars(), rather than attempting to write the raw integer value directly. This is a procedural correction to the unescaping algorithm to correctly handle multi-char UTF-16 representations.",
   "evidence_used": [
-    "fix_diff_oracle",
-    "failing_tests"
+    "The fix diff shows an added conditional block: if(entityValue > 0xFFFF) { char[] chrs = Character.toChars(entityValue); ... }",
+    "The failing test case expected a supplementary character (\\uD803\\uDC22) but received an incorrect character.",
+    "The bug report mentions that supplementary characters require more than 1 Java char to be encoded."
   ],
   "evidence_gaps": [],
   "alternative_types": [
     {
       "type": "Checking",
-      "why_not_primary": "While a check (if entityValue > 0xFFFF) was added, the primary purpose of the fix is to implement the correct conversion and output logic for supplementary characters, not just to validate input."
+      "why_not_primary": "While the fix adds a conditional check (if entityValue > 0xFFFF), the primary purpose is to implement the correct transformation logic (converting to surrogate pairs) for that specific case, which is an algorithmic requirement for handling supplementary characters."
     },
     {
       "type": "Assignment/Initialization",
-      "why_not_primary": "The fix is not about assigning a wrong value or initializing a variable, but about changing the computational procedure for outputting characters."
+      "why_not_primary": "The fix is not about assigning a wrong value or initializing a variable, but about changing the procedural logic of how the output is written."
     }
   ],
   "target": "Code",
@@ -49,5 +50,5 @@
   "other_justification": null,
   "nearest_type": null,
   "other_confidence": null,
-  "raw_response": "{\n  \"odc_type\": \"Algorithm/Method\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Capability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"confidence\": 1,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The NumericEntityUnescaper failed to correctly unescape numeric entities representing supplementary characters (code points > 0xFFFF), resulting in incorrect character output.\",\n  \"hypothesis\": \"The unescaper was incorrectly handling supplementary characters by treating them as single 16-bit characters instead of converting them into the appropriate surrogate pair required for UTF-16 representation.\",\n  \"prediction\": \"The code would need to check if the entity value exceeds 0xFFFF and, if so, use Character.toChars() to correctly write the surrogate pair to the output stream.\",\n  \"experiment_rationale\": \"The fix diff shows the addition of a conditional check for entityValue > 0xFFFF, followed by the use of Character.toChars() to write the two surrogate characters. This confirms that the original algorithm for writing the unescaped character was insufficient for supplementary characters.\",\n  \"reasoning_summary\": \"The defect is an algorithmic failure in the procedure that writes the unescaped character to the output. The original implementation assumed all characters fit into a single 16-bit char, which is incorrect for supplementary characters. The fix implements the correct logic to handle these characters by converting them to surrogate pairs, which is a procedural/algorithmic correction.\",\n  \"evidence_used\": [\n    \"fix_diff_oracle\",\n    \"failing_tests\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Checking\",\n      \"why_not_primary\": \"While a check (if entityValue > 0xFFFF) was added, the primary purpose of the fix is to implement the correct conversion and output logic for supplementary characters, not just to validate input.\"\n    },\n    {\n      \"type\": \"Assignment/Initialization\",\n      \"why_not_primary\": \"The fix is not about assigning a wrong value or initializing a variable, but about changing the computational procedure for outputting characters.\"\n    }\n  ]\n}"
+  "raw_response": "{\n  \"odc_type\": \"Algorithm/Method\",\n  \"family\": \"Control and Data Flow\",\n  \"impact\": \"Capability\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The NumericEntityUnescaper failed to correctly unescape numeric entities representing supplementary characters (code points > 0xFFFF), resulting in incorrect character output.\",\n  \"reasoning_summary\": \"The fix involves changing the logic for writing the unescaped character to the output stream. Specifically, it adds a conditional check to handle supplementary characters (code points > 0xFFFF) by converting them into a pair of UTF-16 surrogate characters using Character.toChars(), rather than attempting to write the raw integer value directly. This is a procedural correction to the unescaping algorithm to correctly handle multi-char UTF-16 representations.\",\n  \"evidence_used\": [\n    \"The fix diff shows an added conditional block: if(entityValue > 0xFFFF) { char[] chrs = Character.toChars(entityValue); ... }\",\n    \"The failing test case expected a supplementary character (\\\\uD803\\\\uDC22) but received an incorrect character.\",\n    \"The bug report mentions that supplementary characters require more than 1 Java char to be encoded.\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Checking\",\n      \"why_not_primary\": \"While the fix adds a conditional check (if entityValue > 0xFFFF), the primary purpose is to implement the correct transformation logic (converting to surrogate pairs) for that specific case, which is an algorithmic requirement for handling supplementary characters.\"\n    },\n    {\n      \"type\": \"Assignment/Initialization\",\n      \"why_not_primary\": \"The fix is not about assigning a wrong value or initializing a variable, but about changing the procedural logic of how the output is written.\"\n    }\n  ]\n}"
 }

@@ -2,7 +2,7 @@
 
 - Version: `43b`
 - Work directory: `C:\d4j_work\prefix\Lang_43b`
-- Generated: `2026-07-10T18:58:31+00:00`
+- Generated: `2026-08-04T17:40:10+00:00`
 
 ## Failure Summary
 - `org.apache.commons.lang.text.ExtendedMessageFormatTest::testEscapedQuote_LANG_477`: java.lang.OutOfMemoryError: Java heap space
@@ -15,13 +15,13 @@
 
 ## ODC Result
 - **Evidence Mode**: ✅ Pre-fix only
-- ODC Type: `Checking`
+- ODC Type: `Algorithm/Method`
 - Family: `Control and Data Flow`
 - Target: `Code`
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The defect is a classic 'Checking' error where the logic fails to validate/advance the state (the `ParsePosition`) correctly after processing a specific condition (the escaped quote). This missing state update leads to an infinite loop, which is a failure of the control flow logic rather than a design-level capability issue or a simple value assignment error.
+The root cause is an infinite loop in the parsing logic within 'appendQuotedString'. When an escaped quote is encountered, the code correctly identifies it but fails to advance the 'ParsePosition' index. Consequently, the loop repeatedly processes the same character, leading to an infinite loop and eventual heap exhaustion. This is a procedural logic error in the parsing algorithm, not a missing guard or a simple assignment error.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Missing`

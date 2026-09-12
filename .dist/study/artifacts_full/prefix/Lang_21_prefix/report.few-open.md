@@ -2,7 +2,7 @@
 
 - Version: `21b`
 - Work directory: `C:\d4j_work\prefix\Lang_21b`
-- Generated: `2026-07-10T19:23:25+00:00`
+- Generated: `2026-08-04T17:37:58+00:00`
 
 ## Failure Summary
 - `org.apache.commons.lang3.time.DateUtilsTest::testIsSameLocalTime_Cal`: junit.framework.AssertionFailedError: LANG-677
@@ -14,12 +14,11 @@
 - **Evidence Mode**: ✅ Pre-fix only
 - ODC Type: `Algorithm/Method`
 - Family: `Control and Data Flow`
-- Target: `Code`
+- Target: `Design/Code`
 - Confidence: `1.0`
 - Needs Human Review: `False`
 
-The defect is a procedural error in the comparison logic of the isSameLocalTime method. It is not a missing guard (Checking), a wrong constant (Assignment), or a design-level capability gap (Function/Class/Object). It is a direct error in the computational strategy used to determine if two times are the same, fitting the Algorithm/Method definition perfectly.
+The bug is a procedural error in the comparison logic. The method uses the wrong field (12-hour format) to compare time, which is a computational logic error. It is not a missing guard (Checking), a wrong constant (Assignment), or a design-level capability issue (Function/Class/Object).
 
 ## ODC Attribute Mapping (Optional)
-- Qualifier: `Incorrect`
 - Impact: `Capability`

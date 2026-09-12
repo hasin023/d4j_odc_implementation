@@ -88,12 +88,12 @@ not inferred) · **Not reliably determinable** (documented limitation, not claim
 | ODC attribute | Phase | v5.2 rule | D4J evidence actually available | Status in this pipeline | What was wrong before |
 |---|---|---|---|---|---|
 | **Impact** | Opener | §3.3: single category, customer perspective; field defects → impact the failure had; Capability fallback; Unknown allowed (§5.1) | Bug report title/description (832/854 bugs) + failing-test behaviour (all bugs) | **Claimed** — the one opener attribute we determine (it is the behaviour/failure-side dimension). Single-select from 13 + Unknown, definitions in prompt, enum-validated | No definitions in prompt; 5/13-category keyword heuristic anchored the model; unvalidated list field; emitted 1/44 |
-| **Trigger** | Opener | §3.2, §5.3.2a: the condition/catalyst, chosen from the *usage scenario* for field defects | Usage scenario only inside bug reports, of very uneven quality; the D4J triggering test is a retrospective reproduction | **Not reliably determinable** — documented; keyword heuristic removed | "expected"/"after"-style keyword matches fired on nearly every JUnit assertion; candidates violated the §2.1 activity→trigger table |
+| **Trigger** | Opener | §3.2, §5.3.2a: the condition/catalyst, chosen from the *usage scenario* for field defects | Usage scenario only inside bug reports, of very uneven quality; the D4J triggering test is a retrospective reproduction — quantified in §9.1: 33/40 sampled trigger tests postdate the buggy revision, corroborated by Rafi et al. 2025 (55%/77%, MSR) | **Not reliably determinable** — documented; keyword heuristic removed | "expected"/"after"-style keyword matches fired on nearly every JUnit assertion; candidates violated the §2.1 activity→trigger table |
 | **Activity** | Opener | §3.1.6: for field defects, the in-process activity that should have caught it, derived *from* the trigger | Nothing independent — the harness always reruns JUnit regardless of how the defect actually surfaced | **Not reliably determinable / constant-by-construction** — documented | "Tests → Activity" treated the harness's reproduction as the discovery activity; hardcoded "Unit Test" default |
-| **Target** | Closer | §4.1: entity fixed (Requirements/Design/Code/Build/Info-Dev/NLS) | D4J minimized patches touch source code only, by benchmark construction | **Constant-by-construction:** Design/Code — stated as a scoping assumption | Presented as if inferred from modified classes |
+| **Target** | Closer | §4.1: entity fixed (Requirements/Design/Code/Build/Info-Dev/NLS) | D4J minimized patches touch source code only, by benchmark construction. A design-originated defect still lands as Code here — Design (§4.1.2) requires a design *specification document* to change, and D4J never has one; the design-magnitude distinction ODC does track sits one level down, in Defect Type (§9.3) | **Constant-by-construction:** Design/Code — stated as a scoping assumption | Presented as if inferred from modified classes |
 | **Defect Type** | Closer | §4.2: defined by the actual correction | Postfix arm: the real buggy→fixed diff. Prefix arm: symptoms only | Postfix = ODC-canonical reference; prefix = **Predicted-closer** (the study's core task) | Sound — this framing is the contribution; now stated explicitly in the paper |
 | **Qualifier** | Closer | §4.2.2: Missing/Incorrect/Extraneous | The fix diff (postfix arm) | LLM-determined in postfix from the diff; optional | Diff-shape heuristic mapped remove-only→"Extraneous" (wrong: deleting a wrong line = Incorrect); heuristic removed |
-| **Age** | Closer | §4.2.4: injection history of the defective code | Would require VCS archaeology (SZZ-style: when were the defective lines introduced) — not in the evidence set | **Not reliably determinable** — heuristic removed; SZZ integration is future work (§8) | Diff-size heuristic (≥120 changed lines → "Rewritten") conflated fix size with injection history |
+| **Age** | Closer | §4.2.4: injection history of the defective code | Would require VCS archaeology (SZZ-style: when were the defective lines introduced) — not in `context.json`, but recoverable in principle: `active-bugs.csv` gives the exact buggy-revision commit hash and `project_repos/` has full history; demonstrated by hand on Lang-1 (§9.2) | **Not reliably determinable** — heuristic removed; SZZ integration is future work (§8), now with a citation trail (§9.2) | Diff-size heuristic (≥120 changed lines → "Rewritten") conflated fix size with injection history |
 | **Source** | Closer | §4.2.3: in-house/reused/outsourced/ported | All 17 D4J projects are single-organization OSS | **Constant-by-construction:** ≈ Developed In-House — stated, not claimed as a finding | Left dangling (never populated, never explained) |
 
 The one-line story for the paper: **of the three opener attributes, only Impact is
@@ -343,7 +343,12 @@ tracker boilerplate) returns **zero matches**.
 - **Rerun of pilot + n=44 dev-validation** on sanitized payloads — user will run later;
   required before any of §5's tainted numbers are replaced.
 - **Age via SZZ/VCS archaeology** (map defective lines to their introducing commits) —
-  the only sound path to §4.2.4 Age on D4J; future work.
+  the only sound path to §4.2.4 Age on D4J; future work. Confirmed feasible in
+  principle (§9.2): `active-bugs.csv` has exact buggy-revision hashes, `project_repos/`
+  has full history, demonstrated by hand on Lang-1. Citation trail: mechanism precedent
+  (IBM patent US8214798B2, continuation US9047402B2) and D4J-specific BIC feasibility
+  (Wen et al. ESEC/FSE 2019; An & Yoo ESEC/FSE 2019/2021, 91 D4J bugs; An, Hong & Yoo's
+  Fonte, ICSE 2023).
 - **Human-validated impact subset** (e.g. 2 raters × 30–50 bugs, κ) — the standard move
   if impact is ever to carry stronger claims than distribution + stability.
 - **Full v5.2 field-defect Trigger/Activity procedure** (trigger from usage scenario,
@@ -351,3 +356,92 @@ tracker boilerplate) returns **zero matches**.
   claimed in the current design.
 - **Reference-sensitivity check** (few vs scientific on postfix) — already queued
   before this audit; unchanged.
+
+---
+
+## 9. Follow-up grounding pass (2026-08-16) — Trigger provenance and Age recoverability
+
+Verification pass for JSS paper §2.3 (Defects4J↔ODC attribute mapping, related work),
+independent of the 2026-07-10 pass above. Quantifies the Trigger line in §3's table with
+fresh evidence and corrects the framing of the Age line from "not in the evidence set" to
+"not currently extracted, but recoverable."
+
+### 9.1 Trigger: the retrospective-reproduction claim, quantified
+
+Sampled 40 bugs across 12 projects (Lang, Math, Closure, Jsoup, Cli, Codec, Collections,
+Compress, Csv, Gson, JacksonCore, JacksonDatabind, JxPath) using the local Defects4J
+clone (`~/Thesis/defects4j`, full git history in `project_repos/`). For each bug, read
+the `tests.trigger` metadata name and diffed the actual test file between
+`revision.id.buggy` and `revision.id.fixed` (from `active-bugs.csv`).
+
+**Result: 33/40 (82.5%) trigger-test methods did not exist at the buggy revision** — they
+were added in the same commit as the fix. Example: Lang-1's trigger test
+`NumberUtilsTest::TestLang747` is a pure addition in fix commit `d1a45e97`, absent at
+buggy revision `396afc3e`. Defects4J's own bug-mining process
+(`framework/bug-mining/README.md` step 4) confirms this is expected: curation only
+requires "a test that fails on pre-fix and passes on post-fix," never that the test
+predate the fix.
+
+**Independent peer-reviewed corroboration:** Rafi, Chen, Chen & Wang, "Revisiting
+Defects4J for Fault Localization in Diverse Development Scenarios," MSR 2025
+(arXiv:2310.19139) — 55% of Defects4J's fault-triggering tests were newly added to
+reproduce the bug or as a regression test; 77% show some form of post-report "developer
+knowledge" (added or modified after the bug report date). Their number is a lower bound
+relative to the 82.5% above because they anchor on bug-report date rather than
+presence-at-buggy-commit.
+
+**Structural confirmation from the source paper:** Just, Jalali & Ernst, ISSTA 2014 —
+Defects4J constructs `V_bug` by re-applying the isolated patch to `V_fix` ("Vbug is
+obtained by re-introducing the bug... applying the patch of the isolated bug to Vfix").
+Since `V_bug` derives from `V_fix`, it inherits `V_fix`'s test suite by construction,
+including any test the fix commit added. The paper does not flag this as a limitation.
+
+### 9.2 Age: recoverable in principle, not a documentation gap
+
+`active-bugs.csv` (one per project, `framework/projects/<P>/active-bugs.csv`) stores
+exact `revision.id.buggy` and `revision.id.fixed` commit hashes for every bug, and the
+local `project_repos/` are full git clones. Demonstrated on Lang-1: `git blame` on the
+pre-fix lines of `NumberUtils.java` at the buggy revision traces them to a commit from
+2012-09-12 (Sebastian Bazley), about ten months before the July 2013 fix, itself
+modifying code from 2003 (Stephen Colebourne). Age is not evidence D4J withholds — it is
+evidence this pipeline does not currently extract.
+
+No peer-reviewed paper connects SZZ/blame analysis to ODC's Age attribute specifically.
+Closest precedents:
+- **Mechanism precedent:** IBM patent US8214798B2 (continuation US9047402B2), Bellucci &
+  Portaluri, "Automatic calculation of orthogonal defect classification (ODC) fields" —
+  automates ODC's Age/Source-History field from version control by diffing against a
+  baseline code level. Not peer-reviewed, but the same mechanism used by hand above.
+- **Feasibility on Defects4J specifically:** Wen et al., "Exploring and Exploiting the
+  Correlations between Bug-Inducing and Bug-Fixing Commits," ESEC/FSE 2019 (manually
+  validated BIC dataset for D4J bugs); An & Yoo, "Reducing the Search Space of Bug
+  Inducing Commits using Failure Coverage," ESEC/FSE 2019/2021 (91 D4J bugs, blame +
+  bisection); An, Hong & Yoo, "Fonte: Finding Bug Inducing Commits from Failures," ICSE
+  2023.
+
+No prior work combines the two. Age-via-SZZ-on-Defects4J is a citable, unexploited
+extension, not an unsupported claim.
+
+### 9.3 Target: the design-originated-defect edge case
+
+Question: does a defect whose root cause was a design decision, not a local code
+mistake, count as Target=Design if its fix happens to touch multiple files? No — v5.2
+§4.1.2 defines Design strictly as "it was necessary to change the design **specification
+document**"; Target classifies the artifact touched, not the defect's conceptual origin.
+D4J never has a design-spec artifact distinct from source, so Target=Code holds whether
+the fix was a local tweak or a structural rethink. ODC's design-magnitude distinction
+lives one level down, in Defect Type: Function/Class/Object (§4.2.1.4) is defined for
+errors that "should require a formal design change... affects significant capability...
+or global data structure(s)," while Algorithm/Method (§4.2.1.3) is explicitly fixable
+"without the need for requesting a design change." A multi-file fix reflecting a design
+rethink lands as Function/Class/Object or Relationship; the same-fix-applied-in-several-
+places case lands as Algorithm/Method or Assignment/Initialization. Target stays Code
+either way.
+
+### 9.4 Citation correction
+
+`docs/related_work_literature_leads.md`'s "AgentSZZ" candidate (cited there as
+`arXiv:2604.02665`) does not resolve to a paper connecting SZZ to ODC or Defects4J — that
+ID surfaces an unrelated paper (AgenticSZZ, arXiv:2602.02934, Shi/Li/Adams/Hassan, no
+ODC/Age/D4J content). That entry needs correcting or removing; the SZZ-on-D4J citations
+to use instead are the three feasibility papers in §9.2.

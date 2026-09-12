@@ -2,7 +2,7 @@
 
 - Version: `28b`
 - Work directory: `C:\d4j_work\prefix\Lang_28b`
-- Generated: `2026-07-10T19:23:53+00:00`
+- Generated: `2026-08-04T17:38:33+00:00`
 
 ## Failure Summary
 - `org.apache.commons.lang3.text.translate.NumericEntityUnescaperTest::testSupplementaryUnescaping`: junit.framework.ComparisonFailure: Failed to unescape numeric entities supplementary characters expected:<[𐰢]> but was:<[ఢ]>
@@ -18,7 +18,7 @@
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The defect is an algorithmic failure in how the unescaper iterates through and interprets characters in a string. It is not a missing guard (Checking), a wrong constant (Assignment), or a design-level capability gap (Function/Class/Object). It is a procedural error in the method's logic for handling multi-char character representations, making 'Algorithm/Method' the most accurate classification.
+The bug involves an incorrect iteration strategy over a string containing supplementary characters. The current implementation treats each Java 'char' as a single character, failing to account for characters that require two 'char' units (surrogate pairs). The fix requires updating the loop logic to correctly identify and skip the second part of a surrogate pair when a code point exceeds 0xFFFF, which is a procedural/algorithmic correction.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Incorrect`

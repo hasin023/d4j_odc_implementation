@@ -2,7 +2,7 @@
 
 - Version: `29b`
 - Work directory: `C:\d4j_work\postfix\Lang_29b`
-- Generated: `2026-07-10T19:24:01+00:00`
+- Generated: `2026-08-04T17:38:42+00:00`
 
 ## Failure Summary
 - `org.apache.commons.lang3.SystemUtilsTest::testJavaVersionAsInt`: junit.framework.AssertionFailedError: expected:<0> but was:<0.0>
@@ -18,7 +18,7 @@
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The bug is a classic interface/contract mismatch. The method was intended to return an integer representation of a version (e.g., 131), but was declared to return a float. This caused the test suite to fail when it expected an integer but received a float (e.g., 0.0). The fix is a signature change, which falls under Interface/O-O Messages.
+The fix involved changing the return type of the method 'toJavaVersionInt' from 'float' to 'int'. This is a signature mismatch (contract violation) between what the method was intended to return (an integer representation of a version) and what it actually returned. While the underlying logic might have been updated as well, the primary issue identified by the failing test (expected 0 but was 0.0) and the fix diff is the incorrect method signature.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Incorrect`

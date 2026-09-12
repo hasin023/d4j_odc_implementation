@@ -2,7 +2,7 @@
 
 - Version: `61b`
 - Work directory: `C:\d4j_work\prefix\Lang_61b`
-- Generated: `2026-07-10T19:26:38+00:00`
+- Generated: `2026-08-04T17:41:51+00:00`
 
 ## Failure Summary
 - `org.apache.commons.lang.text.StrBuilderTest::testIndexOfLang294`: junit.framework.AssertionFailedError: expected:<-1> but was:<6>
@@ -20,7 +20,7 @@
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The defect is in the procedural logic of the deletion algorithm. The code fails to correctly manage the state of the buffer and the search index after a deletion occurs. This is a classic algorithmic error where the procedure for updating the data structure (the builder's buffer) and the iteration strategy (the search loop) are misaligned with the state changes caused by the deletion.
+The root cause is an incorrect implementation of the deletion logic in StrBuilder. The deleteImpl method uses System.arraycopy with parameters that do not correctly account for the shifting of elements after a deletion, leading to an out-of-bounds access. This is a procedural error in the algorithm used to manage the internal buffer, not a missing guard or a simple initialization error.
 
 ## ODC Attribute Mapping (Optional)
 - Qualifier: `Incorrect`

@@ -2,7 +2,7 @@
 
 - Version: `63b`
 - Work directory: `C:\d4j_work\prefix\Lang_63b`
-- Generated: `2026-07-10T19:26:50+00:00`
+- Generated: `2026-08-04T17:42:05+00:00`
 
 ## Failure Summary
 - `org.apache.commons.lang.time.DurationFormatUtilsTest::testJiraLang281`: junit.framework.ComparisonFailure: expected:<[09]> but was:<[-2]>
@@ -14,11 +14,12 @@
 - **Evidence Mode**: ✅ Pre-fix only
 - ODC Type: `Algorithm/Method`
 - Family: `Control and Data Flow`
-- Target: `Design/Code`
+- Target: `Code`
 - Confidence: `0.8`
 - Needs Human Review: `False`
 
-The bug is a failure in the computational logic of the duration calculation. It is not a missing guard (Checking), a simple wrong constant (Assignment/Initialization), or a design-level capability gap (Function/Class/Object). The method is performing a calculation that results in an incorrect value, which is characteristic of an Algorithm/Method defect.
+The failure occurs during a duration calculation between two specific dates. The output '-2' indicates that the internal logic for calculating the difference in months is flawed, likely due to incorrect handling of calendar fields or date arithmetic within the formatPeriod method. This is a procedural logic error in the calculation algorithm rather than a missing guard, a simple assignment error, or a design-level capability gap.
 
 ## ODC Attribute Mapping (Optional)
+- Qualifier: `Incorrect`
 - Impact: `Capability`

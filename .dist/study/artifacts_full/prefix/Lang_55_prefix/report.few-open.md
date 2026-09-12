@@ -2,7 +2,7 @@
 
 - Version: `55b`
 - Work directory: `C:\d4j_work\prefix\Lang_55b`
-- Generated: `2026-07-10T19:26:11+00:00`
+- Generated: `2026-08-04T17:41:16+00:00`
 
 ## Failure Summary
 - `org.apache.commons.lang.time.StopWatchTest::testLang315`: junit.framework.AssertionFailedError
@@ -14,11 +14,12 @@
 - **Evidence Mode**: ✅ Pre-fix only
 - ODC Type: `Algorithm/Method`
 - Family: `Control and Data Flow`
-- Target: `Design/Code`
+- Target: `Code`
 - Confidence: `0.9`
 - Needs Human Review: `False`
 
-The issue is a procedural error in how the StopWatch calculates the final time when stop() is invoked. It is not a missing guard (Checking) or a simple wrong value (Assignment), but a flaw in the computational logic of the state machine's transition to the stopped state. Therefore, it is classified as Algorithm/Method.
+The issue is a procedural error in how the StopWatch calculates time when transitioning between states (suspend to stop). The internal logic for calculating the elapsed time is flawed because it fails to correctly account for the suspended state, leading to an incorrect final time value. This is a classic algorithmic error in state management rather than a missing guard (Checking) or a simple variable initialization error.
 
 ## ODC Attribute Mapping (Optional)
+- Qualifier: `Incorrect`
 - Impact: `Capability`

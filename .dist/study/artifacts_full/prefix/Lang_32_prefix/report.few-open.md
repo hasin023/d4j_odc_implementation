@@ -2,7 +2,7 @@
 
 - Version: `32b`
 - Work directory: `C:\d4j_work\prefix\Lang_32b`
-- Generated: `2026-07-10T19:24:15+00:00`
+- Generated: `2026-08-04T17:38:58+00:00`
 
 ## Failure Summary
 - `org.apache.commons.lang3.builder.HashCodeBuilderTest::testReflectionObjectCycle`: junit.framework.AssertionFailedError: Expected: <null> but was: []
@@ -12,14 +12,14 @@
 
 ## ODC Result
 - **Evidence Mode**: ✅ Pre-fix only
-- ODC Type: `Algorithm/Method`
+- ODC Type: `Assignment/Initialization`
 - Family: `Control and Data Flow`
 - Target: `Code`
-- Confidence: `0.8`
+- Confidence: `0.9`
 - Needs Human Review: `False`
 
-The issue is a failure to properly manage the lifecycle of a ThreadLocal resource. This is a procedural error in the algorithm used to track object cycles, as the cleanup step is missing or incorrectly implemented. It is not a simple missing guard (Checking) or a wrong value (Assignment), but a failure in the overall execution strategy of the reflection-based hashCode calculation.
+The root cause is the failure to properly manage the lifecycle of a ThreadLocal variable. Specifically, the registry used to track object cycles is not cleaned up (initialized/reset to null or cleared) after the reflection operation finishes. This is an initialization/state management issue where the state is not correctly reset to its expected null or empty state after use, causing subsequent assertions to fail and creating memory leaks.
 
 ## ODC Attribute Mapping (Optional)
-- Qualifier: `Incorrect`
+- Qualifier: `Missing`
 - Impact: `Reliability`
