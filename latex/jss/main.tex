@@ -496,60 +496,49 @@ of the same case file that differ in exactly one respect, the fix diff, which is
 precisely what the pre-fix/post-fix comparison in Section~\ref{sec:eval} is
 designed to isolate.
 
-\paragraph{Matching Defects4J evidence to what ODC actually asks for.}
-ODC defines eight attributes split across two moments in a bug's life: what is
-known when it is discovered, and what is known once it is fixed.
-\textit{Defects4J} was assembled after every bug was already fixed, so not every
-attribute has matching evidence, and we only claim the ones it genuinely supports
-(Table~\ref{tab:mapping}). On the fix side, \textbf{Target} is simply Design/Code
-by construction, and \textbf{Defect Type} and \textbf{Qualifier} come straight
-from the real fix diff when we are in post-fix mode; in pre-fix mode, predicting
-Defect Type from symptoms alone is our central task. \textbf{Age} would need a
-history of when the buggy code was introduced, which is outside our evidence, so
-we leave it undetermined, and for \textbf{Source} we simply note that every
-project is a single open-source organisation. On the discovery side, we only
-claim \textbf{Impact}, described next; we do not force a guess at
-\textbf{Trigger} or \textbf{Activity}, since both would need a level of
-usage-scenario detail that \textit{Defects4J} reports do not reliably provide.
-
-\begin{table*}[t]
-\centering
-\caption{How the pipeline maps \textit{Defects4J} evidence onto ODC's eight
-         attributes. \emph{Claimed} attributes are determined and reported;
-         \emph{Constant} attributes are fixed by \textit{Defects4J}'s
-         construction; \emph{Not determinable} attributes lack matching
-         evidence.}
-\label{tab:mapping}
-\begin{tabularx}{\textwidth}{@{}lllX@{}}
-\toprule
-\thead{Attribute} & \thead{Phase} & \thead{Status} & \thead{\textit{Defects4J} evidence and rationale} \\
-\midrule
-Impact      & Opener & Claimed                & We read it from the bug report and the observed failure, the customer-perspective evidence ODC asks for. \\
-Trigger     & Opener & Not determinable       & We would need the user's usage scenario for this, and report detail is too uneven across projects and trackers to give us that. \\
-Activity    & Opener & Not determinable       & The harness always reruns JUnit no matter how the defect actually surfaced, so what we see is a reproduction, not the original discovery activity. \\
-Target      & Closer & Constant               & \textit{Defects4J}'s minimised patches only ever touch source code, by construction, so this is always Design/Code. \\
-Defect Type & Closer & Predicted / Canonical  & In post-fix mode we read it straight from the real fix diff; in pre-fix mode we predict it from symptom-only evidence, which is our central task. \\
-Qualifier   & Closer & Determined (post-fix)  & We read Missing, Incorrect, or Extraneous straight off the shape of the fix diff. \\
-Age         & Closer & Not determinable       & We would need the history of when the defective code was introduced, and that is outside what we have. \\
-Source      & Closer & Constant               & All 17 projects are single-organisation open-source efforts, so this one is always the same. \\
-\bottomrule
-\end{tabularx}
-\end{table*}
-
-\paragraph{The Impact attribute.}
+\paragraph{The two ODC attributes we determine: Defect Type and Impact.}
 \label{sec:impact}
-Impact is the one discovery-time attribute we claim, and we determine it the same
-way for every taxonomy-constrained strategy: we teach the model all thirteen
-ODC v5.2 impact categories, from Reliability to Accessibility, plus
-\texttt{Unknown} for when the early evidence simply is not enough, and we make
-it return exactly one, judged only from the bug report and the observed
-failure, never from how the bug was eventually fixed. We deliberately leave
-this taught vocabulary out of the \textit{zero-free} strategy
-(Section~\ref{sec:strategies}), which by definition must stay free of ODC
-terminology. \textit{Defects4J} gives us no answer key for
+ODC defines eight attributes split across two moments in a bug's life: what is
+known when it is discovered (Activity, Trigger, Impact) and what is known once it
+is fixed (Target, Defect Type, Qualifier, Age, Source). \textit{Defects4J} was
+assembled after every bug was already fixed and records only a minimised patch,
+its failing tests, and a bug-report link, so most of those attributes have no
+matching evidence in it. Rather than fill the gaps with plausible-sounding
+guesses, our pipeline determines exactly two attributes and reports only those
+two: \textbf{Defect Type} and \textbf{Impact}. Everything else is left
+undetermined and is absent from every artifact we analyse. Two of the six are
+excluded because they carry no information here rather than too little:
+\textbf{Target} is Design/Code for every bug, since \textit{Defects4J}'s
+minimised patches only ever touch source code, and \textbf{Source} is
+single-organisation open source for all 17 projects. The other four lack
+evidence. \textbf{Trigger} would have to come from the user's usage scenario, and
+report detail is far too uneven across these trackers to supply it;
+\textbf{Activity} cannot be recovered either, because the harness reruns JUnit no
+matter how the defect originally surfaced, so what we observe is a reproduction,
+not the discovery activity; \textbf{Age} would need the history of when the
+defective code was introduced, which is outside our evidence; and
+\textbf{Qualifier} (Missing / Incorrect / Extraneous) is only visible post-fix and
+only through diff-shape rules we judged unsound, since deleting a wrong line is
+Incorrect rather than Extraneous.
+
+\textbf{Defect Type} is the target of the study. Both arms \emph{predict} it: the
+pre-fix arm from symptom-only evidence, which is the central task, and the
+post-fix arm from the same evidence plus the real fix diff supplied as oracle
+information. Neither arm reads a label mechanically off the patch; the post-fix
+arm is an upper reference point, not a ground truth. \textbf{Impact} is the one
+discovery-time attribute we claim, and we determine it identically under every
+taxonomy-constrained strategy: we teach the model all thirteen ODC v5.2 impact
+categories, from Reliability to Accessibility, plus \texttt{Unknown} for when the
+early evidence is simply not enough, and require exactly one of them back, judged
+only from the bug report and the observed failure and never from how the bug was
+eventually fixed. The answer is constrained to that vocabulary by the response
+schema and rejected at parse time if it falls outside it, so no free-text impact
+label ever enters the analysis. We deliberately withhold this vocabulary from the
+\textit{zero-free} strategy (Section~\ref{sec:strategies}), which by definition
+must stay free of ODC terminology. \textit{Defects4J} gives us no answer key for
 Impact, so we use it in two honest ways rather than as an accuracy claim: as a
-simple descriptive distribution over the benchmark, and, because Impact should
-not depend on the fix, as a negative control. If our pre-fix and post-fix Impact
+descriptive distribution over the benchmark, and, because Impact should not
+depend on the fix, as a negative control. If our pre-fix and post-fix Impact
 labels agree closely, that agreement is a noise floor: any additional pre-fix/
 post-fix disagreement we see on Defect Type is more likely to reflect a genuine,
 fix-dependent difference in the assigned type rather than measurement noise
