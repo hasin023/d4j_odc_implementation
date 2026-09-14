@@ -468,7 +468,16 @@ def main() -> int:
     # never override GEMINI_MODEL/GROQ_MODEL/OPENROUTER_MODEL when set —
     # a real bug blocking a second-model run on any strategy while the
     # provider's env var is configured (which it always is here).
-    if hasattr(args, "provider") and hasattr(args, "model") and args.model is None:
+    # `study-drift`/`study-escape` also declare --provider/--model, but there
+    # they select which already-written tagged classification file to read,
+    # not which LLM to call — None there means "read the bare/untagged file"
+    # and must stay None, not get resolved into a real provider's model.
+    if (
+        hasattr(args, "provider")
+        and hasattr(args, "model")
+        and args.provider is not None
+        and args.model is None
+    ):
         from .llm import default_model_for_provider
         args.model = default_model_for_provider(args.provider, os.environ.get("DEFAULT_LLM_MODEL", "gemini-3.1-flash-lite"))
 

@@ -1,0 +1,56 @@
+{
+  "project_id": "Lang",
+  "bug_id": 32,
+  "version_id": "32b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-09-13T17:57:54+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The HashCodeBuilder used a ThreadLocal that was initialized by default, causing memory leaks in container environments because the registry was never removed. The fix involves changing the initialization to null and adding null checks before accessing the registry.",
+  "hypothesis": "",
+  "prediction": "",
+  "experiment_rationale": "",
+  "reasoning_summary": "The core issue is the lack of proper lifecycle management (null checks and conditional initialization) for the ThreadLocal registry. The fix introduces null checks (e.g., 'registry != null && ...') and conditional initialization ('if (getRegistry() == null)'), which are classic 'Checking' patterns to handle the state of the registry safely.",
+  "evidence_used": [
+    "The fix adds null checks in isRegistered: 'Set<IDKey> registry = getRegistry(); return registry != null && registry.contains(new IDKey(value));'",
+    "The fix adds null checks in register: 'if (getRegistry() == null) { REGISTRY.set(new HashSet<IDKey>()); }'",
+    "The fix adds null checks in unregister: 'Set<IDKey> s = getRegistry(); if (s != null) { ... }'",
+    "The fix removes the initialValue() override from the ThreadLocal, making it null by default."
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Timing/Serialization",
+      "why_not_primary": "While the fix adds synchronization, the primary mechanism for the bug is the missing null-check/validation logic for the ThreadLocal state, not a race condition or ordering issue."
+    },
+    {
+      "type": "Assignment/Initialization",
+      "why_not_primary": "The fix changes how the ThreadLocal is initialized, but the primary fix is the addition of conditional logic (guards) to manage the lifecycle of the registry."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "post-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "termination_reason": null,
+  "loop_duration_seconds": null,
+  "probe_misses": 0,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The HashCodeBuilder used a ThreadLocal that was initialized by default, causing memory leaks in container environments because the registry was never removed. The fix involves changing the initialization to null and adding null checks before accessing the registry.\",\n  \"reasoning_summary\": \"The core issue is the lack of proper lifecycle management (null checks and conditional initialization) for the ThreadLocal registry. The fix introduces null checks (e.g., 'registry != null && ...') and conditional initialization ('if (getRegistry() == null)'), which are classic 'Checking' patterns to handle the state of the registry safely.\",\n  \"evidence_used\": [\n    \"The fix adds null checks in isRegistered: 'Set<IDKey> registry = getRegistry(); return registry != null && registry.contains(new IDKey(value));'\",\n    \"The fix adds null checks in register: 'if (getRegistry() == null) { REGISTRY.set(new HashSet<IDKey>()); }'\",\n    \"The fix adds null checks in unregister: 'Set<IDKey> s = getRegistry(); if (s != null) { ... }'\",\n    \"The fix removes the initialValue() override from the ThreadLocal, making it null by default.\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Timing/Serialization\",\n      \"why_not_primary\": \"While the fix adds synchronization, the primary mechanism for the bug is the missing null-check/validation logic for the ThreadLocal state, not a race condition or ordering issue.\"\n    },\n    {\n      \"type\": \"Assignment/Initialization\",\n      \"why_not_primary\": \"The fix changes how the ThreadLocal is initialized, but the primary fix is the addition of conditional logic (guards) to manage the lifecycle of the registry.\"\n    }\n  ]\n}"
+}

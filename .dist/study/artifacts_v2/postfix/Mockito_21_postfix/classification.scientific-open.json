@@ -1,0 +1,98 @@
+{
+  "project_id": "Mockito",
+  "bug_id": 21,
+  "version_id": "21b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-09-14T06:02:59+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The ConstructorInstantiator fails to instantiate inner classes when the provided outer instance is a subclass of the expected constructor parameter type. The fix involves replacing a rigid getDeclaredConstructor call with an iterative search that checks for parameter compatibility.",
+  "hypothesis": "The ConstructorInstantiator class uses a rigid constructor lookup that fails when the provided outer instance is a subclass of the type expected by the inner class constructor. The implementation needs to iterate through available constructors and check for parameter compatibility (isInstance) rather than relying on getDeclaredConstructor with a specific class type.",
+  "prediction": "The source code for ConstructorInstantiator will show a call to getDeclaredConstructor(outerClassInstance.getClass()), which fails if the constructor expects a superclass or interface of the actual outer instance.",
+  "experiment_rationale": "The failure stack trace explicitly points to a NoSuchMethodException when trying to instantiate an inner class with a specific outer instance type. The fix diff confirms that the logic was changed from a single constructor lookup to an iterative search with parameter matching.",
+  "reasoning_summary": "The bug is a procedural error in how the constructor is selected. The original implementation used a direct lookup that was too restrictive, failing to account for polymorphism in the outer class instance. This is a classic algorithmic/method-level defect where the search strategy for the correct constructor was insufficient.",
+  "evidence_used": [
+    "stack_trace_excerpt",
+    "fix_diff_oracle"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "While the fix involves a check (paramsMatch), the core issue is the implementation of the constructor selection algorithm itself, not just a missing guard."
+    },
+    {
+      "type": "Interface/O-O Messages",
+      "why_not_primary": "The issue is not a mismatch in the interface contract, but rather an internal implementation failure to find the correct constructor."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "post-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The ConstructorInstantiator class fails to correctly identify and invoke the constructor for inner classes because it assumes a specific constructor signature (matching the outer class type exactly) rather than searching for a constructor that is compatible with the provided outer instance (e.g., a superclass or interface).",
+      "prediction": "The snippet of ConstructorInstantiator will show that it uses getDeclaredConstructor(outerClassInstance.getClass()) instead of iterating through available constructors to find one that accepts the outer instance as a parameter.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "ConstructorInstantiator"
+      },
+      "observation_summary": [
+        "snippets"
+      ],
+      "observation": "{\n  \"snippets\": [\n    {\n      \"class_name\": \"org.mockito.internal.creation.instance.ConstructorInstantiatorTest\",\n      \"reason\": \"Test source: org.mockito.internal.creation.instance.ConstructorInstantiatorTest::creates_instances_of_inner_classes (shows expected behavior)\",\n      \"file_path\": \"C:\\\\d4j-work\\\\study-work\\\\postfix\\\\Mockito_21b\\\\test\\\\org\\\\mockito\\\\internal\\\\creation\\\\instance\\\\ConstructorInstantiatorTest.java\",\n      \"start_line\": 17,\n      \"end_line\": 24,\n      \"focus_line\": 21,\n      \"content\": \"    17:     }\\n    18: \\n    19:     @Test public void creates_instances_of_inner_classes() {\\n    20:         assertEquals(new ConstructorInstantiator(this).newInstance(SomeInnerClass.class).getClass(), SomeInnerClass.class);\\n    21:         assertEquals(new ConstructorInstantiator(new ChildOfThis()).newInstance(SomeInnerClass.class).getClass(), SomeInnerClass.class);\\n    22:     }\\n    23: \\n    24:     @Test public void explains_when_constructor_cannot_be_found() {\"\n    }\n  ]\n}",
+      "observation_truncated": false,
+      "observation_chars": 1003,
+      "duration_seconds": 2.843
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The ConstructorInstantiator class uses a rigid constructor lookup that fails when the provided outer instance is a subclass of the type expected by the inner class constructor. The implementation needs to iterate through available constructors and check for parameter compatibility (isInstance) rather than relying on getDeclaredConstructor with a specific class type.",
+      "prediction": "The source code for ConstructorInstantiator will show a call to getDeclaredConstructor(outerClassInstance.getClass()), which fails if the constructor expects a superclass or interface of the actual outer instance.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "ConstructorInstantiator"
+      },
+      "observation_summary": "probe already served this exact request \u2014 use a different probe or conclude",
+      "observation": "{\n  \"error\": \"probe already served this exact request \\u2014 use a different probe or conclude\"\n}",
+      "observation_truncated": false,
+      "observation_chars": 97,
+      "duration_seconds": 2.33
+    },
+    {
+      "turn": 3,
+      "hypothesis": "The ConstructorInstantiator class uses a rigid constructor lookup that fails when the provided outer instance is a subclass of the type expected by the inner class constructor. The implementation needs to iterate through available constructors and check for parameter compatibility (isInstance) rather than relying on getDeclaredConstructor with a specific class type.",
+      "prediction": "The source code for ConstructorInstantiator will show a call to getDeclaredConstructor(outerClassInstance.getClass()), which fails if the constructor expects a superclass or interface of the actual outer instance.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Algorithm/Method",
+      "duration_seconds": 3.235
+    }
+  ],
+  "llm_calls_used": 3,
+  "termination_reason": "concluded",
+  "loop_duration_seconds": 8.408,
+  "probe_misses": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The ConstructorInstantiator fails to instantiate inner classes when the provided outer instance is a subclass of the expected constructor parameter type. The fix involves replacing a rigid getDeclaredConstructor call with an iterative search that checks for parameter compatibility.\", \"hypothesis\": \"The ConstructorInstantiator class uses a rigid constructor lookup that fails when the provided outer instance is a subclass of the type expected by the inner class constructor. The implementation needs to iterate through available constructors and check for parameter compatibility (isInstance) rather than relying on getDeclaredConstructor with a specific class type.\", \"prediction\": \"The source code for ConstructorInstantiator will show a call to getDeclaredConstructor(outerClassInstance.getClass()), which fails if the constructor expects a superclass or interface of the actual outer instance.\", \"experiment_rationale\": \"The failure stack trace explicitly points to a NoSuchMethodException when trying to instantiate an inner class with a specific outer instance type. The fix diff confirms that the logic was changed from a single constructor lookup to an iterative search with parameter matching.\", \"reasoning_summary\": \"The bug is a procedural error in how the constructor is selected. The original implementation used a direct lookup that was too restrictive, failing to account for polymorphism in the outer class instance. This is a classic algorithmic/method-level defect where the search strategy for the correct constructor was insufficient.\", \"evidence_used\": [\"stack_trace_excerpt\", \"fix_diff_oracle\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Checking\", \"why_not_primary\": \"While the fix involves a check (paramsMatch), the core issue is the implementation of the constructor selection algorithm itself, not just a missing guard.\"}, {\"type\": \"Interface/O-O Messages\", \"why_not_primary\": \"The issue is not a mismatch in the interface contract, but rather an internal implementation failure to find the correct constructor.\"}]}"
+}

@@ -1,0 +1,61 @@
+{
+  "project_id": "Math",
+  "bug_id": 103,
+  "version_id": "103b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-09-14T07:09:08+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The NormalDistributionImpl.cumulativeProbability method throws a MaxIterationsExceededException when calculating the CDF for extreme values because it attempts to compute the error function (Erf) using an iterative algorithm that fails to converge for those inputs.",
+  "hypothesis": "The cumulativeProbability method in NormalDistributionImpl fails to handle extreme input values (where the result should be effectively 0 or 1) because it directly calls Erf.erf, which in turn calls Gamma.regularizedGammaP. The latter is an iterative algorithm that fails to converge for extreme inputs, throwing a MaxIterationsExceededException instead of returning the expected asymptotic value.",
+  "prediction": "If I examine the NormalDistributionImpl.cumulativeProbability method, I will find that it lacks a guard condition to check if the input x is sufficiently far from the mean to return 0 or 1 directly, thus avoiding the call to the Erf.erf method for extreme values.",
+  "experiment_rationale": "The stack trace and bug report clearly indicate that the failure is due to an iterative algorithm (Gamma.regularizedGammaP) failing to converge for extreme inputs. The fix is to add a check (guard) in the calling method (NormalDistributionImpl.cumulativeProbability) to handle these extreme cases before invoking the iterative calculation.",
+  "reasoning_summary": "The bug is a classic case of missing boundary validation. The algorithm for calculating the normal CDF is mathematically sound for most values but fails to converge for extreme values. The fix is to add a check for these extreme values to return the correct asymptotic result (0 or 1) instead of attempting the calculation.",
+  "evidence_used": [
+    "stack_trace",
+    "bug_report",
+    "snippet"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the algorithm fails to converge, the fix is not to rewrite the Gamma function's iteration logic, but to add a guard condition in the caller to avoid the call entirely for extreme values."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The cumulativeProbability method in NormalDistributionImpl fails to handle extreme input values (where the result should be effectively 0 or 1) because it directly calls Erf.erf, which in turn calls Gamma.regularizedGammaP. The latter is an iterative algorithm that fails to converge for extreme inputs, throwing a MaxIterationsExceededException instead of returning the expected asymptotic value.",
+      "prediction": "If I examine the NormalDistributionImpl.cumulativeProbability method, I will find that it lacks a guard condition to check if the input x is sufficiently far from the mean to return 0 or 1 directly, thus avoiding the call to the Erf.erf method for extreme values.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Checking",
+      "duration_seconds": 3.286
+    }
+  ],
+  "llm_calls_used": 1,
+  "termination_reason": "concluded",
+  "loop_duration_seconds": 3.286,
+  "probe_misses": 0,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The NormalDistributionImpl.cumulativeProbability method throws a MaxIterationsExceededException when calculating the CDF for extreme values because it attempts to compute the error function (Erf) using an iterative algorithm that fails to converge for those inputs.\", \"hypothesis\": \"The cumulativeProbability method in NormalDistributionImpl fails to handle extreme input values (where the result should be effectively 0 or 1) because it directly calls Erf.erf, which in turn calls Gamma.regularizedGammaP. The latter is an iterative algorithm that fails to converge for extreme inputs, throwing a MaxIterationsExceededException instead of returning the expected asymptotic value.\", \"prediction\": \"If I examine the NormalDistributionImpl.cumulativeProbability method, I will find that it lacks a guard condition to check if the input x is sufficiently far from the mean to return 0 or 1 directly, thus avoiding the call to the Erf.erf method for extreme values.\", \"experiment_rationale\": \"The stack trace and bug report clearly indicate that the failure is due to an iterative algorithm (Gamma.regularizedGammaP) failing to converge for extreme inputs. The fix is to add a check (guard) in the calling method (NormalDistributionImpl.cumulativeProbability) to handle these extreme cases before invoking the iterative calculation.\", \"reasoning_summary\": \"The bug is a classic case of missing boundary validation. The algorithm for calculating the normal CDF is mathematically sound for most values but fails to converge for extreme values. The fix is to add a check for these extreme values to return the correct asymptotic result (0 or 1) instead of attempting the calculation.\", \"evidence_used\": [\"stack_trace\", \"bug_report\", \"snippet\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"While the algorithm fails to converge, the fix is not to rewrite the Gamma function's iteration logic, but to add a guard condition in the caller to avoid the call entirely for extreme values.\"}]}"
+}

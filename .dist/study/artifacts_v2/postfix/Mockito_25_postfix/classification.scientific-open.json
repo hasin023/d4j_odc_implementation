@@ -1,0 +1,114 @@
+{
+  "project_id": "Mockito",
+  "bug_id": 25,
+  "version_id": "25b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-09-14T06:03:57+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The failing tests consistently throw ClassCastException when deep-stubbing methods that return types with generic bounds or extra interfaces. The fix involves updating the mock creation logic to correctly identify and apply these extra interfaces.",
+  "hypothesis": "The `ReturnsDeepStubs` class fails to correctly account for generic type information when creating nested mocks. Specifically, it creates a mock using only the raw return type of the method, ignoring additional interfaces or generic bounds that the return type might require.",
+  "prediction": "The fix involves modifying `ReturnsDeepStubs` to extract the `GenericMetadataSupport` from the return type and using it to configure the mock with the necessary extra interfaces via `withSettings().extraInterfaces(...)`.",
+  "experiment_rationale": "The evidence from the failing tests (ClassCastException) and the provided fix diff (which adds `GenericMetadataSupport` and `extraInterfaces` to the mock creation) confirms that the original implementation was missing the logic to handle generic type metadata during mock creation.",
+  "reasoning_summary": "The bug is a failure to correctly implement the deep-stubbing algorithm for generic types. The code was only using the raw type, which is an incomplete implementation of the required behavior for generic return types. This is a procedural/algorithmic error in how the mock is constructed.",
+  "evidence_used": [
+    "failing_tests",
+    "fix_diff_oracle"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Interface/O-O Messages",
+      "why_not_primary": "While it involves an interface, the root cause is the internal logic of the deep-stubbing algorithm failing to account for the full type information, not a mismatch in the interface contract itself."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "post-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The `ReturnsDeepStubs` class fails to correctly account for generic type information when creating nested mocks. Specifically, it creates a mock using only the raw return type of the method, ignoring additional interfaces or generic bounds that the return type might require. This leads to a ClassCastException when the code expects an object that implements these additional interfaces (e.g., Cloneable, Comparable) but receives a generic mock that does not.",
+      "prediction": "I expect to see that `ReturnsDeepStubs.getMock` (or `recordDeepStubMock`) creates a mock using only the raw class type, failing to pass along the `GenericMetadataSupport` or equivalent type information that would allow `Mockito.mock()` to include the necessary extra interfaces.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "org.mockito.internal.stubbing.defaultanswers.ReturnsDeepStubs"
+      },
+      "observation_summary": "no snippet matches 'org.mockito.internal.stubbing.defaultanswers.ReturnsDeepStubs'",
+      "observation": "{\n  \"error\": \"no snippet matches 'org.mockito.internal.stubbing.defaultanswers.ReturnsDeepStubs'\",\n  \"available\": [\n    \"org.mockito.internal.stubbing.defaultanswers.ReturnsGenericDeepStubsTest\"\n  ]\n}",
+      "observation_truncated": false,
+      "observation_chars": 200,
+      "duration_seconds": 2.397
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The class `ReturnsDeepStubs` is missing from the codebase or renamed, and the logic for deep stubbing is likely contained within `ReturnsGenericDeepStubs` or a similar class that handles the generic metadata. The failure occurs because the mock creation process does not account for extra interfaces required by generic bounds, leading to ClassCastExceptions.",
+      "prediction": "I expect to find the logic for deep stubbing in a class related to `ReturnsGenericDeepStubs` or `ReturnsDeepStubs` (if I search for the file path directly or check the package). Since the snippet failed, I will list the evidence to find the correct class name.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "list_evidence",
+        "argument": null
+      },
+      "observation_summary": [
+        "bug_report_available",
+        "coverage_classes",
+        "failing_tests",
+        "production_snippet_classes",
+        "test_snippet_classes"
+      ],
+      "observation": "{\n  \"failing_tests\": [\n    \"org.mockito.internal.stubbing.defaultanswers.ReturnsGenericDeepStubsTest::will_return_default_value_on_non_mockable_nested_generic\",\n    \"org.mockito.internal.stubbing.defaultanswers.ReturnsGenericDeepStubsTest::can_create_mock_from_multiple_type_variable_bounds_when_return_type_of_parameterized_method_is_a_typevar_that_is_referencing_a_typevar_on_class\",\n    \"org.mockito.internal.stubbing.defaultanswers.ReturnsGenericDeepStubsTest::can_create_mock_from_return_types_declared_with_a_bounded_wildcard\",\n    \"org.mockito.internal.stubbing.defaultanswers.ReturnsGenericDeepStubsTest::can_create_mock_from_multiple_type_variable_bounds_when_return_type_of_parameterized_method_is_a_parameterizedtype_that_is_referencing_a_typevar_on_class\",\n    \"org.mockito.internal.stubbing.defaultanswers.ReturnsGenericDeepStubsTest::generic_deep_mock_frenzy__look_at_these_chained_calls\",\n    \"org.mockito.internal.stubbing.defaultanswers.ReturnsGenericDeepStubsTest::can_create_mock_from_multiple_type_variable_bounds_when_method_return_type_is_referencing_a_typevar_on_class\"\n  ],\n  \"production_snippet_classes\": [],\n  \"test_snippet_classes\": [\n    \"org.mockito.internal.stubbing.defaultanswers.ReturnsGenericDeepStubsTest\"\n  ],\n  \"coverage_classes\": [\n    \"org.mockito.AdditionalAnswers\",\n    \"org.mockito.AdditionalMatchers\",\n    \"org.mockito.Answers\",\n    \"org.mockito.ArgumentCaptor\",\n    \"org.mockito.ArgumentMatcher\",\n    \"org.mockito.BDDMockito\",\n    \"org.mockito.Captor\",\n    \"org.mockito.InOrder\",\n    \"org.mockito.Incubating\",\n    \"org.mockito.InjectMocks\",\n    \"org.mockito.Matchers\",\n    \"org.mockito.Mock\",\n    \"org.mockito.MockSettings\",\n    \"org.mockito.MockingDetails\",\n    \"org.mockito.Mockito\",\n    \"org.mockito.MockitoAnnotations\",\n    \"org.mockito.MockitoDebugger\",\n    \"org.mockito.ReturnValues\",\n    \"org.mockito.Spy\",\n    \"org.mockito.configuration.AnnotationEngine\",\n    \"org.mockito.configuration.DefaultMockitoConfiguration\",\n    \"org.mockito.configuration.",
+      "observation_truncated": true,
+      "observation_chars": 18350,
+      "duration_seconds": 2.024
+    },
+    {
+      "turn": 3,
+      "hypothesis": "The class `org.mockito.internal.stubbing.defaultanswers.ReturnsDeepStubs` is responsible for creating deep stubs, but it fails to correctly handle generic type information. Specifically, when creating a nested mock, it uses the raw return type of the method without considering additional interfaces or generic bounds that the return type might require. This causes a ClassCastException when the code expects an object that implements these additional interfaces (e.g., Cloneable, Comparable) but receives a generic mock that does not.",
+      "prediction": "I expect the `ReturnsDeepStubs` class to have a method that creates mocks using only the raw class type, and that this method needs to be updated to use `GenericMetadataSupport` to correctly identify and include extra interfaces in the mock settings.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "org.mockito.internal.stubbing.defaultanswers.ReturnsDeepStubs"
+      },
+      "observation_summary": "probe already served this exact request \u2014 use a different probe or conclude",
+      "observation": "{\n  \"error\": \"probe already served this exact request \\u2014 use a different probe or conclude\"\n}",
+      "observation_truncated": false,
+      "observation_chars": 97,
+      "duration_seconds": 2.156
+    },
+    {
+      "turn": 4,
+      "hypothesis": "The `ReturnsDeepStubs` class fails to correctly account for generic type information when creating nested mocks. Specifically, it creates a mock using only the raw return type of the method, ignoring additional interfaces or generic bounds that the return type might require. This leads to a ClassCastException when the code expects an object that implements these additional interfaces (e.g., Cloneable, Comparable) but receives a generic mock that does not.",
+      "prediction": "The fix involves modifying `ReturnsDeepStubs` to extract the `GenericMetadataSupport` from the return type and using it to configure the mock with the necessary extra interfaces via `withSettings().extraInterfaces(...)`.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Algorithm/Method",
+      "duration_seconds": 3.22
+    }
+  ],
+  "llm_calls_used": 4,
+  "termination_reason": "concluded",
+  "loop_duration_seconds": 9.798,
+  "probe_misses": 2,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The failing tests consistently throw ClassCastException when deep-stubbing methods that return types with generic bounds or extra interfaces. The fix involves updating the mock creation logic to correctly identify and apply these extra interfaces.\", \"hypothesis\": \"The `ReturnsDeepStubs` class fails to correctly account for generic type information when creating nested mocks. Specifically, it creates a mock using only the raw return type of the method, ignoring additional interfaces or generic bounds that the return type might require.\", \"prediction\": \"The fix involves modifying `ReturnsDeepStubs` to extract the `GenericMetadataSupport` from the return type and using it to configure the mock with the necessary extra interfaces via `withSettings().extraInterfaces(...)`.\", \"experiment_rationale\": \"The evidence from the failing tests (ClassCastException) and the provided fix diff (which adds `GenericMetadataSupport` and `extraInterfaces` to the mock creation) confirms that the original implementation was missing the logic to handle generic type metadata during mock creation.\", \"reasoning_summary\": \"The bug is a failure to correctly implement the deep-stubbing algorithm for generic types. The code was only using the raw type, which is an incomplete implementation of the required behavior for generic return types. This is a procedural/algorithmic error in how the mock is constructed.\", \"evidence_used\": [\"failing_tests\", \"fix_diff_oracle\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Interface/O-O Messages\", \"why_not_primary\": \"While it involves an interface, the root cause is the internal logic of the deep-stubbing algorithm failing to account for the full type information, not a mismatch in the interface contract itself.\"}]}"
+}

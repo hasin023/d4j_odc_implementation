@@ -1,0 +1,76 @@
+{
+  "project_id": "Mockito",
+  "bug_id": 16,
+  "version_id": "16b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-09-14T06:01:30+00:00",
+  "odc_type": "Assignment/Initialization",
+  "family": "Control and Data Flow",
+  "confidence": 0.95,
+  "needs_human_review": false,
+  "observation_summary": "The failing test `shouldAllowStubbingMocksConfiguredWithRETURNS_MOCKS` fails with `MissingMethodInvocationException` when using `RETURNS_MOCKS`. The fix involves ensuring `mockingProgress.resetOngoingStubbing()` is called during mock creation, which is a state initialization/reset issue.",
+  "hypothesis": "The bug is caused by an incorrect initialization or state management of the mocking progress when creating a mock. Specifically, the `MockitoCore` class fails to reset the ongoing stubbing state when a new mock is created, which is required to prevent interference from previous mock interactions (like those triggered by `RETURNS_MOCKS`).",
+  "prediction": "The fix will involve adding a call to `mockingProgress.resetOngoingStubbing()` or ensuring that the `shouldResetOngoingStubbing` flag is correctly passed and handled during mock creation in `MockitoCore`.",
+  "experiment_rationale": "The provided fix diff shows that `MockitoCore` was updated to correctly call `mockingProgress.resetOngoingStubbing()` when `shouldResetOngoingStubbing` is true. This confirms the issue was the failure to properly reset the internal state (initialization/assignment of state) during the mock creation process.",
+  "reasoning_summary": "The bug is a classic state management issue where the internal `mockingProgress` is not correctly reset before a new mock is created. This leads to stale state interfering with subsequent `when()` calls. This is classified as Assignment/Initialization because it concerns the correct initialization/reset of the object's internal state.",
+  "evidence_used": [
+    "bug_report_description",
+    "fix_diff_oracle"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "While a check is added, the core issue is the failure to reset the state (initialization) of the mocking progress, not just a missing guard."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "post-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The `RETURNS_MOCKS` setting causes the mock to return a mock object when a method is called. When `when(mock.method())` is invoked, the `mock.method()` call triggers the `RETURNS_MOCKS` behavior, which creates a new mock and registers it in the `mockingProgress` state. This interferes with the `when()` call's ability to register the actual method invocation for stubbing, leading to the `MissingMethodInvocationException`. The fix involves ensuring that `mockingProgress.resetOngoingStubbing()` is called correctly when creating mocks to clear any stale state.",
+      "prediction": "I expect to see that `mockingProgress.resetOngoingStubbing()` is not being called or is being called incorrectly when `RETURNS_MOCKS` is used, causing the `mockingProgress` to be in an inconsistent state when `when()` is called.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "org.mockito.internal.MockitoCore"
+      },
+      "observation_summary": "no snippet matches 'org.mockito.internal.MockitoCore'",
+      "observation": "{\n  \"error\": \"no snippet matches 'org.mockito.internal.MockitoCore'\",\n  \"available\": [\n    \"org.mockitousage.bugs.StubbingMocksThatAreConfiguredToReturnMocksTest\"\n  ]\n}",
+      "observation_truncated": false,
+      "observation_chars": 168,
+      "duration_seconds": 2.131
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The bug is caused by an incorrect initialization or state management of the mocking progress when creating a mock. Specifically, the `MockitoCore` class fails to reset the ongoing stubbing state when a new mock is created, which is required to prevent interference from previous mock interactions (like those triggered by `RETURNS_MOCKS`). This is an Assignment/Initialization issue because the state of the `mockingProgress` is not correctly initialized/reset for the new mock creation context.",
+      "prediction": "The fix will involve adding a call to `mockingProgress.resetOngoingStubbing()` or ensuring that the `shouldResetOngoingStubbing` flag is correctly passed and handled during mock creation in `MockitoCore`.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Assignment/Initialization",
+      "duration_seconds": 4.372
+    }
+  ],
+  "llm_calls_used": 2,
+  "termination_reason": "concluded",
+  "loop_duration_seconds": 6.502,
+  "probe_misses": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Assignment/Initialization\", \"family\": \"Control and Data Flow\", \"confidence\": 0.95, \"needs_human_review\": false, \"observation_summary\": \"The failing test `shouldAllowStubbingMocksConfiguredWithRETURNS_MOCKS` fails with `MissingMethodInvocationException` when using `RETURNS_MOCKS`. The fix involves ensuring `mockingProgress.resetOngoingStubbing()` is called during mock creation, which is a state initialization/reset issue.\", \"hypothesis\": \"The bug is caused by an incorrect initialization or state management of the mocking progress when creating a mock. Specifically, the `MockitoCore` class fails to reset the ongoing stubbing state when a new mock is created, which is required to prevent interference from previous mock interactions (like those triggered by `RETURNS_MOCKS`).\", \"prediction\": \"The fix will involve adding a call to `mockingProgress.resetOngoingStubbing()` or ensuring that the `shouldResetOngoingStubbing` flag is correctly passed and handled during mock creation in `MockitoCore`.\", \"experiment_rationale\": \"The provided fix diff shows that `MockitoCore` was updated to correctly call `mockingProgress.resetOngoingStubbing()` when `shouldResetOngoingStubbing` is true. This confirms the issue was the failure to properly reset the internal state (initialization/assignment of state) during the mock creation process.\", \"reasoning_summary\": \"The bug is a classic state management issue where the internal `mockingProgress` is not correctly reset before a new mock is created. This leads to stale state interfering with subsequent `when()` calls. This is classified as Assignment/Initialization because it concerns the correct initialization/reset of the object's internal state.\", \"evidence_used\": [\"bug_report_description\", \"fix_diff_oracle\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Checking\", \"why_not_primary\": \"While a check is added, the core issue is the failure to reset the state (initialization) of the mocking progress, not just a missing guard.\"}]}"
+}
