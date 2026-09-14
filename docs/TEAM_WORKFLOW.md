@@ -252,6 +252,29 @@ territory, freeing the rest for even splits) requires briefly restarting process
 zero data loss — but wasn't done here since the live run wasn't to be interrupted. Worth doing if this
 table needs a fourth process later.
 
+#### Handing off mid-run to another machine (e.g. neither of the two local processes above finishes tonight)
+
+**Resuming needs no calculation at all.** `study-collect` checkpoints every bug and `skip_existing`
+(default on) skips anything with a `context.json` already on disk. Stop either process (Ctrl+C, safe),
+commit/push `artifacts_v2` (§5 Path A), and whoever picks it up just reruns the *same command with the
+same manifest* — it resumes from exactly where it was left, no new manifest needed:
+```bash
+# process 1's lane, resumes automatically
+python -m d4j_odc_pipeline study-collect --manifest .dist/study/manifest_closure174_1to99.json --artifacts-root .dist/study/artifacts_v2 --work-root .dist/study/work_v2
+# process 2's lane, resumes automatically
+python -m d4j_odc_pipeline study-collect --manifest .dist/study/manifest_closure174_from100.json --artifacts-root .dist/study/artifacts_v2 --work-root .dist/study/work_v2
+```
+`manifest_closure174_1to99.json` is the explicit 1-99 slice of the full manifest — use this one for
+handoff instead of the unbounded `manifest_closure174.json`, so whoever picks it up has an unambiguous
+lane (process 1 was never actually going to reach 100 before being stopped, this just makes that
+boundary explicit in the manifest itself rather than relying on "someone stopped it in time"). Two
+people can run these two commands on two different machines in parallel with zero coordination beyond
+sharing the same `artifacts_v2` (via git) — the ranges don't overlap.
+
+If a machine has spare capacity to run a third worker on top of one of those two, that's what
+`manifest_closure174_85to99.json` (§ above, bugs 85-99) is for — but that's an extra-throughput
+optimization, not required for the handoff itself.
+
 ### Classifier — turns contexts into labels
 
 **Needs:** an LLM API key. **Nothing else.** No Defects4J, no Java, no checkouts. If you're picking
