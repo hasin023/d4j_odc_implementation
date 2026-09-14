@@ -134,7 +134,11 @@ def collect_bug_context(
         if production_classes:
             instrument_file = output_path.parent / "instrument_classes.txt"
             ensure_parent(instrument_file)
-            instrument_file.write_text("\n".join(sorted(production_classes)), encoding="utf-8")
+            # newline="\n" avoids Windows text-mode CRLF translation — Defects4J's Perl
+            # reader strips only \n, so a stray \r corrupts every class name and Cobertura
+            # silently emits an empty report (exit 25, masked by the retry-without-instrument
+            # fallback below).
+            instrument_file.write_text("\n".join(sorted(production_classes)), encoding="utf-8", newline="\n")
 
             coverage_by_class: dict[str, CoverageClass] = {}
             trigger_tests = list(dict.fromkeys(f.test_name for f in failures))
