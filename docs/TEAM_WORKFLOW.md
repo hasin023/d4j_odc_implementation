@@ -59,8 +59,10 @@ usable (see `docs/study_execution_log.md` for why the old, coverage-empty corpus
 `DEFECTS4J_CMD`, a wrong `DEFECTS4J_PATH_STYLE`, or a silently-failing checkout cleanup in under a
 few minutes instead of after two hours:
 
-```bash
-source .venv/bin/activate
+```powershell
+# Windows (PowerShell) — this repo's venv is .venv\Scripts\, there is no .venv/bin
+.venv\Scripts\Activate.ps1
+# Git Bash on the same machine: source .venv/Scripts/activate
 
 python -m d4j_odc_pipeline collect --project Lang --bug 1                        # prefix mode
 python -m d4j_odc_pipeline collect --project Lang --bug 1 --include-fix-diff     # postfix mode
@@ -81,11 +83,8 @@ disk fills over the course of a multi-hour run with no error, just increasingly 
 Start the first real manifest, but check in after the first couple of bugs instead of leaving it
 unattended immediately:
 
-```bash
-python -m d4j_odc_pipeline study-collect \
-  --manifest .dist/study/manifest_chart26.json \
-  --artifacts-root .dist/study/artifacts_v2 \
-  --work-root .dist/study/work_v2
+```powershell
+python -m d4j_odc_pipeline study-collect --manifest .dist/study/manifest_chart26.json --artifacts-root .dist/study/artifacts_v2 --work-root .dist/study/work_v2
 ```
 
 After the first 1–2 bugs finish (or Ctrl+C once they do — it's safe, it checkpoints), run this in
@@ -219,20 +218,14 @@ arithmetic left to do and no risk of two lanes touching the same checkout.
 
 (174 entries span ids 1-176 — Closure 63 and 93 are deprecated and absent from the manifest.)
 
-```bash
+One line per lane — no continuations, so these paste unchanged into PowerShell, cmd, or Git Bash:
+
+```powershell
 # lane 1 — run on machine A
-python -m d4j_odc_pipeline study-collect \
-  --manifest .dist/study/manifest_closure174_remaining_lane1.json \
-  --artifacts-root .dist/study/artifacts_v2 \
-  --work-root .dist/study/work_v2 \
-  --summary-output .dist/study/summary.collect.lane1.json
+python -m d4j_odc_pipeline study-collect --manifest .dist/study/manifest_closure174_remaining_lane1.json --artifacts-root .dist/study/artifacts_v2 --work-root .dist/study/work_v2 --summary-output .dist/study/summary.collect.lane1.json
 
 # lane 2 — run on machine B
-python -m d4j_odc_pipeline study-collect \
-  --manifest .dist/study/manifest_closure174_remaining_lane2.json \
-  --artifacts-root .dist/study/artifacts_v2 \
-  --work-root .dist/study/work_v2 \
-  --summary-output .dist/study/summary.collect.lane2.json
+python -m d4j_odc_pipeline study-collect --manifest .dist/study/manifest_closure174_remaining_lane2.json --artifacts-root .dist/study/artifacts_v2 --work-root .dist/study/work_v2 --summary-output .dist/study/summary.collect.lane2.json
 ```
 
 Lane 2 starts on bug 127, whose prefix context already exists — `skip_existing` is per evidence mode,
@@ -258,31 +251,20 @@ python scripts/sweep_work_v2.py
 
 **Adding a third machine, or if this table has gone stale:** regenerate the lanes from the live corpus
 rather than guessing a range. The splitter re-reads what is actually on disk every time:
-```bash
-python scripts/split_manifest.py --manifest .dist/study/manifest_closure174.json \
-  --artifacts-root .dist/study/artifacts_v2 --workers 3 \
-  --out-prefix manifest_closure174_remaining_lane
+```powershell
+python scripts/split_manifest.py --manifest .dist/study/manifest_closure174.json --artifacts-root .dist/study/artifacts_v2 --workers 3 --out-prefix manifest_closure174_remaining_lane
 ```
 Stop every running lane first — a lane started before the regeneration still owns its old range.
 
-Check the true frontier at any time:
-```bash
-python -c "
-import os, re
-def real_done(mode_dir, mode):
-    done=[]
-    pat=re.compile(rf'^Closure_(\d+)_{mode}\$')
-    for name in os.listdir(mode_dir):
-        m=pat.match(name)
-        if m and os.path.isfile(os.path.join(mode_dir,name,'context.json')): done.append(int(m.group(1)))
-    return sorted(done)
-pre=real_done('.dist/study/artifacts_v2/prefix','prefix'); post=real_done('.dist/study/artifacts_v2/postfix','postfix')
-both=sorted(set(pre)&set(post))
-print('fully collected:', len(both))
-print('low-range frontier:', max([b for b in both if b<100], default=0))
-print('high-range frontier:', max(both, default=0))
-"
+Check what is actually collected at any time — `check_contexts.py` reports per bug AND per
+evidence mode, which is what you need here (bug 127 is missing only its postfix):
+
+```powershell
+python scripts/check_contexts.py .dist/study/manifest_closure174.json .dist/study/artifacts_v2
 ```
+
+It prints `usable` (contexts present and collected on/after 2026-08-10), `MISSING`, and `STALE`.
+`usable: 147` = 74 prefix + 73 postfix, i.e. the 73 fully-paired bugs plus Closure 127's prefix.
 
 The older slice manifests (`manifest_closure174_1to99.json`, `_from100.json`, `_70to99.json`,
 `_85to99.json`, `_150to174.json`) predate the shutdown and are **not** remaining-only — they re-walk
@@ -310,12 +292,8 @@ without Defects4J — which is exactly the confusing failure this gate exists to
 Then classify — a genuinely different command from the Collector's `study-collect`, not the same one
 with a flag dropped:
 
-```bash
-python -m d4j_odc_pipeline study-run \
-  --manifest .dist/study/manifest_lang61.json \
-  --artifacts-root .dist/study/artifacts_v2 \
-  --taxonomy open --strategy scientific \
-  --daily-call-budget 2000 --prompt-output
+```powershell
+python -m d4j_odc_pipeline study-run --manifest .dist/study/manifest_lang61.json --artifacts-root .dist/study/artifacts_v2 --taxonomy open --strategy scientific --daily-call-budget 2000 --prompt-output
 ```
 
 Since every context already exists (checked by the gate above), `study-run` reuses each one instead
@@ -336,9 +314,7 @@ Do **not** pass `--require-all-projects` — it is the one flag that calls Defec
 python scripts/reports/generate_combined_report.py
 
 # Per-condition drift analysis (RQ1/RQ3/RQ5), then LaTeX + CSV for the paper
-python -m d4j_odc_pipeline study-drift  --manifest .dist/study/manifest_lang61.json \
-                                        --artifacts-root .dist/study/artifacts_v2 \
-                                        --taxonomy open --strategy scientific
+python -m d4j_odc_pipeline study-drift --manifest .dist/study/manifest_lang61.json --artifacts-root .dist/study/artifacts_v2 --taxonomy open --strategy scientific
 python -m d4j_odc_pipeline study-export --analysis .dist/study/analysis_lang61_scientific-open.json
 ```
 
