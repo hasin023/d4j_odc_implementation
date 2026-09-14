@@ -1,0 +1,60 @@
+{
+  "project_id": "Math",
+  "bug_id": 81,
+  "version_id": "81b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-09-14T07:04:58+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The code throws an ArrayIndexOutOfBoundsException at line 1544 in EigenDecompositionImpl.java when accessing 'work[nn - 13]'. This occurs because the guard condition 'if (end - start > 2)' is too permissive for the subsequent array access logic.",
+  "hypothesis": "The guard condition 'if (end - start > 2)' is insufficient to protect the array access at line 1544, which requires a larger block size to safely access indices like 'nn-13'.",
+  "prediction": "Increasing the guard condition to 'if (end - start > 3)' will prevent the out-of-bounds access.",
+  "experiment_rationale": "The stack trace points directly to an array access that is guarded by a conditional check. The failure is a classic boundary condition error where the check does not match the requirements of the code block it guards.",
+  "reasoning_summary": "The bug is a classic 'Checking' defect. The logic for determining whether it is safe to perform a specific calculation (accessing indices relative to 'nn') is flawed because the guard condition is too loose. The fix involves tightening the predicate to ensure the array indices are within bounds.",
+  "evidence_used": [
+    "full_stack_trace",
+    "snippet"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the logic is part of an algorithm, the root cause is specifically the missing/incorrect validation of the block size before proceeding with the calculation."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "post-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The ArrayIndexOutOfBoundsException occurs because the code in computeShiftIncrement assumes that the block size (end - start) is large enough to access specific indices in the 'work' array (e.g., nn-13, nn-15). The condition 'if (end - start > 2)' is insufficient to guarantee these indices are valid, leading to an out-of-bounds access when the block size is exactly 3.",
+      "prediction": "If the condition 'if (end - start > 2)' is changed to 'if (end - start > 3)', the code will correctly avoid accessing the invalid indices when the block size is 3, preventing the ArrayIndexOutOfBoundsException.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Checking",
+      "duration_seconds": 3.665
+    }
+  ],
+  "llm_calls_used": 1,
+  "termination_reason": "concluded",
+  "loop_duration_seconds": 3.665,
+  "probe_misses": 0,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The code throws an ArrayIndexOutOfBoundsException at line 1544 in EigenDecompositionImpl.java when accessing 'work[nn - 13]'. This occurs because the guard condition 'if (end - start > 2)' is too permissive for the subsequent array access logic.\", \"hypothesis\": \"The guard condition 'if (end - start > 2)' is insufficient to protect the array access at line 1544, which requires a larger block size to safely access indices like 'nn-13'.\", \"prediction\": \"Increasing the guard condition to 'if (end - start > 3)' will prevent the out-of-bounds access.\", \"experiment_rationale\": \"The stack trace points directly to an array access that is guarded by a conditional check. The failure is a classic boundary condition error where the check does not match the requirements of the code block it guards.\", \"reasoning_summary\": \"The bug is a classic 'Checking' defect. The logic for determining whether it is safe to perform a specific calculation (accessing indices relative to 'nn') is flawed because the guard condition is too loose. The fix involves tightening the predicate to ensure the array indices are within bounds.\", \"evidence_used\": [\"full_stack_trace\", \"snippet\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"While the logic is part of an algorithm, the root cause is specifically the missing/incorrect validation of the block size before proceeding with the calculation.\"}]}"
+}

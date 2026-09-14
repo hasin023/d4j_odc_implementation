@@ -1,0 +1,78 @@
+{
+  "project_id": "Lang",
+  "bug_id": 42,
+  "version_id": "42b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-09-13T17:45:01+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The failing test 'testEscapeHtmlHighUnicode' demonstrates that high Unicode characters (outside BMP) are incorrectly escaped as two separate entities. The fix involves changing the iteration logic from 'char' based to 'codePoint' based.",
+  "hypothesis": "The 'Entities.escape' method uses 'char' iteration which is insufficient for Unicode characters outside the Basic Multilingual Plane (BMP). These characters are represented as surrogate pairs in Java, and the current implementation processes each surrogate individually, leading to incorrect HTML entity generation. The fix requires using 'Character.codePointAt' to correctly handle these characters.",
+  "prediction": "The 'Entities.escape' method will be found to iterate using 'str.charAt(i)' instead of 'Character.codePointAt(str, i)', confirming the algorithmic flaw in handling multi-char Unicode sequences.",
+  "experiment_rationale": "The bug report and the nature of the failure (surrogate pair splitting) point directly to an incorrect iteration strategy over the input string. The fix provided in the oracle confirms that the loop logic needed to be updated to use code points.",
+  "reasoning_summary": "The defect is a classic case of incorrect handling of Unicode surrogate pairs. The code iterates over the string using 'charAt', which treats surrogate pairs as two distinct characters. This is an algorithmic error in how the string is processed for escaping. It does not require a design change (Function/Class/Object) or a simple value assignment; it requires a change to the procedural logic of the loop.",
+  "evidence_used": [
+    "bug_report",
+    "fix_diff_oracle"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "While the fix involves a check for the code point range, the primary issue is the fundamental iteration strategy (the algorithm) used to traverse the string."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "post-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The bug is caused by the use of 'str.charAt(i)' in 'Entities.escape', which only retrieves 16-bit char values. For Unicode characters outside the Basic Multilingual Plane (BMP), Java represents them as surrogate pairs (two 16-bit chars). The current implementation treats each half of the surrogate pair as a separate character, resulting in two separate HTML entities instead of one. The fix requires using 'Character.codePointAt(str, i)' to correctly identify the full Unicode codepoint.",
+      "prediction": "The 'Entities.escape' method will show a loop iterating over 'str.length()' and calling 'str.charAt(i)', which fails to handle surrogate pairs correctly for characters above U+FFFF.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "org.apache.commons.lang.Entities"
+      },
+      "observation_summary": [
+        "snippets"
+      ],
+      "observation": "{\n  \"snippets\": [\n    {\n      \"class_name\": \"org.apache.commons.lang.Entities\",\n      \"reason\": \"Most-executed line in org.apache.commons.lang.Entities (touched by the trigger test, not in its stack trace)\",\n      \"file_path\": \"C:\\\\d4j-work\\\\study-work\\\\postfix\\\\Lang_42b\\\\src\\\\java\\\\org\\\\apache\\\\commons\\\\lang\\\\Entities.java\",\n      \"start_line\": 725,\n      \"end_line\": 749,\n      \"focus_line\": 737,\n      \"content\": \"    725:     // package scoped for testing\\n    726:     EntityMap map = new Entities.LookupEntityMap();\\n    727: \\n    728:     /**\\n    729:      * <p>\\n    730:      * Adds entities to this entity.\\n    731:      * </p>\\n    732:      * \\n    733:      * @param entityArray\\n    734:      *            array of entities to be added\\n    735:      */\\n    736:     public void addEntities(String[][] entityArray) {\\n>>  737:         for (int i = 0; i < entityArray.length; ++i) {\\n    738:             addEntity(entityArray[i][0], Integer.parseInt(entityArray[i][1]));\\n    739:         }\\n    740:     }\\n    741: \\n    742:     /**\\n    743:      * <p>\\n    744:      * Add an entity to this entity.\\n    745:      * </p>\\n    746:      * \\n    747:      * @param name\\n    748:      *            name of the entity\\n    749:      * @param value\"\n    }\n  ]\n}",
+      "observation_truncated": false,
+      "observation_chars": 1282,
+      "duration_seconds": 1.865
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The 'Entities.escape' method uses 'char' iteration which is insufficient for Unicode characters outside the Basic Multilingual Plane (BMP). These characters are represented as surrogate pairs in Java, and the current implementation processes each surrogate individually, leading to incorrect HTML entity generation. The fix requires using 'Character.codePointAt' to correctly handle these characters.",
+      "prediction": "The 'Entities.escape' method will be found to iterate using 'str.charAt(i)' instead of 'Character.codePointAt(str, i)', confirming the algorithmic flaw in handling multi-char Unicode sequences.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Algorithm/Method",
+      "duration_seconds": 3.737
+    }
+  ],
+  "llm_calls_used": 2,
+  "termination_reason": "concluded",
+  "loop_duration_seconds": 5.602,
+  "probe_misses": 0,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The failing test 'testEscapeHtmlHighUnicode' demonstrates that high Unicode characters (outside BMP) are incorrectly escaped as two separate entities. The fix involves changing the iteration logic from 'char' based to 'codePoint' based.\", \"hypothesis\": \"The 'Entities.escape' method uses 'char' iteration which is insufficient for Unicode characters outside the Basic Multilingual Plane (BMP). These characters are represented as surrogate pairs in Java, and the current implementation processes each surrogate individually, leading to incorrect HTML entity generation. The fix requires using 'Character.codePointAt' to correctly handle these characters.\", \"prediction\": \"The 'Entities.escape' method will be found to iterate using 'str.charAt(i)' instead of 'Character.codePointAt(str, i)', confirming the algorithmic flaw in handling multi-char Unicode sequences.\", \"experiment_rationale\": \"The bug report and the nature of the failure (surrogate pair splitting) point directly to an incorrect iteration strategy over the input string. The fix provided in the oracle confirms that the loop logic needed to be updated to use code points.\", \"reasoning_summary\": \"The defect is a classic case of incorrect handling of Unicode surrogate pairs. The code iterates over the string using 'charAt', which treats surrogate pairs as two distinct characters. This is an algorithmic error in how the string is processed for escaping. It does not require a design change (Function/Class/Object) or a simple value assignment; it requires a change to the procedural logic of the loop.\", \"evidence_used\": [\"bug_report\", \"fix_diff_oracle\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Checking\", \"why_not_primary\": \"While the fix involves a check for the code point range, the primary issue is the fundamental iteration strategy (the algorithm) used to traverse the string.\"}]}"
+}

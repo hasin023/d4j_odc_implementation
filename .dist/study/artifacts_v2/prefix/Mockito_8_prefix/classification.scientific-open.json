@@ -1,0 +1,94 @@
+{
+  "project_id": "Mockito",
+  "bug_id": 8,
+  "version_id": "8b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-09-14T05:58:53+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The bug report and stack trace confirm a StackOverflowError occurring in `GenericMetadataSupport.getActualTypeArgumentFor` when handling self-referential generic types (e.g., T extends GenericsSelfReference<T>).",
+  "hypothesis": "The implementation of `getActualTypeArgumentFor` lacks a cycle detection mechanism, causing infinite recursion when encountering self-referential generic types.",
+  "prediction": "The code will show a recursive call chain in `getActualTypeArgumentFor` that does not track visited types or depth, leading to infinite recursion.",
+  "experiment_rationale": "The stack trace provided in the bug report explicitly points to `GenericMetadataSupport.getActualTypeArgumentFor` calling itself repeatedly. This is a classic algorithmic flaw where the termination condition for a recursive search is missing or insufficient for cyclic data structures.",
+  "reasoning_summary": "The defect is a failure to handle cyclic dependencies in generic type resolution. This is an algorithmic issue (incorrect recursion strategy) rather than a missing check (Checking) or a wrong value (Assignment/Initialization).",
+  "evidence_used": [
+    "bug_report",
+    "stack_trace_excerpt"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "While a check is missing, the core issue is the recursive algorithm's inability to handle the structure, which is better classified as an algorithmic flaw."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The StackOverflowError in GenericMetadataSupport is caused by an infinite recursion during the resolution of generic type arguments when a type variable has itself as an upper bound (e.g., T extends GenericsSelfReference<T>). The implementation of getActualTypeArgumentFor likely lacks a mechanism to track visited types or detect cycles in the generic type hierarchy.",
+      "prediction": "The source code for org.mockito.internal.util.reflection.GenericMetadataSupport will show a recursive method call in getActualTypeArgumentFor that does not check if the current type variable has already been processed in the current resolution chain.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "GenericMetadataSupport"
+      },
+      "observation_summary": [
+        "snippets"
+      ],
+      "observation": "{\n  \"snippets\": [\n    {\n      \"class_name\": \"org.mockito.internal.util.reflection.GenericMetadataSupportTest\",\n      \"reason\": \"Test source: org.mockito.internal.util.reflection.GenericMetadataSupportTest::typeVariable_of_self_type (shows expected behavior)\",\n      \"file_path\": \"C:\\\\d4j-work\\\\study-work\\\\prefix\\\\Mockito_8b\\\\test\\\\org\\\\mockito\\\\internal\\\\util\\\\reflection\\\\GenericMetadataSupportTest.java\",\n      \"start_line\": 49,\n      \"end_line\": 57,\n      \"focus_line\": null,\n      \"content\": \"    49: \\n    50:     @Test\\n    51:     public void typeVariable_of_self_type() {\\n    52:         GenericMetadataSupport genericMetadata = inferFrom(GenericsSelfReference.class).resolveGenericReturnType(firstNamedMethod(\\\"self\\\", GenericsSelfReference.class));\\n    53: \\n    54:         assertThat(genericMetadata.rawType()).isEqualTo(GenericsSelfReference.class);\\n    55:     }\\n    56: \\n    57:     @Test\"\n    }\n  ]\n}",
+      "observation_truncated": false,
+      "observation_chars": 922,
+      "duration_seconds": 3.221
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The StackOverflowError is caused by an infinite recursion in the `GenericMetadataSupport` class when resolving generic types that reference themselves. The implementation of `getActualTypeArgumentFor` lacks a cycle detection mechanism, causing it to repeatedly traverse the same type variables in a self-referential generic hierarchy.",
+      "prediction": "The `GenericMetadataSupport` class will contain a method `getActualTypeArgumentFor` that recursively calls itself without tracking visited types, leading to the observed stack overflow.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "GenericMetadataSupport"
+      },
+      "observation_summary": "probe already served this exact request \u2014 use a different probe or conclude",
+      "observation": "{\n  \"error\": \"probe already served this exact request \\u2014 use a different probe or conclude\"\n}",
+      "observation_truncated": false,
+      "observation_chars": 97,
+      "duration_seconds": 10.705
+    },
+    {
+      "turn": 3,
+      "hypothesis": "The StackOverflowError is caused by an infinite recursion in the `GenericMetadataSupport` class when resolving generic types that reference themselves. The implementation of `getActualTypeArgumentFor` lacks a cycle detection mechanism, causing it to repeatedly traverse the same type variables in a self-referential generic hierarchy.",
+      "prediction": "The `GenericMetadataSupport` class will contain a method `getActualTypeArgumentFor` that recursively calls itself without tracking visited types, leading to the observed stack overflow.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Algorithm/Method",
+      "duration_seconds": 5.303
+    }
+  ],
+  "llm_calls_used": 3,
+  "termination_reason": "concluded",
+  "loop_duration_seconds": 19.23,
+  "probe_misses": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"confidence\": 0.9, \"needs_human_review\": false, \"observation_summary\": \"The bug report and stack trace confirm a StackOverflowError occurring in `GenericMetadataSupport.getActualTypeArgumentFor` when handling self-referential generic types (e.g., T extends GenericsSelfReference<T>).\", \"hypothesis\": \"The implementation of `getActualTypeArgumentFor` lacks a cycle detection mechanism, causing infinite recursion when encountering self-referential generic types.\", \"prediction\": \"The code will show a recursive call chain in `getActualTypeArgumentFor` that does not track visited types or depth, leading to infinite recursion.\", \"experiment_rationale\": \"The stack trace provided in the bug report explicitly points to `GenericMetadataSupport.getActualTypeArgumentFor` calling itself repeatedly. This is a classic algorithmic flaw where the termination condition for a recursive search is missing or insufficient for cyclic data structures.\", \"reasoning_summary\": \"The defect is a failure to handle cyclic dependencies in generic type resolution. This is an algorithmic issue (incorrect recursion strategy) rather than a missing check (Checking) or a wrong value (Assignment/Initialization).\", \"evidence_used\": [\"bug_report\", \"stack_trace_excerpt\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Checking\", \"why_not_primary\": \"While a check is missing, the core issue is the recursive algorithm's inability to handle the structure, which is better classified as an algorithmic flaw.\"}]}"
+}

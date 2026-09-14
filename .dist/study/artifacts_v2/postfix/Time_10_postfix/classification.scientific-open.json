@@ -1,0 +1,62 @@
+{
+  "project_id": "Time",
+  "bug_id": 10,
+  "version_id": "10b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-09-14T05:34:06+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The system throws an IllegalFieldValueException when calculating the difference between partials involving February 29th because the internal calculation uses 1970 (a non-leap year) as the reference year, causing a boundary violation.",
+  "hypothesis": "The bug occurs because BaseSingleFieldPeriod.between uses 0L (1970-01-01) as the base instant for calculating differences between partials. Since 1970 is not a leap year, the chronology enforces a maximum of 28 days for February. When calculating the difference between a MonthDay containing February 29th and another date, the system attempts to set the date to 1970-02-29, which triggers an IllegalFieldValueException. Using a leap year (like 1972) as the base instant allows February 29th to be a valid date, preventing the exception.",
+  "prediction": "The code in BaseSingleFieldPeriod.between will show that it uses 0L as the base instant for chrono.set(start, 0L) and chrono.set(end, 0L), which forces the calculation into the non-leap year 1970.",
+  "experiment_rationale": "The stack trace and snippet confirm that the exception is thrown during a 'set' operation on a date field, specifically when validating bounds. The use of 0L as a base instant in a date-time calculation is a classic 'Checking' error where the validation logic (bounds check) is correct, but the input data (the base year) is invalid for the specific date being processed (Feb 29).",
+  "reasoning_summary": "The bug is a failure to validate the suitability of the reference year (1970) for the input data (MonthDay containing Feb 29). The fix involves changing the reference year to a leap year, which is a correction of the logic used to prepare the data for the calculation. This falls under 'Checking' because the failure is a direct result of the boundary check in FieldUtils.verifyValueBounds failing due to an inappropriate reference point.",
+  "evidence_used": [
+    "bug_report_description",
+    "snippet_BaseSingleFieldPeriod",
+    "snippet_FieldUtils",
+    "fix_diff_oracle"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Assignment/Initialization",
+      "why_not_primary": "While the fix involves changing an initialized value (0L to START_1972), the root cause is that the code failed to account for the leap-year constraint in the validation logic, making it a Checking issue."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "post-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The bug occurs because BaseSingleFieldPeriod.between uses 0L (1970-01-01) as the base instant for calculating differences between partials. Since 1970 is not a leap year, the chronology enforces a maximum of 28 days for February. When calculating the difference between a MonthDay containing February 29th and another date, the system attempts to set the date to 1970-02-29, which triggers an IllegalFieldValueException. Using a leap year (like 1972) as the base instant allows February 29th to be a valid date, preventing the exception.",
+      "prediction": "The code in BaseSingleFieldPeriod.between will show that it uses 0L as the base instant for chrono.set(start, 0L) and chrono.set(end, 0L), which forces the calculation into the non-leap year 1970.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Checking",
+      "duration_seconds": 4.028
+    }
+  ],
+  "llm_calls_used": 1,
+  "termination_reason": "concluded",
+  "loop_duration_seconds": 4.029,
+  "probe_misses": 0,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The system throws an IllegalFieldValueException when calculating the difference between partials involving February 29th because the internal calculation uses 1970 (a non-leap year) as the reference year, causing a boundary violation.\", \"hypothesis\": \"The bug occurs because BaseSingleFieldPeriod.between uses 0L (1970-01-01) as the base instant for calculating differences between partials. Since 1970 is not a leap year, the chronology enforces a maximum of 28 days for February. When calculating the difference between a MonthDay containing February 29th and another date, the system attempts to set the date to 1970-02-29, which triggers an IllegalFieldValueException. Using a leap year (like 1972) as the base instant allows February 29th to be a valid date, preventing the exception.\", \"prediction\": \"The code in BaseSingleFieldPeriod.between will show that it uses 0L as the base instant for chrono.set(start, 0L) and chrono.set(end, 0L), which forces the calculation into the non-leap year 1970.\", \"experiment_rationale\": \"The stack trace and snippet confirm that the exception is thrown during a 'set' operation on a date field, specifically when validating bounds. The use of 0L as a base instant in a date-time calculation is a classic 'Checking' error where the validation logic (bounds check) is correct, but the input data (the base year) is invalid for the specific date being processed (Feb 29).\", \"reasoning_summary\": \"The bug is a failure to validate the suitability of the reference year (1970) for the input data (MonthDay containing Feb 29). The fix involves changing the reference year to a leap year, which is a correction of the logic used to prepare the data for the calculation. This falls under 'Checking' because the failure is a direct result of the boundary check in FieldUtils.verifyValueBounds failing due to an inappropriate reference point.\", \"evidence_used\": [\"bug_report_description\", \"snippet_BaseSingleFieldPeriod\", \"snippet_FieldUtils\", \"fix_diff_oracle\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Assignment/Initialization\", \"why_not_primary\": \"While the fix involves changing an initialized value (0L to START_1972), the root cause is that the code failed to account for the leap-year constraint in the validation logic, making it a Checking issue.\"}]}"
+}

@@ -1,0 +1,52 @@
+{
+  "project_id": "Math",
+  "bug_id": 78,
+  "version_id": "78b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-09-14T07:26:18+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The ODE event solver fails with an IllegalArgumentException because it expects function values at the endpoints of an interval to have different signs, but the interval provided by the event state logic contains endpoints where the function values have the same sign.",
+  "hypothesis": "",
+  "prediction": "",
+  "experiment_rationale": "",
+  "reasoning_summary": "The root cause is that the solver's bracketing logic (which requires opposite signs) is being invoked on an interval that does not actually bracket a root due to floating-point inaccuracies or step truncation. The fix requires adding a check to validate the bracketing condition or handle cases where the interval is too small or invalid before calling the solver, which is a classic 'Checking' defect (missing/incorrect guard).",
+  "evidence_used": [
+    "org.apache.commons.math.MathRuntimeException$4: function values at endpoints do not have different signs.",
+    "org.apache.commons.math.analysis.solvers.BrentSolver.solve(BrentSolver.java:178)",
+    "org.apache.commons.math.ode.events.EventState.evaluateStep(EventState.java:218)",
+    "The bug report states: 'If the solver for the first event converged to a value slightly before 90.0... then the switch will not be detected because g(89.9999999) and g(153.0) are both negative.'"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the solver is an algorithm, the failure is specifically due to the lack of a guard or validation check for the input interval before invoking the solver's core logic."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "termination_reason": null,
+  "loop_duration_seconds": null,
+  "probe_misses": 0,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The ODE event solver fails with an IllegalArgumentException because it expects function values at the endpoints of an interval to have different signs, but the interval provided by the event state logic contains endpoints where the function values have the same sign.\",\n  \"reasoning_summary\": \"The root cause is that the solver's bracketing logic (which requires opposite signs) is being invoked on an interval that does not actually bracket a root due to floating-point inaccuracies or step truncation. The fix requires adding a check to validate the bracketing condition or handle cases where the interval is too small or invalid before calling the solver, which is a classic 'Checking' defect (missing/incorrect guard).\",\n  \"evidence_used\": [\n    \"org.apache.commons.math.MathRuntimeException$4: function values at endpoints do not have different signs.\",\n    \"org.apache.commons.math.analysis.solvers.BrentSolver.solve(BrentSolver.java:178)\",\n    \"org.apache.commons.math.ode.events.EventState.evaluateStep(EventState.java:218)\",\n    \"The bug report states: 'If the solver for the first event converged to a value slightly before 90.0... then the switch will not be detected because g(89.9999999) and g(153.0) are both negative.'\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the solver is an algorithm, the failure is specifically due to the lack of a guard or validation check for the input interval before invoking the solver's core logic.\"\n    }\n  ]\n}"
+}

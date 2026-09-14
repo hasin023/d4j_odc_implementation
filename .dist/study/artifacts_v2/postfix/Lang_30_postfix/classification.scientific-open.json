@@ -1,0 +1,78 @@
+{
+  "project_id": "Lang",
+  "bug_id": 30,
+  "version_id": "30b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-09-13T17:42:49+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The StringUtils methods iterate through characters using a simple nested loop that does not account for Unicode supplementary characters (which are represented as surrogate pairs in Java). The code treats high surrogates as individual characters, leading to incorrect behavior when matching against supplementary characters.",
+  "hypothesis": "The StringUtils methods (like containsNone, containsAny, etc.) perform character-by-character iteration and comparison. When encountering a high surrogate character, the implementation fails to verify if it is part of a valid supplementary character pair (high surrogate followed by a low surrogate). This leads to incorrect results because the logic treats the high surrogate as an independent character, causing false matches or mismatches when supplementary characters are present.",
+  "prediction": "The implementation of these methods in StringUtils will show a simple nested loop structure that compares individual characters without checking for the existence of a low surrogate when a high surrogate is found.",
+  "experiment_rationale": "The provided snippet of StringUtils.containsNone confirms the simple nested loop structure (lines 1679-1682) that compares individual characters without any surrogate pair awareness. This confirms the algorithmic flaw where the procedure for matching characters is insufficient for the full range of Unicode characters.",
+  "reasoning_summary": "The bug is an algorithmic deficiency in how StringUtils handles Unicode supplementary characters. The current implementation iterates through the string and compares characters one by one. Because supplementary characters are represented as surrogate pairs (two 16-bit chars), the current algorithm incorrectly treats the high surrogate as a standalone character, leading to incorrect results. This is a classic case of an incorrect procedural implementation for the required data domain (Unicode), fitting the Algorithm/Method ODC type.",
+  "evidence_used": [
+    "StringUtils.java snippet showing the nested loop comparison",
+    "Bug report description detailing the failure with supplementary characters"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "While the fix involves adding checks, the core issue is the procedural logic (the algorithm) used to iterate and match characters, which is fundamentally flawed for the data type being processed."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "post-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The StringUtils methods (containsAny, containsNone, indexOfAny, etc.) iterate over characters in a string and compare them individually against search characters. When a high surrogate character is encountered, the current implementation treats it as a single character, failing to account for the fact that supplementary characters are represented as a pair of surrogate characters (high and low). This leads to incorrect matching logic when supplementary characters are present in the input.",
+      "prediction": "The code will show loops that process characters one by one without checking for the presence of a low surrogate following a high surrogate, causing false positives or negatives when supplementary characters are involved.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "StringUtils"
+      },
+      "observation_summary": [
+        "snippets"
+      ],
+      "observation": "{\n  \"snippets\": [\n    {\n      \"class_name\": \"org.apache.commons.lang3.StringUtilsEqualsIndexOfTest\",\n      \"reason\": \"Stack frame from org.apache.commons.lang3.StringUtilsEqualsIndexOfTest.testContainsNone_CharArrayWithSupplementaryChars\",\n      \"file_path\": \"C:\\\\d4j-work\\\\study-work\\\\postfix\\\\Lang_30b\\\\src\\\\test\\\\java\\\\org\\\\apache\\\\commons\\\\lang3\\\\StringUtilsEqualsIndexOfTest.java\",\n      \"start_line\": 315,\n      \"end_line\": 339,\n      \"focus_line\": 327,\n      \"content\": \"    315:     /**\\n    316:      * See http://java.sun.com/developer/technicalArticles/Intl/Supplementary/\\n    317:      */\\n    318:     public void testContainsNone_CharArrayWithSupplementaryChars() {\\n    319:         assertEquals(false, StringUtils.containsNone(CharU20000 + CharU20001, CharU20000.toCharArray()));\\n    320:         assertEquals(false, StringUtils.containsNone(CharU20000 + CharU20001, CharU20001.toCharArray()));\\n    321:         assertEquals(false, StringUtils.containsNone(CharU20000, CharU20000.toCharArray()));\\n    322:         // Sanity check:\\n    323:         assertEquals(-1, CharU20000.indexOf(CharU20001));\\n    324:         assertEquals(0, CharU20000.indexOf(CharU20001.charAt(0)));\\n    325:         assertEquals(-1, CharU20000.indexOf(CharU20001.charAt(1)));\\n    326:         // Test:\\n>>  327:         assertEquals(true, StringUtils.containsNone(CharU20000, CharU20001.toCharArray()));\\n    328:         assertEquals(true, StringUtils.containsNone(CharU20001, CharU20000.toCharArray()));\\n    329:     }\\n    330: \\n    331:     public void testContainsNone_String() {\\n    332:         String str1 = \\\"a\\\";\\n    333:         String str2 = \\\"b\\\";\\n    334:         String str3 = \\\"ab.\\\";\\n    335:         String chars1= \\\"b\\\";\\n    336:         String chars2= \\\".\\\";\\n    337:         String chars3= \\\"cd\\\";\\n    338:         assertEquals(true, StringUtils.containsNone(null, (String) null));\\n    339:         assertEquals(true, StringUtils.containsNone(\\\"\\\", (String) null));\"\n   ",
+      "observation_truncated": true,
+      "observation_chars": 14328,
+      "duration_seconds": 3.464
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The StringUtils methods (like containsNone, containsAny, etc.) perform character-by-character iteration and comparison. When encountering a high surrogate character, the implementation fails to verify if it is part of a valid supplementary character pair (high surrogate followed by a low surrogate). This leads to incorrect results because the logic treats the high surrogate as an independent character, causing false matches or mismatches when supplementary characters are present.",
+      "prediction": "The implementation of these methods in StringUtils will show a simple nested loop structure that compares individual characters without checking for the existence of a low surrogate when a high surrogate is found.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Algorithm/Method",
+      "duration_seconds": 3.512
+    }
+  ],
+  "llm_calls_used": 2,
+  "termination_reason": "concluded",
+  "loop_duration_seconds": 6.977,
+  "probe_misses": 0,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The StringUtils methods iterate through characters using a simple nested loop that does not account for Unicode supplementary characters (which are represented as surrogate pairs in Java). The code treats high surrogates as individual characters, leading to incorrect behavior when matching against supplementary characters.\", \"hypothesis\": \"The StringUtils methods (like containsNone, containsAny, etc.) perform character-by-character iteration and comparison. When encountering a high surrogate character, the implementation fails to verify if it is part of a valid supplementary character pair (high surrogate followed by a low surrogate). This leads to incorrect results because the logic treats the high surrogate as an independent character, causing false matches or mismatches when supplementary characters are present.\", \"prediction\": \"The implementation of these methods in StringUtils will show a simple nested loop structure that compares individual characters without checking for the existence of a low surrogate when a high surrogate is found.\", \"experiment_rationale\": \"The provided snippet of StringUtils.containsNone confirms the simple nested loop structure (lines 1679-1682) that compares individual characters without any surrogate pair awareness. This confirms the algorithmic flaw where the procedure for matching characters is insufficient for the full range of Unicode characters.\", \"reasoning_summary\": \"The bug is an algorithmic deficiency in how StringUtils handles Unicode supplementary characters. The current implementation iterates through the string and compares characters one by one. Because supplementary characters are represented as surrogate pairs (two 16-bit chars), the current algorithm incorrectly treats the high surrogate as a standalone character, leading to incorrect results. This is a classic case of an incorrect procedural implementation for the required data domain (Unicode), fitting the Algorithm/Method ODC type.\", \"evidence_used\": [\"StringUtils.java snippet showing the nested loop comparison\", \"Bug report description detailing the failure with supplementary characters\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Checking\", \"why_not_primary\": \"While the fix involves adding checks, the core issue is the procedural logic (the algorithm) used to iterate and match characters, which is fundamentally flawed for the data type being processed.\"}]}"
+}

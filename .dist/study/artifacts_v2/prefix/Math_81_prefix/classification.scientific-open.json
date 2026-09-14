@@ -1,0 +1,78 @@
+{
+  "project_id": "Math",
+  "bug_id": 81,
+  "version_id": "81b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-09-14T07:04:55+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The stack trace points to an ArrayIndexOutOfBoundsException at line 1544 of EigenDecompositionImpl.java, where 'work[nn - 13]' is accessed. The code lacks a guard to ensure 'nn' is large enough for this access, which is a validation error.",
+  "hypothesis": "The ArrayIndexOutOfBoundsException is caused by an incorrect index calculation in 'computeShiftIncrement'. Specifically, the code accesses 'work[nn - 13]' and 'work[nn - 15]' without verifying that 'nn' is large enough to accommodate these offsets. This is a classic boundary condition error where the algorithm assumes a minimum block size that is not guaranteed by the current state of the decomposition, leading to negative indices.",
+  "prediction": "The fix will involve adding a guard condition to check if 'nn' is sufficiently large before accessing these indices, or adjusting the loop/logic to handle smaller blocks correctly, which is a 'Checking' type defect.",
+  "experiment_rationale": "The evidence from the stack trace and source code snippet confirms that the code performs an array access based on a calculation ('nn - 13') without validating the bounds of 'nn' relative to the array size, which is a direct violation of a boundary check.",
+  "reasoning_summary": "The defect is a missing boundary check. The code assumes that the 'work' array has enough elements to support the index 'nn - 13', but for certain matrix sizes or decomposition states, this assumption is false. Adding a check to validate the index or the size of the block before access is the standard way to resolve this, fitting the 'Checking' ODC category.",
+  "evidence_used": [
+    "stack_trace_excerpt",
+    "production_code_snippets"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the logic is part of an algorithm, the specific failure is a missing boundary check (a guard) rather than an incorrect algorithmic step or strategy."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The ArrayIndexOutOfBoundsException occurs because the index calculation in computeShiftIncrement (specifically at line 1544: work[nn - 13] / work[nn - 15]) assumes that the 'work' array has sufficient elements relative to 'nn', but the current state of the decomposition (deflatedEnd, end) results in an 'nn' value that makes these indices negative.",
+      "prediction": "I expect to find that the indices (nn-13) and (nn-15) are being accessed without a guard check that ensures 'nn' is large enough to support these offsets, and that the logic for determining 'nn' or the loop bounds in 'goodStep' does not account for this specific matrix size or decomposition state.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "EigenDecompositionImpl"
+      },
+      "observation_summary": [
+        "snippets"
+      ],
+      "observation": "{\n  \"snippets\": [\n    {\n      \"class_name\": \"org.apache.commons.math.linear.EigenDecompositionImpl\",\n      \"reason\": \"Stack frame from org.apache.commons.math.linear.EigenDecompositionImpl.computeShiftIncrement\",\n      \"file_path\": \"C:\\\\d4j_work_v2\\\\prefix\\\\Math_81b\\\\src\\\\main\\\\java\\\\org\\\\apache\\\\commons\\\\math\\\\linear\\\\EigenDecompositionImpl.java\",\n      \"start_line\": 1532,\n      \"end_line\": 1556,\n      \"focus_line\": 1544,\n      \"content\": \"   1532:                 // compute contribution to norm squared from i > nn-2.\\n   1533:                 final int np = nn - 2 * pingPong;\\n   1534:                 double b1 = work[np - 2];\\n   1535:                 double b2 = work[np - 6];\\n   1536:                 final double gam = dN2;\\n   1537:                 if (work[np - 8] > b2 || work[np - 4] > b1) {\\n   1538:                     return;\\n   1539:                 }\\n   1540:                 double a2 = (work[np - 8] / b2) * (1 + work[np - 4] / b1);\\n   1541: \\n   1542:                 // approximate contribution to norm squared from i < nn-2.\\n   1543:                 if (end - start > 2) {\\n>> 1544:                     b2 = work[nn - 13] / work[nn - 15];\\n   1545:                     a2 = a2 + b2;\\n   1546:                     for (int i4 = nn - 17; i4 >= 4 * start + 2 + pingPong; i4 -= 4) {\\n   1547:                         if (b2 == 0.0) {\\n   1548:                             break;\\n   1549:                         }\\n   1550:                         b1 = b2;\\n   1551:                         if (work[i4]  >  work[i4 - 2]) {\\n   1552:                             return;\\n   1553:                         }\\n   1554:                         b2 = b2 * (work[i4] / work[i4 - 2]);\\n   1555:                         a2 = a2 + b2;\\n   1556:                         if (100 * Math.max(b2, b1) < a2 || cnst1 < a2)  {\"\n    },\n    {\n      \"class_name\": \"org.apache.commons.math.linear.EigenDecompositionImpl\",\n      \"reason\": \"Stack frame from org.apache.commons.math.linear.Eige",
+      "observation_truncated": true,
+      "observation_chars": 12643,
+      "duration_seconds": 3.289
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The ArrayIndexOutOfBoundsException is caused by an incorrect index calculation in 'computeShiftIncrement'. Specifically, the code accesses 'work[nn - 13]' and 'work[nn - 15]' without verifying that 'nn' is large enough to accommodate these offsets. This is a classic boundary condition error where the algorithm assumes a minimum block size that is not guaranteed by the current state of the decomposition, leading to negative indices.",
+      "prediction": "The fix will involve adding a guard condition to check if 'nn' is sufficiently large before accessing these indices, or adjusting the loop/logic to handle smaller blocks correctly, which is a 'Checking' type defect.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Checking",
+      "duration_seconds": 4.052
+    }
+  ],
+  "llm_calls_used": 2,
+  "termination_reason": "concluded",
+  "loop_duration_seconds": 7.342,
+  "probe_misses": 0,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The stack trace points to an ArrayIndexOutOfBoundsException at line 1544 of EigenDecompositionImpl.java, where 'work[nn - 13]' is accessed. The code lacks a guard to ensure 'nn' is large enough for this access, which is a validation error.\", \"hypothesis\": \"The ArrayIndexOutOfBoundsException is caused by an incorrect index calculation in 'computeShiftIncrement'. Specifically, the code accesses 'work[nn - 13]' and 'work[nn - 15]' without verifying that 'nn' is large enough to accommodate these offsets. This is a classic boundary condition error where the algorithm assumes a minimum block size that is not guaranteed by the current state of the decomposition, leading to negative indices.\", \"prediction\": \"The fix will involve adding a guard condition to check if 'nn' is sufficiently large before accessing these indices, or adjusting the loop/logic to handle smaller blocks correctly, which is a 'Checking' type defect.\", \"experiment_rationale\": \"The evidence from the stack trace and source code snippet confirms that the code performs an array access based on a calculation ('nn - 13') without validating the bounds of 'nn' relative to the array size, which is a direct violation of a boundary check.\", \"reasoning_summary\": \"The defect is a missing boundary check. The code assumes that the 'work' array has enough elements to support the index 'nn - 13', but for certain matrix sizes or decomposition states, this assumption is false. Adding a check to validate the index or the size of the block before access is the standard way to resolve this, fitting the 'Checking' ODC category.\", \"evidence_used\": [\"stack_trace_excerpt\", \"production_code_snippets\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"While the logic is part of an algorithm, the specific failure is a missing boundary check (a guard) rather than an incorrect algorithmic step or strategy.\"}]}"
+}

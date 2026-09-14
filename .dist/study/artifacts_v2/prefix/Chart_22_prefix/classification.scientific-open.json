@@ -1,0 +1,78 @@
+{
+  "project_id": "Chart",
+  "bug_id": 22,
+  "version_id": "22b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-09-14T05:15:34+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The KeyedObjects2D.removeColumn(Comparable) method iterates over all rows and calls rowData.removeValue(columnKey). The KeyedObjects.removeValue(Comparable) method throws an UnknownKeyException if the key is not present in that specific row. This causes the removal process to crash if any row is missing the column key, leaving the data structure in an inconsistent state.",
+  "hypothesis": "The removeColumn(Comparable) method in KeyedObjects2D iterates through all rows and calls rowData.removeValue(columnKey). However, if a row does not contain the columnKey, KeyedObjects.removeValue(Comparable) throws an UnknownKeyException, which terminates the entire removal process prematurely. This causes the column key to remain in the columnKeys list (or partially removed) and leaves the data structure in an inconsistent state, leading to subsequent failures.",
+  "prediction": "The implementation of KeyedObjects.removeValue(Comparable) will throw an UnknownKeyException if the key is not found in the specific row, and KeyedObjects2D.removeColumn(Comparable) does not handle this exception or check for the key's existence in each row before attempting removal.",
+  "experiment_rationale": "The code snippet for KeyedObjects2D.removeColumn shows it blindly calling rowData.removeValue(columnKey) inside a loop. The snippet for KeyedObjects.removeValue shows it throws an UnknownKeyException if the key is not found. This confirms the logic error: the code assumes the key exists in every row, which is not guaranteed.",
+  "reasoning_summary": "The defect is a missing check. The code should verify if the key exists in the row before calling removeValue, or handle the case where it doesn't exist, rather than allowing an exception to propagate and break the state of the data structure.",
+  "evidence_used": [
+    "org.jfree.data.KeyedObjects2D.removeColumn snippet",
+    "org.jfree.data.KeyedObjects.removeValue snippet"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the logic is flawed, the root cause is the lack of a guard/check for the key's existence in each row before attempting removal."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The KeyedObjects2D class fails to correctly manage its internal state when removing columns or rows, specifically because the removal logic in KeyedObjects2D.removeColumn(Comparable) or similar methods does not correctly synchronize the removal of keys with the underlying data structure, leading to inconsistent state where keys are removed but the data remains, or vice versa, causing subsequent lookups to fail with UnknownKeyException.",
+      "prediction": "I expect to find that the removeColumn method in KeyedObjects2D removes the column key from the columnKeys list but fails to correctly remove the corresponding data from all rows, or that the indexing logic is flawed when the data structure is modified.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "org.jfree.data.KeyedObjects2D"
+      },
+      "observation_summary": [
+        "snippets"
+      ],
+      "observation": "{\n  \"snippets\": [\n    {\n      \"class_name\": \"org.jfree.data.KeyedObjects2D\",\n      \"reason\": \"Stack frame from org.jfree.data.KeyedObjects2D.removeColumn\",\n      \"file_path\": \"C:\\\\d4j-work\\\\study-work\\\\prefix\\\\Chart_22b\\\\source\\\\org\\\\jfree\\\\data\\\\KeyedObjects2D.java\",\n      \"start_line\": 366,\n      \"end_line\": 390,\n      \"focus_line\": 378,\n      \"content\": \"    366:      * \\n    367:      * @see #removeRow(Comparable)\\n    368:      */\\n    369:     public void removeColumn(Comparable columnKey) {\\n    370:         int index = getColumnIndex(columnKey);\\n    371:         if (index < 0) {\\n    372:             throw new UnknownKeyException(\\\"Column key (\\\" + columnKey \\n    373:                     + \\\") not recognised.\\\");\\n    374:         }\\n    375:         Iterator iterator = this.rows.iterator();\\n    376:         while (iterator.hasNext()) {\\n    377:             KeyedObjects rowData = (KeyedObjects) iterator.next();\\n>>  378:                 rowData.removeValue(columnKey);\\n    379:         }\\n    380:         this.columnKeys.remove(columnKey);\\n    381:     }\\n    382: \\n    383:     /**\\n    384:      * Tests this object for equality with an arbitrary object.\\n    385:      *\\n    386:      * @param obj  the object to test (<code>null</code> permitted).\\n    387:      *\\n    388:      * @return A boolean.\\n    389:      */\\n    390:     public boolean equals(Object obj) {\"\n    },\n    {\n      \"class_name\": \"org.jfree.data.KeyedObjects2D\",\n      \"reason\": \"Stack frame from org.jfree.data.KeyedObjects2D.getObject\",\n      \"file_path\": \"C:\\\\d4j-work\\\\study-work\\\\prefix\\\\Chart_22b\\\\source\\\\org\\\\jfree\\\\data\\\\KeyedObjects2D.java\",\n      \"start_line\": 221,\n      \"end_line\": 245,\n      \"focus_line\": 233,\n      \"content\": \"    221:         int row = this.rowKeys.indexOf(rowKey);\\n    222:         if (row < 0) {\\n    223:             throw new UnknownKeyException(\\\"Row key (\\\" + rowKey \\n    224:                     + \\\") not recognised.\\\");\\n    225:         }\\n    22",
+      "observation_truncated": true,
+      "observation_chars": 6588,
+      "duration_seconds": 3.144
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The removeColumn(Comparable) method in KeyedObjects2D iterates through all rows and calls rowData.removeValue(columnKey). However, if a row does not contain the columnKey, KeyedObjects.removeValue(Comparable) throws an UnknownKeyException, which terminates the entire removal process prematurely. This causes the column key to remain in the columnKeys list (or partially removed) and leaves the data structure in an inconsistent state, leading to subsequent failures.",
+      "prediction": "The implementation of KeyedObjects.removeValue(Comparable) will throw an UnknownKeyException if the key is not found in the specific row, and KeyedObjects2D.removeColumn(Comparable) does not handle this exception or check for the key's existence in each row before attempting removal.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Checking",
+      "duration_seconds": 3.607
+    }
+  ],
+  "llm_calls_used": 2,
+  "termination_reason": "concluded",
+  "loop_duration_seconds": 6.751,
+  "probe_misses": 0,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The KeyedObjects2D.removeColumn(Comparable) method iterates over all rows and calls rowData.removeValue(columnKey). The KeyedObjects.removeValue(Comparable) method throws an UnknownKeyException if the key is not present in that specific row. This causes the removal process to crash if any row is missing the column key, leaving the data structure in an inconsistent state.\", \"hypothesis\": \"The removeColumn(Comparable) method in KeyedObjects2D iterates through all rows and calls rowData.removeValue(columnKey). However, if a row does not contain the columnKey, KeyedObjects.removeValue(Comparable) throws an UnknownKeyException, which terminates the entire removal process prematurely. This causes the column key to remain in the columnKeys list (or partially removed) and leaves the data structure in an inconsistent state, leading to subsequent failures.\", \"prediction\": \"The implementation of KeyedObjects.removeValue(Comparable) will throw an UnknownKeyException if the key is not found in the specific row, and KeyedObjects2D.removeColumn(Comparable) does not handle this exception or check for the key's existence in each row before attempting removal.\", \"experiment_rationale\": \"The code snippet for KeyedObjects2D.removeColumn shows it blindly calling rowData.removeValue(columnKey) inside a loop. The snippet for KeyedObjects.removeValue shows it throws an UnknownKeyException if the key is not found. This confirms the logic error: the code assumes the key exists in every row, which is not guaranteed.\", \"reasoning_summary\": \"The defect is a missing check. The code should verify if the key exists in the row before calling removeValue, or handle the case where it doesn't exist, rather than allowing an exception to propagate and break the state of the data structure.\", \"evidence_used\": [\"org.jfree.data.KeyedObjects2D.removeColumn snippet\", \"org.jfree.data.KeyedObjects.removeValue snippet\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"While the logic is flawed, the root cause is the lack of a guard/check for the key's existence in each row before attempting removal.\"}]}"
+}

@@ -1,0 +1,77 @@
+{
+  "project_id": "Mockito",
+  "bug_id": 14,
+  "version_id": "14b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-09-14T06:00:52+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The stack trace shows that the nested call 'mock.otherMethod()' inside 'verify(mockTwo).simpleMethod(mock.otherMethod())' is being intercepted and treated as an interaction on 'mock', leading to an assertion failure because the verification logic expects the call to be part of the argument resolution, not a separate interaction.",
+  "hypothesis": "The Mockito verification mechanism incorrectly treats a nested mock method call within a verify() statement as an actual invocation on the mock, rather than evaluating it as an argument matcher.",
+  "prediction": "The internal invocation recording logic fails to correctly handle nested mock calls during verification.",
+  "experiment_rationale": "The stack trace clearly points to the interception of 'otherMethod' during the execution of the 'verify' statement. This is a procedural error in how Mockito handles nested method calls within its DSL, which is a classic Algorithm/Method defect in the verification logic.",
+  "reasoning_summary": "The failure occurs because the nested call is intercepted by the Mockito proxy. The logic for 'verify' should ensure that nested calls are evaluated as values (or matchers) rather than being recorded as new interactions. This is a flaw in the procedural logic of the verification handler.",
+  "evidence_used": [
+    "full_stack_trace"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Interface/O-O Messages",
+      "why_not_primary": "While it involves an interface/proxy, the root cause is the internal logic of how the verification handler processes the call chain, which is algorithmic."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The verification process in Mockito fails when a mock method call is nested as an argument within another mock method call in the verify() statement, because the internal mock call is being recorded as an interaction instead of being evaluated as an argument matcher.",
+      "prediction": "The stack trace or code responsible for handling arguments in verify() will show that it incorrectly registers the nested mock call as an invocation on the mock object, rather than resolving it to its return value before verification.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "full_stack_trace",
+        "argument": "org.mockitousage.bugs.VerifyingWithAnExtraCallToADifferentMockTest"
+      },
+      "observation_summary": [
+        "traces"
+      ],
+      "observation": "{\n  \"traces\": [\n    {\n      \"test_name\": \"org.mockitousage.bugs.VerifyingWithAnExtraCallToADifferentMockTest::shouldAllowVerifyingWhenOtherMockCallIsInTheSameLine\",\n      \"headline\": \"junit.framework.AssertionFailedError:\",\n      \"stack_trace\": [\n        \"junit.framework.AssertionFailedError: \",\n        \"Wanted but not invoked:\",\n        \"mock.otherMethod();\",\n        \"-> at org.mockitousage.bugs.VerifyingWithAnExtraCallToADifferentMockTest.shouldAllowVerifyingWhenOtherMockCallIsInTheSameLine(VerifyingWithAnExtraCallToADifferentMockTest.java:29)\",\n        \"Actually, there were zero interactions with this mock.\",\n        \"\",\n        \"\\tat org.mockito.exceptions.Reporter.wantedButNotInvoked(Reporter.java:257)\",\n        \"\\tat org.mockito.internal.verification.checkers.MissingInvocationChecker.check(MissingInvocationChecker.java:41)\",\n        \"\\tat org.mockito.internal.verification.Times.verify(Times.java:35)\",\n        \"\\tat org.mockito.internal.MockHandler.handle(MockHandler.java:77)\",\n        \"\\tat org.mockito.internal.creation.MethodInterceptorFilter.intercept(MethodInterceptorFilter.java:47)\",\n        \"\\tat org.mockitousage.IMethods$$EnhancerByMockitoWithCGLIB$$e070360c.otherMethod(<generated>)\",\n        \"\\tat org.mockitousage.bugs.VerifyingWithAnExtraCallToADifferentMockTest.shouldAllowVerifyingWhenOtherMockCallIsInTheSameLine(VerifyingWithAnExtraCallToADifferentMockTest.java:29)\",\n        \"\\tat java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)\",\n        \"\\tat java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)\",\n        \"\\tat java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)\",\n        \"\\tat java.base/java.lang.reflect.Method.invoke(Method.java:566)\",\n        \"\\tat org.junit.runners.model.FrameworkMethod$1.runReflectiveCall(FrameworkMethod.java:50)\",\n        \"\\tat org.junit.internal.runners.model.ReflectiveCallable.run(ReflectiveCallable.",
+      "observation_truncated": true,
+      "observation_chars": 5159,
+      "duration_seconds": 8.532
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The Mockito verification mechanism incorrectly treats a nested mock method call within a verify() statement as an actual invocation on the mock, rather than evaluating it as an argument matcher. This happens because the internal state tracking for mock invocations is not correctly handling the nested call context during the verification phase.",
+      "prediction": "The code responsible for argument matching or invocation recording in Mockito (likely in MockHandler or related classes) lacks a mechanism to distinguish between a top-level verification call and a nested call used as an argument, causing the nested call to be recorded as an interaction.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Algorithm/Method",
+      "duration_seconds": 3.914
+    }
+  ],
+  "llm_calls_used": 2,
+  "termination_reason": "concluded",
+  "loop_duration_seconds": 12.447,
+  "probe_misses": 0,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"confidence\": 0.9, \"needs_human_review\": false, \"observation_summary\": \"The stack trace shows that the nested call 'mock.otherMethod()' inside 'verify(mockTwo).simpleMethod(mock.otherMethod())' is being intercepted and treated as an interaction on 'mock', leading to an assertion failure because the verification logic expects the call to be part of the argument resolution, not a separate interaction.\", \"hypothesis\": \"The Mockito verification mechanism incorrectly treats a nested mock method call within a verify() statement as an actual invocation on the mock, rather than evaluating it as an argument matcher.\", \"prediction\": \"The internal invocation recording logic fails to correctly handle nested mock calls during verification.\", \"experiment_rationale\": \"The stack trace clearly points to the interception of 'otherMethod' during the execution of the 'verify' statement. This is a procedural error in how Mockito handles nested method calls within its DSL, which is a classic Algorithm/Method defect in the verification logic.\", \"reasoning_summary\": \"The failure occurs because the nested call is intercepted by the Mockito proxy. The logic for 'verify' should ensure that nested calls are evaluated as values (or matchers) rather than being recorded as new interactions. This is a flaw in the procedural logic of the verification handler.\", \"evidence_used\": [\"full_stack_trace\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Interface/O-O Messages\", \"why_not_primary\": \"While it involves an interface/proxy, the root cause is the internal logic of how the verification handler processes the call chain, which is algorithmic.\"}]}"
+}

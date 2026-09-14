@@ -1,0 +1,78 @@
+{
+  "project_id": "Time",
+  "bug_id": 10,
+  "version_id": "10b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-09-14T05:34:02+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 0.95,
+  "needs_human_review": false,
+  "observation_summary": "The `BaseSingleFieldPeriod.between` method uses a fixed epoch (0L) to calculate the difference between partial dates. When the partial date is February 29th, the underlying chronology (defaulting to non-leap year 1970) rejects the value as invalid, causing an `IllegalFieldValueException`.",
+  "hypothesis": "The `BaseSingleFieldPeriod.between` method uses `chrono.set(start, 0L)` where `0L` represents the epoch (1970-01-01). Since 1970 is not a leap year, the `set` operation attempts to validate February 29th against a non-leap year chronology, causing the `IllegalFieldValueException`. The fix requires using a leap year (e.g., 2012) as the base for the `set` operation to ensure February 29th is considered valid.",
+  "prediction": "Changing the base year in `BaseSingleFieldPeriod.between` from `0L` (1970) to a year that supports leap days (like 2012) will resolve the `IllegalFieldValueException` for `MonthDay` objects containing February 29th.",
+  "experiment_rationale": "The stack trace and code snippet confirm that `BaseSingleFieldPeriod.between` uses a hardcoded `0L` (1970) as the base for `chrono.set`. This is a procedural error in the calculation logic where the choice of base year is inappropriate for the input data (leap-year-dependent partials).",
+  "reasoning_summary": "The bug is a classic case of an incorrect algorithmic assumption (that 1970 is a valid base for all date calculations). The fix is to change the base year to one that supports leap years, which is a local procedural change.",
+  "evidence_used": [
+    "stack_trace_excerpt",
+    "snippet:org.joda.time.base.BaseSingleFieldPeriod"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "While the exception is thrown by a check, the root cause is the incorrect choice of base year in the algorithm, not a missing or incorrect guard condition."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The `BaseSingleFieldPeriod.between` method uses a default chronology (often ISO) that assumes a non-leap year (e.g., 1970) when calculating the difference between `MonthDay` objects. When `MonthDay` contains February 29, the `set` operation attempts to apply this value to a year that does not support it, triggering an `IllegalFieldValueException` because the validation logic in `PreciseDurationDateTimeField` is too strict for partial dates that are inherently year-agnostic.",
+      "prediction": "The `BaseSingleFieldPeriod.between` method will show that it initializes the chronology without considering the leap year status of the input `MonthDay` objects, and the `set` method in `PreciseDurationDateTimeField` will be shown to enforce bounds based on a fixed year (likely 1970) rather than allowing for leap year flexibility.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "org.joda.time.base.BaseSingleFieldPeriod"
+      },
+      "observation_summary": [
+        "snippets"
+      ],
+      "observation": "{\n  \"snippets\": [\n    {\n      \"class_name\": \"org.joda.time.base.BaseSingleFieldPeriod\",\n      \"reason\": \"Stack frame from org.joda.time.base.BaseSingleFieldPeriod.between\",\n      \"file_path\": \"C:\\\\d4j-work\\\\study-work\\\\prefix\\\\Time_10b\\\\src\\\\main\\\\java\\\\org\\\\joda\\\\time\\\\base\\\\BaseSingleFieldPeriod.java\",\n      \"start_line\": 92,\n      \"end_line\": 116,\n      \"focus_line\": 104,\n      \"content\": \"     92:         if (start.size() != end.size()) {\\n     93:             throw new IllegalArgumentException(\\\"ReadablePartial objects must have the same set of fields\\\");\\n     94:         }\\n     95:         for (int i = 0, isize = start.size(); i < isize; i++) {\\n     96:             if (start.getFieldType(i) != end.getFieldType(i)) {\\n     97:                 throw new IllegalArgumentException(\\\"ReadablePartial objects must have the same set of fields\\\");\\n     98:             }\\n     99:         }\\n    100:         if (DateTimeUtils.isContiguous(start) == false) {\\n    101:             throw new IllegalArgumentException(\\\"ReadablePartial objects must be contiguous\\\");\\n    102:         }\\n    103:         Chronology chrono = DateTimeUtils.getChronology(start.getChronology()).withUTC();\\n>>  104:         int[] values = chrono.get(zeroInstance, chrono.set(start, 0L), chrono.set(end, 0L));\\n    105:         return values[0];\\n    106:     }\\n    107: \\n    108:     /**\\n    109:      * Creates a new instance representing the number of complete standard length units\\n    110:      * in the specified period.\\n    111:      * <p>\\n    112:      * This factory method converts all fields from the period to hours using standardised\\n    113:      * durations for each field. Only those fields which have a precise duration in\\n    114:      * the ISO UTC chronology can be converted.\\n    115:      * <ul>\\n    116:      * <li>One week consists of 7 days.\"\n    }\n  ]\n}",
+      "observation_truncated": false,
+      "observation_chars": 1879,
+      "duration_seconds": 2.128
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The `BaseSingleFieldPeriod.between` method uses `chrono.set(start, 0L)` where `0L` represents the epoch (1970-01-01). Since 1970 is not a leap year, the `set` operation attempts to validate February 29th against a non-leap year chronology, causing the `IllegalFieldValueException`. The fix requires using a leap year (e.g., 2012) as the base for the `set` operation to ensure February 29th is considered valid.",
+      "prediction": "Changing the base year in `BaseSingleFieldPeriod.between` from `0L` (1970) to a year that supports leap days (like 2012) will resolve the `IllegalFieldValueException` for `MonthDay` objects containing February 29th.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Algorithm/Method",
+      "duration_seconds": 4.557
+    }
+  ],
+  "llm_calls_used": 2,
+  "termination_reason": "concluded",
+  "loop_duration_seconds": 6.685,
+  "probe_misses": 0,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"confidence\": 0.95, \"needs_human_review\": false, \"observation_summary\": \"The `BaseSingleFieldPeriod.between` method uses a fixed epoch (0L) to calculate the difference between partial dates. When the partial date is February 29th, the underlying chronology (defaulting to non-leap year 1970) rejects the value as invalid, causing an `IllegalFieldValueException`.\", \"hypothesis\": \"The `BaseSingleFieldPeriod.between` method uses `chrono.set(start, 0L)` where `0L` represents the epoch (1970-01-01). Since 1970 is not a leap year, the `set` operation attempts to validate February 29th against a non-leap year chronology, causing the `IllegalFieldValueException`. The fix requires using a leap year (e.g., 2012) as the base for the `set` operation to ensure February 29th is considered valid.\", \"prediction\": \"Changing the base year in `BaseSingleFieldPeriod.between` from `0L` (1970) to a year that supports leap days (like 2012) will resolve the `IllegalFieldValueException` for `MonthDay` objects containing February 29th.\", \"experiment_rationale\": \"The stack trace and code snippet confirm that `BaseSingleFieldPeriod.between` uses a hardcoded `0L` (1970) as the base for `chrono.set`. This is a procedural error in the calculation logic where the choice of base year is inappropriate for the input data (leap-year-dependent partials).\", \"reasoning_summary\": \"The bug is a classic case of an incorrect algorithmic assumption (that 1970 is a valid base for all date calculations). The fix is to change the base year to one that supports leap years, which is a local procedural change.\", \"evidence_used\": [\"stack_trace_excerpt\", \"snippet:org.joda.time.base.BaseSingleFieldPeriod\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Checking\", \"why_not_primary\": \"While the exception is thrown by a check, the root cause is the incorrect choice of base year in the algorithm, not a missing or incorrect guard condition.\"}]}"
+}

@@ -1,0 +1,62 @@
+{
+  "project_id": "Math",
+  "bug_id": 103,
+  "version_id": "103b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-09-14T07:09:11+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The NormalDistributionImpl.cumulativeProbability method throws a MaxIterationsExceededException when calculating the CDF for extreme values (e.g., +/- 100 standard deviations), even though the mathematical result should be 0 or 1.",
+  "hypothesis": "The cumulativeProbability method in NormalDistributionImpl fails to handle convergence exceptions that occur when calculating the error function (Erf.erf) for extreme input values, which are mathematically expected to approach 0 or 1. The fix requires adding a try-catch block to handle MaxIterationsExceededException and return the appropriate boundary values (0.0 or 1.0) when the input is sufficiently far from the mean.",
+  "prediction": "The code in NormalDistributionImpl.cumulativeProbability will lack a try-catch block around the Erf.erf call, causing it to propagate the MaxIterationsExceededException instead of returning 0.0 or 1.0 for extreme values.",
+  "experiment_rationale": "The stack trace and bug report confirm that the exception is thrown during the calculation of the CDF for extreme values. The fix (provided in the oracle) involves adding a try-catch block to handle this specific convergence failure, which is a classic example of missing validation/guard logic for boundary conditions.",
+  "reasoning_summary": "The bug is caused by the absence of a check for convergence failure in the cumulative probability calculation. The code attempts to compute the value using an iterative algorithm (Erf.erf) that fails for extreme inputs. Adding a check to catch the exception and return the correct limit (0 or 1) is a 'Checking' type fix, as it validates the result of the computation and handles the boundary condition.",
+  "evidence_used": [
+    "bug_report",
+    "full_stack_trace",
+    "snippet",
+    "fix_diff_oracle"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The underlying algorithm (Erf.erf) is not necessarily wrong; it just fails to converge for extreme inputs. The fix is to add a guard/check to handle these cases, not to replace the algorithm itself."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "post-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The cumulativeProbability method in NormalDistributionImpl fails to handle convergence exceptions that occur when calculating the error function (Erf.erf) for extreme input values, which are mathematically expected to approach 0 or 1. The fix requires adding a try-catch block to handle MaxIterationsExceededException and return the appropriate boundary values (0.0 or 1.0) when the input is sufficiently far from the mean.",
+      "prediction": "The code in NormalDistributionImpl.cumulativeProbability will lack a try-catch block around the Erf.erf call, causing it to propagate the MaxIterationsExceededException instead of returning 0.0 or 1.0 for extreme values.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Checking",
+      "duration_seconds": 3.034
+    }
+  ],
+  "llm_calls_used": 1,
+  "termination_reason": "concluded",
+  "loop_duration_seconds": 3.034,
+  "probe_misses": 0,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The NormalDistributionImpl.cumulativeProbability method throws a MaxIterationsExceededException when calculating the CDF for extreme values (e.g., +/- 100 standard deviations), even though the mathematical result should be 0 or 1.\", \"hypothesis\": \"The cumulativeProbability method in NormalDistributionImpl fails to handle convergence exceptions that occur when calculating the error function (Erf.erf) for extreme input values, which are mathematically expected to approach 0 or 1. The fix requires adding a try-catch block to handle MaxIterationsExceededException and return the appropriate boundary values (0.0 or 1.0) when the input is sufficiently far from the mean.\", \"prediction\": \"The code in NormalDistributionImpl.cumulativeProbability will lack a try-catch block around the Erf.erf call, causing it to propagate the MaxIterationsExceededException instead of returning 0.0 or 1.0 for extreme values.\", \"experiment_rationale\": \"The stack trace and bug report confirm that the exception is thrown during the calculation of the CDF for extreme values. The fix (provided in the oracle) involves adding a try-catch block to handle this specific convergence failure, which is a classic example of missing validation/guard logic for boundary conditions.\", \"reasoning_summary\": \"The bug is caused by the absence of a check for convergence failure in the cumulative probability calculation. The code attempts to compute the value using an iterative algorithm (Erf.erf) that fails for extreme inputs. Adding a check to catch the exception and return the correct limit (0 or 1) is a 'Checking' type fix, as it validates the result of the computation and handles the boundary condition.\", \"evidence_used\": [\"bug_report\", \"full_stack_trace\", \"snippet\", \"fix_diff_oracle\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"The underlying algorithm (Erf.erf) is not necessarily wrong; it just fails to converge for extreme inputs. The fix is to add a guard/check to handle these cases, not to replace the algorithm itself.\"}]}"
+}

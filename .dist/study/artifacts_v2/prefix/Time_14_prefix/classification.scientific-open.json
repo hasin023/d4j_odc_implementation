@@ -1,0 +1,78 @@
+{
+  "project_id": "Time",
+  "bug_id": 14,
+  "version_id": "14b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-09-14T05:34:59+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The MonthDay class fails when performing arithmetic on --02-29 because it converts the partial date to a fixed-year instant (1970) for calculation, which is not a leap year, causing an IllegalFieldValueException.",
+  "hypothesis": "The issue is that MonthDay is year-agnostic, but the arithmetic operations (like plusMonths) convert the MonthDay into a fixed-year instant (defaulting to 1970, which is not a leap year) to perform calculations. When the MonthDay is --02-29, this conversion fails because 1970-02-29 is invalid, triggering the IllegalFieldValueException. The fix requires handling the leap day specifically or using a leap year for the intermediate calculation.",
+  "prediction": "The code in BasicMonthOfYearDateTimeField.add uses a default epoch (1970) for the 'instant' variable, which causes the validation failure when the day is 29 and the month is 2.",
+  "experiment_rationale": "The stack trace and code snippet confirm that the calculation logic in BasicMonthOfYearDateTimeField.add initializes 'instant' to 0L (1970-01-01) and then attempts to set the fields. This is a procedural flaw in how year-agnostic partials are handled during arithmetic.",
+  "reasoning_summary": "The bug is an algorithmic flaw where the implementation assumes a non-leap year (1970) for intermediate calculations of year-agnostic dates, failing to account for leap days. This is a procedural error in the calculation method.",
+  "evidence_used": [
+    "stack_trace_excerpt",
+    "snippet:BasicMonthOfYearDateTimeField"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "While the failure manifests as a failed check, the root cause is the incorrect algorithmic approach of using a non-leap year as a base for date arithmetic."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The MonthDay class fails to handle leap day (Feb 29) correctly when performing arithmetic operations because it does not account for the fact that MonthDay is year-agnostic, and the underlying field validation logic (e.g., in BasicMonthOfYearDateTimeField) incorrectly enforces a strict 28-day limit for February regardless of the context.",
+      "prediction": "The code in BasicMonthOfYearDateTimeField or related field classes performs a validation check that assumes a non-leap year or a fixed maximum for February, causing the IllegalFieldValueException when the input is 29.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "BasicMonthOfYearDateTimeField"
+      },
+      "observation_summary": [
+        "snippets"
+      ],
+      "observation": "{\n  \"snippets\": [\n    {\n      \"class_name\": \"org.joda.time.chrono.BasicMonthOfYearDateTimeField\",\n      \"reason\": \"Stack frame from org.joda.time.chrono.BasicMonthOfYearDateTimeField.add\",\n      \"file_path\": \"C:\\\\d4j-work\\\\study-work\\\\prefix\\\\Time_14b\\\\src\\\\main\\\\java\\\\org\\\\joda\\\\time\\\\chrono\\\\BasicMonthOfYearDateTimeField.java\",\n      \"start_line\": 201,\n      \"end_line\": 225,\n      \"focus_line\": 213,\n      \"content\": \"    201: \\n    202:     //-----------------------------------------------------------------------\\n    203:     public int[] add(ReadablePartial partial, int fieldIndex, int[] values, int valueToAdd) {\\n    204:         // overridden as superclass algorithm can't handle\\n    205:         // 2004-02-29 + 48 months -> 2008-02-29 type dates\\n    206:         if (valueToAdd == 0) {\\n    207:             return values;\\n    208:         }\\n    209:             // month is largest field and being added to, such as month-day\\n    210:         if (DateTimeUtils.isContiguous(partial)) {\\n    211:             long instant = 0L;\\n    212:             for (int i = 0, isize = partial.size(); i < isize; i++) {\\n>>  213:                 instant = partial.getFieldType(i).getField(iChronology).set(instant, values[i]);\\n    214:             }\\n    215:             instant = add(instant, valueToAdd);\\n    216:             return iChronology.get(partial, instant);\\n    217:         } else {\\n    218:             return super.add(partial, fieldIndex, values, valueToAdd);\\n    219:         }\\n    220:     }\\n    221: \\n    222:     //-----------------------------------------------------------------------\\n    223:     /**\\n    224:      * Add to the Month component of the specified time instant\\n    225:      * wrapping around within that component if necessary.\"\n    }\n  ]\n}",
+      "observation_truncated": false,
+      "observation_chars": 1798,
+      "duration_seconds": 1.904
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The issue is that MonthDay is year-agnostic, but the arithmetic operations (like plusMonths) convert the MonthDay into a fixed-year instant (defaulting to 1970, which is not a leap year) to perform calculations. When the MonthDay is --02-29, this conversion fails because 1970-02-29 is invalid, triggering the IllegalFieldValueException. The fix requires handling the leap day specifically or using a leap year for the intermediate calculation.",
+      "prediction": "The code in BasicMonthOfYearDateTimeField.add uses a default epoch (1970) for the 'instant' variable, which causes the validation failure when the day is 29 and the month is 2.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Algorithm/Method",
+      "duration_seconds": 3.622
+    }
+  ],
+  "llm_calls_used": 2,
+  "termination_reason": "concluded",
+  "loop_duration_seconds": 5.526,
+  "probe_misses": 0,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"confidence\": 0.9, \"needs_human_review\": false, \"observation_summary\": \"The MonthDay class fails when performing arithmetic on --02-29 because it converts the partial date to a fixed-year instant (1970) for calculation, which is not a leap year, causing an IllegalFieldValueException.\", \"hypothesis\": \"The issue is that MonthDay is year-agnostic, but the arithmetic operations (like plusMonths) convert the MonthDay into a fixed-year instant (defaulting to 1970, which is not a leap year) to perform calculations. When the MonthDay is --02-29, this conversion fails because 1970-02-29 is invalid, triggering the IllegalFieldValueException. The fix requires handling the leap day specifically or using a leap year for the intermediate calculation.\", \"prediction\": \"The code in BasicMonthOfYearDateTimeField.add uses a default epoch (1970) for the 'instant' variable, which causes the validation failure when the day is 29 and the month is 2.\", \"experiment_rationale\": \"The stack trace and code snippet confirm that the calculation logic in BasicMonthOfYearDateTimeField.add initializes 'instant' to 0L (1970-01-01) and then attempts to set the fields. This is a procedural flaw in how year-agnostic partials are handled during arithmetic.\", \"reasoning_summary\": \"The bug is an algorithmic flaw where the implementation assumes a non-leap year (1970) for intermediate calculations of year-agnostic dates, failing to account for leap days. This is a procedural error in the calculation method.\", \"evidence_used\": [\"stack_trace_excerpt\", \"snippet:BasicMonthOfYearDateTimeField\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Checking\", \"why_not_primary\": \"While the failure manifests as a failed check, the root cause is the incorrect algorithmic approach of using a non-leap year as a base for date arithmetic.\"}]}"
+}

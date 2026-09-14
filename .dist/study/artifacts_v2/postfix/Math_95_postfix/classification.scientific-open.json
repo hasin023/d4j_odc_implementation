@@ -1,0 +1,64 @@
+{
+  "project_id": "Math",
+  "bug_id": 95,
+  "version_id": "95b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-09-14T07:07:59+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The FDistributionImpl.getInitialDomain method performs a division by (d - 2.0) without checking if d <= 2.0. When d=2.0, this results in Infinity, which is then passed to UnivariateRealSolverUtils.bracket, causing an IllegalArgumentException because the initial value is outside the valid range [lowerBound, upperBound].",
+  "hypothesis": "The FDistributionImpl.getInitialDomain method calculates the initial domain value using a formula that results in division by zero when the denominator degrees of freedom is 2.0, leading to an invalid 'initial' parameter (Infinity) being passed to the solver's bracket method, which triggers an IllegalArgumentException.",
+  "prediction": "The getInitialDomain method in FDistributionImpl will contain a calculation 'd / (d - 2.0)' that does not handle the case where d equals 2.0, and this value is passed to UnivariateRealSolverUtils.bracket.",
+  "experiment_rationale": "The bug report explicitly identifies the division-by-zero in getInitialDomain as the cause of the invalid parameter passed to the bracket method. The fix provided in the oracle confirms that a check (d > 2.0) was added to prevent this division.",
+  "reasoning_summary": "The defect is a missing validation (Checking) of the denominator degrees of freedom parameter before performing a division that is mathematically undefined at d=2.0. This missing check leads to an invalid state being passed to a downstream utility method.",
+  "evidence_used": [
+    "bug_report",
+    "fix_diff_oracle"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Assignment/Initialization",
+      "why_not_primary": "While the result is an incorrect value, the root cause is the lack of a conditional check (guard) to prevent the invalid calculation."
+    },
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The algorithm itself is correct for d > 2.0; the issue is specifically the missing boundary check for the input parameter d."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "post-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The FDistributionImpl.getInitialDomain method calculates the initial domain value using a formula that results in division by zero when the denominator degrees of freedom is 2.0, leading to an invalid 'initial' parameter (Infinity) being passed to the solver's bracket method, which triggers an IllegalArgumentException.",
+      "prediction": "The getInitialDomain method in FDistributionImpl will contain a calculation 'd / (d - 2.0)' that does not handle the case where d equals 2.0, and this value is passed to UnivariateRealSolverUtils.bracket.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Checking",
+      "duration_seconds": 4.246
+    }
+  ],
+  "llm_calls_used": 1,
+  "termination_reason": "concluded",
+  "loop_duration_seconds": 4.246,
+  "probe_misses": 0,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The FDistributionImpl.getInitialDomain method performs a division by (d - 2.0) without checking if d <= 2.0. When d=2.0, this results in Infinity, which is then passed to UnivariateRealSolverUtils.bracket, causing an IllegalArgumentException because the initial value is outside the valid range [lowerBound, upperBound].\", \"hypothesis\": \"The FDistributionImpl.getInitialDomain method calculates the initial domain value using a formula that results in division by zero when the denominator degrees of freedom is 2.0, leading to an invalid 'initial' parameter (Infinity) being passed to the solver's bracket method, which triggers an IllegalArgumentException.\", \"prediction\": \"The getInitialDomain method in FDistributionImpl will contain a calculation 'd / (d - 2.0)' that does not handle the case where d equals 2.0, and this value is passed to UnivariateRealSolverUtils.bracket.\", \"experiment_rationale\": \"The bug report explicitly identifies the division-by-zero in getInitialDomain as the cause of the invalid parameter passed to the bracket method. The fix provided in the oracle confirms that a check (d > 2.0) was added to prevent this division.\", \"reasoning_summary\": \"The defect is a missing validation (Checking) of the denominator degrees of freedom parameter before performing a division that is mathematically undefined at d=2.0. This missing check leads to an invalid state being passed to a downstream utility method.\", \"evidence_used\": [\"bug_report\", \"fix_diff_oracle\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Assignment/Initialization\", \"why_not_primary\": \"While the result is an incorrect value, the root cause is the lack of a conditional check (guard) to prevent the invalid calculation.\"}, {\"type\": \"Algorithm/Method\", \"why_not_primary\": \"The algorithm itself is correct for d > 2.0; the issue is specifically the missing boundary check for the input parameter d.\"}]}"
+}
