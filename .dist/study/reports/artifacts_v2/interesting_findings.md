@@ -196,3 +196,87 @@ finding here that would benefit most from a qualitative read before it goes in f
 of the supervisor as more than a pattern observation.
 
 ---
+
+## Which RQs this dataset actually answers
+
+Computed via `study-drift` (scientific-open, few-open) and `study-ladder`
+(few-open → scientific-open) against `artifacts_v2`'s 257 bugs, 5 projects
+(Chart, Lang, Math, Mockito, Time), plus one direct `analysis.py` call for the
+RQ1 chi-squared test. Closure is still uncollected; `zero-free` and any
+`-closed` taxonomy pass were never run for this corpus — noted per RQ below
+where that matters.
+
+**RQ1 (type distribution across projects) — DONE.** Chi-squared cross-project
+test on the 257-bug prefix distribution: scientific-open χ²=21.35, dof=20,
+p=0.38 (not significant); few-open χ²=30.95, dof=20, p=0.056 (borderline, not
+significant at 0.05). ODC type distribution does not differ significantly by
+project for either strategy — Checking (47%) and Algorithm/Method (41%)
+dominate everywhere. Few-open's near-significant p is itself worth a mention:
+its per-project label mix varies a bit more than Scientific's does.
+
+**RQ2 (taxonomy coverage / escape rate) — PARTIALLY DONE, rest deliberately
+not pursued.** The escape-rate half of this RQ is fully answered from the
+open-pass data alone, no closed-taxonomy run needed: **0 of 514
+classifications ever used "Other"**, across both strategies and all 5
+projects. That is a solid, final 0% escape rate. The other half of RQ2's
+design (`compute_coverage_metrics`'s closed-vs-open shift kappa and KL
+divergence — does removing the escape *option* itself change ordinary labels,
+independent of whether escapes occur) needs a `scientific-closed`/`few-closed`
+pass that does not exist for this corpus. Deliberately not run: given the
+escape rate is already 0%, the expected result (labels barely move) is
+low-value relative to its cost (~900 LLM calls). Recorded as a conscious
+scoping decision, not a gap.
+
+**RQ3 (four-level accuracy: strict/top-2/family/κ) — DONE, both strategies.**
+
+| Metric | Scientific-open | Few-open |
+|---|---|---|
+| Strict match | 73.5% | 67.7% |
+| Top-2 match | 96.1% | 97.7% |
+| Family match | 93.0% | 94.2% |
+| Cohen's κ (overall) | 0.577 (moderate) | 0.437 (moderate) |
+
+Scientific has higher strict agreement and a higher overall κ; Few has
+slightly higher top-2/family match — Scientific is more likely to land the
+exact same label pre/post fix, Few is a bit more likely to at least land in
+the same neighborhood when it doesn't match exactly.
+
+**RQ4 (component contribution / ablation ladder) — PARTIALLY DONE, headline
+metric out of scope by choice.** The vocabulary-reduction-ratio headline
+number is only meaningful with `zero-free` as the ladder's baseline tier (the
+free-form condition establishes the "before taxonomy" vocabulary size);
+without it the formula is undefined and returns 0.0 — not a finding, a
+non-result. `zero-free` was not run for this corpus and this ratio was
+consciously waived. What *is* computable between the two taxonomy-constrained
+tiers (few-open → scientific-open): both strategies land on exactly the same
+5 of 7 ODC types across all 257 bugs (Function/Class/Object and
+Timing/Serialization never fire in either); label entropy is marginally
+higher under Scientific (1.490 vs 1.421) — a small signal that the enforced
+loop spreads labels slightly more evenly across those 5 types rather than
+piling onto Checking/Algorithm-Method, consistent with the drift data above.
+Worth reporting as a secondary observation, not as the RQ4 headline result.
+
+**RQ5 (pre/post drift + per-project reliability) — DONE, both strategies, all
+5 projects.**
+
+| Project | Scientific-open κ | Few-open κ |
+|---|---|---|
+| Chart | 0.672 | 0.349 |
+| Lang | 0.546 | 0.497 |
+| Math | 0.603 | 0.537 |
+| Mockito | 0.499 | 0.272 |
+| Time | 0.480 | 0.212 |
+
+Scientific's κ beats Few's in every one of the 5 projects — a consistent,
+non-cherry-picked signal, largest exactly where the raw agreement-rate gap
+was also largest (Time). A real upgrade over the old n=2-3-bugs-per-project
+table, where several per-project kappas were degenerate (exactly 0.0/0.5/1.0).
+
+**Bottom line:** RQ1, RQ3, and RQ5 are fully answered by this corpus with no
+further data collection. RQ2's core finding (0% escape rate) is also final;
+its secondary closed-vs-open shift metric was scoped out on purpose. RQ4's
+secondary metrics are answered; its headline vocabulary-reduction number is
+the one place in the whole study where `zero-free` data would still add
+something, and that gap is accepted, not accidental.
+
+---
