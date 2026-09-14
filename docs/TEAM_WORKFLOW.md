@@ -144,6 +144,137 @@ Notes:
   (§5, Path A) or zip and send them (§5, Path B) — both are fully supported; there's no need to route
   around the repo.
 
+#### Windows/WSL gotchas found running this for real (2026-09-13/14)
+
+Two real environment bugs turned up collecting Closure on Windows+WSL. Neither is patched in the
+pipeline (per the "stop and report, don't hand-patch" rule above) — both have standalone workarounds
+in `scripts/` instead, safe to use alongside a running `study-collect`.
+
+1. **Coverage instrument file gets corrupted by CRLF.** `pipeline.py` wrote `instrument_classes.txt`
+   with Python's default text-mode newline translation, turning `\n` into `\r\n` on Windows. Defects4J's
+   Perl reader strips only `\n`, so every class name kept a trailing `\r`, corrupting the instrument
+   filter — every coverage run silently fell through to the "retry without instrument file" fallback
+   (costs ~20-25s extra per trigger test, and can quietly narrow the coverage set). **This one *is*
+   fixed in `pipeline.py`** (`newline="\n"` on the write) — nothing to work around, just know it's why
+   old collection sessions show the retry line and new ones don't.
+2. **A crashed checkout blocks every future retry into the same bug.** By design, a failed
+   `collect_bug_context` call leaves its checkout on disk (for debugging) instead of cleaning it up.
+   But Defects4J then refuses to reuse that directory (`Directory exists but is not a previously used
+   working directory` — its own `.defects4j.config` bookkeeping doesn't recognize it), so the *exact
+   same bug* fails identically on every subsequent attempt, including `study-collect`'s own resume,
+   until that stale directory is deleted first. `scripts/retry_failed_bugs.py` (below) clears it
+   automatically before retrying.
+
+Also: `shutil.rmtree`'s normal checkout-cleanup fails outright on this OS/filesystem combo — Defects4J
+leaves some checkout files read-only, and plain `rmtree` can't remove those on Windows (`WinError 5
+Access is denied`). This isn't silent — you'll see one `! Could not remove work dir ...` line per
+affected bug — but the run keeps going regardless, so leaked checkouts (~250-300 MB each) pile up
+under `--work-root` over a long run. `scripts/sweep_work_v2.py` (below) is the cleanup for this.
+
+#### Helper scripts (`scripts/`, added 2026-09-14 — filesystem/ops tooling, never touch the pipeline)
+
+All three are safe to run **while `study-collect` is running** in another terminal — they only ever
+act on a bug once its `context.json` already exists, so they can't step on work in progress.
+
+- **`sweep_work_v2.py`** — deletes leaked checkouts under `--work-root` for any bug+mode whose
+  `context.json` is already written under `--artifacts-root` (i.e. exactly what the pipeline's own
+  cleanup was supposed to delete and couldn't, per the `WinError 5` gotcha above). Run it periodically
+  during a long session to reclaim disk — it left ~10GB reclaimed across a few runs during the Closure
+  collection. `--dry-run` to preview first.
+  ```bash
+  python scripts/sweep_work_v2.py --artifacts-root .dist/study/artifacts_v2 --work-root .dist/study/work_v2
+  ```
+- **`retry_failed_bugs.py`** — retries a specific list of bugs through the single-bug `collect` CLI
+  (same underlying code `study-collect` uses), pointed at the exact study artifacts path so the result
+  is indistinguishable from a normal `study-collect` run. Clears any stale checkout first (gotcha #2
+  above), so it's the fix for bugs that keep failing on every resume. Used this way to recover
+  Closure-2/3/4/5's postfix, which were stuck on the stale-directory wall.
+  ```bash
+  python scripts/retry_failed_bugs.py --project Closure --bugs 2,3,4,5 --postfix
+  ```
+- **`split_manifest.py`** — splits a manifest into N disjoint pieces over whatever bugs don't yet have
+  a finished `context.json` (checks both prefix and postfix), so multiple `study-collect` processes can
+  run in parallel against the same `--artifacts-root` without two of them ever touching the same bug's
+  checkout at once. **Read the live-range table below before using this on Closure** — an existing full
+  1-174 run is already in progress, and a naive split ignores that.
+  ```bash
+  python scripts/split_manifest.py --manifest .dist/study/manifest_closure174.json --artifacts-root .dist/study/artifacts_v2 --workers 3
+  ```
+
+#### Live parallel Closure collection — who owns which range (as of 2026-09-14, ~15:45 BST)
+
+Two `study-collect` processes are running Closure concurrently against the same
+`--artifacts-root .dist/study/artifacts_v2 --work-root .dist/study/work_v2`. **Before starting a third,
+read this or you risk two processes checking out the same bug at once** (corrupts/crashes both).
+
+| Process | Manifest | Covers | Frontier (as of last check) | Measured pace |
+|---|---|---|---|---|
+| 1 (original) | `manifest_closure174.json` | 1-174, unbounded — will eventually walk through everything, including 100-174 | ~bug 42 | ~65 min/bug |
+| 2 (worker) | `manifest_closure174_from100.json` | 100-174 only | ~bug 123 | ~65 min/bug |
+
+**Why "just split 1-174 into thirds" doesn't work here:** process 1's manifest isn't bounded at 99 — it
+sequentially walks the *entire* 1-174 range (skipping bugs someone else already finished, but still
+walking through the numbers). So any range inside ~42-174 is territory process 1 will eventually reach,
+not free space. At measured rates process 1 needs ~63h to reach bug 123 (where process 2 is working);
+process 2 needs ~56h to finish 100-174 entirely — process 2 should finish first, but the ~7h margin is
+too thin to add a third worker inside either process's active range.
+
+**Safe range for a third worker right now, without touching either running process:**
+`.dist/study/manifest_closure174_85to99.json` (bugs 85-99, 14 bugs) — deep enough into process 1's own
+remaining lane that it won't arrive for ~47h, comfortably ahead of how long 14 bugs takes even with
+3-way resource contention.
+```bash
+python -m d4j_odc_pipeline study-collect --manifest .dist/study/manifest_closure174_85to99.json --artifacts-root .dist/study/artifacts_v2 --work-root .dist/study/work_v2
+```
+
+**Do not** start a fresh `manifest_closure174.json` run (duplicates process 1) or anything covering
+70-100 or 150-174 (collides with process 1's and process 2's active ranges respectively) — regenerate
+the safe range yourself with `split_manifest.py`/a manual bug-id filter if this table is stale by the
+time you read it, rather than guessing. Check current frontiers first:
+```bash
+python -c "
+import os, re
+def real_done(mode_dir, mode):
+    done=[]
+    pat=re.compile(rf'^Closure_(\d+)_{mode}\$')
+    for name in os.listdir(mode_dir):
+        m=pat.match(name)
+        if m and os.path.isfile(os.path.join(mode_dir,name,'context.json')): done.append(int(m.group(1)))
+    return sorted(done)
+pre=real_done('.dist/study/artifacts_v2/prefix','prefix'); post=real_done('.dist/study/artifacts_v2/postfix','postfix')
+both=sorted(set(pre)&set(post))
+print('low-range frontier:', max([b for b in both if b<100], default=0))
+print('high-range frontier:', max(both, default=0))
+"
+```
+The bigger, permanent fix (capping process 1's manifest to 1-99 so it can never reach process 2's
+territory, freeing the rest for even splits) requires briefly restarting process 1 — checkpointed, ~10s,
+zero data loss — but wasn't done here since the live run wasn't to be interrupted. Worth doing if this
+table needs a fourth process later.
+
+#### Handing off mid-run to another machine (e.g. neither of the two local processes above finishes tonight)
+
+**Resuming needs no calculation at all.** `study-collect` checkpoints every bug and `skip_existing`
+(default on) skips anything with a `context.json` already on disk. Stop either process (Ctrl+C, safe),
+commit/push `artifacts_v2` (§5 Path A), and whoever picks it up just reruns the *same command with the
+same manifest* — it resumes from exactly where it was left, no new manifest needed:
+```bash
+# process 1's lane, resumes automatically
+python -m d4j_odc_pipeline study-collect --manifest .dist/study/manifest_closure174_1to99.json --artifacts-root .dist/study/artifacts_v2 --work-root .dist/study/work_v2
+# process 2's lane, resumes automatically
+python -m d4j_odc_pipeline study-collect --manifest .dist/study/manifest_closure174_from100.json --artifacts-root .dist/study/artifacts_v2 --work-root .dist/study/work_v2
+```
+`manifest_closure174_1to99.json` is the explicit 1-99 slice of the full manifest — use this one for
+handoff instead of the unbounded `manifest_closure174.json`, so whoever picks it up has an unambiguous
+lane (process 1 was never actually going to reach 100 before being stopped, this just makes that
+boundary explicit in the manifest itself rather than relying on "someone stopped it in time"). Two
+people can run these two commands on two different machines in parallel with zero coordination beyond
+sharing the same `artifacts_v2` (via git) — the ranges don't overlap.
+
+If a machine has spare capacity to run a third worker on top of one of those two, that's what
+`manifest_closure174_85to99.json` (§ above, bugs 85-99) is for — but that's an extra-throughput
+optimization, not required for the handoff itself.
+
 ### Classifier — turns contexts into labels
 
 **Needs:** an LLM API key. **Nothing else.** No Defects4J, no Java, no checkouts. If you're picking
