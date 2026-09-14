@@ -280,3 +280,55 @@ the one place in the whole study where `zero-free` data would still add
 something, and that gap is accepted, not accidental.
 
 ---
+
+## What changed since the last reported run (old reports vs this rerun)
+
+Direct bug-by-bug diff: the old committed reports (`lang61_report.xlsx`,
+`chart26_report.xlsx`, `time26_report.xlsx`, `mockito38_report.xlsx`,
+`math106_report.xlsx`, generated 2026-07-11/2026-07-28, before the
+evidence-collection/frame-selection fix `6878d90` (2026-08-10) and the
+data-leakage fix `bb9d176`) against this rerun's `scientific-open`
+classifications on the identical bugs, same evidence mode, same strategy —
+only the pipeline code and evidence changed, not the manifest or condition.
+
+**86 of 257 bugs (33.5%) got a different ODC type label after the pipeline
+fixes**, and it's consistent across every project, not concentrated in one:
+
+| Project | Bugs changed | Rate |
+|---|---|---|
+| Time | 12/26 | 46.2% |
+| Mockito | 14/38 | 36.8% |
+| Lang | 19/61 | 31.1% |
+| Math | 33/106 | 31.1% |
+| Chart | 8/26 | 30.8% |
+
+**One boundary drives most of it.** Pooling every individual pre-fix/post-fix
+label change across all 5 projects (93 total transitions from 86 bugs — some
+bugs changed in both modes):
+
+| Transition | Count |
+|---|---|
+| Algorithm/Method → Checking | 33 |
+| Checking → Algorithm/Method | 18 |
+| Algorithm/Method → Assignment/Initialization | 17 |
+| (all other transitions combined) | 25 |
+
+**51 of 93 transitions (55%) move across the Algorithm/Method↔Checking
+boundary**, in both directions, in every project examined. This is the same
+boundary that dominates the strategy-disagreement pattern documented above
+(Scientific vs Few) — it now shows up as soft on a second, independent axis:
+old pipeline vs new pipeline, same strategy, same bugs. That's a stronger
+claim than either finding alone: Algorithm/Method vs Checking looks like a
+genuinely ambiguous line in this taxonomy for this bug population, not an
+artifact of one particular comparison.
+
+**What this is not:** a controlled test isolating which specific fix caused
+which specific relabeling — two fixes (evidence collection and a data-leakage
+fix) landed in the same window, and no run exists holding one fixed while
+varying the other. The honest framing for a supervisor update: the rerun
+didn't just add more bugs, it changed roughly a third of the existing labels,
+concentrated on one recurring taxonomy boundary — worth stating as "the fixes
+had a real, measurable effect on results, not just more data," rather than
+attributing the exact mechanism.
+
+---
