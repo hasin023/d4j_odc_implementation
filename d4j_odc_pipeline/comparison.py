@@ -15,10 +15,34 @@ Extended analysis layers (added for thesis defense):
   Layer D — Divergence Pattern: match / soft-divergence / hard-divergence
   Layer E — Insights:           actionable interpretive text for each bug
 
-References:
-  Chillarege et al. (1992) — ODC inter-rater disagreement is expected (~20-30%).
-  Thung et al. (2012)     — Even with post-fix code, accuracy caps at ~77.8%.
-  Kang et al. (2023)      — Evidence-dependent hypothesis generation is fundamental.
+References (canonical evidence table: docs/eval_defence.md section 1, Pillar 2):
+
+  Human agreement on ODC classification is EVIDENCE-DEPENDENT, not a fixed rate.
+  Low evidence (report text only):
+    Henningsson & Wohlin (2004) — 8 raters, 30 faults, descriptions only: mean
+        pairwise kappa 0.16.  Most-confused pair was Assignment <-> Algorithm
+        (22 of 28 rater pairs).  They conclude raters need source code and
+        change information.
+    Hernandez-Gonzalez et al. (2018) — 5 annotators, 962 + 675 defect reports,
+        ODC Impact: a simple majority was reached on only 481/962 and 394/675.
+  High evidence (code and change available):
+    El Emam & Wieczorek (1998) — the same family of scheme is "in general
+        repeatable" when raters DO have the code.
+    Rahman & Farhana (2020) — 72.7% agreement / kappa 0.70 (open coding) on
+        ODC-style categories with full repository context.
+    NoSQL ODC study (JSS 2020) — kappa 0.93 for Defect Type, but as a
+        verification of an existing classification, not blind labelling.
+
+  Thung et al. (2012) — automated categorization reached 77.8% accuracy with
+      post-fix code (figure not independently re-verified by us).
+  Kang, Chen, Yoo & Lou (EMSE 2024) — AutoSD: evidence-dependent hypothesis
+      generation.
+
+Note: an earlier version of this docstring attributed a "~20-30% human
+disagreement" figure to Chillarege et al. (1992).  We searched that paper, the
+ODC concept article, the ODC process-control paper and the IBM ODC v5.2
+reference: none reports an inter-rater agreement figure.  The attribution was
+wrong, so it was replaced with the sourced studies above rather than restored.
 """
 
 from __future__ import annotations
@@ -136,18 +160,25 @@ _EVIDENCE_ASYMMETRY_RULES: list[dict[str, str]] = [
             "exactly what changed, revealing the true nature of the fix.  Different "
             "evidence bases legitimately produce different classifications."
         ),
-        "literature": "Kang et al. (2023) — AutoSD: evidence-dependent hypothesis generation",
+        "literature": "Kang, Chen, Yoo & Lou (EMSE 2024) — AutoSD: evidence-dependent hypothesis generation",
     },
     {
         "condition": "ODC boundary ambiguity between similar types",
         "explanation": (
             "The ODC taxonomy has known boundary ambiguity zones, especially between "
-            "Algorithm/Method ↔ Checking, and Function/Class/Object ↔ Interface/O-O "
-            "Messages.  Even expert human classifiers disagree on 20-30% of bugs "
-            "(Chillarege 1992).  Cohen's Kappa of 0.6-0.8 is considered 'substantial' "
-            "agreement in defect classification — not perfection."
+            "Algorithm/Method ↔ Checking, and Assignment/Initialization ↔ "
+            "Algorithm/Method.  Human agreement on ODC type depends heavily on how "
+            "much evidence the rater has: Henningsson & Wohlin (2004) measured mean "
+            "pairwise kappa of 0.16 when 8 raters worked from written fault "
+            "descriptions alone, and their most-confused pair was Assignment ↔ "
+            "Algorithm.  Where raters had the code and the change, agreement is far "
+            "higher.  That evidence dependence is the same effect this pre-fix vs "
+            "post-fix comparison measures."
         ),
-        "literature": "Chillarege et al. (1992), Thung et al. (2012) — 77.8% ceiling",
+        "literature": (
+            "Henningsson & Wohlin (2004) — kappa 0.16 from descriptions only; "
+            "El Emam & Wieczorek (1998) — repeatable with code available"
+        ),
     },
     {
         "condition": "multi-fault versions contain overlapping defects",

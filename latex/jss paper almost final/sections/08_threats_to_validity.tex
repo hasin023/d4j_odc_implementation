@@ -1,0 +1,96 @@
+\section{Threats to Validity}
+\label{sec:threats}
+
+\noindent\textbf{Internal validity.}\quad
+LLM output variability is mitigated by fixed prompt templates, low-temperature
+generation where supported, and the strict post-generation validation layer. The
+pipeline records per-classification turn and call counts and supports multi-run
+aggregation and majority-vote (self-consistency) analysis for future robustness
+studies.
+
+\smallskip
+\noindent\textbf{Construct validity.}\quad
+Pre-fix/post-fix agreement is a proxy for correctness, not a direct ground
+truth; \textit{Defects4J} provides no authoritative ODC labels for Defect Type,
+and none at all for Impact. This strategy is justified by ODC's two-phase model
+but cannot substitute for expert-labelled validation. The Impact attribute
+(Section~\ref{sec:impact}) is taught its full v5.2 vocabulary and validated as
+a single-select field, but, like Defect Type, has not been checked
+against trained human assessors.
+
+\smallskip
+\noindent\textbf{Pre-fix evidence purity.}\quad
+Two channels can leak fix knowledge into the pre-fix arm if left unsanitised:
+\texttt{defects4j info} output lists the classes touched by the fix commit,
+and tracker reports for resolved issues routinely carry post-fix discussion
+(status/resolution transitions, ``fixed in'' comments). Both are stripped from
+the pre-fix payload at classification time (Section~\ref{sec:collection}); the
+post-fix payload is left untouched, since that arm legitimately knows the fix.
+This is a correction relative to earlier development-validation runs, which did
+not sanitise these two channels and are accordingly not used for any number
+reported in this paper.
+
+\smallskip
+\noindent\textbf{Impact evidence availability.}\quad
+Impact relies primarily on bug-report content, which \textit{Defects4J} does
+not provide uniformly: report availability is high overall across the shared
+evidence corpus but uneven by project and tracker, notably lower for
+\textit{Chart}, whose reports are hosted on an archived SourceForge tracker.
+\texttt{Unknown} is the intended response when available evidence cannot
+support a judgement, and is preferred over a forced guess.
+
+\smallskip
+\noindent\textbf{Impact ground truth.}\quad
+No customer-impact oracle exists for \textit{Defects4J}. On a benchmark
+defined by failing unit tests, a skew of the Impact distribution toward
+Reliability and Capability is expected and reflects the benchmark rather than
+the instrument; Impact is therefore reported descriptively
+(Section~\ref{sec:impact}) and used as a drift negative control
+(Section~\ref{sec:divergence}), not as an accuracy claim.
+
+\smallskip
+\noindent\textbf{Instrument-prior revision.}\quad
+Development-validation prompts asserted that most \textit{Defects4J} bugs fall
+into three named ODC types, which risked biasing the very distribution RQ1
+measures. This assertion has been replaced with a neutral anti-default rule
+that names no expected distribution; the confirmatory run of
+Section~\ref{sec:setup} uses the revised prompt exclusively.
+
+\smallskip
+\noindent\textbf{External validity.}\quad
+The pipeline is tuned for Java and \textit{Defects4J}; porting to other datasets
+(Bears, BugSwarm) or languages would require new source resolution and trace
+extraction, though the classification logic itself is language-independent.
+
+\smallskip
+\noindent\textbf{Conclusion validity.}\quad
+The quantitative results are produced by a single confirmatory run at the scale of
+Section~\ref{sec:setup}; distributions may shift at full-benchmark scale, and the
+study commands support controlled scaling to the complete dataset.
+
+\smallskip
+\noindent\textbf{Single-provider dependence.}\quad
+All reported classifications use one provider and model
+(\texttt{gemini-3.1-flash-lite-preview}). Results may not transfer to other
+models; multi-model consensus is left to future work.
+
+\smallskip
+\noindent\textbf{Small-sample coverage.}\quad
+The RQ2 escape rate is a lower-variance signal only at scale: at modest $n$ a low
+true escape rate can plausibly yield zero observed escapes by chance, so coverage
+claims are deferred to the confirmatory run.
+
+\smallskip
+\noindent\textbf{Reference-condition sensitivity.}\quad
+The post-fix reference uses the same \textit{scientific-open} configuration as the
+pre-fix arm; a reference-sensitivity check (\textit{few} vs.\ \textit{scientific}
+on the post-fix side) is queued to confirm the reference is robust to this choice.
+
+\smallskip
+\noindent\textbf{Data contamination.}\quad
+LLMs may have seen \textit{Defects4J} bugs during pre-training, especially from
+popular projects. We mitigate this by evaluating pre-fix/post-fix consistency
+rather than absolute correctness, and by retaining full reasoning traces for
+human review.
+
+%% =============================================================================
