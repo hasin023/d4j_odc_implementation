@@ -1011,3 +1011,36 @@ attempt) would bring Closure to its full 174 and the six-project corpus to the
 full 431-bug target. `zero-free` and any `-closed` taxonomy pass remain
 un-run for `artifacts_v2` (same scoping decision as the other 5 projects — see
 `interesting_findings.md`'s RQ section).
+
+## 2026-09-15 (later same day) — Closure_1 re-collected and classified, reports/findings updated to 153 bugs
+
+A teammate re-collected `Closure_1`'s postfix context (fix_diff/coverage now
+present, no longer needing quarantine) and pushed it directly into
+`artifacts_v2/postfix/Closure_1_postfix/` (separate from the quarantined copy
+under `.dist/study/quarantine_bad_fix_diff/`), landing on `fix_jss` at commit
+`13bbe6c` while the 152-bug run above was already committed locally. Pulled,
+merged clean, then extended the manifest to 153 bugs
+(`manifest_closure153_v2.json`) and reran `study-run` for both conditions —
+`study-run`'s skip-existing behavior correctly reclassified only the one new
+bug (4 LLM calls total, ~30s) and left the other 152 untouched.
+
+Reran `study-drift` (both conditions), `study-ladder`, and the RQ1
+`compute_project_type_correlation` chi-squared call against the updated
+410-bug (was 409) corpus — all deltas trivial (e.g. few-open chi-squared
+p=0.0027→0.0025, still significant; Closure's own κ 0.367→0.359, still the
+lowest of 6 projects). Updated `MANIFESTS` in both report scripts to
+`manifest_closure153_v2`/153 and rebuilt all 6 per-project xlsx + the
+combined workbook (410 bugs).
+
+**Correction while updating `interesting_findings.md`'s Closure section**:
+the original write-up mis-stated the postfix strategy-disagreement
+concentration as "24 of 29 (82.8%)" — the actual postfix disagreement count
+was 37, not 29 (`152 - 115 match = 37`), giving 24/37 = 64.9%, not 82.8%.
+Fixed in place with an inline correction note; this also walks back the
+"sharpest concentration of any project" claim, since 75.5%/64.9% is
+comparable to, not higher than, Lang's 79%/62%. No other numbers in that
+section were affected by the error — it was isolated to that one bullet's
+postfix percentage and its downstream characterization.
+
+Remaining gap unchanged in kind, off by one bug: 21 active Closure bugs
+(`49`-`69` except `63`) still uncollected; `143` still quarantined.

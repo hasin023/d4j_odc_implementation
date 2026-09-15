@@ -38,12 +38,12 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 from d4j_odc_pipeline.odc import ODC_TYPE_NAMES, OTHER_TYPE_NAME  # noqa: E402
 
-# Closure's full active-bug manifest is 174, but artifacts_v2 only has 152
-# collected/classified so far (22 bugs pending or quarantined bad-fix-diff)
-# — use the 152-bug subset manifest until the rest are collected.
+# Closure's full active-bug manifest is 174, but artifacts_v2 only has 153
+# collected/classified so far (21 bugs pending, 143 still quarantined for a
+# bad fix diff) — use the 153-bug subset manifest until the rest arrive.
 MANIFESTS = {
     "Chart": ("manifest_chart26", 26),
-    "Closure": ("manifest_closure152_v2", 152),
+    "Closure": ("manifest_closure153_v2", 153),
     "Lang": ("manifest_lang61", 61),
     "Math": ("manifest_math106", 106),
     "Mockito": ("manifest_mockito38", 38),

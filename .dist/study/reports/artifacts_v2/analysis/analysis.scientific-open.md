@@ -1,13 +1,13 @@
 # Batch Study Analysis
 
-- Created: `2026-09-15T08:59:41+00:00`
-- Total pairs: **409**
+- Created: `2026-09-15T09:20:45+00:00`
+- Total pairs: **410**
 - Projects covered: **6**
-- Type changed: **121** (29.6%)
-- Type unchanged: **288** (70.4%)
+- Type changed: **122** (29.8%)
+- Type unchanged: **288** (70.2%)
 - No alternative overlap: **12** (2.9%)
 - No family match: **24** (5.9%)
-- Family match: **385** (94.1%)
+- Family match: **386** (94.1%)
 
 ## Alternative Match Cases (Type Changed)
 
@@ -298,6 +298,14 @@
 - Postfix reasoning summary: The defect is a classic 'Checking' error where an overly restrictive conditional guard (options.closurePass) was applied to a feature (dependency sorting) that should have been independent. The fix is to remove this unnecessary check.
 - Prefix context signal: com.google.javascript.jscomp.IntegrationTest::testDependencySorting: junit.framework.AssertionFailedError:
 - Postfix context signal: com.google.javascript.jscomp.IntegrationTest::testDependencySorting: junit.framework.AssertionFailedError:
+
+### Closure-1
+- Type shift: Algorithm/Method -> Checking.
+- Comparison detail: Cross-alternative match: pre-fix 'Algorithm/Method' is in post-fix alternatives, and post-fix 'Checking' is in pre-fix alternatives
+- Prefix reasoning summary: The defect is clearly in the procedural logic of the parameter removal optimization. It is not a missing check (Checking) because the logic itself is fundamentally flawed in its assumption about parameter usage. It is not an assignment error (Assignment/Initialization) because it involves the removal of code structure. It is not a design-level capability gap (Function/Class/Object).
+- Postfix reasoning summary: The defect is a missing guard condition (Checking) that prevents an optimization from running in a context where it is unsafe. The fix is to add this check, which is the definition of a 'Checking' ODC type.
+- Prefix context signal: com.google.javascript.jscomp.CommandLineRunnerTest::testSimpleModeLeavesUnusedParams: junit.framework.AssertionFailedError:
+- Postfix context signal: com.google.javascript.jscomp.CommandLineRunnerTest::testSimpleModeLeavesUnusedParams: junit.framework.AssertionFailedError:
 
 ### Closure-20
 - Type shift: Algorithm/Method -> Checking.
@@ -985,8 +993,8 @@
 
 ### Type Changed (Prefix → Postfix)
 
-- Algorithm/Method -> Checking: 37
-  - Bugs: Chart-18, Closure-104, Closure-114, Closure-118, Closure-120, Closure-123, Closure-129, Closure-12, Closure-133, Closure-142, Closure-153, Closure-156, Closure-15, Closure-164, Closure-18, Closure-20, Closure-21, Closure-30, Closure-48, Closure-4, Closure-75, Closure-82, Closure-87, Lang-10, Lang-22, Lang-3, Lang-61, Math-15, Math-33, Math-43, Math-48, Math-52, Math-84, Mockito-19, Mockito-8, Time-10, Time-3
+- Algorithm/Method -> Checking: 38
+  - Bugs: Chart-18, Closure-104, Closure-114, Closure-118, Closure-120, Closure-123, Closure-129, Closure-12, Closure-133, Closure-142, Closure-153, Closure-156, Closure-15, Closure-164, Closure-18, Closure-1, Closure-20, Closure-21, Closure-30, Closure-48, Closure-4, Closure-75, Closure-82, Closure-87, Lang-10, Lang-22, Lang-3, Lang-61, Math-15, Math-33, Math-43, Math-48, Math-52, Math-84, Mockito-19, Mockito-8, Time-10, Time-3
 - Checking -> Algorithm/Method: 37
   - Bugs: Closure-108, Closure-110, Closure-111, Closure-115, Closure-119, Closure-122, Closure-124, Closure-126, Closure-128, Closure-136, Closure-140, Closure-144, Closure-150, Closure-175, Closure-23, Closure-41, Closure-43, Closure-74, Closure-7, Closure-89, Lang-13, Lang-20, Lang-43, Lang-50, Lang-52, Math-17, Math-21, Math-58, Math-71, Math-79, Mockito-24, Mockito-25, Mockito-6, Time-17, Time-22, Time-6, Time-7
 - Algorithm/Method -> Assignment/Initialization: 10

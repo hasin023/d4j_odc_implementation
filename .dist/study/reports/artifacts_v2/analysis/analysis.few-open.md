@@ -1,13 +1,13 @@
 # Batch Study Analysis
 
-- Created: `2026-09-15T08:59:43+00:00`
-- Total pairs: **409**
+- Created: `2026-09-15T09:20:47+00:00`
+- Total pairs: **410**
 - Projects covered: **6**
-- Type changed: **136** (33.3%)
-- Type unchanged: **273** (66.7%)
+- Type changed: **137** (33.4%)
+- Type unchanged: **273** (66.6%)
 - No alternative overlap: **6** (1.5%)
 - No family match: **18** (4.4%)
-- Family match: **391** (95.6%)
+- Family match: **392** (95.6%)
 
 ## Alternative Match Cases (Type Changed)
 
@@ -402,6 +402,14 @@
 - Postfix reasoning summary: The fix involves changing the logic that determines whether to use the declared type or the inferred type for a variable during type inference. By modifying the boolean conditions (isVarDeclaration, isVarTypeBetter) and the subsequent redeclareSimpleVar call, the fix corrects the algorithmic strategy for how the compiler reconciles declared types with actual assigned values. This is a procedural correction to the type inference algorithm, not a simple guard (Checking) or a single value assignment (Assignment/Initialization).
 - Prefix context signal: com.google.javascript.jscomp.TypeCheckTest::testIssue1056: junit.framework.AssertionFailedError: expected a warning
 - Postfix context signal: com.google.javascript.jscomp.TypeCheckTest::testIssue1056: junit.framework.AssertionFailedError: expected a warning
+
+### Closure-1
+- Type shift: Algorithm/Method -> Checking.
+- Comparison detail: Cross-alternative match: pre-fix 'Algorithm/Method' is in post-fix alternatives, and post-fix 'Checking' is in pre-fix alternatives
+- Prefix reasoning summary: The defect is an incorrect optimization strategy where the compiler aggressively removes unused parameters. This is a procedural logic error in the optimization algorithm, as it fails to account for the side effect on the function's 'length' property. It is not a missing guard (Checking), a wrong value (Assignment), or a design-level capability gap (Function/Class/Object), but rather an incorrect implementation of the parameter removal logic.
+- Postfix reasoning summary: The fix involves adding a conditional guard (`if (!removeGlobals) { return; }`) to prevent the execution of the argument removal logic when global removal is not enabled. This is a classic missing guard/validation check, which falls under the 'Checking' category in ODC.
+- Prefix context signal: com.google.javascript.jscomp.CommandLineRunnerTest::testSimpleModeLeavesUnusedParams: junit.framework.AssertionFailedError:
+- Postfix context signal: com.google.javascript.jscomp.CommandLineRunnerTest::testSimpleModeLeavesUnusedParams: junit.framework.AssertionFailedError:
 
 ### Closure-20
 - Type shift: Algorithm/Method -> Checking.
@@ -1105,8 +1113,8 @@
 
 ### Type Changed (Prefix → Postfix)
 
-- Algorithm/Method -> Checking: 62
-  - Bugs: Chart-18, Chart-5, Closure-104, Closure-114, Closure-116, Closure-118, Closure-120, Closure-121, Closure-124, Closure-127, Closure-12, Closure-130, Closure-132, Closure-142, Closure-155, Closure-15, Closure-171, Closure-172, Closure-18, Closure-20, Closure-29, Closure-30, Closure-31, Closure-33, Closure-36, Closure-38, Closure-3, Closure-42, Closure-44, Closure-5, Closure-73, Closure-75, Closure-90, Closure-98, Lang-16, Lang-22, Lang-32 (no alt overlap), Lang-34 (no alt overlap), Lang-46, Lang-49, Lang-53, Lang-55, Lang-58, Lang-9, Math-105, Math-25, Math-26, Math-36, Math-37, Math-42, Math-48, Math-52, Math-82, Mockito-12, Mockito-14 (no alt overlap), Mockito-16, Mockito-8, Time-15, Time-18, Time-19, Time-27, Time-3
+- Algorithm/Method -> Checking: 63
+  - Bugs: Chart-18, Chart-5, Closure-104, Closure-114, Closure-116, Closure-118, Closure-120, Closure-121, Closure-124, Closure-127, Closure-12, Closure-130, Closure-132, Closure-142, Closure-155, Closure-15, Closure-171, Closure-172, Closure-18, Closure-1, Closure-20, Closure-29, Closure-30, Closure-31, Closure-33, Closure-36, Closure-38, Closure-3, Closure-42, Closure-44, Closure-5, Closure-73, Closure-75, Closure-90, Closure-98, Lang-16, Lang-22, Lang-32 (no alt overlap), Lang-34 (no alt overlap), Lang-46, Lang-49, Lang-53, Lang-55, Lang-58, Lang-9, Math-105, Math-25, Math-26, Math-36, Math-37, Math-42, Math-48, Math-52, Math-82, Mockito-12, Mockito-14 (no alt overlap), Mockito-16, Mockito-8, Time-15, Time-18, Time-19, Time-27, Time-3
 - Checking -> Algorithm/Method: 29
   - Bugs: Chart-17, Chart-2, Closure-103, Closure-109, Closure-110, Closure-119, Closure-136, Closure-138, Closure-140, Closure-168, Closure-174, Closure-176, Closure-23, Closure-43, Closure-79, Closure-85, Lang-20, Lang-35, Math-20, Math-58, Math-63, Math-78, Math-79, Math-84, Mockito-6, Time-10, Time-12, Time-2, Time-4
 - Algorithm/Method -> Assignment/Initialization: 18
