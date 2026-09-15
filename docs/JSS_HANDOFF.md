@@ -245,7 +245,11 @@ their own staleness banners for which sections are still current.
 ## 3. Research Questions
 
 Verbatim from `docs/RQs_JSS.md` (canonical, do not paraphrase differently
-elsewhere without updating that file first):
+elsewhere without updating that file first). **RQ3 and RQ4 were rewritten
+2026-09-15** — see `docs/RQ_standing_assessment.md` for why and for the
+numbers each now rests on. **That assessment, not §4 below, is the current
+source for RQ results**; §4 is a pre-audit development run kept only as a
+record that the analysis layer produced well-formed output.
 
 - **RQ1 — Bug Type Distribution Across Projects.** What is the distribution
   of ODC defect types across the Defects4J benchmark, and does this
@@ -253,14 +257,19 @@ elsewhere without updating that file first):
 - **RQ2 — Bug Type Coverage of the ODC Taxonomy.** Do the seven standard
   ODC bug types cover all the bugs in Defects4J — or do some bugs actually
   fall outside those seven types?
-- **RQ3 — Overall Pipeline Classification Accuracy.** How well does the
-  LLM-based pipeline, using the scientific debugging loop and ODC taxonomy,
-  classify Defects4J bugs into the correct defect types under a four-level
-  accuracy evaluation?
-- **RQ4 — Contribution of Each Pipeline Component.** How much do the
-  scientific debugging loop and explicit ODC taxonomy grounding each
-  improve classification accuracy, label consistency, and vocabulary
-  reduction compared to an unstructured LLM baseline?
+- **RQ3 — Does a Classification Made Before the Fix Survive Seeing the
+  Fix?** (reworded 2026-09-15) Defects4J has no ODC answer key, so we
+  classify each bug twice and treat the post-fix run as the reference — an
+  ODC type describes the nature of the fix, so the run that sees the fix is
+  better informed. How often does the pre-fix run produce the same type, and
+  when it does not, how far apart are the two labels (four levels: same
+  type, Cohen's κ, already shortlisted, same ODC family)?
+- **RQ4 — What Does Each Part of the Pipeline Actually Contribute?**
+  (split 2026-09-15) **RQ4a:** what does forcing the ODC taxonomy buy,
+  versus letting the model describe the bug in its own words (`zero-free`)?
+  Vocabulary size, label entropy, reproducibility. **RQ4b:** what does the
+  enforced scientific loop add on top of a strong few-shot prompt at the
+  same taxonomy setting?
 - **RQ5 — Does Seeing the Fix Change How a Bug Gets Classified?** What is
   the magnitude and pattern of semantic divergence between pre-fix and
   post-fix ODC classifications, and how does per-project classification
