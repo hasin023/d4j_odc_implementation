@@ -20,7 +20,9 @@ Source-of-truth order when docs conflict: `d4j_odc_pipeline/*.py` → `tests/*.p
 
 ## Commands
 
-Activate the venv once per shell (`source .venv/bin/activate`); then `python`/`pytest` resolve normally. (Without it they're not on PATH — use `.venv/bin/python` for a one-off command.)
+Activate the venv once per shell; then `python`/`pytest` resolve normally. **This is a Windows host — the venv is `.venv\Scripts\`, there is no `.venv/bin`:** PowerShell `.venv\Scripts\Activate.ps1`, Git Bash `source .venv/Scripts/activate`. (Without it they're not on PATH — use `.venv/Scripts/python.exe` for a one-off command; that path works from PowerShell and Git Bash alike.)
+
+Commands below are written to run unchanged in PowerShell, cmd, and Git Bash. **Do not use bash `\` line continuations** — PowerShell ends the command at the backslash and silently runs it without the remaining flags, which for `study-collect` means falling back to the default `--artifacts-root`/`--work-root` and re-collecting a corpus that already exists. Keep multi-flag commands on one line.
 
 ```bash
 # Install (editable)

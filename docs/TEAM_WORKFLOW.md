@@ -59,8 +59,10 @@ usable (see `docs/study_execution_log.md` for why the old, coverage-empty corpus
 `DEFECTS4J_CMD`, a wrong `DEFECTS4J_PATH_STYLE`, or a silently-failing checkout cleanup in under a
 few minutes instead of after two hours:
 
-```bash
-source .venv/bin/activate
+```powershell
+# Windows (PowerShell) — this repo's venv is .venv\Scripts\, there is no .venv/bin
+.venv\Scripts\Activate.ps1
+# Git Bash on the same machine: source .venv/Scripts/activate
 
 python -m d4j_odc_pipeline collect --project Lang --bug 1                        # prefix mode
 python -m d4j_odc_pipeline collect --project Lang --bug 1 --include-fix-diff     # postfix mode
@@ -81,11 +83,8 @@ disk fills over the course of a multi-hour run with no error, just increasingly 
 Start the first real manifest, but check in after the first couple of bugs instead of leaving it
 unattended immediately:
 
-```bash
-python -m d4j_odc_pipeline study-collect \
-  --manifest .dist/study/manifest_chart26.json \
-  --artifacts-root .dist/study/artifacts_v2 \
-  --work-root .dist/study/work_v2
+```powershell
+python -m d4j_odc_pipeline study-collect --manifest .dist/study/manifest_chart26.json --artifacts-root .dist/study/artifacts_v2 --work-root .dist/study/work_v2
 ```
 
 After the first 1–2 bugs finish (or Ctrl+C once they do — it's safe, it checkpoints), run this in
@@ -195,85 +194,81 @@ act on a bug once its `context.json` already exists, so they can't step on work 
 - **`split_manifest.py`** — splits a manifest into N disjoint pieces over whatever bugs don't yet have
   a finished `context.json` (checks both prefix and postfix), so multiple `study-collect` processes can
   run in parallel against the same `--artifacts-root` without two of them ever touching the same bug's
-  checkout at once. **Read the live-range table below before using this on Closure** — an existing full
-  1-174 run is already in progress, and a naive split ignores that.
+  checkout at once. For Closure the lanes are already generated — see the lane table below and use
+  those manifests rather than re-splitting. Re-split only when adding a machine, and stop every
+  running lane first.
   ```bash
   python scripts/split_manifest.py --manifest .dist/study/manifest_closure174.json --artifacts-root .dist/study/artifacts_v2 --workers 3
   ```
 
-#### Live parallel Closure collection — who owns which range (as of 2026-09-14, ~15:45 BST)
+#### Closure collection — remaining lanes (as of 2026-09-14, ~22:45 BST)
 
-Two `study-collect` processes are running Closure concurrently against the same
-`--artifacts-root .dist/study/artifacts_v2 --work-root .dist/study/work_v2`. **Before starting a third,
-read this or you risk two processes checking out the same bug at once** (corrupts/crashes both).
+An unplanned machine shutdown killed both `study-collect` processes that used to be documented here.
+Nothing is running now. The corpus survived: **73 of 174 Closure bugs are fully collected in both
+modes** (1-46 and 100-126), plus bug 127's prefix only.
 
-| Process | Manifest | Covers | Frontier (as of last check) | Measured pace |
-|---|---|---|---|---|
-| 1 (original) | `manifest_closure174.json` | 1-174, unbounded — will eventually walk through everything, including 100-174 | ~bug 42 | ~65 min/bug |
-| 2 (worker) | `manifest_closure174_from100.json` | 100-174 only | ~bug 123 | ~65 min/bug |
+The remaining 101 bugs are split into two disjoint, ready-to-use lanes. These were generated from the
+live corpus with `split_manifest.py`, so every bug already on disk is excluded — there is no range
+arithmetic left to do and no risk of two lanes touching the same checkout.
 
-**Why "just split 1-174 into thirds" doesn't work here:** process 1's manifest isn't bounded at 99 — it
-sequentially walks the *entire* 1-174 range (skipping bugs someone else already finished, but still
-walking through the numbers). So any range inside ~42-174 is territory process 1 will eventually reach,
-not free space. At measured rates process 1 needs ~63h to reach bug 123 (where process 2 is working);
-process 2 needs ~56h to finish 100-174 entirely — process 2 should finish first, but the ~7h margin is
-too thin to add a third worker inside either process's active range.
+| Lane | Manifest | Bugs | Count |
+|---|---|---|---|
+| 1 | `manifest_closure174_remaining_lane1.json` | 47-99 | 51 |
+| 2 | `manifest_closure174_remaining_lane2.json` | 127-176 | 50 |
 
-**Safe range for a third worker right now, without touching either running process:**
-`.dist/study/manifest_closure174_85to99.json` (bugs 85-99, 14 bugs) — deep enough into process 1's own
-remaining lane that it won't arrive for ~47h, comfortably ahead of how long 14 bugs takes even with
-3-way resource contention.
-```bash
-python -m d4j_odc_pipeline study-collect --manifest .dist/study/manifest_closure174_85to99.json --artifacts-root .dist/study/artifacts_v2 --work-root .dist/study/work_v2
+(174 entries span ids 1-176 — Closure 63 and 93 are deprecated and absent from the manifest.)
+
+One line per lane — no continuations, so these paste unchanged into PowerShell, cmd, or Git Bash:
+
+```powershell
+# lane 1 — run on machine A
+python -m d4j_odc_pipeline study-collect --manifest .dist/study/manifest_closure174_remaining_lane1.json --artifacts-root .dist/study/artifacts_v2 --work-root .dist/study/work_v2 --summary-output .dist/study/summary.collect.lane1.json
+
+# lane 2 — run on machine B
+python -m d4j_odc_pipeline study-collect --manifest .dist/study/manifest_closure174_remaining_lane2.json --artifacts-root .dist/study/artifacts_v2 --work-root .dist/study/work_v2 --summary-output .dist/study/summary.collect.lane2.json
 ```
 
-**Do not** start a fresh `manifest_closure174.json` run (duplicates process 1) or anything covering
-70-100 or 150-174 (collides with process 1's and process 2's active ranges respectively) — regenerate
-the safe range yourself with `split_manifest.py`/a manual bug-id filter if this table is stale by the
-time you read it, rather than guessing. Check current frontiers first:
+Lane 2 starts on bug 127, whose prefix context already exists — `skip_existing` is per evidence mode,
+so it collects only the missing postfix and moves on.
+
+**Do not use `manifest_closure174.json` (the unbounded 1-174 manifest) to resume.** It still works —
+finished bugs are skipped in milliseconds — but it walks the whole id range, so two people running it
+eventually collide on the same checkout. The lanes exist precisely to make that impossible.
+
+Both lanes write into the same `--artifacts-root`; that is intended and safe (see the manifest-is-a-
+worklist-not-a-namespace rule in `CLAUDE.md`). Share results by committing `artifacts_v2` (§5 Path A).
+
+**Resuming a lane needs no calculation.** `study-collect` checkpoints every bug and `skip_existing`
+(default on) skips anything with a `context.json` already on disk. Ctrl+C is safe; rerun the *same
+command with the same manifest* and it picks up where it stopped. A checkpoint "manifest hash mismatch
+— starting fresh" line is cosmetic: the per-bug file check still prevents any recollection.
+
+**Run the sweeper periodically during a long lane.** Leaked checkouts are ~250 MB each (Windows can't
+delete Defects4J's read-only git objects), so 50 bugs will fill a disk:
 ```bash
-python -c "
-import os, re
-def real_done(mode_dir, mode):
-    done=[]
-    pat=re.compile(rf'^Closure_(\d+)_{mode}\$')
-    for name in os.listdir(mode_dir):
-        m=pat.match(name)
-        if m and os.path.isfile(os.path.join(mode_dir,name,'context.json')): done.append(int(m.group(1)))
-    return sorted(done)
-pre=real_done('.dist/study/artifacts_v2/prefix','prefix'); post=real_done('.dist/study/artifacts_v2/postfix','postfix')
-both=sorted(set(pre)&set(post))
-print('low-range frontier:', max([b for b in both if b<100], default=0))
-print('high-range frontier:', max(both, default=0))
-"
+python scripts/sweep_work_v2.py
 ```
-The bigger, permanent fix (capping process 1's manifest to 1-99 so it can never reach process 2's
-territory, freeing the rest for even splits) requires briefly restarting process 1 — checkpointed, ~10s,
-zero data loss — but wasn't done here since the live run wasn't to be interrupted. Worth doing if this
-table needs a fourth process later.
 
-#### Handing off mid-run to another machine (e.g. neither of the two local processes above finishes tonight)
-
-**Resuming needs no calculation at all.** `study-collect` checkpoints every bug and `skip_existing`
-(default on) skips anything with a `context.json` already on disk. Stop either process (Ctrl+C, safe),
-commit/push `artifacts_v2` (§5 Path A), and whoever picks it up just reruns the *same command with the
-same manifest* — it resumes from exactly where it was left, no new manifest needed:
-```bash
-# process 1's lane, resumes automatically
-python -m d4j_odc_pipeline study-collect --manifest .dist/study/manifest_closure174_1to99.json --artifacts-root .dist/study/artifacts_v2 --work-root .dist/study/work_v2
-# process 2's lane, resumes automatically
-python -m d4j_odc_pipeline study-collect --manifest .dist/study/manifest_closure174_from100.json --artifacts-root .dist/study/artifacts_v2 --work-root .dist/study/work_v2
+**Adding a third machine, or if this table has gone stale:** regenerate the lanes from the live corpus
+rather than guessing a range. The splitter re-reads what is actually on disk every time:
+```powershell
+python scripts/split_manifest.py --manifest .dist/study/manifest_closure174.json --artifacts-root .dist/study/artifacts_v2 --workers 3 --out-prefix manifest_closure174_remaining_lane
 ```
-`manifest_closure174_1to99.json` is the explicit 1-99 slice of the full manifest — use this one for
-handoff instead of the unbounded `manifest_closure174.json`, so whoever picks it up has an unambiguous
-lane (process 1 was never actually going to reach 100 before being stopped, this just makes that
-boundary explicit in the manifest itself rather than relying on "someone stopped it in time"). Two
-people can run these two commands on two different machines in parallel with zero coordination beyond
-sharing the same `artifacts_v2` (via git) — the ranges don't overlap.
+Stop every running lane first — a lane started before the regeneration still owns its old range.
 
-If a machine has spare capacity to run a third worker on top of one of those two, that's what
-`manifest_closure174_85to99.json` (§ above, bugs 85-99) is for — but that's an extra-throughput
-optimization, not required for the handoff itself.
+Check what is actually collected at any time — `check_contexts.py` reports per bug AND per
+evidence mode, which is what you need here (bug 127 is missing only its postfix):
+
+```powershell
+python scripts/check_contexts.py .dist/study/manifest_closure174.json .dist/study/artifacts_v2
+```
+
+It prints `usable` (contexts present and collected on/after 2026-08-10), `MISSING`, and `STALE`.
+`usable: 147` = 74 prefix + 73 postfix, i.e. the 73 fully-paired bugs plus Closure 127's prefix.
+
+The older slice manifests (`manifest_closure174_1to99.json`, `_from100.json`, `_70to99.json`,
+`_85to99.json`, `_150to174.json`) predate the shutdown and are **not** remaining-only — they re-walk
+bugs already collected. They are kept for provenance; use the two lane manifests above instead.
 
 ### Classifier — turns contexts into labels
 
@@ -297,12 +292,8 @@ without Defects4J — which is exactly the confusing failure this gate exists to
 Then classify — a genuinely different command from the Collector's `study-collect`, not the same one
 with a flag dropped:
 
-```bash
-python -m d4j_odc_pipeline study-run \
-  --manifest .dist/study/manifest_lang61.json \
-  --artifacts-root .dist/study/artifacts_v2 \
-  --taxonomy open --strategy scientific \
-  --daily-call-budget 2000 --prompt-output
+```powershell
+python -m d4j_odc_pipeline study-run --manifest .dist/study/manifest_lang61.json --artifacts-root .dist/study/artifacts_v2 --taxonomy open --strategy scientific --daily-call-budget 2000 --prompt-output
 ```
 
 Since every context already exists (checked by the gate above), `study-run` reuses each one instead
@@ -323,9 +314,7 @@ Do **not** pass `--require-all-projects` — it is the one flag that calls Defec
 python scripts/reports/generate_combined_report.py
 
 # Per-condition drift analysis (RQ1/RQ3/RQ5), then LaTeX + CSV for the paper
-python -m d4j_odc_pipeline study-drift  --manifest .dist/study/manifest_lang61.json \
-                                        --artifacts-root .dist/study/artifacts_v2 \
-                                        --taxonomy open --strategy scientific
+python -m d4j_odc_pipeline study-drift --manifest .dist/study/manifest_lang61.json --artifacts-root .dist/study/artifacts_v2 --taxonomy open --strategy scientific
 python -m d4j_odc_pipeline study-export --analysis .dist/study/analysis_lang61_scientific-open.json
 ```
 
