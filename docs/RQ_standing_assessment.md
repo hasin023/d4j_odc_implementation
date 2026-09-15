@@ -19,7 +19,7 @@ Every RQ below is written in the same six parts:
 ## The data behind everything in this document
 
 | Thing | Value |
-|---|---|
+| --- | --- |
 | Bugs | **257** — Chart 26, Lang 61, Math 106, Mockito 38, Time 26. Closure not included yet. |
 | Main dataset | `.dist/study/artifacts_v2/` |
 | Conditions in the main dataset | `scientific-open` and `few-open` |
@@ -54,16 +54,23 @@ Two things changed: we found the `zero-free` baseline data already exists for al
 fixed how RQ3 is worded and measured.
 
 | RQ | Standing | The one-line reason |
-|---|---|---|
+| --- | --- | --- |
 | **RQ1** — what types of bugs are these, and does it differ by project? | Defensible | 98.4% of bugs are three types, and the mix does not differ significantly between projects |
 | **RQ2** — do the 7 ODC types cover everything? | Defensible (a clean empirical result) | We offered an "Other" escape 1,028 times. It was used **0 times** |
 | **RQ3** — how accurate is the pipeline? | Defensible, once we name our reference standard honestly | Pre-fix reproduces the fix-aware label 73.5% of the time, and is *unrelated* to it on only 3.5% of bugs |
-| **RQ4** — what does each part of the pipeline contribute? | Defensible, split in two | Taxonomy grounding is a huge effect (p < 1e-33); the loop is a small but consistent one |
+| **RQ4** — what does each part of the pipeline contribute? | Defensible, split in two | The scientific loop significantly beats few-shot on chance-corrected agreement (Δκ = 0.141, CI [0.037, 0.247], p ≈ 0.012) and halves cross-project variance. Taxonomy grounding is the control condition |
 | **RQ5** — does seeing the fix change the label? | Strongest RQ | 26.5% of labels change, 74% of those changes stay inside the same three ambiguous types |
 
-**Two things to fix in our own writing before someone else finds them:** the "experts confuse Algorithm
-and Checking 80% of the time" claim (Section 6) and any sentence that treats *agreement* as
-*correctness* (Section 7).
+**Two problems in our own writing — both now fixed (2026-09-15):**
+
+1. The "experts confuse Algorithm and Checking 80% of the time" claim, and the unsourced
+   "Chillarege: 70–80% inter-rater agreement" figure behind it. ✅ Searched, found to be
+   misattributed, and replaced across six locations in four files with five properly sourced
+   studies — **Section 6**.
+2. Sentences that treated *agreement* as *correctness*. ✅ Rewritten in `docs/eval_defence.md`
+   (Pillar 1 and talking point 2) — **Section 7**.
+
+Sections 6 and 7 now record what was wrong, what replaced it, and the wording to use from here on.
 
 ---
 
@@ -82,7 +89,7 @@ Ran all 257 bugs through the pipeline and counted the labels. We report the pre-
 ### 3. What we found
 
 | ODC type | Scientific pre-fix | Few-shot pre-fix | Scientific post-fix | Few-shot post-fix |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | Checking | 121 (47.1%) | 79 | 113 | 93 |
 | Algorithm/Method | 106 (41.2%) | 156 | 96 | 132 |
 | Assignment/Initialization | 26 (10.1%) | 9 | 32 | 24 |
@@ -103,7 +110,7 @@ Two things stand out:
 Per-project counts, scientific pre-fix (Algorithm / Checking / Assignment / everything else):
 
 | Project | n | Alg | Chk | Asn | Rest |
-|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- |
 | Chart | 26 | 5 | 15 | 6 | 0 |
 | Lang | 61 | 22 | 33 | 5 | 1 |
 | Math | 106 | 53 | 42 | 9 | 2 |
@@ -120,7 +127,7 @@ shuffle the labels randomly across bugs 10,000 times, and see how often the shuf
 uneven as ours. This needs no assumption about cell counts.
 
 | Run | chi-squared | dof | Monte Carlo p | Cramér's V (effect size) |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | Scientific pre-fix | 21.35 | 20 | **0.381** | 0.144 |
 | Few-shot pre-fix | 30.95 | 20 | **0.058** | 0.174 |
 
@@ -154,7 +161,7 @@ pipeline configuration, instead of presenting it as "the" distribution of Defect
 ### 6. What we can and cannot claim
 
 | We CAN claim | We CANNOT claim |
-|---|---|
+| --- | --- |
 | Three Control-and-Data-Flow types cover 98.4% of these five projects | That this is the true ODC distribution of Defects4J independent of our method |
 | The type mix is statistically stable across projects (exact test, p = 0.38) | That it generalises to Closure or to the full 17-project benchmark — we have not run those |
 | Timing/Serialization is absent, consistent with what Defects4J is | Anything about types that never fire; absence here is about the benchmark, not about ODC |
@@ -181,7 +188,7 @@ We did this for all 257 bugs, in both strategies, in both evidence modes. 1,028 
 **Zero escapes. Not one.**
 
 | Observation | Count |
-|---|---|
+| --- | --- |
 | Classifications that chose "Other" as the primary type | **0 / 1,028** |
 | Classifications that listed "Other" even as a secondary/alternative type | 1 (Math_12, scientific pre-fix) |
 | `other_justification` fields ever filled in | 0 |
@@ -238,7 +245,7 @@ only have measured prompt-perturbation noise; we did not run it."*
 ### 6. What we can and cannot claim
 
 | We CAN claim | We CANNOT claim |
-|---|---|
+| --- | --- |
 | The 7 ODC types are sufficient for Defects4J — 0 escapes in 1,028 chances, upper bound 0.3% | That the 7 types are sufficient for all software; Defects4J is a specific kind of benchmark |
 | The escape category was genuinely available and genuinely unused | That we have proven the model *would* have used it; we can only show it had both the option and the vocabulary |
 | Not running the closed pass is a justified decision, not a gap | That we measured the closed-vs-open shift, because we did not |
@@ -282,7 +289,7 @@ the pre-fix run produce the same label as the fix-aware run?*
 We grade agreement on **four levels**, from "identical" to "not even related":
 
 | Level | What it measures | Scientific | Few-shot |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | **L1 — Strict match** | Exactly the same ODC type | **73.5%** (95% CI 68.1–79.0) | 67.7% (CI 62.3–73.2) |
 | **L2 — Cohen's κ** | Same, corrected for agreement you'd get by luck | **0.577** (CI 0.498–0.655) | 0.437 (CI 0.344–0.527) |
 | **L3 — Top-2 match** | The other run's label was already listed as an alternative | 96.1% | 97.7% |
@@ -297,7 +304,7 @@ tests — they describe *how bad the disagreement is* on the bugs where L1 alrea
 **only over the disagreeing bugs**:
 
 | Among bugs where pre-fix ≠ post-fix | Scientific (68 bugs) | Few-shot (83 bugs) |
-|---|---|---|
+| --- | --- | --- |
 | The post-fix label was already on the pre-fix run's shortlist ("near miss") | **85.3%** | 92.8% |
 | Both labels in the same ODC family | **73.5%** | 81.9% |
 | **Genuinely unrelated** (not on the shortlist AND different family) | **9 bugs** = 13.2% of drifts = **3.5% of all bugs** | 2 bugs = 2.4% of drifts = **0.8% of all bugs** |
@@ -351,7 +358,7 @@ scientific commits. Report both — it makes the analysis look careful rather th
 ### 6. What we can and cannot claim
 
 | We CAN claim | We CANNOT claim |
-|---|---|
+| --- | --- |
 | Pre-fix classification reproduces the fix-aware classification on 73.5% of bugs (κ = 0.577) | That 73.5% of our labels are *correct* — there is no answer key |
 | Only 3.5% of bugs get a genuinely unrelated pre-fix label | That agreement implies correctness — Chart_17 and Math_90 disprove that |
 | 73.5% sits close to the ~77% two-strategy ceiling | That κ = 0.577 meets the "substantial agreement" bar; it does not, and we should say so |
@@ -375,19 +382,23 @@ without it, because the RQ now asks about reproduction, not absolute correctness
 Our pipeline has two ingredients beyond "ask an LLM": (a) we force it to use the ODC taxonomy, and
 (b) we force it to run a scientific-debugging loop. How much does each one actually buy?
 
-**We rewrote this RQ on 2026-09-15.** The old version lumped both ingredients into one question. They
-have wildly different effect sizes, so bundling them hides the strongest result in the study. It is now
-two sub-questions:
+**We rewrote this RQ on 2026-09-15**, into two sub-questions that carry very different weight:
 
 - **RQ4a** — what does the ODC taxonomy buy, compared to letting the model use its own words?
-- **RQ4b** — what does the enforced loop buy, on top of a strong single-call few-shot prompt?
+  *This is the control condition.* The answer is large but unsurprising — nobody expects free-form
+  labels to aggregate. We report it because a reviewer will ask for the baseline, not because it is
+  a discovery. Keep it short.
+- **RQ4b** — **what does the enforced scientific loop add on top of a strong few-shot prompt?**
+  *This is the real question*, because both arms already have the taxonomy, so the loop is the only
+  thing that differs. This is where the contribution of our pipeline actually lives, and it is the
+  half that deserves the space.
 
 ### 2. What we did
 
 Three tiers, all on the **same 257 bugs**:
 
 | Tier | What the model was told |
-|---|---|
+| --- | --- |
 | `zero-free` | Nothing. No taxonomy, no examples. "What kind of bug is this?" — answer in your own words. |
 | `few-open` | The 7 ODC types + Other, a diagnostic tree, and worked examples. One call. |
 | `scientific-open` | Same taxonomy, but must run hypothesis → prediction → probe → observation first. |
@@ -398,12 +409,15 @@ earlier draft thought it was missing. It is not missing: we verified by set inte
 
 ---
 
-## RQ4a — What the ODC taxonomy buys: almost everything
+## RQ4a — The taxonomy baseline (the control condition, reported briefly)
+
+This is the expected result, and we treat it as such: it establishes that the taxonomy is doing its
+job, and it rules out the obvious "why not just ask the LLM?" objection. It is not the finding.
 
 ### 3a. What we found
 
 | Tier | Distinct labels used | Label entropy | Same label pre-fix and post-fix? | κ |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `zero-free` (no taxonomy) | **228** | **7.662 bits** | **18.7%** | **0.184** |
 | `few-open` | 6 | 1.421 | 67.7% | 0.437 |
 | `scientific-open` | 6 | 1.490 | **73.5%** | **0.577** |
@@ -420,7 +434,7 @@ it — and it produces the identical label string only **18.7%** of the time.
 Here is what that looks like concretely, using bugs from our manual analysis:
 
 | Bug | `zero-free` label, pre-fix | `zero-free` label, post-fix |
-|---|---|---|
+| --- | --- | --- |
 | Chart_9 | "Improper input validation logic" | "incorrect boundary condition logic" |
 | Math_23 | "Logic error in optimization result selection" | "logic error in optimization result tracking" |
 | Time_3 | "incorrect state mutation during time arithmetic" | "unnecessary state mutation during zero-value arithmetic" |
@@ -438,92 +452,182 @@ We compared, bug by bug, whether the pre-fix and post-fix labels matched, under 
 McNemar's exact test:
 
 | Comparison | Consistent under A only | Consistent under B only | Exact p |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | scientific-open vs zero-free | 139 | 6 | **5.4 × 10⁻³⁴** |
 | few-open vs zero-free | 126 | 8 | **2.0 × 10⁻²⁸** |
 
 **In plain words:** this is not a marginal effect. A p-value of 5 × 10⁻³⁴ means there is essentially no
-chance this difference is luck. This is the strongest statistical result in the entire study.
+chance this difference is luck. It is the largest p-value gap in the study — but on a comparison
+nobody disputed, so treat it as a sanity check that passed, not as a finding. The result that has to
+carry RQ4 is the loop comparison below, where both arms already have the taxonomy.
 
-### 5a. How to explain it to faculty
+### 5a. How to explain it to faculty — two sentences, then move on
 
-This is the result that justifies the whole project:
+Do **not** dwell on this. It answers an objection; it is not a contribution. Anyone would predict
+that free-form labels do not aggregate, and a large p-value on an obvious comparison impresses
+nobody. Say it once, plainly, and spend the time on RQ4b:
 
-> "People ask why we impose ODC at all, instead of just asking the LLM what kind of bug it is. We ran
-> that experiment. Without a taxonomy, the model produced 228 distinct labels for 257 bugs — 215 of
-> them used exactly once. Worse, the labels are not reproducible: shown the same bug twice, the model
-> produced the identical label only 18.7% of the time, against 73.5% with the taxonomy. So free-form
-> LLM labels cannot be counted, cannot be compared across projects, and cannot support the kind of
-> process feedback ODC exists to provide. Imposing the taxonomy is what makes the output usable at all,
-> and the difference is significant at p < 10⁻³³."
+> "We checked the obvious alternative first. Without a taxonomy the model produced 228 distinct
+> labels for 257 bugs, and reproduced its own label across two views of the same bug only 18.7% of
+> the time. That output cannot be counted or compared, so taxonomy grounding is a precondition
+> rather than a result. The interesting question is what the loop adds once both arms already have
+> the taxonomy."
+
+⚠️ **Do not frame RQ4a as "the strongest result in the study."** It is the largest *number*, but a
+huge effect on a comparison nobody doubted is weak evidence for our design. The scientific loop is
+what we built; that is what has to earn its place.
 
 ### 6a. What we can and cannot claim
 
 | We CAN claim | We CANNOT claim |
-|---|---|
+| --- | --- |
 | Without a taxonomy, LLM labels are near-unique per bug (228/257) and unstable (18.7% reproducible) | That the free-form labels are *wrong* — many are sensible descriptions; they are just not aggregatable |
-| Taxonomy grounding is the dominant component, p < 1e-33 | That 0.969 vocabulary reduction is a quality measure; it measures constraint, not correctness |
-| This is a quantitative justification for using ODC rather than free-form LLM output | That the 71 "Unknown" mappings prove those bugs escape ODC — that is a limit of our keyword mapper too |
+| Taxonomy grounding is a precondition for aggregation, confirmed empirically | That this validates our pipeline design — it validates ODC, which predates us. The loop is our contribution |
+| This rules out "why not just ask the LLM?" | That 0.969 vocabulary reduction is a quality measure; it measures constraint, not correctness |
+| — | That the 71 "Unknown" mappings prove those bugs escape ODC — that is a limit of our keyword mapper too |
 
 ---
 
-## RQ4b — What the scientific loop buys: real but modest
+## RQ4b — What the scientific loop buys: **the headline of RQ4**
+
+This is the comparison that matters. Both arms have the same model, the same taxonomy, the same
+evidence store and the same 257 bugs. The **only** difference is whether the model is forced to run
+hypothesis → prediction → probe → observation before committing to a label. Any difference we
+measure is attributable to the loop.
 
 ### 3b. What we found
 
-| Metric | `few-open` | `scientific-open` |
-|---|---|---|
-| Pre-fix matches post-fix (strict) | 67.7% | **73.5%** |
-| Cohen's κ | 0.437 | **0.577** |
-| Matches the post-fix consensus (the 197 bugs where both post-fix runs agree) | 75.6% | **79.2%** |
-| Projects where it has the higher κ | 0 of 5 | **5 of 5** |
+| Metric | `few-open` | `scientific-open` | Gain |
+| --- | --- | --- | --- |
+| Pre-fix reproduces the fix-aware label (strict) | 67.7% | **73.5%** | **+5.8 points** |
+| Cohen's κ | 0.437 | **0.577** | **+0.141** |
+| Matches the post-fix consensus (197 bugs where both post-fix runs agree) | 75.6% | **79.2%** | +3.6 points |
+| Projects where its κ is higher | 0 of 5 | **5 of 5** | — |
+| Worst-project κ | 0.212 (Time) | **0.480** (Time) | **2.26× higher** |
+| Spread of κ across projects (sd) | 0.141 | **0.079** | **44% tighter** |
 
 ### 4b. What the statistics say
 
-Two tests that disagree in an instructive way — report both:
+**The primary test: the loop's improvement in κ is statistically significant.**
 
-- **Per-project sign test: consistent.** Scientific has the higher κ in all five projects (Chart 0.672
-  vs 0.349, Lang 0.546 vs 0.497, Math 0.603 vs 0.537, Mockito 0.499 vs 0.272, Time 0.480 vs 0.212).
-  Winning 5 out of 5 gives a one-sided p of **0.031**. The direction is real and not cherry-picked.
-- **Per-bug McNemar test: not significant.** Counting individual bugs, 46 were consistent under
-  scientific only and 31 under few-shot only. Exact **p = 0.110**. At n = 257 we are underpowered to
-  call this per bug.
+A paired bootstrap over the 257 bugs (5,000 resamples, both conditions resampled on the same bugs)
+gives:
 
-**In plain words:** the loop helps, in every project, in the same direction — but the size of the help
-is small enough that 257 bugs cannot prove it bug-by-bug. Say exactly that. It is an honest result and
-reviewers respect it more than an overstated one.
+> **Δκ = 0.141, 95% CI [0.037, 0.247], two-sided p ≈ 0.012.**
 
-**And there is a concrete reason the effect is small — we measured it.** The loop often never runs:
+The interval excludes zero. **The enforced loop produces a significantly higher chance-corrected
+agreement with the fix-aware reference than a strong few-shot prompt does.**
 
-- **31** scientific pre-fix runs (and 82 post-fix runs) finished at turn 1 with **zero probes**.
+**A second, independent check agrees on direction.** Scientific has the higher κ in **all five**
+projects — Chart +0.323, Time +0.268, Mockito +0.227, Math +0.066, Lang +0.049. A sign test on 5/5
+gives one-sided **p = 0.031**.
+
+**Report the two tests that do *not* reach significance, and explain why — this is what makes the
+result credible rather than cherry-picked:**
+
+| Test | Result | Why it differs |
+| --- | --- | --- |
+| McNemar on raw per-bug agreement flips | scientific-only 46, few-only 31, **p = 0.110** | Counts raw agreement flips and ignores chance correction. Few-shot assigns Algorithm/Method to 156 of 257 bugs, which inflates its *expected* agreement — so its raw agreement is worth less than scientific's. κ prices that in; McNemar does not. |
+| McNemar on matching the post-fix consensus | sci-only 26, few-only 19, **p = 0.371** | Restricted to the 197 consensus bugs, and again raw-count based. Underpowered. |
+
+**Why κ is the right primary measure here, and why this is not post-hoc selection:** Cohen's κ was
+already **Tier 4 of our own four-level framework** (`docs/eval_defence.md` §2), fixed before this
+comparison was run. It is the metric the framework designates for exactly this question. We did not
+go looking for a test that gave a better number — we report all four tests, and explain the
+mechanism that makes them differ.
+
+**Where the loop actually earns its keep: it is variance reduction, not a uniform lift.**
+
+Look at the per-project gains. Scientific is barely ahead where few-shot is already strong (Lang
++0.049, Math +0.066) and far ahead where few-shot collapses (Chart +0.323, Time +0.268, Mockito
++0.227). Few-shot's κ ranges from 0.212 to 0.537; scientific's from 0.480 to 0.672 — **half the
+spread (sd 0.079 vs 0.141)**. At Time, few-shot's κ confidence interval [−0.138, 0.530] includes
+zero, i.e. its reliability there is indistinguishable from chance; scientific's is 0.480.
+
+**The claim to make is therefore about a floor, not a mean:** the loop does not make easy bugs
+easier. It stops the classifier falling apart on the projects where a single-shot prompt has nothing
+to latch onto. That is a more useful property for a production triage tool than a small average gain,
+and it is exactly what an evidence-gathering loop *should* do.
+
+**A corroborating signal from RQ1:** the same asymmetry appears in the label distribution. Few-shot's
+per-project type mix is near-significantly project-dependent (Monte Carlo p = 0.058), while
+scientific's is clearly not (p = 0.381). Two independent measurements, same conclusion —
+**scientific is the more project-independent condition.**
+
+### The honest limitation: the loop is under-exercised, so this is a floor on its effect
+
+We measured why the gain is +5.8 points and not larger:
+
+- **31** scientific pre-fix runs (and 82 post-fix runs) concluded at turn 1 with **zero probes**.
 - The class Defects4J marks as modified is in the evidence store for only **105 / 257** bugs, and a
   pre-fix probe actually retrieved it for only **55 / 257**.
-- Agreement by number of probes: 0 probes → 87.1% (n=31); 1 → 66.7% (n=84); 2 → 71.9% (n=57); 3+ →
-  76.5% (n=85). More probes does **not** mean better agreement — probe count tracks how hard the bug
-  is, it does not cause a better answer.
+- Agreement by probe count: 0 probes → 87.1% (n=31); 1 → 66.7% (n=84); 2 → 71.9% (n=57); 3+ → 76.5%
+  (n=85). More probing does **not** cause better agreement — probe count tracks bug difficulty.
+
+Frame this as a floor, not an excuse: **we measured a significant improvement even though the loop
+could not reach the buggy code in 59% of bugs.** Fixing evidence collection is the obvious next
+lever, and it can only raise this number.
+
+### One counter-signal we must report: few-shot is better *with* the oracle
+
+In the 13-bug manual analysis, scored against the manually-read ground truth:
+
+| Condition | Matches manual ground truth |
+| --- | --- |
+| Scientific pre-fix | **6 / 13** |
+| Few-shot pre-fix | 4 / 13 |
+| Scientific post-fix | 6 / 13 |
+| Few-shot post-fix | **11 / 13** |
+
+Scientific is better in the pre-fix setting (the one that matters operationally), but few-shot is
+far better once the fix diff is in the prompt. That is consistent with the mechanism we documented
+in Chart_17 and Math_90: **the scientific run commits to its own chain of reasoning and under-uses
+the oracle when it is handed one.** Few-shot, having no reasoning to defend, just reads the diff.
+
+⚠️ n = 13, adversarially selected to show failure modes, single rater. Do **not** treat this as an
+accuracy measurement. Report it as a mechanism observation, and note that it is a limitation of the
+loop worth naming before a reviewer names it.
 
 ### 5b. How to explain it to faculty
 
-> "The enforced loop improves agreement with the fix-aware reference in every one of the five projects
-> — 73.5% versus 67.7% overall, and a higher κ in 5 of 5 projects, which a sign test puts at p = 0.031.
-> But per bug the improvement is not statistically significant at our sample size (McNemar p = 0.110),
-> and we are explicit about why: the loop is frequently starved. In 152 of 257 bugs the buggy class is
-> not even in the evidence store, so there is nothing useful for a probe to retrieve. Improving
-> evidence collection, not the loop itself, is the obvious next lever."
+> "Both arms use the same model, the same taxonomy and the same evidence. The only difference is
+> whether the model must run an explicit hypothesis-and-probe loop before answering. The loop raises
+> chance-corrected agreement with the fix-aware reference from κ 0.437 to 0.577 — a paired bootstrap
+> puts that difference at 0.141 with a 95% interval of 0.037 to 0.247, so it excludes zero, and
+> scientific has the higher κ in all five projects independently.
+>
+> What is more interesting than the average is *where* the gain sits. Scientific is barely ahead on
+> the projects where few-shot already works, and far ahead where few-shot collapses — at Time,
+> few-shot's reliability is statistically indistinguishable from chance while scientific reaches
+> 0.480. Across projects, scientific's spread is half of few-shot's. So the loop is not buying a
+> uniform accuracy lift; it is putting a floor under the classifier on the hard projects. And we
+> measured that while the loop could not even reach the buggy class in 59% of bugs, so this is a
+> lower bound on what it can do."
 
-**The likely attack:** *"You are claiming your loop works based on an insignificant result."*
+**The likely attack:** *"Your McNemar test says p = 0.110. You are reporting the test that suits you."*
 
-**The answer:** we are not. We claim a **consistent direction across five projects** (p = 0.031 on the
-sign test) and we openly report the non-significant per-bug test. And we identified the mechanism
-limiting the effect and quantified it.
+**The answer — this is why we report all four.** The two tests measure different things. McNemar
+counts raw agreement flips and ignores the fact that few-shot concentrates 156 of 257 labels on one
+type, which inflates the agreement it would get by chance. Cohen's κ corrects for exactly that, and
+κ was already Tier 4 of our published four-level framework before this comparison was run. We
+present the bootstrap κ result as primary, the sign test as independent corroboration, and both
+McNemar results openly, with the mechanism that explains the difference.
+
+**The second likely attack:** *"5.8 points is small."*
+
+**The answer:** the average is small; the worst case is not. Few-shot's weakest project sits at
+κ 0.212 with a confidence interval containing zero. Scientific's weakest sits at 0.480. For a triage
+tool, the number that matters is how badly it can fail, not how well it does on the easy projects.
 
 ### 6b. What we can and cannot claim
 
 | We CAN claim | We CANNOT claim |
-|---|---|
-| Scientific beats few-shot in all 5 projects, sign test p = 0.031 | That the loop significantly improves per-bug agreement — McNemar p = 0.110 |
-| The loop is under-exercised: buggy class missing for 152/257 bugs | That more probing causes better answers — the probe-count data says otherwise |
-| Evidence coverage, not loop design, is the current bottleneck | Anything about the loop's ceiling, since we have never run it with full evidence |
+| --- | --- |
+| The loop significantly improves chance-corrected agreement: Δκ = 0.141, CI [0.037, 0.247], p ≈ 0.012 | That it improves raw per-bug agreement significantly — McNemar p = 0.110. Report both |
+| Scientific has the higher κ in 5 of 5 projects (sign test p = 0.031) | That any single project's advantage is significant on its own — the per-project CIs overlap |
+| The loop halves cross-project variance (sd 0.079 vs 0.141) and more than doubles the worst-project κ | That it helps uniformly — on Lang and Math the gain is near zero |
+| This is a **floor**: measured while the loop could not reach the buggy class in 59% of bugs | Anything about the loop's ceiling — we have never run it with complete evidence |
+| Scientific is the more project-independent condition (corroborated by RQ1's p = 0.381 vs 0.058) | That scientific is better in every setting — with the oracle visible, few-shot beat it 11/13 vs 6/13 on the manual sample |
 
 ---
 
@@ -555,7 +659,7 @@ aggregate picture stays the same. That distinction is the key to Section 7.
 **Where the movement happens** (scientific, 68 drifts):
 
 | Type pair | Drifts | Direction split |
-|---|---|---|
+| --- | --- | --- |
 | Checking ↔ Algorithm/Method | **32** | 17 one way, 15 the other |
 | Algorithm/Method ↔ Assignment/Initialization | 11 | 9 + 2 |
 | Checking ↔ Assignment/Initialization | 7 | 5 + 2 |
@@ -585,7 +689,7 @@ literature documents human raters confusing (Section 6).
 Chart and Time is small enough that a bare κ would be misleading):
 
 | Project | n | Scientific strict | Scientific κ [95% CI] | Few-shot strict | Few-shot κ [95% CI] |
-|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- |
 | Chart | 26 | 80.8% | 0.672 [0.419, 0.906] | 57.7% | 0.349 [0.105, 0.616] |
 | Lang | 61 | 73.8% | 0.546 [0.360, 0.714] | 73.8% | 0.497 [0.293, 0.692] |
 | Math | 106 | 75.5% | 0.603 [0.472, 0.726] | 74.5% | 0.537 [0.392, 0.671] |
@@ -634,7 +738,7 @@ mechanisms — is why RQ5 is our strongest result.
 ### 6. What we can and cannot claim
 
 | We CAN claim | We CANNOT claim |
-|---|---|
+| --- | --- |
 | 26.5% of labels change when the fix is visible; 74% of changes stay in the 3 ambiguous types | That the post-fix label is correct and the pre-fix one wrong — neither is verified |
 | The aggregate distribution barely moves (TVD 0.07) | That drift is harmless; 9 bugs drift to a genuinely unrelated type |
 | Post-fix strategy agreement exceeds pre-fix in 5/5 projects | A single effect size — it ranges 3.8 to 27 points by project |
@@ -642,58 +746,102 @@ mechanisms — is why RQ5 is our strongest result.
 
 ---
 
-# Section 6 — Fixing the "experts confuse Algorithm and Checking 80% of the time" claim
+# Section 6 — ✅ FIXED: the "experts confuse Algorithm and Checking 80% of the time" claim
 
-**As we have been stating it, this claim is wrong.** It traces back to a real study, but we have the
-wrong pair of types and the wrong quantity. The corrected version is actually *more* useful to us.
+**Status: corrected across the repo on 2026-09-15.** We searched for the source. It does not exist
+as stated — but the underlying point is real, and the correctly sourced version is stronger for us.
 
-### Where it comes from: Henningsson & Wohlin (2004)
+**Canonical evidence table: `docs/eval_defence.md` §1 Pillar 2.** That is the single place to update.
+This section records what we searched and what we concluded.
 
-- **Setup:** 8 people classified 30 faults with an ODC-based scheme, working from **written fault
-  descriptions only** — no code.
-- **Result:** average pairwise κ was **0.16** ("poor"). Merging the two most-confused classes only
-  raised it to 0.24.
-- **The most confused pair was Assignment ↔ Algorithm, not Checking ↔ Algorithm.** Their exact words:
-  *"The most frequent mix-up is the interchange between AS and AL, in total, 22 of the 28 pairs mixed
-  these two classes up a number of times."* 22/28 = **79%** — that is almost certainly where our "80%"
-  came from, but it counts **rater pairs**, not classifications, and it is about **Assignment ↔
-  Algorithm**.
-- Ranking of confusions in their Table 6: Assignment–Algorithm 184 occasions; Interface–Algorithm 77;
+### What we checked before removing the claim (2026-09-15)
+
+The claim was *"Chillarege et al. (1992): human inter-rater agreement ~70–80%."* We searched:
+Chillarege et al. (1992) IEEE TSE 18(11); the Chillarege Inc. ODC concept article; Chillarege's
+"ODC for Process Measurement, Analysis and Control"; the IBM ODC v5.2 reference we hold locally
+(`docs/odc_doc.md`); and the Wikipedia ODC article.
+
+**None of them reports an inter-rater agreement figure.** The process-control paper acknowledges
+classification is "a human process, and is subject to the usual problems of human error, confusion"
+but offers only procedural mitigations, never a number. The only quantitative claim on the
+Wikipedia page is that a trained person can classify a defect in under 3 minutes.
+
+So the attribution is wrong. **But we do need this argument**, and there are five real studies that
+support it better than one disputed percentage would.
+
+### The finding that replaces it
+
+Agreement on ODC classification is **evidence-dependent**, not fixed:
+
+| Evidence the rater had | Study | Agreement |
+| --- | --- | --- |
+| Fault **descriptions only** | Henningsson & Wohlin (2004), 8 raters, 30 faults | mean pairwise **κ = 0.16** |
+| Report **text only** | Hernández-González et al. (2018), 5 annotators, 962 + 675 defects | majority of 5 reached on only **481/962** and **394/675** |
+| **Code available** | El Emam & Wieczorek (1998) | "in general repeatable" (no κ recovered — do not quote one) |
+| Full repository context | Rahman & Farhana (2020), COVID-19 projects | **72.7% / κ 0.70** (open coding), 95.1% / κ 0.93 (closed) — ⚠️ verify against PDF |
+| Full code + change | NoSQL ODC study (JSS 2020) | **κ = 0.93** (a verification step, not blind labelling) |
+
+**Why this is better than the old claim.** The literature's own explanation for why human raters
+disagree — insufficient evidence — **is our experimental variable**. The old sentence merely excused
+our error rate. This one predicts it. It also explains why our drift concentrates in the
+Assignment / Algorithm / Checking triangle, and it is the literature justification for treating the
+post-fix arm as the better-informed reference standard in RQ3.
+
+Note in passing: Rahman & Farhana's 72.7% shows the 70–80% band **is** reachable in real ODC work —
+so whoever wrote the original sentence was not inventing the magnitude, only the attribution.
+
+### Where the "80%" actually came from
+
+It is a garbled reading of Henningsson & Wohlin (2004), and both halves of our version were wrong:
+
+- **Wrong pair.** Their most-confused pair was **Assignment ↔ Algorithm**, not Checking ↔ Algorithm.
+  Exact words: *"The most frequent mix-up is the interchange between AS and AL, in total, 22 of the
+  28 pairs mixed these two classes up a number of times."*
+- **Wrong unit.** 22/28 = 79% counts **rater pairs**, not bugs or classifications.
+- Their Table 6 ranks confusions by occasions: Assignment–Algorithm 184; Interface–Algorithm 77;
   **Checking–Algorithm 68 (third)**; Assignment–Interface 59; Assignment–Checking 49.
-- **Their own conclusion:** the impoverished fault description was the likely cause of the low
-  agreement. They recommend giving raters **source code and change information**.
+- Their own conclusion: the impoverished fault description caused the low agreement. They recommend
+  giving raters **source code and change information** — which is our post-fix arm.
 
-### The counter-evidence we must cite alongside it
+⚠️ **Never write "experts confuse Algorithm and Checking about 80% of the time."** A reviewer who
+opens the cited paper finds both errors in under a minute.
 
-- **El Emam & Wieczorek (1998):** found the ODC-derived scheme "in general repeatable" — with raters
-  classifying at detection time, **with code available**.
-- **NoSQL ODC study (JSS 2020):** reports **κ = 0.93** for Defect Type. Important caveat to state: that
-  was a *verification* of an existing classification, not blind independent labelling.
+### What was fixed, and where — ✅ 2026-09-15
 
-### Why the corrected version helps us more
+The unsourced claims were found in **five** places, not just `eval_defence.md`. All five are now
+corrected, each with a visible correction banner so nobody reintroduces the old number:
 
-The real finding is not "ODC is unreliable". It is: **human agreement on ODC type depends on how much
-information the rater has.** Descriptions only → κ 0.16. Full code and change context → κ 0.93.
+| File | What it said | Status |
+| --- | --- | --- |
+| `docs/eval_defence.md` §1 Pillar 2 | "Chillarege et al. (1992): human inter-rater agreement ~70–80%" and "Typical ODC studies: κ 0.60–0.80" | ✅ Replaced with the Henningsson / El Emam / NoSQL / Thung table, plus an explicit "never write 'Algorithm and Checking 80%'" warning |
+| `docs/eval_defence.md` §6 talking point 1 | "Even human ODC experts disagree 20-30% of the time" | ✅ Replaced with our measured ~77% two-strategy ceiling |
+| `docs/Research Paper Roadmap_ Defect Classification.md` | "Chillarege's foundational work … peaks at 70% to 80%" | ✅ Rewritten around the evidence-dependence finding (κ 0.16 → 0.93) |
+| `d4j_odc_pipeline/comparison.py` module docstring | "Chillarege et al. (1992) — ODC inter-rater disagreement is expected (~20-30%)" | ✅ Replaced with the real four references |
+| `d4j_odc_pipeline/comparison.py` insight text (~line 146) | "Even expert human classifiers disagree on 20-30% of bugs (Chillarege 1992)" — **this string was being written into generated reports** | ✅ Replaced with the Henningsson κ 0.16 finding and the correct confusion pair |
+| `docs/classification_engine_plan.md` (stale doc) | "κ vs the ~20–30% human-disagreement ceiling from ODC literature" | ✅ Replaced with the measured ceiling |
 
-That is our entire pre-fix / post-fix design, restated by two independent groups. It explains why our
-drift concentrates in the Assignment/Algorithm/Checking triangle. And it is the literature
-justification for treating the post-fix run as the better-informed reference standard in RQ3.
+Also corrected while in there: the AutoSD citation was "Kang, S., Yoo, S., & Ryu, D. (2023)" in
+`eval_defence.md` and `comparison.py` — wrong authors and wrong year. It is **Kang, Chen, Yoo & Lou,
+EMSE 2024**.
 
-### Claims in our own docs to remove or source
-
-- `docs/eval_defence.md` and `docs/Research Paper Roadmap_ Defect Classification.md` say *"Chillarege
-  et al. (1992): human inter-rater agreement ~70–80%"*. We could not find it in our ODC v5.2 reference
-  (`docs/odc_doc.md`), and Chillarege's own concept article reports no agreement figures at all.
-  **Remove it unless someone finds a page-level citation.**
-- `docs/eval_defence.md` says *"Typical ODC studies: κ 0.60–0.80"* with no source. Replace it with the
-  three concrete studies above.
+⚠️ **One instance was deliberately NOT fixed:**
+`iut_submissions/presentation/generate_presentation.py:736` cites "Kang et al. (2023)". That
+directory is **frozen** (pre-defense deliverables, exactly as submitted) — per `CLAUDE.md` we never
+edit anything under it. Recorded here for the record; do not propagate that citation into new work.
 
 ---
 
-# Section 7 — Fixing the "pre-fix agrees with post-fix, so pre-fix is enough" argument
+# Section 7 — ✅ FIXED: the "agreement means correctness" framing
 
-The strong version of this argument will get attacked, for two good reasons. Both are avoidable by
-wording, not by dropping the argument.
+**Status: corrected in `docs/eval_defence.md` on 2026-09-15**, in two places:
+
+| Location | What it said | Now |
+| --- | --- | --- |
+| §1 Pillar 1 | "Both classifications are *correct from their evidence perspective*" | "Each classification is reasonable given the evidence that produced it", plus a warning box citing Chart_17 / Math_90 |
+| §6 talking point 2 | "both are correct, but they may name the condition differently" | "two evidence positions, not two truths" |
+
+The rest of this section is the standing guidance — the two attacks and the wording that survives
+them. Both are avoidable by wording, not by dropping the argument.
 
 **Problem 1: agreement is not correctness.** Chart_17 and Math_90 agree perfectly between pre-fix and
 post-fix and are both wrong. The post-fix run is a better-informed second rater, not a validator of
@@ -724,7 +872,7 @@ type → right developer" would need its own evidence and we have none. Do not c
 place we can show what the pipeline actually *does*, rather than what it scores:
 
 | Bug | What it demonstrates |
-|---|---|
+| --- | --- |
 | Chart_9 | The loop working exactly as designed |
 | Chart_11 | The loop starved — 4 probes, none reached the code, confidence still 1.0 |
 | Time_3, Math_104 | Right mechanism, wrong label — it predicted the exact fix, then labelled by context |
@@ -771,26 +919,6 @@ place we can show what the pipeline actually *does*, rather than what it scores:
    disagreement.
 7. **Closure is not included.** 257 bugs from 5 projects, not the full benchmark. Collection is ongoing.
    Say so plainly.
-
----
-
-# Section 10 — What to do next, in priority order
-
-1. **Fix the substring match** in the snippet probe (`agent.py::execute_probe`). Cheap, and it is a
-   genuine bug regardless of the paper.
-2. **Write RQ4 in the new two-part shape** (RQ4a taxonomy, RQ4b loop). The `zero-free` data already
-   exists for all 257 bugs — nothing to run.
-3. **Rewrite the RQ3 accuracy section** — name the post-fix arm as the reference standard, lead with L1
-   and κ, and report L3/L4 only conditional on disagreement.
-4. **Optional but highest remaining value:** random-sample human ground truth (60–80 bugs, 2 blind
-   raters, report κ, adjudicate disagreements). Upgrades RQ3 from "reproduces the reference" to "is
-   correct", and strengthens RQ5.
-5. **Correct the literature claims** in `docs/eval_defence.md` and the roadmap doc — see Section 6.
-6. **Do not run** `scientific-closed` / `few-closed` (the escape rate is 0, so there is nothing to
-   measure) and do not re-run `zero-free` (it already exists). Record both as deliberate decisions in
-   the paper, not as gaps.
-
-**No further Defects4J evidence collection is needed for any of the five RQs as currently worded.**
 
 ---
 
