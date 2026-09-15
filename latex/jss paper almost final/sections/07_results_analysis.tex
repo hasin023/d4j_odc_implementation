@@ -5,7 +5,8 @@
 numeric cell is marked \TBD{} and is populated only by the confirmatory run of
 Section~\ref{sec:setup}; the development-validation runs are used solely to verify
 that the analysis layer emits correct, well-formed metrics, and their numbers are
-deliberately not reported here.}
+deliberately not reported here. The exception is the cross-model check of
+Section~\ref{sec:crossmodel}, which reports a completed analysis.}
 
 The results below are computed across five valid conditions: which vocabulary,
 \textit{free}, \textit{closed}, or \textit{open}, is paired with which
@@ -173,6 +174,48 @@ Mockito & \TBD \\ Time & \TBD \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+\subsection{Cross-Model Check}
+\label{sec:crossmodel}
+
+To examine whether the observed behaviour depends on the classification model,
+we classified a set of thirteen bugs with a second model, OpenAI
+\texttt{gpt-5-mini}, using the same evidence contexts, prompts, conditions, and
+evidence modes as the main model. The thirteen bugs were manually selected from
+five projects to cover every possible outcome of the pre-fix/post-fix comparison,
+and each was labelled by one author from the developer's fix. Table~\ref{tab:crossmodel}
+reports agreement with this manual reading.
+
+\begin{table}[H]
+\centering
+\caption{Cross-model check: classifications matching the manual reading of
+         thirteen bugs.}
+\label{tab:crossmodel}
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\thead{Condition} & \thead{Gemini} & \thead{gpt-5-mini} \\
+\midrule
+scientific-open, pre-fix  & 6/13  & 6/13  \\
+few-open, pre-fix         & 4/13  & 4/13  \\
+scientific-open, post-fix & 6/13  & 11/13 \\
+few-open, post-fix        & 11/13 & 12/13 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+In pre-fix mode, both models show the same ordering of strategies: the enforced
+loop matches the manual reading more often than the few-shot prompt. The two
+models do not, however, succeed on the same bugs, sharing only three of their six
+correct scientific pre-fix labels. In post-fix mode, the models differ: the main
+model's scientific classification makes little use of the fix diff, whereas
+\texttt{gpt-5-mini}'s scientific classification matches the manual reading for
+eleven of the thirteen bugs. Some failure modes recur across both models, such as
+assigning a type from the location where an exception surfaces, or from a fix
+suggested in the bug report, without requesting further evidence. Because this
+check covers only thirteen purposively selected bugs and one run per model, it
+indicates which observations are model-specific but does not establish that the
+corpus-level results transfer to other models.
 
 \subsection{Interpreting Divergence}
 \label{sec:divergence}
