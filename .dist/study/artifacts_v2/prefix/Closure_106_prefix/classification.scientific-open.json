@@ -1,0 +1,78 @@
+{
+  "project_id": "Closure",
+  "bug_id": 106,
+  "version_id": "106b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-09-15T08:11:22+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The compiler throws an IllegalArgumentException because addStubsForUndeclaredProperties enforces that the parent node must be a statement block, but the caller (updateObjLitOrFunctionDeclarationAtAssignNode) passes a parent that is not a statement block in complex expressions.",
+  "hypothesis": "The method CollapseProperties.addStubsForUndeclaredProperties is called with a 'parent' node that is not a statement block (e.g., an IF node or an ASSIGN node) in cases where the property declaration is nested within an expression, violating the Preconditions.checkArgument(NodeUtil.isStatementBlock(parent)) check. The logic in updateObjLitOrFunctionDeclarationAtAssignNode incorrectly assumes that the parent of the assignment node is always a suitable place to insert new variable declarations.",
+  "prediction": "The 'parent' node passed to addStubsForUndeclaredProperties will be the parent of the assignment node, which in the failing test cases (like 'if (a.b = function() {})') is an IF node, not a BLOCK or SCRIPT node.",
+  "experiment_rationale": "The stack trace and source code confirm that the failure is a direct violation of a precondition check. The logic in the caller does not account for the fact that the assignment might be nested in a non-block structure, making the 'Checking' type the most appropriate classification for this validation error.",
+  "reasoning_summary": "The bug is a failure to validate the context (parent node) before attempting to modify the AST. The code assumes a specific structure (statement block) that is not guaranteed by the caller, leading to an exception. This is a classic 'Checking' defect where the guard condition is either missing or incorrectly applied to the wrong context.",
+  "evidence_used": [
+    "full_stack_trace",
+    "snippet"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the logic is flawed, the immediate cause is the failure of a validation check (Preconditions.checkArgument) which is the hallmark of a Checking defect."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The method CollapseProperties.addStubsForUndeclaredProperties assumes that the 'parent' node passed to it is always a statement block (e.g., a SCRIPT or BLOCK node), but in cases involving complex assignments or nested structures, it may be passed a node that is not a statement block, triggering the Preconditions.checkArgument failure.",
+      "prediction": "The 'parent' argument in the failing call to addStubsForUndeclaredProperties will be a node type other than BLOCK or SCRIPT, such as an ASSIGN or EXPR_RESULT node, which does not support addChildToFront or addChildAfter in the way the method expects.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "CollapseProperties"
+      },
+      "observation_summary": [
+        "snippets"
+      ],
+      "observation": "{\n  \"snippets\": [\n    {\n      \"class_name\": \"com.google.javascript.jscomp.CollapseProperties\",\n      \"reason\": \"Stack frame from com.google.javascript.jscomp.CollapseProperties.addStubsForUndeclaredProperties\",\n      \"file_path\": \"C:\\\\WORK\\\\IUT\\\\Research\\\\implementation\\\\.dist\\\\study\\\\work_v2\\\\prefix\\\\Closure_106b\\\\src\\\\com\\\\google\\\\javascript\\\\jscomp\\\\CollapseProperties.java\",\n      \"start_line\": 801,\n      \"end_line\": 825,\n      \"focus_line\": 813,\n      \"content\": \"    801:    *\\n    802:    * @param n An object representing a global name (e.g. \\\"a\\\", \\\"a.b.c\\\")\\n    803:    * @param alias The flattened name of the object whose properties we are\\n    804:    *     adding stubs for (e.g. \\\"a$b$c\\\")\\n    805:    * @param parent The node to which new global variables should be added\\n    806:    *     as children\\n    807:    * @param addAfter The child of after which new\\n    808:    *     variables should be added (may be null)\\n    809:    * @return The number of variables added\\n    810:    */\\n    811:   private int addStubsForUndeclaredProperties(\\n    812:       Name n, String alias, Node parent, Node addAfter) {\\n>>  813:     Preconditions.checkArgument(NodeUtil.isStatementBlock(parent));\\n    814:     int numStubs = 0;\\n    815:     if (n.props != null) {\\n    816:       for (Name p : n.props) {\\n    817:         if (p.needsToBeStubbed()) {\\n    818:           String propAlias = alias + '$' + p.name;\\n    819:           Node nameNode = Node.newString(Token.NAME, propAlias);\\n    820:           Node newVar = new Node(Token.VAR, nameNode);\\n    821:           if (addAfter == null) {\\n    822:             parent.addChildToFront(newVar);\\n    823:           } else {\\n    824:             parent.addChildAfter(newVar, addAfter);\\n    825:             addAfter = newVar;\"\n    },\n    {\n      \"class_name\": \"com.google.javascript.jscomp.CollapseProperties\",\n      \"reason\": \"Stack frame from com.google.javascript.jscomp.CollapseProperties.updateObjLitOrFunctionDeclarati",
+      "observation_truncated": true,
+      "observation_chars": 9255,
+      "duration_seconds": 3.03
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The method CollapseProperties.addStubsForUndeclaredProperties is called with a 'parent' node that is not a statement block (e.g., an IF node or an ASSIGN node) in cases where the property declaration is nested within an expression, violating the Preconditions.checkArgument(NodeUtil.isStatementBlock(parent)) check. The logic in updateObjLitOrFunctionDeclarationAtAssignNode incorrectly assumes that the parent of the assignment node is always a suitable place to insert new variable declarations.",
+      "prediction": "The 'parent' node passed to addStubsForUndeclaredProperties will be the parent of the assignment node, which in the failing test cases (like 'if (a.b = function() {})') is an IF node, not a BLOCK or SCRIPT node.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Checking",
+      "duration_seconds": 4.452
+    }
+  ],
+  "llm_calls_used": 2,
+  "termination_reason": "concluded",
+  "loop_duration_seconds": 7.482,
+  "probe_misses": 0,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"confidence\": 0.9, \"needs_human_review\": false, \"observation_summary\": \"The compiler throws an IllegalArgumentException because addStubsForUndeclaredProperties enforces that the parent node must be a statement block, but the caller (updateObjLitOrFunctionDeclarationAtAssignNode) passes a parent that is not a statement block in complex expressions.\", \"hypothesis\": \"The method CollapseProperties.addStubsForUndeclaredProperties is called with a 'parent' node that is not a statement block (e.g., an IF node or an ASSIGN node) in cases where the property declaration is nested within an expression, violating the Preconditions.checkArgument(NodeUtil.isStatementBlock(parent)) check. The logic in updateObjLitOrFunctionDeclarationAtAssignNode incorrectly assumes that the parent of the assignment node is always a suitable place to insert new variable declarations.\", \"prediction\": \"The 'parent' node passed to addStubsForUndeclaredProperties will be the parent of the assignment node, which in the failing test cases (like 'if (a.b = function() {})') is an IF node, not a BLOCK or SCRIPT node.\", \"experiment_rationale\": \"The stack trace and source code confirm that the failure is a direct violation of a precondition check. The logic in the caller does not account for the fact that the assignment might be nested in a non-block structure, making the 'Checking' type the most appropriate classification for this validation error.\", \"reasoning_summary\": \"The bug is a failure to validate the context (parent node) before attempting to modify the AST. The code assumes a specific structure (statement block) that is not guaranteed by the caller, leading to an exception. This is a classic 'Checking' defect where the guard condition is either missing or incorrectly applied to the wrong context.\", \"evidence_used\": [\"full_stack_trace\", \"snippet\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"While the logic is flawed, the immediate cause is the failure of a validation check (Preconditions.checkArgument) which is the hallmark of a Checking defect.\"}]}"
+}

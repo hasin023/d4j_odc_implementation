@@ -1,13 +1,13 @@
 # Batch Study Analysis
 
-- Created: `2026-09-14T07:56:17+00:00`
-- Total pairs: **257**
-- Projects covered: **5**
-- Type changed: **83** (32.3%)
-- Type unchanged: **174** (67.7%)
-- No alternative overlap: **6** (2.3%)
-- No family match: **15** (5.8%)
-- Family match: **242** (94.2%)
+- Created: `2026-09-15T08:59:43+00:00`
+- Total pairs: **409**
+- Projects covered: **6**
+- Type changed: **136** (33.3%)
+- Type unchanged: **273** (66.7%)
+- No alternative overlap: **6** (1.5%)
+- No family match: **18** (4.4%)
+- Family match: **391** (95.6%)
 
 ## Alternative Match Cases (Type Changed)
 
@@ -34,6 +34,78 @@
 - Postfix reasoning summary: The fix involved changing a hardcoded constant/default value (RegularTimePeriod.DEFAULT_TIME_ZONE) to the correct parameter (zone) passed into the constructor. This is a classic case of incorrect initialization of an object's state.
 - Prefix context signal: org.jfree.data.time.junit.WeekTests::testConstructor: junit.framework.AssertionFailedError: expected:<35> but was:<34>
 - Postfix context signal: org.jfree.data.time.junit.WeekTests::testConstructor: junit.framework.AssertionFailedError: expected:<35> but was:<34>
+
+### Closure-118
+- Type shift: Algorithm/Method -> Checking.
+- Comparison detail: Pre-fix primary 'Algorithm/Method' found in post-fix alternative types
+- Prefix reasoning summary: The issue involves the property disambiguation logic (a compiler pass) failing to correctly identify and preserve properties defined on prototypes. This is a procedural error in the compiler's transformation algorithm, where it incorrectly determines that a property can be renamed or removed. It is not a missing guard (Checking), a simple value assignment error (Assignment/Initialization), or a structural design flaw (Function/Class/Object), but rather an incorrect implementation of the property disambiguation algorithm.
+- Postfix reasoning summary: The fix involves adding a guard (if (child.isQuotedString()) { continue; }) to skip processing for quoted strings. This is a classic missing validation/guard defect, which falls under the 'Checking' category in ODC.
+- Prefix context signal: com.google.javascript.jscomp.DisambiguatePropertiesTest::testOneType4: junit.framework.ComparisonFailure: expected:<{[]}> but was:<{[a=[[Foo.prototype]]]}>
+- Postfix context signal: com.google.javascript.jscomp.DisambiguatePropertiesTest::testOneType4: junit.framework.ComparisonFailure: expected:<{[]}> but was:<{[a=[[Foo.prototype]]]}>
+
+### Closure-12
+- Type shift: Algorithm/Method -> Checking.
+- Comparison detail: Cross-alternative match: pre-fix 'Algorithm/Method' is in post-fix alternatives, and post-fix 'Checking' is in pre-fix alternatives
+- Prefix reasoning summary: The bug involves the 'FlowSensitiveInlineVariables' pass incorrectly determining the scope or safety of inlining a variable. This is a procedural logic error in the compiler's optimization algorithm (specifically, the flow-sensitive analysis used to decide if a variable can be safely inlined). It is not a missing guard (Checking), a wrong constant (Assignment), or a design-level capability gap (Function/Class/Object). It is a flaw in the implementation of the inlining algorithm.
+- Postfix reasoning summary: The fix involves adding a check (`hasExceptionHandler`) to verify if a node has an exception handler (Branch.ON_EX) before proceeding with variable inlining. The original code lacked this guard, causing the compiler to incorrectly assume it was safe to inline variables across try/catch boundaries. This is a classic missing guard/validation check.
+- Prefix context signal: com.google.javascript.jscomp.FlowSensitiveInlineVariablesTest::testIssue794b: junit.framework.AssertionFailedError:
+- Postfix context signal: com.google.javascript.jscomp.FlowSensitiveInlineVariablesTest::testIssue794b: junit.framework.AssertionFailedError:
+
+### Closure-130
+- Type shift: Algorithm/Method -> Checking.
+- Comparison detail: Cross-alternative match: pre-fix 'Algorithm/Method' is in post-fix alternatives, and post-fix 'Checking' is in pre-fix alternatives
+- Prefix reasoning summary: The bug involves an incorrect transformation strategy during the 'CollapseProperties' optimization pass. The compiler incorrectly identifies 'arguments' as a property that can be collapsed or moved, which violates the semantics of the 'arguments' object in JavaScript. This is a procedural error in the optimization algorithm's logic for handling scope-sensitive variables, rather than a missing guard (Checking) or a simple initialization error (Assignment/Initialization).
+- Postfix reasoning summary: The fix adds a missing guard condition (!name.inExterns) to the logic that determines whether a variable should be collapsed. This is a classic 'Checking' defect where a validation check was missing, causing the compiler to perform an invalid operation on a variable that should have been protected.
+- Prefix context signal: com.google.javascript.jscomp.CollapsePropertiesTest::testIssue931: junit.framework.AssertionFailedError:
+- Postfix context signal: com.google.javascript.jscomp.CollapsePropertiesTest::testIssue931: junit.framework.AssertionFailedError:
+
+### Closure-18
+- Type shift: Algorithm/Method -> Checking.
+- Comparison detail: Cross-alternative match: pre-fix 'Algorithm/Method' is in post-fix alternatives, and post-fix 'Checking' is in pre-fix alternatives
+- Prefix reasoning summary: The bug report indicates that a change in the compiler's logic (r1824) introduced a dependency where dependency sorting now implicitly requires 'closurePass' to be true. This is a procedural logic error in the dependency sorting algorithm, which should be able to sort files independently of whether the closure pass (which removes goog.require/provide) is enabled. This is a flaw in the implementation of the sorting procedure, not a missing guard or a design-level capability gap.
+- Postfix reasoning summary: The fix involved removing a condition ('&& options.closurePass') from an 'if' statement that guards the dependency management logic. This is a classic 'Checking' defect where an overly restrictive guard prevented the intended functionality from executing under valid configurations.
+- Prefix context signal: com.google.javascript.jscomp.IntegrationTest::testDependencySorting: junit.framework.AssertionFailedError:
+- Postfix context signal: com.google.javascript.jscomp.IntegrationTest::testDependencySorting: junit.framework.AssertionFailedError:
+
+### Closure-31
+- Type shift: Algorithm/Method -> Checking.
+- Comparison detail: Cross-alternative match: pre-fix 'Algorithm/Method' is in post-fix alternatives, and post-fix 'Checking' is in pre-fix alternatives
+- Prefix reasoning summary: The bug report indicates that dependency management logic was explicitly ignored or missing for the WHITESPACE_ONLY compilation level. Implementing this support requires adding the dependency sorting algorithm/logic to the WHITESPACE_ONLY path, which is a procedural/algorithmic change to how the compiler processes input files.
+- Postfix reasoning summary: The fix involved removing a conditional check (!options.skipAllPasses) that was preventing the dependency management logic from running. This is a classic case of an incorrect guard/predicate logic error, which falls under the 'Checking' category in ODC.
+- Prefix context signal: com.google.javascript.jscomp.CommandLineRunnerTest::testDependencySortingWhitespaceMode: junit.framework.AssertionFailedError:
+- Postfix context signal: com.google.javascript.jscomp.CommandLineRunnerTest::testDependencySortingWhitespaceMode: junit.framework.AssertionFailedError:
+
+### Closure-36
+- Type shift: Algorithm/Method -> Checking.
+- Comparison detail: Pre-fix primary 'Algorithm/Method' found in post-fix alternative types
+- Prefix reasoning summary: The issue is that the compiler's optimization logic (specifically the dead code elimination or class removal algorithm) fails to correctly identify that the singleton getter pattern creates a dependency that should be pruned if the class is unused. This is a procedural logic error in the optimization algorithm, not a missing guard (Checking), a wrong value (Assignment), or a design-level capability gap (Function/Class/Object).
+- Postfix reasoning summary: The fix involves adding a conditional check (`if (convention.getSingletonGetterClassName(callNode) != null)`) to prevent the inlining of singleton getter methods. This is a classic guard/validation check that was missing, which is the defining characteristic of the 'Checking' ODC type.
+- Prefix context signal: com.google.javascript.jscomp.IntegrationTest::testSingletonGetter1: junit.framework.AssertionFailedError:
+- Postfix context signal: com.google.javascript.jscomp.IntegrationTest::testSingletonGetter1: junit.framework.AssertionFailedError:
+
+### Closure-38
+- Type shift: Algorithm/Method -> Checking.
+- Comparison detail: Cross-alternative match: pre-fix 'Algorithm/Method' is in post-fix alternatives, and post-fix 'Checking' is in pre-fix alternatives
+- Prefix reasoning summary: The issue is a failure in the code generation logic (the algorithm responsible for formatting output strings). It fails to correctly handle the spacing requirement for the subtraction operator when the operand is a negative number. This is a procedural logic error in the printer/generator, not a missing guard (Checking), a wrong variable initialization (Assignment), or a design-level capability gap (Function/Class/Object).
+- Postfix reasoning summary: The fix involves adding a missing condition to an existing 'if' statement that checks for the need to insert a space. The original code only checked for negative numbers (x < 0), but failed to account for negative zero, which is a distinct case that also requires a space to avoid syntax ambiguity. This is a classic missing guard/validation check.
+- Prefix context signal: com.google.javascript.jscomp.CodePrinterTest::testMinusNegativeZero: junit.framework.ComparisonFailure: expected:<x-[ ]-0.0> but was:<x-[]-0.0>
+- Postfix context signal: com.google.javascript.jscomp.CodePrinterTest::testMinusNegativeZero: junit.framework.ComparisonFailure: expected:<x-[ ]-0.0> but was:<x-[]-0.0>
+
+### Closure-42
+- Type shift: Algorithm/Method -> Checking.
+- Comparison detail: Cross-alternative match: pre-fix 'Algorithm/Method' is in post-fix alternatives, and post-fix 'Checking' is in pre-fix alternatives
+- Prefix reasoning summary: The bug is a failure in the compiler's transformation logic (the minification algorithm). The compiler incorrectly identifies 'for each' as a standard 'for' loop and removes the 'each' keyword, which is a procedural error in the code generation/transformation algorithm. It is not a missing guard (Checking), a wrong constant (Assignment), or a design-level capability gap (Function/Class/Object).
+- Postfix reasoning summary: The fix introduces a conditional check (`if (loopNode.isForEach())`) to validate the input structure and handle it appropriately (by reporting an error). This is a classic case of a missing guard/validation check for a specific language construct that the compiler does not support.
+- Prefix context signal: com.google.javascript.jscomp.parsing.ParserTest::testForEach: junit.framework.AssertionFailedError
+- Postfix context signal: com.google.javascript.jscomp.parsing.ParserTest::testForEach: junit.framework.AssertionFailedError
+
+### Closure-73
+- Type shift: Algorithm/Method -> Checking.
+- Comparison detail: Cross-alternative match: pre-fix 'Algorithm/Method' is in post-fix alternatives, and post-fix 'Checking' is in pre-fix alternatives
+- Prefix reasoning summary: The issue is a failure in the string escaping/encoding algorithm used by the code generator. The compiler incorrectly treats U+007f as a printable character rather than a control character that requires escaping. This is a procedural logic error in how the compiler handles character classification and output formatting, fitting the Algorithm/Method category.
+- Postfix reasoning summary: The fix involved changing a conditional guard `c <= 0x7f` to `c < 0x7f`. This is a classic boundary condition error where the check incorrectly included the character 0x7f as a printable character, when it should have been excluded to force it into the escaping logic. This fits the definition of a Checking defect.
+- Prefix context signal: com.google.javascript.jscomp.CodePrinterTest::testUnicode: junit.framework.ComparisonFailure: expected:<var x="[\u007f]"> but was:<var x="[]">
+- Postfix context signal: com.google.javascript.jscomp.CodePrinterTest::testUnicode: junit.framework.ComparisonFailure: expected:<var x="[\u007f]"> but was:<var x="[]">
 
 ### Lang-53
 - Type shift: Algorithm/Method -> Checking.
@@ -99,6 +171,30 @@
 - Prefix context signal: org.jfree.chart.util.junit.ShapeListTests::testSerialization: junit.framework.AssertionFailedError: expected:<org.jfree.chart.util.ShapeList@a00774c0> but was:<org.jfree.chart.util.ShapeList@d7e0cce3>
 - Postfix context signal: org.jfree.chart.util.junit.ShapeListTests::testSerialization: junit.framework.AssertionFailedError: expected:<org.jfree.chart.util.ShapeList@d2448b0a> but was:<org.jfree.chart.util.ShapeList@c29144e>
 
+### Closure-135
+- Type shift: Algorithm/Method -> Relationship.
+- Comparison detail: Cross-alternative match: pre-fix 'Algorithm/Method' is in post-fix alternatives, and post-fix 'Relationship' is in pre-fix alternatives
+- Prefix reasoning summary: The bug involves the compiler's internal logic for tracking prototype inheritance and method devirtualization. The failure to correctly associate the 'self' reference (which should point to the class) indicates an error in the procedural logic that traverses or analyzes the prototype chain. This is an algorithmic issue in how the compiler pass processes prototype assignments, rather than a missing guard (Checking) or a simple initialization error (Assignment/Initialization).
+- Postfix reasoning summary: The bug involves a failure to maintain consistency between related structures (the prototype chain and the type system). The fix requires two coordinated changes: one in the devirtualization pass to ensure JSType is preserved when replacing 'this' references, and another in the FunctionType class to correctly associate the 'prototype' property with the function type. This is a classic Relationship defect where the association between the function object and its prototype property was not being correctly maintained or queried, causing downstream type-checking failures.
+- Prefix context signal: com.google.javascript.jscomp.DevirtualizePrototypeMethodsTest::testRewritePrototypeMethods2: junit.framework.AssertionFailedError: expected:<[FUNCTION a = function (this:a): ?, NAME JSCompiler_StaticMethods_foo$self = a, FUNCTION JSCompiler_StaticMethods_foo = function (a): number, NAME JSCompiler_StaticMethods_bar$self = a, FUNCTION JSCompiler_StaticMethods_bar = function (a, number): number, FUNCTION JSCompiler_StaticMethods_baz = function (a): ?, NEW a = a, CALL JSCompiler_StaticMethods_foo = number, CALL JSCompiler_StaticMethods_bar = number, CALL JSCompiler_StaticMethods_baz = ?]> but was:<[FUNCTION a = function (this:a): ?, NAME JSCompiler_StaticMethods_foo$self = null, FUNCTION JSCompiler_StaticMethods_foo = function (a): number, NAME JSCompiler_StaticMethods_bar$self = null, FUNCTION JSCompiler_StaticMethods_bar = function (a, number): number, FUNCTION JSCompiler_StaticMethods_baz = function (a): ?, NEW a = a, CALL JSCompiler_StaticMethods_foo = number, CALL JSCompiler_StaticMethods_bar = number, CALL JSCompiler_StaticMethods_baz = ?]>
+- Postfix context signal: com.google.javascript.jscomp.DevirtualizePrototypeMethodsTest::testRewritePrototypeMethods2: junit.framework.AssertionFailedError: expected:<[FUNCTION a = function (this:a): ?, NAME JSCompiler_StaticMethods_foo$self = a, FUNCTION JSCompiler_StaticMethods_foo = function (a): number, NAME JSCompiler_StaticMethods_bar$self = a, FUNCTION JSCompiler_StaticMethods_bar = function (a, number): number, FUNCTION JSCompiler_StaticMethods_baz = function (a): ?, NEW a = a, CALL JSCompiler_StaticMethods_foo = number, CALL JSCompiler_StaticMethods_bar = number, CALL JSCompiler_StaticMethods_baz = ?]> but was:<[FUNCTION a = function (this:a): ?, NAME JSCompiler_StaticMethods_foo$self = null, FUNCTION JSCompiler_StaticMethods_foo = function (a): number, NAME JSCompiler_StaticMethods_bar$self = null, FUNCTION JSCompiler_StaticMethods_bar = function (a, number): number, FUNCTION JSCompiler_StaticMethods_baz = function (a): ?, NEW a = a, CALL JSCompiler_StaticMethods_foo = number, CALL JSCompiler_StaticMethods_bar = number, CALL JSCompiler_StaticMethods_baz = ?]>
+
+### Closure-153
+- Type shift: Algorithm/Method -> Interface/O-O Messages.
+- Comparison detail: Pre-fix primary 'Algorithm/Method' found in post-fix alternative types
+- Prefix reasoning summary: The issue is a transformation logic error within the compiler's normalization or optimization pass. The compiler is applying an incorrect algorithmic strategy for handling conditional variable declarations, which changes the intended behavior of the code. This is a procedural logic error in how the compiler processes and rewrites specific AST patterns, fitting the Algorithm/Method category.
+- Postfix reasoning summary: The fix involved changing the signature of the 'onRedeclaration' method in the 'RedeclarationHandler' interface and updating all implementations to pass a 'CompilerInput' object instead of multiple individual nodes (parent, gramps, etc.). This is a classic interface contract mismatch where the previous signature did not provide enough context (the input source) to correctly determine if a redeclaration was valid (i.e., one in externs, one in source). The change to the interface and the subsequent propagation of the 'CompilerInput' parameter is a structural change to the communication contract between the scope creator and the redeclaration handler.
+- Prefix context signal: com.google.javascript.jscomp.NormalizeTest::testDuplicateVarInExterns: junit.framework.AssertionFailedError:
+- Postfix context signal: com.google.javascript.jscomp.NormalizeTest::testDuplicateVarInExterns: junit.framework.AssertionFailedError:
+
+### Closure-72
+- Type shift: Algorithm/Method -> Relationship.
+- Comparison detail: Cross-alternative match: pre-fix 'Algorithm/Method' is in post-fix alternatives, and post-fix 'Relationship' is in pre-fix alternatives
+- Prefix reasoning summary: The bug involves an incorrect transformation of the AST during function inlining, specifically regarding label naming and scope management. This is a procedural logic error in the compiler's optimization pass (inlining), which is best classified as an Algorithm/Method defect because it involves the implementation of the transformation algorithm rather than a missing guard or a simple assignment error.
+- Postfix reasoning summary: The bug is a failure to maintain the integrity of label scopes during function inlining. The fix involves two parts: first, ensuring that labels within an inlined function are renamed to be unique (a relationship/consistency constraint between the inlined code and the target scope), and second, ensuring that the label renaming logic correctly handles label references. This is a classic structural relationship issue where the association between label names and their scopes must be preserved across transformations.
+- Prefix context signal: com.google.javascript.jscomp.InlineFunctionsTest::testInlineFunctions31: junit.framework.AssertionFailedError:
+- Postfix context signal: com.google.javascript.jscomp.InlineFunctionsTest::testInlineFunctions31: junit.framework.AssertionFailedError:
+
 ### Mockito-17
 - Type shift: Function/Class/Object -> Algorithm/Method.
 - Comparison detail: Cross-alternative match: pre-fix 'Function/Class/Object' is in post-fix alternatives, and post-fix 'Algorithm/Method' is in pre-fix alternatives
@@ -146,6 +242,262 @@
 - Postfix reasoning summary: The fix involved changing the initialization of the second iterator (iterator2) from using p1 to using p2. This is a classic case of an incorrect variable assignment during initialization, where the wrong object was referenced, rather than a flaw in the algorithmic logic itself or a missing guard.
 - Prefix context signal: org.jfree.chart.util.junit.ShapeUtilitiesTests::testEqualGeneralPaths: junit.framework.AssertionFailedError
 - Postfix context signal: org.jfree.chart.util.junit.ShapeUtilitiesTests::testEqualGeneralPaths: junit.framework.AssertionFailedError
+
+### Closure-104
+- Type shift: Algorithm/Method -> Checking.
+- Comparison detail: Cross-alternative match: pre-fix 'Algorithm/Method' is in post-fix alternatives, and post-fix 'Checking' is in pre-fix alternatives
+- Prefix reasoning summary: The failure occurs during the calculation of the greatest subtype of a union type. The discrepancy between the expected 'NoObject' and the actual 'None' suggests that the underlying algorithm for determining type intersections or subtypes is flawed in its handling of these specific type objects. This is a procedural logic error in the type system's subtype calculation method, fitting the Algorithm/Method category.
+- Postfix reasoning summary: The fix replaces a null check (`result != null`) with a more specific type validation check (`!result.isNoType()`). This is a classic correction of a conditional predicate (guard) that was incorrectly validating the state of the `result` object, leading to the wrong branch being taken in the logic. Since the core issue is the correctness of the conditional guard, it falls under the 'Checking' category.
+- Prefix context signal: com.google.javascript.rhino.jstype.UnionTypeTest::testGreatestSubtypeUnionTypes5: junit.framework.AssertionFailedError: expected:<NoObject> but was:<None>
+- Postfix context signal: com.google.javascript.rhino.jstype.UnionTypeTest::testGreatestSubtypeUnionTypes5: junit.framework.AssertionFailedError: expected:<NoObject> but was:<None>
+
+### Closure-110
+- Type shift: Checking -> Algorithm/Method.
+- Comparison detail: Cross-alternative match: pre-fix 'Checking' is in post-fix alternatives, and post-fix 'Algorithm/Method' is in pre-fix alternatives
+- Prefix reasoning summary: The error message 'The local variable f is in a goog.scope and is not an alias' indicates that the compiler's validation logic (the guard checking for non-alias locals) is too restrictive. It incorrectly identifies a function declaration as a prohibited local variable, failing to account for valid function declarations within the scope. This is a classic case of an incorrect validation predicate (Checking).
+- Postfix reasoning summary: The fix involves modifying the logic in ScopedAliases to correctly identify and handle function declarations (including hoisted ones) within a goog.scope. The original code only handled 'var' declarations, failing to account for the specific AST structure of function declarations. The fix introduces new logic to transform function declarations into variable declarations, which is a procedural/algorithmic change to how the compiler processes these scopes.
+- Prefix context signal: com.google.javascript.jscomp.ScopedAliasesTest::testHoistedFunctionDeclaration: junit.framework.AssertionFailedError: Unexpected error(s): JSC_GOOG_SCOPE_NON_ALIAS_LOCAL. The local variable f is in a goog.scope and is not an alias. at testcode line 1 : 39 expected:<0> but was:<1>
+- Postfix context signal: com.google.javascript.jscomp.ScopedAliasesTest::testHoistedFunctionDeclaration: junit.framework.AssertionFailedError: Unexpected error(s): JSC_GOOG_SCOPE_NON_ALIAS_LOCAL. The local variable f is in a goog.scope and is not an alias. at testcode line 1 : 39 expected:<0> but was:<1>
+
+### Closure-114
+- Type shift: Algorithm/Method -> Checking.
+- Comparison detail: Cross-alternative match: pre-fix 'Algorithm/Method' is in post-fix alternatives, and post-fix 'Checking' is in pre-fix alternatives
+- Prefix reasoning summary: The bug involves an incorrect optimization strategy where the compiler erroneously removes a variable declaration that is still required by a function expression. This is a procedural logic error in the compiler's optimization pass (specifically NameAnalyzer), which incorrectly determines that a variable is unused. This fits the Algorithm/Method category as it is a flaw in the computational logic of the optimization algorithm, not a missing guard or a simple assignment error.
+- Postfix reasoning summary: The fix involves adding a conditional check (`!(parent.isCall() && parent.getFirstChild() == n)`) to the existing logic in `NameAnalyzer`. This guard prevents the compiler from incorrectly identifying a variable as unused when it is actually being used as the function being called in an assignment expression. Since the root cause is a missing validation of the node's context before performing the removal, this is a classic 'Checking' defect.
+- Prefix context signal: com.google.javascript.jscomp.NameAnalyzerTest::testAssignWithCall: junit.framework.AssertionFailedError:
+- Postfix context signal: com.google.javascript.jscomp.NameAnalyzerTest::testAssignWithCall: junit.framework.AssertionFailedError:
+
+### Closure-116
+- Type shift: Algorithm/Method -> Checking.
+- Comparison detail: Cross-alternative match: pre-fix 'Algorithm/Method' is in post-fix alternatives, and post-fix 'Checking' is in pre-fix alternatives
+- Prefix reasoning summary: The bug is an incorrect optimization strategy in the function inlining logic. The compiler incorrectly assumes it can inline a function call without preserving the evaluation order of its arguments, which is critical when those arguments involve property access that might be modified by side effects. This is a procedural logic error in the inlining algorithm, not a missing guard (Checking), a wrong constant (Assignment), or a design-level capability gap (Function/Class/Object).
+- Postfix reasoning summary: The fix introduces a conditional check (`if (hasSideEffects && NodeUtil.canBeSideEffected(cArg))`) to prevent inlining when the function body has side effects and the arguments are susceptible to being side-effected. This is a classic guard/validation logic correction to ensure the safety of an optimization, fitting the 'Checking' category.
+- Prefix context signal: com.google.javascript.jscomp.FunctionInjectorTest::testIssue1101a: junit.framework.AssertionFailedError: expected:<NO> but was:<YES>
+- Postfix context signal: com.google.javascript.jscomp.FunctionInjectorTest::testIssue1101a: junit.framework.AssertionFailedError: expected:<NO> but was:<YES>
+
+### Closure-119
+- Type shift: Checking -> Algorithm/Method.
+- Comparison detail: Cross-alternative match: pre-fix 'Checking' is in post-fix alternatives, and post-fix 'Algorithm/Method' is in pre-fix alternatives
+- Prefix reasoning summary: The issue is that the compiler's static analysis pass (CheckGlobalNames) fails to recognize the catch block variable as a valid definition, treating it as an undefined name. This is a failure in the validation logic (a guard or check) that determines whether a variable is defined within the current scope. Since the compiler is missing the logic to correctly validate the scope of catch-block variables, 'Checking' is the most appropriate ODC type.
+- Postfix reasoning summary: The fix involves adding 'case Token.CATCH:' to a switch statement in GlobalNamespace. This is a procedural correction to the logic that determines whether a name is 'set' (assigned/defined). By including the CATCH token, the compiler correctly identifies that variables within a catch block are defined, thus preventing the false 'JSC_UNDEFINED_NAME' warning. This is an algorithmic fix to the name-tracking logic, not a design-level capability gap or a simple initialization error.
+- Prefix context signal: com.google.javascript.jscomp.CheckGlobalNamesTest::testGlobalCatch: junit.framework.AssertionFailedError: Unexpected warning(s): JSC_UNDEFINED_NAME. e is never defined at testcode line 1 : 48
+- Postfix context signal: com.google.javascript.jscomp.CheckGlobalNamesTest::testGlobalCatch: junit.framework.AssertionFailedError: Unexpected warning(s): JSC_UNDEFINED_NAME. e is never defined at testcode line 1 : 48
+
+### Closure-120
+- Type shift: Algorithm/Method -> Checking.
+- Comparison detail: Cross-alternative match: pre-fix 'Algorithm/Method' is in post-fix alternatives, and post-fix 'Checking' is in pre-fix alternatives
+- Prefix reasoning summary: The bug is an overzealous optimization where the compiler incorrectly assumes a local variable (x) is redundant and can be replaced by the global variable (u) it was initialized from. This is a flaw in the inlining algorithm's logic, which fails to account for the fact that the global variable 'u' can be modified by a recursive call to 'f()' between the initialization of 'x' and its subsequent use. This is a procedural/algorithmic error in the optimization pass, not a missing guard or a simple assignment error.
+- Postfix reasoning summary: The fix involves adding a guard condition (`if (ref.getSymbol().getScope() != ref.scope) { return false; }`) within the `ReferenceCollectingCallback` logic. This check prevents the compiler from performing an unsafe variable inlining when the variable's scope does not match the reference's scope, effectively acting as a validation guard to prevent incorrect optimization. This fits the definition of 'Checking' as it introduces a missing validation predicate to prevent an invalid state.
+- Prefix context signal: com.google.javascript.jscomp.InlineVariablesTest::testExternalIssue1053: junit.framework.AssertionFailedError:
+- Postfix context signal: com.google.javascript.jscomp.InlineVariablesTest::testExternalIssue1053: junit.framework.AssertionFailedError:
+
+### Closure-121
+- Type shift: Algorithm/Method -> Checking.
+- Comparison detail: Cross-alternative match: pre-fix 'Algorithm/Method' is in post-fix alternatives, and post-fix 'Checking' is in pre-fix alternatives
+- Prefix reasoning summary: The bug is an overzealous optimization where the compiler incorrectly determines that a variable (the snapshot) can be inlined or removed. This is a flaw in the logic of the variable inlining algorithm, which fails to account for the fact that the global variable's value can change during the execution of the function, rendering the snapshot necessary. This is a procedural error in the optimization strategy, not a missing guard or a simple assignment error.
+- Postfix reasoning summary: The fix adds a necessary condition (a guard) to the variable inlining logic. The original code incorrectly assumed that if a variable was assigned once, it was safe to inline. The fix introduces a check to ensure that the variable is either a constant or that its only assignment occurs in the same scope as its declaration, preventing invalid inlining in cases where the variable's value might change across function calls.
+- Prefix context signal: com.google.javascript.jscomp.InlineVariablesTest::testExternalIssue1053: junit.framework.AssertionFailedError:
+- Postfix context signal: com.google.javascript.jscomp.InlineVariablesTest::testExternalIssue1053: junit.framework.AssertionFailedError:
+
+### Closure-124
+- Type shift: Algorithm/Method -> Checking.
+- Comparison detail: Cross-alternative match: pre-fix 'Algorithm/Method' is in post-fix alternatives, and post-fix 'Checking' is in pre-fix alternatives
+- Prefix reasoning summary: The bug involves an incorrect optimization strategy in the compiler's code transformation pass (ExploitAssigns). The compiler incorrectly collapses two sequential assignments into a single expression, resulting in an invalid self-assignment (x=x=...). This is a procedural error in the optimization algorithm, not a missing guard or a simple value initialization error.
+- Postfix reasoning summary: The fix adds a 'while' loop to ensure that the traversal of the property chain continues until the base object (the name) is reached, rather than stopping prematurely at the first 'GETPROP' node. This is a classic case of missing a loop condition/guard to correctly validate the depth of the property chain before proceeding with the assignment check. While it involves a loop, the root cause is the missing check to ensure the traversal reaches the actual name node.
+- Prefix context signal: com.google.javascript.jscomp.ExploitAssignsTest::testIssue1017: junit.framework.AssertionFailedError:
+- Postfix context signal: com.google.javascript.jscomp.ExploitAssignsTest::testIssue1017: junit.framework.AssertionFailedError:
+
+### Closure-127
+- Type shift: Algorithm/Method -> Checking.
+- Comparison detail: Cross-alternative match: pre-fix 'Algorithm/Method' is in post-fix alternatives, and post-fix 'Checking' is in pre-fix alternatives
+- Prefix reasoning summary: The issue is a flaw in the unreachable code elimination algorithm. The compiler incorrectly assumes that code following a 'try-finally' block is unreachable or that the control flow within the 'finally' block does not affect the overall execution path. The fix requires updating the logic that determines control flow reachability to correctly account for 'break', 'continue', and 'return' statements within 'finally' blocks, which is a procedural/algorithmic correction.
+- Postfix reasoning summary: The fix introduces a new guard condition '!inFinally(n.getParent(), n)' to the existing logic that determines whether a node can be removed. This is a classic 'Checking' defect where a missing validation (checking if the node is inside a 'finally' block) caused the compiler to perform an unsafe optimization.
+- Prefix context signal: com.google.javascript.jscomp.UnreachableCodeEliminationTest::testIssue4177428_return: junit.framework.AssertionFailedError:
+- Postfix context signal: com.google.javascript.jscomp.UnreachableCodeEliminationTest::testIssue4177428_return: junit.framework.AssertionFailedError:
+
+### Closure-136
+- Type shift: Checking -> Algorithm/Method.
+- Comparison detail: Cross-alternative match: pre-fix 'Checking' is in post-fix alternatives, and post-fix 'Algorithm/Method' is in pre-fix alternatives
+- Prefix reasoning summary: The bug is caused by the compiler's failure to check if a variable name is 'exported' or special (like '$super') before applying renaming logic. The fix suggested in the bug report involves adding a conditional check (a guard) to skip renaming if the variable is exported. This is a classic missing guard/validation issue, which falls under the 'Checking' category.
+- Postfix reasoning summary: The fix involves two parts: first, simplifying the logic in 'MethodCompilerPass' to remove an overly restrictive and incorrect check that was causing internal compiler errors; second, modifying the 'RenameVars' logic to correctly handle the '$super' identifier by reverting it to its original name if it was renamed during normalization. This is an algorithmic correction to the variable renaming and signature gathering procedures, rather than a missing guard (Checking) or a simple initialization error (Assignment/Initialization).
+- Prefix context signal: com.google.javascript.jscomp.InlineGettersTest::testIssue2508576_1: junit.framework.ComparisonFailure: expected:<[({a:alert,b:alert}).a("a")]> but was:<[]>
+- Postfix context signal: com.google.javascript.jscomp.InlineGettersTest::testIssue2508576_1: junit.framework.ComparisonFailure: expected:<[({a:alert,b:alert}).a("a")]> but was:<[]>
+
+### Closure-140
+- Type shift: Checking -> Algorithm/Method.
+- Comparison detail: Post-fix primary 'Algorithm/Method' found in pre-fix alternative types
+- Prefix reasoning summary: The failure indicates that the compiler's change-tracking mechanism is reporting a change when none has occurred. This is a classic case of a missing or incorrect guard condition (a check) that should verify whether a transformation actually resulted in a modification before calling 'reportCodeChange()'. The logic for determining if a change occurred is flawed or missing a validation step, which falls under the 'Checking' category.
+- Postfix reasoning summary: The fix introduces a new method 'fillEmptyModules' and calls it during initialization to ensure all modules contain at least one file. This changes the internal data structure representation of modules to avoid edge cases in the cross-module motion algorithm. Since this is a procedural correction to how the compiler handles module inputs to prevent incorrect state transitions, it is classified as an Algorithm/Method defect.
+- Prefix context signal: com.google.javascript.jscomp.CrossModuleCodeMotionTest::testEmptyModule: junit.framework.AssertionFailedError: compiler.reportCodeChange() was called even though nothing changed
+- Postfix context signal: com.google.javascript.jscomp.CrossModuleCodeMotionTest::testEmptyModule: junit.framework.AssertionFailedError: compiler.reportCodeChange() was called even though nothing changed
+
+### Closure-142
+- Type shift: Algorithm/Method -> Checking.
+- Comparison detail: Pre-fix primary 'Algorithm/Method' found in post-fix alternative types
+- Prefix reasoning summary: The bug involves an incorrect optimization strategy (variable coalescing) that fails to account for specific browser-side execution constraints (IE's sort behavior). This is a procedural logic error in the compiler's optimization pass, which is best classified as an Algorithm/Method defect because it involves the implementation of the variable merging logic itself.
+- Postfix reasoning summary: The fix in CoalesceVariableNames adds a conditional check to identify sort functions and mark parameters as escaped, preventing incorrect optimization. The fix in JsDocInfoParser adds a conditional guard to prevent incorrect token processing during license block parsing. Both fixes are fundamentally about adding missing validation logic (guards) to handle specific edge cases correctly.
+- Prefix context signal: com.google.javascript.jscomp.CoalesceVariableNamesTest::testParameter4: junit.framework.AssertionFailedError:
+- Postfix context signal: com.google.javascript.jscomp.CoalesceVariableNamesTest::testParameter4: junit.framework.AssertionFailedError:
+
+### Closure-144
+- Type shift: Assignment/Initialization -> Algorithm/Method.
+- Comparison detail: Cross-alternative match: pre-fix 'Assignment/Initialization' is in post-fix alternatives, and post-fix 'Algorithm/Method' is in pre-fix alternatives
+- Prefix reasoning summary: The bug involves a systematic failure to correctly initialize or assign the return type of functions. The evidence shows that the compiler is defaulting to '?' when it should be 'undefined'. This is a classic case of an incorrect default value or initialization logic within the type inference engine, rather than a procedural algorithmic error or a missing guard.
+- Postfix reasoning summary: The fix involves implementing a new analysis procedure ('inferReturnStatements') that traverses the function's AST to check for return or throw statements. If none are found, it correctly assigns the 'VOID_TYPE' to the function. This is a procedural change to the type inference algorithm, not a simple guard or initialization fix, and it does not represent a missing design-level capability (the compiler already had type inference, it just lacked this specific logic for void functions).
+- Prefix context signal: com.google.javascript.jscomp.CodePrinterTest::testTypeAnnotationsAssign: junit.framework.ComparisonFailure: expected:</**
+- Postfix context signal: com.google.javascript.jscomp.CodePrinterTest::testTypeAnnotationsAssign: junit.framework.ComparisonFailure: expected:</**
+
+### Closure-146
+- Type shift: Algorithm/Method -> Assignment/Initialization.
+- Comparison detail: Pre-fix primary 'Algorithm/Method' found in post-fix alternative types
+- Prefix reasoning summary: The bug involves incorrect type inference logic during the evaluation of equality conditions (e.g., 'x != undefined'). This is a procedural error in the compiler's semantic analysis algorithm, where the interpreter fails to correctly narrow or refine types based on the condition. It is not a missing guard (Checking), a wrong constant (Assignment), or a design-level capability gap (Function/Class/Object), but rather a flaw in the computational logic of the reverse abstract interpreter.
+- Postfix reasoning summary: The fix replaces an incorrect initialization/assignment of a TypePair (using nulls) with the correct representation (NO_TYPE). This is a classic case of assigning the wrong value to a data structure field, which then propagates through the type inference logic. It is not a procedural algorithm error (the logic flow is correct), nor a missing guard (no condition was missing), but rather an incorrect value being returned by the equality test method.
+- Prefix context signal: com.google.javascript.jscomp.SemanticReverseAbstractInterpreterTest::testEqCondition4: junit.framework.AssertionFailedError: expected:<None> but was:<undefined>
+- Postfix context signal: com.google.javascript.jscomp.SemanticReverseAbstractInterpreterTest::testEqCondition4: junit.framework.AssertionFailedError: expected:<None> but was:<undefined>
+
+### Closure-15
+- Type shift: Algorithm/Method -> Checking.
+- Comparison detail: Pre-fix primary 'Algorithm/Method' found in post-fix alternative types
+- Prefix reasoning summary: The bug involves an incorrect transformation strategy where the compiler's optimization pass (FlowSensitiveInlineVariables) reorders dependent operations. This is a procedural logic error in the compiler's optimization algorithm, as it fails to respect the necessary execution order of side-effect-producing operations (delete) and dependent checks (in). It is not a missing guard (Checking) or a simple value assignment error (Assignment/Initialization), but a flaw in the algorithmic implementation of the code transformation.
+- Postfix reasoning summary: The fix involves adding a guard (a check for 'isDelProp()') to the control flow analysis logic. This prevents the compiler from incorrectly inlining or reordering operations when a 'delete' property operation is present, which is a classic case of a missing guard/check in the analysis logic.
+- Prefix context signal: com.google.javascript.jscomp.FlowSensitiveInlineVariablesTest::testSimpleForIn: junit.framework.AssertionFailedError:
+- Postfix context signal: com.google.javascript.jscomp.FlowSensitiveInlineVariablesTest::testSimpleForIn: junit.framework.AssertionFailedError:
+
+### Closure-168
+- Type shift: Checking -> Algorithm/Method.
+- Comparison detail: Cross-alternative match: pre-fix 'Checking' is in post-fix alternatives, and post-fix 'Algorithm/Method' is in pre-fix alternatives
+- Prefix reasoning summary: The bug is a failure to detect a type violation (incorrect argument count) in a specific code structure (aliased 'this' inside a closure). This indicates that the type-checking logic is missing a necessary validation or guard to correctly propagate or verify the function signature when the context ('this') is captured in a closure. This is a classic 'Checking' defect where the validation logic is insufficient for the given control flow.
+- Postfix reasoning summary: The fix involved changing a conditional predicate `t.getScopeDepth() <= 2` to `t.getScopeDepth() <= 1`. This change modifies the scope-traversal logic used by the compiler to analyze function calls and variable usage. Since this is a change to the procedural logic of the analyzer (the algorithm for determining which scopes to analyze for type errors), it is classified as Algorithm/Method.
+- Prefix context signal: com.google.javascript.jscomp.TypeCheckTest::testIssue726: junit.framework.AssertionFailedError: expected a warning
+- Postfix context signal: com.google.javascript.jscomp.TypeCheckTest::testIssue726: junit.framework.AssertionFailedError: expected a warning
+
+### Closure-171
+- Type shift: Algorithm/Method -> Checking.
+- Comparison detail: Pre-fix primary 'Algorithm/Method' found in post-fix alternative types
+- Prefix reasoning summary: The bug involves the compiler's inability to correctly track and associate prototype properties when assigned inside an IIFE. This is a failure in the internal logic of the type inference/scope creation algorithm, which fails to correctly traverse or update the object's prototype chain in this specific structural context. It is not a missing guard (Checking) or a simple initialization error (Assignment/Initialization), but a flaw in the procedural logic used to resolve types.
+- Postfix reasoning summary: The fix involves adding a missing guard condition in 'TypedScopeCreator' to explicitly handle prototype assignments (if qName ends with '.prototype', return false). This is a classic 'Checking' defect where a specific case was not being validated or handled by the existing logic, causing the compiler to incorrectly infer types or miss declarations. While 'TypeInference' was also modified, the core issue is the missing check in the scope creation logic that prevents the compiler from correctly recognizing the prototype assignment.
+- Prefix context signal: com.google.javascript.jscomp.TypeCheckTest::testIssue1023: junit.framework.AssertionFailedError: expected a warning
+- Postfix context signal: com.google.javascript.jscomp.TypeCheckTest::testIssue1023: junit.framework.AssertionFailedError: expected a warning
+
+### Closure-172
+- Type shift: Algorithm/Method -> Checking.
+- Comparison detail: Cross-alternative match: pre-fix 'Algorithm/Method' is in post-fix alternatives, and post-fix 'Checking' is in pre-fix alternatives
+- Prefix reasoning summary: The issue is a type inference error within the compiler's type-checking logic. The compiler incorrectly identifies the prototype property as a string, which is a flaw in the computational logic used to determine property types. This is an algorithmic error in the type-checking procedure rather than a missing guard (Checking), a wrong constant (Assignment), or a design-level capability gap (Function/Class/Object).
+- Postfix reasoning summary: The fix introduces a conditional check (if statement) to validate the type of the class associated with the 'prototype' property. By checking if the class type is a constructor or interface, the compiler can correctly determine whether to skip the inference logic. This is a classic 'Checking' defect where a missing guard condition caused incorrect behavior.
+- Prefix context signal: com.google.javascript.jscomp.TypeCheckTest::testIssue1024: junit.framework.AssertionFailedError: unexpected warnings(s):
+- Postfix context signal: com.google.javascript.jscomp.TypeCheckTest::testIssue1024: junit.framework.AssertionFailedError: unexpected warnings(s):
+
+### Closure-174
+- Type shift: Checking -> Algorithm/Method.
+- Comparison detail: Cross-alternative match: pre-fix 'Checking' is in post-fix alternatives, and post-fix 'Algorithm/Method' is in pre-fix alternatives
+- Prefix reasoning summary: The root cause is a missing validation or guard in the ScopedAliases traversal logic. The compiler attempts to process variables within a goog.scope as if they were all aliases, leading to an internal error when it encounters a non-alias variable. The fix requires adding a check to distinguish between alias and non-alias variables before attempting to inject library code or perform alias-specific transformations.
+- Postfix reasoning summary: The fix involved rewriting the logic in ScopedAliases.java to correctly handle variable declarations that lack initial values (e.g., 'var b;') and updating NodeUtil to correctly construct AST nodes for such declarations. This is a procedural correction to the alias-finding and AST-transformation algorithm, ensuring it correctly identifies and processes variables within the scope, rather than a simple guard or initialization fix.
+- Prefix context signal: com.google.javascript.jscomp.ScopedAliasesTest::testIssue1103a: junit.framework.AssertionFailedError: Unexpected error(s): JSC_GOOG_SCOPE_NON_ALIAS_LOCAL. The local variable a is in a goog.scope and is not an alias. at testcode line 1 : 30 expected:<0> but was:<1>
+- Postfix context signal: com.google.javascript.jscomp.ScopedAliasesTest::testIssue1103a: junit.framework.AssertionFailedError: Unexpected error(s): JSC_GOOG_SCOPE_NON_ALIAS_LOCAL. The local variable a is in a goog.scope and is not an alias. at testcode line 1 : 30 expected:<0> but was:<1>
+
+### Closure-176
+- Type shift: Checking -> Algorithm/Method.
+- Comparison detail: Cross-alternative match: pre-fix 'Checking' is in post-fix alternatives, and post-fix 'Algorithm/Method' is in pre-fix alternatives
+- Prefix reasoning summary: The bug is a failure to validate the consistency between an explicit type declaration and the assigned value (null). The compiler's type-checking logic is missing a guard or validation step that should detect when a variable declared as a specific object type is assigned a null value, or when such a variable is accessed without a null check. This is a classic missing validation/guard scenario.
+- Postfix reasoning summary: The fix involves changing the logic that determines whether to use the declared type or the inferred type for a variable during type inference. By modifying the boolean conditions (isVarDeclaration, isVarTypeBetter) and the subsequent redeclareSimpleVar call, the fix corrects the algorithmic strategy for how the compiler reconciles declared types with actual assigned values. This is a procedural correction to the type inference algorithm, not a simple guard (Checking) or a single value assignment (Assignment/Initialization).
+- Prefix context signal: com.google.javascript.jscomp.TypeCheckTest::testIssue1056: junit.framework.AssertionFailedError: expected a warning
+- Postfix context signal: com.google.javascript.jscomp.TypeCheckTest::testIssue1056: junit.framework.AssertionFailedError: expected a warning
+
+### Closure-20
+- Type shift: Algorithm/Method -> Checking.
+- Comparison detail: Cross-alternative match: pre-fix 'Algorithm/Method' is in post-fix alternatives, and post-fix 'Checking' is in pre-fix alternatives
+- Prefix reasoning summary: The defect lies in the transformation logic (the peephole optimization algorithm) used by the compiler to substitute 'String(x)' with 'x + ""'. This is a procedural error where the optimization algorithm fails to account for the side effects or specific behaviors of the input expression, requiring a change to the optimization logic itself rather than a simple guard or initialization fix.
+- Postfix reasoning summary: The fix adds a missing guard condition ('value.getNext() == null && NodeUtil.isImmutableValue(value)') to ensure the optimization only applies when the argument is a simple, immutable value. This is a classic case of missing validation logic (a guard) before performing a transformation, which falls under the 'Checking' category.
+- Prefix context signal: com.google.javascript.jscomp.PeepholeSubstituteAlternateSyntaxTest::testSimpleFunctionCall: junit.framework.AssertionFailedError:
+- Postfix context signal: com.google.javascript.jscomp.PeepholeSubstituteAlternateSyntaxTest::testSimpleFunctionCall: junit.framework.AssertionFailedError:
+
+### Closure-29
+- Type shift: Algorithm/Method -> Checking.
+- Comparison detail: Cross-alternative match: pre-fix 'Algorithm/Method' is in post-fix alternatives, and post-fix 'Checking' is in pre-fix alternatives
+- Prefix reasoning summary: The bug is caused by an incorrect transformation logic in the 'InlineObjectLiterals' pass. The compiler incorrectly identifies that properties of an object literal are unused and removes them, even when they are accessed via methods like 'toString'. This is a procedural error in the optimization algorithm that determines which properties can be safely inlined or removed, rather than a missing guard (Checking) or a simple initialization error.
+- Postfix reasoning summary: The fix introduces a validation mechanism ('validProperties' set) to check if a property being accessed is actually defined on the object literal before proceeding with inlining. This is a classic guard/validation logic error where the compiler was missing a check to ensure the safety of the inlining transformation, thus it falls under the 'Checking' category.
+- Prefix context signal: com.google.javascript.jscomp.InlineObjectLiteralsTest::testObject10: junit.framework.AssertionFailedError:
+- Postfix context signal: com.google.javascript.jscomp.InlineObjectLiteralsTest::testObject10: junit.framework.AssertionFailedError:
+
+### Closure-30
+- Type shift: Algorithm/Method -> Checking.
+- Comparison detail: Cross-alternative match: pre-fix 'Algorithm/Method' is in post-fix alternatives, and post-fix 'Checking' is in pre-fix alternatives
+- Prefix reasoning summary: The bug involves an incorrect optimization strategy in the FlowSensitiveInlineVariables pass. The compiler incorrectly determines that it is safe to inline variables across expressions that have side effects or dependencies, resulting in incorrect code transformation. This is a procedural logic error in the variable inlining algorithm, not a missing guard (Checking) or a simple initialization error (Assignment/Initialization).
+- Postfix reasoning summary: The fix involves adding a check for whether a variable dependency is known (i.e., declared in the current scope). Specifically, the code now checks if 'dep == null' (meaning the variable is not found in the current scope) and sets an 'unknownDependencies' flag, which is then checked before performing the inlining optimization. This is a classic missing guard/validation check for variable scope resolution.
+- Prefix context signal: com.google.javascript.jscomp.FlowSensitiveInlineVariablesTest::testInlineAcrossSideEffect1: junit.framework.AssertionFailedError:
+- Postfix context signal: com.google.javascript.jscomp.FlowSensitiveInlineVariablesTest::testInlineAcrossSideEffect1: junit.framework.AssertionFailedError:
+
+### Closure-33
+- Type shift: Algorithm/Method -> Checking.
+- Comparison detail: Cross-alternative match: pre-fix 'Algorithm/Method' is in post-fix alternatives, and post-fix 'Checking' is in pre-fix alternatives
+- Prefix reasoning summary: The bug involves the compiler's type-checking algorithm incorrectly inferring or merging types across unrelated functions. This is a procedural logic error in how the compiler tracks and validates object property types during type checking, rather than a missing guard (Checking), a simple initialization error (Assignment), or a design-level capability gap (Function/Class/Object).
+- Postfix reasoning summary: The fix adds a guard clause (`if (hasReferenceName()) { return; }`) to the `matchConstraint` method in `PrototypeObjectType`. This is a classic missing guard/validation check that prevents the method from incorrectly processing named types, which should not be subject to the same constraint matching logic as anonymous types. This fits the 'Checking' category perfectly as it introduces a missing condition to validate the state of the object before proceeding with the logic.
+- Prefix context signal: com.google.javascript.jscomp.TypeCheckTest::testIssue700: junit.framework.AssertionFailedError: unexpected warnings(s):
+- Postfix context signal: com.google.javascript.jscomp.TypeCheckTest::testIssue700: junit.framework.AssertionFailedError: unexpected warnings(s):
+
+### Closure-3
+- Type shift: Algorithm/Method -> Checking.
+- Comparison detail: Cross-alternative match: pre-fix 'Algorithm/Method' is in post-fix alternatives, and post-fix 'Checking' is in pre-fix alternatives
+- Prefix reasoning summary: The bug is an optimization failure where the compiler's flow-sensitive inlining logic incorrectly identifies variables within a catch block as safe to inline. This is a procedural error in the inlining algorithm, which fails to account for the restricted scope of catch-block variables. It is not a missing guard (Checking) or a simple assignment error, but a flaw in the logic determining whether an optimization transformation is valid.
+- Postfix reasoning summary: The fix involves adding a new validation check within the `canInline` method. Specifically, it checks if the variable being considered for inlining is defined in a catch block (`var.getParentNode().isCatch()`). Since the bug is caused by the absence of this guard, which allows an invalid optimization to proceed, it is classified as a Checking defect.
+- Prefix context signal: com.google.javascript.jscomp.FlowSensitiveInlineVariablesTest::testDoNotInlineCatchExpression1a: junit.framework.AssertionFailedError:
+- Postfix context signal: com.google.javascript.jscomp.FlowSensitiveInlineVariablesTest::testDoNotInlineCatchExpression1a: junit.framework.AssertionFailedError:
+
+### Closure-43
+- Type shift: Checking -> Algorithm/Method.
+- Comparison detail: Post-fix primary 'Algorithm/Method' found in pre-fix alternative types
+- Prefix reasoning summary: The error message indicates that the compiler is performing a validation check (ensuring the variable is declared before @lends) that is too restrictive or incorrectly implemented for the provided code pattern. This is a classic case of an incorrect or overly aggressive guard/validation check in the type-checking logic, which falls under the 'Checking' category.
+- Postfix reasoning summary: The fix involves changing the procedural logic of how object literals are processed. Instead of immediately calling 'defineObjectLiteral(n)', the code now buffers object literals with @lends annotations in a list ('lentObjectLiterals') and processes them later once the statement is fully analyzed. This is a change to the algorithmic strategy for handling type definitions, not a simple guard or initialization fix.
+- Prefix context signal: com.google.javascript.jscomp.TypeCheckTest::testLends10: junit.framework.ComparisonFailure: expected:<[inconsistent return type
+- Postfix context signal: com.google.javascript.jscomp.TypeCheckTest::testLends10: junit.framework.ComparisonFailure: expected:<[inconsistent return type
+
+### Closure-44
+- Type shift: Algorithm/Method -> Checking.
+- Comparison detail: Cross-alternative match: pre-fix 'Algorithm/Method' is in post-fix alternatives, and post-fix 'Checking' is in pre-fix alternatives
+- Prefix reasoning summary: The issue is a failure in the code generation/printing logic when handling specific sequences of characters within a regular expression literal. This is a procedural logic error in how the printer traverses and outputs the AST nodes for regex literals, which is a classic Algorithm/Method defect. It is not a missing guard (Checking), a wrong constant (Assignment), or a design-level capability gap (Function/Class/Object).
+- Postfix reasoning summary: The fix involves adding a conditional check to detect when a forward slash is being appended immediately after another forward slash. This is a classic boundary/validation check (a guard) to ensure that the output format remains valid JavaScript by inserting a space when this specific sequence occurs. It is not an algorithmic rewrite, but rather the addition of a missing guard condition to handle a specific edge case in the output stream.
+- Prefix context signal: com.google.javascript.jscomp.CodePrinterTest::testIssue620: junit.framework.ComparisonFailure: expected:<alert(/ //[ ]/ /)> but was:<alert(/ //[]/ /)>
+- Postfix context signal: com.google.javascript.jscomp.CodePrinterTest::testIssue620: junit.framework.ComparisonFailure: expected:<alert(/ //[ ]/ /)> but was:<alert(/ //[]/ /)>
+
+### Closure-5
+- Type shift: Algorithm/Method -> Checking.
+- Comparison detail: Cross-alternative match: pre-fix 'Algorithm/Method' is in post-fix alternatives, and post-fix 'Checking' is in pre-fix alternatives
+- Prefix reasoning summary: The defect lies in the transformation logic (the inlining algorithm) which fails to account for the presence of 'delete' operations on object properties. The algorithm incorrectly assumes that object properties can be safely replaced by local variables without considering that 'delete' operations on those properties have different semantics than 'delete' operations on local variables. This is a procedural logic error in the compiler's optimization pass.
+- Postfix reasoning summary: The fix adds a guard condition (`if (gramps.isDelProp()) { return false; }`) to prevent the inlining of object properties when they are involved in a 'delete' operation. This is a classic case of a missing validation check (guard) in the optimization logic, which is the definition of the 'Checking' ODC type.
+- Prefix context signal: com.google.javascript.jscomp.InlineObjectLiteralsTest::testNoInlineDeletedProperties: junit.framework.AssertionFailedError:
+- Postfix context signal: com.google.javascript.jscomp.InlineObjectLiteralsTest::testNoInlineDeletedProperties: junit.framework.AssertionFailedError:
+
+### Closure-70
+- Type shift: Algorithm/Method -> Assignment/Initialization.
+- Comparison detail: Pre-fix primary 'Algorithm/Method' found in post-fix alternative types
+- Prefix reasoning summary: The failure to generate expected warnings indicates that the type-checking algorithm is missing or incorrectly implementing the logic for identifying specific type violations (like duplicate declarations or argument type mismatches). This is a procedural logic error within the type-checking component, not a missing guard (Checking) or a simple value assignment error (Assignment/Initialization).
+- Postfix reasoning summary: The fix involves changing a boolean parameter in the `defineSlot` method call from `true` to `false`. This parameter controls whether the variable definition is treated as an initialization. By changing this value, the compiler correctly handles the scope and type definition of function parameters, which resolves the reported issues with missing warnings and incorrect type coverage. This is a classic case of an incorrect value being passed to a method, which is an Assignment/Initialization defect.
+- Prefix context signal: com.google.javascript.jscomp.LooseTypeCheckTest::testDuplicateLocalVarDecl: junit.framework.AssertionFailedError: expected:<2> but was:<1>
+- Postfix context signal: com.google.javascript.jscomp.LooseTypeCheckTest::testDuplicateLocalVarDecl: junit.framework.AssertionFailedError: expected:<2> but was:<1>
+
+### Closure-75
+- Type shift: Algorithm/Method -> Checking.
+- Comparison detail: Cross-alternative match: pre-fix 'Algorithm/Method' is in post-fix alternatives, and post-fix 'Checking' is in pre-fix alternatives
+- Prefix reasoning summary: The bug is a failure in the peephole optimization logic (a component of the compiler's code transformation process). The compiler incorrectly evaluates the expression '!+"\v1"' as '!1'. This is a procedural error in the optimization algorithm where it incorrectly assumes that the string containing a vertical tab character can be simplified in the same way as other strings, leading to an incorrect transformation. This is an algorithmic error in the peephole optimizer, not a missing guard (Checking) or a simple initialization error.
+- Postfix reasoning summary: The fix involves adding a guard (a null check) in 'getStringNumberValue' to prevent the compiler from attempting to convert strings containing vertical tabs into numbers, and updating the 'isStrWhiteSpaceChar' method to return 'UNKNOWN' instead of 'TRUE' for the vertical tab character. These changes are fundamentally about adding missing validation/guard logic to handle an edge case in the input data, which fits the 'Checking' ODC type.
+- Prefix context signal: com.google.javascript.jscomp.PeepholeFoldConstantsTest::testIEString: junit.framework.AssertionFailedError:
+- Postfix context signal: com.google.javascript.jscomp.PeepholeFoldConstantsTest::testIEString: junit.framework.AssertionFailedError:
+
+### Closure-90
+- Type shift: Algorithm/Method -> Checking.
+- Comparison detail: Cross-alternative match: pre-fix 'Algorithm/Method' is in post-fix alternatives, and post-fix 'Checking' is in pre-fix alternatives
+- Prefix reasoning summary: The issue is that the type-checking algorithm for validating @this annotations is too restrictive. It fails to correctly handle typedefs that include nullable or undefined types, treating them as non-objects. This is a procedural logic error in how the compiler evaluates type compatibility for the @this context, rather than a missing guard (Checking) or a simple value assignment error.
+- Postfix reasoning summary: The fix involves adding a call to 'restrictByNotNullOrUndefined()' in two locations: one in 'FunctionTypeBuilder' to properly validate the subtype relationship, and one in 'FunctionType' to ensure the resolved type of 'this' is correctly handled. These changes are essentially adding missing validation/normalization logic to handle nullable/undefined types correctly within the type-checking predicates, which fits the 'Checking' category.
+- Prefix context signal: com.google.javascript.jscomp.TypeCheckTest::testBackwardsTypedefUse8: junit.framework.AssertionFailedError: unexpected warnings(s):
+- Postfix context signal: com.google.javascript.jscomp.TypeCheckTest::testBackwardsTypedefUse8: junit.framework.AssertionFailedError: unexpected warnings(s):
+
+### Closure-98
+- Type shift: Algorithm/Method -> Checking.
+- Comparison detail: Cross-alternative match: pre-fix 'Algorithm/Method' is in post-fix alternatives, and post-fix 'Checking' is in pre-fix alternatives
+- Prefix reasoning summary: The bug involves an incorrect decision-making process within the variable inlining optimization pass. The compiler fails to recognize that inlining a variable in this specific loop context changes the semantics of the code (specifically, the closure capture behavior). This is a procedural logic error in the optimization algorithm, not a missing guard (Checking) or a simple initialization error.
+- Postfix reasoning summary: The fix introduces a new conditional check (a loop traversal to verify if the reference is within a loop) to prevent incorrect inlining. This is a classic 'missing guard' scenario where the compiler lacked the necessary validation to determine if an optimization (inlining) was safe given the surrounding control flow (a loop).
+- Prefix context signal: com.google.javascript.jscomp.InlineVariablesTest::testNoInlineAliasesInLoop: junit.framework.AssertionFailedError:
+- Postfix context signal: com.google.javascript.jscomp.InlineVariablesTest::testNoInlineAliasesInLoop: junit.framework.AssertionFailedError:
 
 ### Lang-16
 - Type shift: Algorithm/Method -> Checking.
@@ -491,6 +843,78 @@
 - Prefix context signal: org.jfree.data.xy.junit.XYSeriesTests::testBug1955483: java.lang.IndexOutOfBoundsException: Index: -1, Size: 1
 - Postfix context signal: org.jfree.data.xy.junit.XYSeriesTests::testBug1955483: java.lang.IndexOutOfBoundsException: Index: -1, Size: 1
 
+### Closure-101
+- Type shift: Checking -> Assignment/Initialization.
+- Comparison detail: Pre-fix primary 'Checking' found in post-fix alternative types
+- Prefix reasoning summary: The bug report explicitly states that the flag cannot be set to false due to a missing 'else' in the command-line parser. This indicates that the logic responsible for handling the flag's value is missing the necessary conditional branch to process the 'false' case, which is a classic 'Checking' defect (missing guard/condition).
+- Postfix reasoning summary: The fix replaces a conditional 'if' block that only set the option to 'true' with a direct assignment of the flag's value to the option. This is a classic case of incorrect initialization/assignment logic where the state was not being correctly synchronized with the user-provided configuration.
+- Prefix context signal: com.google.javascript.jscomp.CommandLineRunnerTest::testProcessClosurePrimitives: junit.framework.AssertionFailedError:
+- Postfix context signal: com.google.javascript.jscomp.CommandLineRunnerTest::testProcessClosurePrimitives: junit.framework.AssertionFailedError:
+
+### Closure-103
+- Type shift: Checking -> Algorithm/Method.
+- Comparison detail: Cross-alternative match: pre-fix 'Checking' is in post-fix alternatives, and post-fix 'Algorithm/Method' is in pre-fix alternatives
+- Prefix reasoning summary: The defect is a false positive in the unreachable code analysis. The compiler's control flow analysis incorrectly assumes that the 'instanceof' operation cannot throw an exception, leading it to conclude that the subsequent catch block is unreachable. This is a failure in the predicate logic (the condition checking for reachability) within the control flow analysis component. It is a 'Checking' defect because the logic for validating reachability is flawed, not because the algorithm itself is fundamentally broken or because a new capability is needed.
+- Postfix reasoning summary: The fix involves two distinct changes: adding 'Token.INSTANCEOF' to a list of operations that can throw exceptions (a procedural logic correction for control flow analysis) and adding a missing lookup step for property types (a procedural logic correction for property disambiguation). Both are algorithmic/method-level corrections to the compiler's internal analysis logic rather than missing guards or incorrect initializations.
+- Prefix context signal: com.google.javascript.jscomp.CheckUnreachableCodeTest::testInstanceOfThrowsException: junit.framework.AssertionFailedError: Unexpected error(s): JSC_UNREACHABLE_CODE. unreachable code at testcode line 1 expected:<0> but was:<1>
+- Postfix context signal: com.google.javascript.jscomp.CheckUnreachableCodeTest::testInstanceOfThrowsException: junit.framework.AssertionFailedError: Unexpected error(s): JSC_UNREACHABLE_CODE. unreachable code at testcode line 1 expected:<0> but was:<1>
+
+### Closure-109
+- Type shift: Checking -> Algorithm/Method.
+- Comparison detail: Cross-alternative match: pre-fix 'Checking' is in post-fix alternatives, and post-fix 'Algorithm/Method' is in pre-fix alternatives
+- Prefix reasoning summary: The parser logic for function types (specifically 'new:' or 'this:' contexts) expects a 'TypeName' via parseContextTypeExpression. When encountering '?' or '*', the parser does not have a guard or condition to handle these as valid type expressions in that context, leading it to report a syntax error. Adding a check for these tokens in the parsing flow will resolve the issue.
+- Postfix reasoning summary: The fix involves changing the logic in 'parseContextTypeExpression' from calling 'parseTypeName' (which only accepts specific names) to a more flexible approach that handles '?' explicitly and delegates to 'parseBasicTypeExpression' for other types. This is a procedural change to the parsing algorithm to correctly handle a broader set of valid type expressions, rather than a missing guard (Checking) or a simple value assignment.
+- Prefix context signal: com.google.javascript.jscomp.parsing.JsDocInfoParserTest::testStructuralConstructor2: junit.framework.AssertionFailedError: extra warning: Bad type annotation. type not recognized due to syntax error
+- Postfix context signal: com.google.javascript.jscomp.parsing.JsDocInfoParserTest::testStructuralConstructor2: junit.framework.AssertionFailedError: extra warning: Bad type annotation. type not recognized due to syntax error
+
+### Closure-132
+- Type shift: Algorithm/Method -> Checking.
+- Comparison detail: Pre-fix primary 'Algorithm/Method' found in post-fix alternative types
+- Prefix reasoning summary: The bug is a classic peephole optimization error where the transformation logic fails to account for the side effects of expressions (like '--y') when converting an 'if-else' block to a ternary operator. This is a procedural logic error in the optimization algorithm, not a missing guard (Checking), a wrong constant (Assignment), or a design-level capability gap (Function/Class/Object).
+- Postfix reasoning summary: The fix adds a new condition to the existing guard clause (`!mayEffectMutableState(lhs)`) to ensure that if the condition has side effects, the transformation is only performed if the assignment target is a simple name. This is a classic case of a missing guard/validation check for side effects in a peephole optimization pass.
+- Prefix context signal: com.google.javascript.jscomp.PeepholeSubstituteAlternateSyntaxTest::testIssue925: junit.framework.AssertionFailedError:
+- Postfix context signal: com.google.javascript.jscomp.PeepholeSubstituteAlternateSyntaxTest::testIssue925: junit.framework.AssertionFailedError:
+
+### Closure-138
+- Type shift: Checking -> Algorithm/Method.
+- Comparison detail: Cross-alternative match: pre-fix 'Checking' is in post-fix alternatives, and post-fix 'Algorithm/Method' is in pre-fix alternatives
+- Prefix reasoning summary: The failure occurs because the compiler's type inference logic (specifically in the ReverseAbstractInterpreter) lacks the necessary guards or conditional logic to handle 'null' inputs when evaluating 'goog.is*' functions. The tests show that when 'null' is passed to these functions, the interpreter fails to correctly determine the resulting type, leading to assertion failures and incorrect deterministic warnings. This is a classic case of missing validation logic for a specific input case (null).
+- Postfix reasoning summary: The fix involves rewriting the logic for how type information is retrieved and inferred within scopes. In 'TypeInference', the logic for determining whether to use a variable's type from the scope was overly restrictive, causing it to ignore valid type information for inferred variables in certain contexts. The fix introduces a more precise check (nonLocalInferredSlot) to correctly handle these cases, which is a procedural/algorithmic correction to the type inference mechanism.
+- Prefix context signal: com.google.javascript.jscomp.ClosureReverseAbstractInterpreterTest::testGoogIsArrayOnNull: junit.framework.AssertionFailedError: expected:<Array> but was:<null>
+- Postfix context signal: com.google.javascript.jscomp.ClosureReverseAbstractInterpreterTest::testGoogIsArrayOnNull: junit.framework.AssertionFailedError: expected:<Array> but was:<null>
+
+### Closure-155
+- Type shift: Algorithm/Method -> Checking.
+- Comparison detail: Pre-fix primary 'Algorithm/Method' found in post-fix alternative types
+- Prefix reasoning summary: The defect is an incorrect optimization strategy (inlining) that fails to account for the side effects of modifying the 'arguments' object. This is a procedural logic error in the compiler's transformation algorithm, as it incorrectly determines that the variable 'f' is redundant and can be inlined, ignoring the dependency between the variable's value and the subsequent modification of 'arguments'.
+- Postfix reasoning summary: The fix introduces a check (`maybeEscapedOrModifiedArguments`) to determine if the 'arguments' object is being modified or escaped within a scope. This check acts as a guard to prevent the `inlineNonConstants` method from proceeding with inlining when it is unsafe to do so. Because the root cause is the absence of a validation check (a guard) that determines whether the optimization is safe, 'Checking' is the most appropriate ODC type.
+- Prefix context signal: com.google.javascript.jscomp.InlineVariablesTest::testArgumentsModifiedInInnerFunction: junit.framework.AssertionFailedError:
+- Postfix context signal: com.google.javascript.jscomp.InlineVariablesTest::testArgumentsModifiedInInnerFunction: junit.framework.AssertionFailedError:
+
+### Closure-23
+- Type shift: Checking -> Algorithm/Method.
+- Comparison detail: Cross-alternative match: pre-fix 'Checking' is in post-fix alternatives, and post-fix 'Algorithm/Method' is in pre-fix alternatives
+- Prefix reasoning summary: The bug report explicitly states that 'tryFoldArrayAccess in com.google.javascript.jscomp.PeepholeFoldConstants should check whether every array element that is not going to be preserved has no side effects.' This indicates that the logic for folding array access is missing a necessary validation check (a guard) to ensure that elements with side effects are not discarded during the optimization process. This fits the definition of a Checking defect.
+- Postfix reasoning summary: The fix involves modifying the loop logic in 'tryFoldArrayAccess' to iterate through all array elements and check for side effects using 'mayHaveSideEffects' before deciding whether to fold the expression. This is a procedural change to the optimization algorithm, ensuring that side effects are preserved, rather than a simple guard or initialization error.
+- Prefix context signal: com.google.javascript.jscomp.PeepholeFoldConstantsTest::testFoldGetElem: junit.framework.AssertionFailedError: Unexpected error(s): JSC_INDEX_OUT_OF_BOUNDS_ERROR. Array index out of bounds: NUMBER 0.0 1 [source_file: testcode] at testcode line 1 : 10 expected:<0> but was:<1>
+- Postfix context signal: com.google.javascript.jscomp.PeepholeFoldConstantsTest::testFoldGetElem: junit.framework.AssertionFailedError: Unexpected error(s): JSC_INDEX_OUT_OF_BOUNDS_ERROR. Array index out of bounds: NUMBER 0.0 1 [source_file: testcode] at testcode line 1 : 10 expected:<0> but was:<1>
+
+### Closure-79
+- Type shift: Checking -> Algorithm/Method.
+- Comparison detail: Cross-alternative match: pre-fix 'Checking' is in post-fix alternatives, and post-fix 'Algorithm/Method' is in pre-fix alternatives
+- Prefix reasoning summary: The root cause is a missing or incorrect validation of the node structure before performing an operation. The code uses 'Preconditions.checkState(parent.hasOneChild())' which triggers an exception when the assumption is violated. This is a classic 'Checking' defect where the code fails to validate the input structure (the number of children in a VAR node) before proceeding with logic that depends on that structure.
+- Postfix reasoning summary: The fix involves two parts: changing the traversal strategy in Normalize.java from traversing only the root to traversing both externs and the root, and adding a missing compiler.reportCodeChange() call in VarCheck.java. These are procedural corrections to the compiler's internal logic and state management, fitting the Algorithm/Method category as they correct the execution flow and state update mechanism.
+- Prefix context signal: com.google.javascript.jscomp.NormalizeTest::testIssue: java.lang.RuntimeException: INTERNAL COMPILER ERROR.
+- Postfix context signal: com.google.javascript.jscomp.NormalizeTest::testIssue: java.lang.RuntimeException: INTERNAL COMPILER ERROR.
+
+### Closure-85
+- Type shift: Checking -> Algorithm/Method.
+- Comparison detail: Cross-alternative match: pre-fix 'Checking' is in post-fix alternatives, and post-fix 'Algorithm/Method' is in pre-fix alternatives
+- Prefix reasoning summary: The stack trace indicates an 'INTERNAL COMPILER ERROR' occurring at 'NodeUtil.removeChild' when it attempts to access the parent of a node. The code in 'UnreachableCodeElimination.java' calls 'NodeUtil.removeChild(n.getParent(), n)' without verifying if 'n.getParent()' is null. This is a classic missing guard/validation check before performing a structural operation on the AST, which fits the 'Checking' category.
+- Postfix reasoning summary: The fix involves rewriting the 'computeFollowing' method to correctly traverse through empty or nested blocks to find the actual next node in the control flow. This is a procedural correction to the algorithm used to identify the next node in the CFG, rather than a simple guard (Checking) or a value assignment (Assignment/Initialization).
+- Prefix context signal: com.google.javascript.jscomp.UnreachableCodeEliminationTest::testCascadedRemovalOfUnlessUnconditonalJumps: junit.framework.AssertionFailedError:
+- Postfix context signal: com.google.javascript.jscomp.UnreachableCodeEliminationTest::testCascadedRemovalOfUnlessUnconditonalJumps: junit.framework.AssertionFailedError:
+
 ### Lang-20
 - Type shift: Checking -> Algorithm/Method.
 - Comparison detail: Cross-alternative match: pre-fix 'Checking' is in post-fix alternatives, and post-fix 'Algorithm/Method' is in pre-fix alternatives
@@ -681,42 +1105,44 @@
 
 ### Type Changed (Prefix → Postfix)
 
-- Algorithm/Method -> Checking: 30
-  - Bugs: Chart-18, Chart-5, Lang-16, Lang-22, Lang-32 (no alt overlap), Lang-34 (no alt overlap), Lang-46, Lang-49, Lang-53, Lang-55, Lang-58, Lang-9, Math-105, Math-25, Math-26, Math-36, Math-37, Math-42, Math-48, Math-52, Math-82, Mockito-12, Mockito-14 (no alt overlap), Mockito-16, Mockito-8, Time-15, Time-18, Time-19, Time-27, Time-3
-- Algorithm/Method -> Assignment/Initialization: 16
-  - Bugs: Chart-11, Chart-3, Chart-7, Chart-8, Lang-26, Math-100, Math-10, Math-22, Math-33, Math-5, Math-67, Math-72, Math-95, Mockito-26, Time-16, Time-23
-- Checking -> Algorithm/Method: 15
-  - Bugs: Chart-17, Chart-2, Lang-20, Lang-35, Math-20, Math-58, Math-63, Math-78, Math-79, Math-84, Mockito-6, Time-10, Time-12, Time-2, Time-4
+- Algorithm/Method -> Checking: 62
+  - Bugs: Chart-18, Chart-5, Closure-104, Closure-114, Closure-116, Closure-118, Closure-120, Closure-121, Closure-124, Closure-127, Closure-12, Closure-130, Closure-132, Closure-142, Closure-155, Closure-15, Closure-171, Closure-172, Closure-18, Closure-20, Closure-29, Closure-30, Closure-31, Closure-33, Closure-36, Closure-38, Closure-3, Closure-42, Closure-44, Closure-5, Closure-73, Closure-75, Closure-90, Closure-98, Lang-16, Lang-22, Lang-32 (no alt overlap), Lang-34 (no alt overlap), Lang-46, Lang-49, Lang-53, Lang-55, Lang-58, Lang-9, Math-105, Math-25, Math-26, Math-36, Math-37, Math-42, Math-48, Math-52, Math-82, Mockito-12, Mockito-14 (no alt overlap), Mockito-16, Mockito-8, Time-15, Time-18, Time-19, Time-27, Time-3
+- Checking -> Algorithm/Method: 29
+  - Bugs: Chart-17, Chart-2, Closure-103, Closure-109, Closure-110, Closure-119, Closure-136, Closure-138, Closure-140, Closure-168, Closure-174, Closure-176, Closure-23, Closure-43, Closure-79, Closure-85, Lang-20, Lang-35, Math-20, Math-58, Math-63, Math-78, Math-79, Math-84, Mockito-6, Time-10, Time-12, Time-2, Time-4
+- Algorithm/Method -> Assignment/Initialization: 18
+  - Bugs: Chart-11, Chart-3, Chart-7, Chart-8, Closure-146, Closure-70, Lang-26, Math-100, Math-10, Math-22, Math-33, Math-5, Math-67, Math-72, Math-95, Mockito-26, Time-16, Time-23
 - Relationship -> Algorithm/Method: 4
   - Bugs: Chart-12 (no family match), Chart-6 (no family match), Mockito-33 (no family match), Mockito-5 (no alt overlap, no family match)
+- Algorithm/Method -> Interface/O-O Messages: 4
+  - Bugs: Closure-153 (no family match), Lang-29 (no family match), Mockito-19 (no family match), Mockito-30 (no family match)
 - Function/Class/Object -> Algorithm/Method: 4
   - Bugs: Math-17 (no family match), Mockito-17 (no family match), Mockito-20 (no family match), Mockito-21 (no family match)
-- Algorithm/Method -> Interface/O-O Messages: 3
-  - Bugs: Lang-29 (no family match), Mockito-19 (no family match), Mockito-30 (no family match)
-- Checking -> Assignment/Initialization: 2
-  - Bugs: Chart-16, Mockito-35
+- Checking -> Assignment/Initialization: 3
+  - Bugs: Chart-16, Closure-101, Mockito-35
+- Algorithm/Method -> Relationship: 3
+  - Bugs: Closure-135 (no family match), Closure-72 (no family match), Mockito-27 (no family match)
+- Assignment/Initialization -> Algorithm/Method: 3
+  - Bugs: Closure-144, Lang-57, Mockito-32
 - Function/Class/Object -> Relationship: 2
   - Bugs: Lang-56, Mockito-23
-- Assignment/Initialization -> Algorithm/Method: 2
-  - Bugs: Lang-57, Mockito-32
 - Interface/O-O Messages -> Checking: 1
   - Bugs: Math-32 (no alt overlap, no family match)
 - Interface/O-O Messages -> Algorithm/Method: 1
   - Bugs: Math-70 (no family match)
 - Checking -> Interface/O-O Messages: 1
   - Bugs: Math-90 (no family match)
-- Algorithm/Method -> Relationship: 1
-  - Bugs: Mockito-27 (no family match)
 - Assignment/Initialization -> Checking: 1
   - Bugs: Mockito-4 (no alt overlap)
 
 ### Type Unchanged
 
-- Algorithm/Method -> Algorithm/Method: 106
-  - Bugs: Chart-10, Chart-21, Chart-22, Chart-23, Chart-24, Lang-10, Lang-13, Lang-14, Lang-15, Lang-17, Lang-1, Lang-21, Lang-23, Lang-28, Lang-30, Lang-31, Lang-38, Lang-3, Lang-40, Lang-41, Lang-42, Lang-43, Lang-4, Lang-50, Lang-51, Lang-52, Lang-59, Lang-5, Lang-60, Lang-61, Lang-63, Lang-65, Lang-6, Lang-8, Math-102, Math-11, Math-13, Math-14, Math-16, Math-18, Math-21, Math-23, Math-24, Math-27, Math-28, Math-29, Math-2, Math-31, Math-34, Math-38, Math-40, Math-41, Math-43, Math-44, Math-46, Math-47, Math-49, Math-50, Math-51, Math-55, Math-56, Math-59, Math-62, Math-64, Math-65, Math-66, Math-68, Math-69, Math-6, Math-71, Math-74, Math-75, Math-76, Math-77, Math-7, Math-80, Math-83, Math-87, Math-88, Math-8, Math-91, Math-92, Math-93, Math-96, Math-9, Mockito-10, Mockito-11, Mockito-13, Mockito-15, Mockito-1, Mockito-24, Mockito-25, Mockito-28, Mockito-31, Mockito-3, Mockito-7, Time-13, Time-14, Time-17, Time-20, Time-22, Time-24, Time-25, Time-26, Time-6, Time-7
-- Checking -> Checking: 61
-  - Bugs: Chart-13, Chart-14, Chart-15, Chart-19, Chart-1, Chart-25, Chart-26, Chart-4, Chart-9, Lang-11, Lang-12, Lang-19, Lang-24, Lang-27, Lang-33, Lang-36, Lang-37, Lang-39, Lang-44, Lang-45, Lang-47, Lang-54, Lang-62, Lang-64, Lang-7, Math-101, Math-103, Math-106, Math-15, Math-19, Math-1, Math-35, Math-39, Math-3, Math-45, Math-4, Math-53, Math-54, Math-60, Math-61, Math-73, Math-81, Math-85, Math-86, Math-89, Math-94, Math-97, Math-99, Mockito-18, Mockito-22, Mockito-29, Mockito-2, Mockito-34, Mockito-36, Mockito-37, Mockito-38, Mockito-9, Time-1, Time-5, Time-8, Time-9
-- Assignment/Initialization -> Assignment/Initialization: 6
-  - Bugs: Chart-20, Math-104, Math-30, Math-57, Math-98, Time-11
+- Algorithm/Method -> Algorithm/Method: 177
+  - Bugs: Chart-10, Chart-21, Chart-22, Chart-23, Chart-24, Closure-102, Closure-105, Closure-10, Closure-111, Closure-112, Closure-115, Closure-117, Closure-122, Closure-123, Closure-126, Closure-128, Closure-129, Closure-133, Closure-134, Closure-137, Closure-139, Closure-13, Closure-141, Closure-145, Closure-148, Closure-14, Closure-150, Closure-156, Closure-157, Closure-158, Closure-159, Closure-160, Closure-162, Closure-163, Closure-164, Closure-165, Closure-166, Closure-167, Closure-169, Closure-16, Closure-170, Closure-173, Closure-175, Closure-17, Closure-21, Closure-22, Closure-25, Closure-28, Closure-32, Closure-34, Closure-35, Closure-39, Closure-40, Closure-41, Closure-45, Closure-46, Closure-47, Closure-48, Closure-4, Closure-6, Closure-74, Closure-76, Closure-77, Closure-7, Closure-80, Closure-82, Closure-86, Closure-88, Closure-89, Closure-91, Closure-92, Closure-94, Closure-95, Closure-96, Closure-97, Closure-9, Lang-10, Lang-13, Lang-14, Lang-15, Lang-17, Lang-1, Lang-21, Lang-23, Lang-28, Lang-30, Lang-31, Lang-38, Lang-3, Lang-40, Lang-41, Lang-42, Lang-43, Lang-4, Lang-50, Lang-51, Lang-52, Lang-59, Lang-5, Lang-60, Lang-61, Lang-63, Lang-65, Lang-6, Lang-8, Math-102, Math-11, Math-13, Math-14, Math-16, Math-18, Math-21, Math-23, Math-24, Math-27, Math-28, Math-29, Math-2, Math-31, Math-34, Math-38, Math-40, Math-41, Math-43, Math-44, Math-46, Math-47, Math-49, Math-50, Math-51, Math-55, Math-56, Math-59, Math-62, Math-64, Math-65, Math-66, Math-68, Math-69, Math-6, Math-71, Math-74, Math-75, Math-76, Math-77, Math-7, Math-80, Math-83, Math-87, Math-88, Math-8, Math-91, Math-92, Math-93, Math-96, Math-9, Mockito-10, Mockito-11, Mockito-13, Mockito-15, Mockito-1, Mockito-24, Mockito-25, Mockito-28, Mockito-31, Mockito-3, Mockito-7, Time-13, Time-14, Time-17, Time-20, Time-22, Time-24, Time-25, Time-26, Time-6, Time-7
+- Checking -> Checking: 86
+  - Bugs: Chart-13, Chart-14, Chart-15, Chart-19, Chart-1, Chart-25, Chart-26, Chart-4, Chart-9, Closure-100, Closure-106, Closure-107, Closure-108, Closure-113, Closure-11, Closure-125, Closure-131, Closure-147, Closure-152, Closure-161, Closure-19, Closure-24, Closure-26, Closure-27, Closure-2, Closure-37, Closure-71, Closure-78, Closure-81, Closure-83, Closure-84, Closure-87, Closure-8, Closure-99, Lang-11, Lang-12, Lang-19, Lang-24, Lang-27, Lang-33, Lang-36, Lang-37, Lang-39, Lang-44, Lang-45, Lang-47, Lang-54, Lang-62, Lang-64, Lang-7, Math-101, Math-103, Math-106, Math-15, Math-19, Math-1, Math-35, Math-39, Math-3, Math-45, Math-4, Math-53, Math-54, Math-60, Math-61, Math-73, Math-81, Math-85, Math-86, Math-89, Math-94, Math-97, Math-99, Mockito-18, Mockito-22, Mockito-29, Mockito-2, Mockito-34, Mockito-36, Mockito-37, Mockito-38, Mockito-9, Time-1, Time-5, Time-8, Time-9
+- Assignment/Initialization -> Assignment/Initialization: 7
+  - Bugs: Chart-20, Closure-149, Math-104, Math-30, Math-57, Math-98, Time-11
+- Function/Class/Object -> Function/Class/Object: 2
+  - Bugs: Closure-151, Closure-154
 - Relationship -> Relationship: 1
   - Bugs: Math-12

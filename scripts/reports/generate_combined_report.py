@@ -38,20 +38,32 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 from d4j_odc_pipeline.odc import ODC_TYPE_NAMES, OTHER_TYPE_NAME  # noqa: E402
 
-# Only the currently-collected projects — Closure has no artifacts_v2 data yet.
+# Closure's full active-bug manifest is 174, but artifacts_v2 only has 152
+# collected/classified so far (22 bugs pending or quarantined bad-fix-diff)
+# — use the 152-bug subset manifest until the rest are collected.
 MANIFESTS = {
     "Chart": ("manifest_chart26", 26),
+    "Closure": ("manifest_closure152_v2", 152),
     "Lang": ("manifest_lang61", 61),
     "Math": ("manifest_math106", 106),
     "Mockito": ("manifest_mockito38", 38),
     "Time": ("manifest_time26", 26),
 }
-PROJECT_ORDER = ["Chart", "Lang", "Math", "Mockito", "Time"]
+PROJECT_ORDER = ["Chart", "Closure", "Lang", "Math", "Mockito", "Time"]
 
 HEADER_FILL = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
 HEADER_FONT = Font(bold=True)
 HIGHLIGHT = PatternFill(start_color="FFF3B0", end_color="FFF3B0", fill_type="solid")
 TITLE_FONT = Font(bold=True)
+
+# Darker than HEADER_FILL so a block's title bar reads as a distinct section
+# banner, not just another header row.
+TITLE_FILL = PatternFill(start_color="8EA9DB", end_color="8EA9DB", fill_type="solid")
+TITLE_BAR_FONT = Font(bold=True, color="000000")
+
+# Blank rows between one block ("All Projects", "Chart", ...) and the next,
+# used instead of a divider line to keep tables visually separated.
+BLOCK_GAP_ROWS = 3
 
 HEAT_LOW = (255, 255, 255)
 HEAT_RED_HIGH = (230, 81, 0)     # deep orange/red — real drift/disagreement
@@ -104,6 +116,21 @@ def style_header(ws, row, ncols):
         cell.fill = HEADER_FILL
 
 
+def style_title_bar(ws, row, ncols):
+    """Fill a block's title row (e.g. "All Projects", "Lang") across the
+    full width of the table below it, so it reads as one banner instead of
+    a lone bold word in column A."""
+    for c in range(1, ncols + 1):
+        cell = ws.cell(row=row, column=c)
+        cell.fill = TITLE_FILL
+        cell.font = TITLE_BAR_FONT
+
+
+def add_gap(ws, rows=BLOCK_GAP_ROWS):
+    for _ in range(rows):
+        ws.append([])
+
+
 def heat_fill(value, max_value, high_rgb):
     if max_value <= 0 or value <= 0:
         return None
@@ -144,7 +171,7 @@ def build_defect_types_tab(wb, records):
 
 def write_distribution_block(ws, title, records, names):
     ws.append([title])
-    ws.cell(row=ws.max_row, column=1).font = TITLE_FONT
+    style_title_bar(ws, ws.max_row, 5)
     ws.append(["ODC Type", "Pre-fix Count", "Pre-fix %", "Post-fix Count", "Post-fix %"])
     style_header(ws, ws.max_row, 5)
     total = len(records)
@@ -166,7 +193,7 @@ def write_distribution_block(ws, title, records, names):
     ws.append(["Total", total_pre, pct(total_pre, total), total_post, pct(total_post, total)])
     for c in range(1, 6):
         ws.cell(row=ws.max_row, column=c).font = TITLE_FONT
-    ws.append([])
+    add_gap(ws)
 
 
 def build_distribution_tab(wb, records, names):
@@ -184,7 +211,7 @@ def build_distribution_tab(wb, records, names):
 
 def write_confusion_block(ws, title, records, key_row, key_col, names, row_label, col_label):
     ws.append([title])
-    ws.cell(row=ws.max_row, column=1).font = TITLE_FONT
+    style_title_bar(ws, ws.max_row, len(names) + 1)
     ws.append([f"{row_label} \\ {col_label}"] + list(names))
     style_header(ws, ws.max_row, len(names) + 1)
 
@@ -212,10 +239,10 @@ def write_confusion_block(ws, title, records, key_row, key_col, names, row_label
 
     agreed = sum(matrix[p].get(p, 0) for p in names)
     total = len(records)
-    ws.append([])
     ws.append(["Agreement Rate", f"{agreed}/{total}", pct(agreed, total)])
     style_header(ws, ws.max_row, 3)
-    ws.append([])
+    add_gap(ws)
+    return agreed, total
 
 
 def build_confusion_tab(wb, sheet_name, records, key_row, key_col, names, row_label, col_label):

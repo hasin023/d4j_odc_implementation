@@ -1,0 +1,77 @@
+{
+  "project_id": "Closure",
+  "bug_id": 85,
+  "version_id": "85b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-09-15T08:05:43+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The compiler crashes with a NullPointerException in NodeUtil.removeChild because it is called with a node that has a null parent, indicating an attempt to remove an already-detached node during the UnreachableCodeElimination pass.",
+  "hypothesis": "The UnreachableCodeElimination pass attempts to remove a node that has already been detached from the AST, leading to a NullPointerException when NodeUtil.removeChild is called with a null parent.",
+  "prediction": "The fix will involve adding a check to ensure the node still has a parent before attempting to remove it, or ensuring that the control flow analysis correctly handles nodes that are already detached.",
+  "experiment_rationale": "The stack trace clearly points to a NullPointerException in NodeUtil.removeChild when called from UnreachableCodeElimination. The 'Parent: NULL' in the error message confirms the node is already detached. This is a classic case of missing validation (Checking) before performing a destructive operation on the AST.",
+  "reasoning_summary": "The bug is a failure to validate the state of the AST node (specifically, whether it still has a parent) before attempting to remove it. This missing check leads to an internal compiler error. This fits the 'Checking' ODC type as it involves missing validation of the node's state.",
+  "evidence_used": [
+    "full_stack_trace"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the logic for identifying dead code is algorithmic, the immediate cause of the crash is the lack of a guard/check before calling removeChild on a null-parent node."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "post-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The UnreachableCodeElimination pass incorrectly identifies nodes as dead and attempts to remove them using NodeUtil.removeChild, but the logic fails to account for cases where the node has already been detached or is not properly linked in the control flow graph, leading to a null parent and a subsequent crash.",
+      "prediction": "The crash occurs because UnreachableCodeElimination.removeDeadExprStatementSafely is called on a node whose parent is null, indicating that the node was already removed or detached during a previous step in the traversal, and the current logic does not check for this condition before calling removeChild.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "full_stack_trace",
+        "argument": "UnreachableCodeEliminationTest"
+      },
+      "observation_summary": [
+        "traces"
+      ],
+      "observation": "{\n  \"traces\": [\n    {\n      \"test_name\": \"com.google.javascript.jscomp.UnreachableCodeEliminationTest::testCascadedRemovalOfUnlessUnconditonalJumps\",\n      \"headline\": \"junit.framework.AssertionFailedError:\",\n      \"stack_trace\": [\n        \"junit.framework.AssertionFailedError: \",\n        \"Expected: switch(a){case \\\"a\\\":break;case \\\"b\\\":case \\\"c\\\":}\",\n        \"Result: switch(a){case \\\"a\\\":case \\\"b\\\":case \\\"c\\\":}\",\n        \"Node tree inequality:\",\n        \"Tree1:\",\n        \"BLOCK [synthetic: 1]\",\n        \"    SCRIPT 1 [sourcename: expected0] [synthetic: 1]\",\n        \"        SWITCH 1 [sourcename: expected0]\",\n        \"            NAME a 1 [sourcename: expected0]\",\n        \"            CASE 1 [sourcename: expected0]\",\n        \"                STRING a 1 [sourcename: expected0]\",\n        \"                BLOCK 1 [sourcename: expected0] [synthetic: 1]\",\n        \"                    BREAK 1 [sourcename: expected0]\",\n        \"            CASE 1 [sourcename: expected0]\",\n        \"                STRING b 1 [sourcename: expected0]\",\n        \"                BLOCK 1 [sourcename: expected0] [synthetic: 1]\",\n        \"            CASE 1 [sourcename: expected0]\",\n        \"                STRING c 1 [sourcename: expected0]\",\n        \"                BLOCK 1 [sourcename: expected0] [synthetic: 1]\",\n        \"\",\n        \"\",\n        \"Tree2:\",\n        \"BLOCK [synthetic: 1]\",\n        \"    SCRIPT 1 [sourcename: testcode] [synthetic: 1]\",\n        \"        SWITCH 1 [sourcename: testcode]\",\n        \"            NAME a 1 [sourcename: testcode]\",\n        \"            CASE 1 [sourcename: testcode]\",\n        \"                STRING a 1 [sourcename: testcode]\",\n        \"                BLOCK 1 [sourcename: testcode] [synthetic: 1]\",\n        \"            CASE 1 [sourcename: testcode]\",\n        \"                STRING b 1 [sourcename: testcode]\",\n        \"                BLOCK 1 [sourcename: testcode] [synthetic: 1]\",\n        \"            CASE 1 [sourcename: testcode]\",\n        \"                S",
+      "observation_truncated": true,
+      "observation_chars": 11734,
+      "duration_seconds": 1.838
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The UnreachableCodeElimination pass attempts to remove a node that has already been detached from the AST, leading to a NullPointerException when NodeUtil.removeChild is called with a null parent. This occurs because the control flow analysis or the traversal logic incorrectly identifies a node as dead and attempts to remove it multiple times or in an invalid state.",
+      "prediction": "The fix will involve adding a check to ensure the node still has a parent before attempting to remove it, or ensuring that the control flow analysis correctly handles nodes that are already detached.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Checking",
+      "duration_seconds": 4.022
+    }
+  ],
+  "llm_calls_used": 2,
+  "termination_reason": "concluded",
+  "loop_duration_seconds": 5.86,
+  "probe_misses": 0,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"confidence\": 0.9, \"needs_human_review\": false, \"observation_summary\": \"The compiler crashes with a NullPointerException in NodeUtil.removeChild because it is called with a node that has a null parent, indicating an attempt to remove an already-detached node during the UnreachableCodeElimination pass.\", \"hypothesis\": \"The UnreachableCodeElimination pass attempts to remove a node that has already been detached from the AST, leading to a NullPointerException when NodeUtil.removeChild is called with a null parent.\", \"prediction\": \"The fix will involve adding a check to ensure the node still has a parent before attempting to remove it, or ensuring that the control flow analysis correctly handles nodes that are already detached.\", \"experiment_rationale\": \"The stack trace clearly points to a NullPointerException in NodeUtil.removeChild when called from UnreachableCodeElimination. The 'Parent: NULL' in the error message confirms the node is already detached. This is a classic case of missing validation (Checking) before performing a destructive operation on the AST.\", \"reasoning_summary\": \"The bug is a failure to validate the state of the AST node (specifically, whether it still has a parent) before attempting to remove it. This missing check leads to an internal compiler error. This fits the 'Checking' ODC type as it involves missing validation of the node's state.\", \"evidence_used\": [\"full_stack_trace\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"While the logic for identifying dead code is algorithmic, the immediate cause of the crash is the lack of a guard/check before calling removeChild on a null-parent node.\"}]}"
+}

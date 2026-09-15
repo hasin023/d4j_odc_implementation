@@ -1,0 +1,82 @@
+{
+  "project_id": "Closure",
+  "bug_id": 125,
+  "version_id": "125b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-09-15T08:17:11+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The application crashes with an IllegalStateException at FunctionType.java:1071 because a precondition (hasInstanceType()) is violated when TypeCheck.visitNew calls getInstanceType().",
+  "hypothesis": "The TypeCheck.visitNew method incorrectly assumes that any FunctionType that is a constructor must have an instance type. However, some constructor types (like those representing interfaces or incomplete types) do not have an instance type, causing FunctionType.getInstanceType() to throw an IllegalStateException due to the Preconditions.checkState(hasInstanceType()) check. The fix is to add a check for hasInstanceType() in TypeCheck.visitNew before calling getInstanceType().",
+  "prediction": "The code in TypeCheck.visitNew will be modified to check fnType.hasInstanceType() before calling fnType.getInstanceType(), or the logic will be adjusted to handle cases where getInstanceType() is not applicable.",
+  "experiment_rationale": "The stack trace and source code confirm that the crash is caused by a missing validation check (a precondition) in the calling code (TypeCheck.visitNew) before invoking a method that requires a specific state (hasInstanceType).",
+  "reasoning_summary": "The bug is a classic 'Checking' defect. The code in `TypeCheck.visitNew` assumes that if a type is a constructor, it must have an instance type. This assumption is invalid for certain types, and the code fails to validate this state before calling `getInstanceType()`, which explicitly enforces this state via `Preconditions.checkState`.",
+  "evidence_used": [
+    "stack_trace_excerpt",
+    "production_code_snippets"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The issue is not the algorithm itself, but the lack of a guard condition (check) before calling a method that requires a specific state."
+    },
+    {
+      "type": "Function/Class/Object",
+      "why_not_primary": "This is a local procedural error, not a design-level capability gap."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The `FunctionType.getInstanceType()` method is called on a `FunctionType` that does not have an instance type (i.e., `hasInstanceType()` returns false), causing an `IllegalStateException`. This occurs in `TypeCheck.visitNew` because the code assumes that if a type is a constructor, it must have an instance type, but this assumption is violated for certain types (e.g., interfaces or types with incomplete type information).",
+      "prediction": "The `FunctionType` object being passed to `getInstanceType()` will have `hasInstanceType()` return false, and the fix will involve adding a check to ensure `hasInstanceType()` is true before calling `getInstanceType()` or handling the case where it is false.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "com.google.javascript.rhino.jstype.FunctionType"
+      },
+      "observation_summary": [
+        "snippets"
+      ],
+      "observation": "{\n  \"snippets\": [\n    {\n      \"class_name\": \"com.google.javascript.rhino.jstype.FunctionType\",\n      \"reason\": \"Stack frame from com.google.javascript.rhino.jstype.FunctionType.getInstanceType\",\n      \"file_path\": \"C:\\\\WORK\\\\IUT\\\\Research\\\\implementation\\\\.dist\\\\study\\\\work_v2\\\\prefix\\\\Closure_125b\\\\src\\\\com\\\\google\\\\javascript\\\\rhino\\\\jstype\\\\FunctionType.java\",\n      \"start_line\": 1059,\n      \"end_line\": 1083,\n      \"focus_line\": 1071,\n      \"content\": \"   1059:   }\\n   1060: \\n   1061:   @Override <T> T visit(RelationshipVisitor<T> visitor, JSType that) {\\n   1062:     return visitor.caseFunctionType(this, that);\\n   1063:   }\\n   1064: \\n   1065:   /**\\n   1066:    * Gets the type of instance of this function.\\n   1067:    * @throws IllegalStateException if this function is not a constructor\\n   1068:    *         (see {@link #isConstructor()}).\\n   1069:    */\\n   1070:   public ObjectType getInstanceType() {\\n>> 1071:     Preconditions.checkState(hasInstanceType());\\n   1072:     return typeOfThis.toObjectType();\\n   1073:   }\\n   1074: \\n   1075:   /**\\n   1076:    * Sets the instance type. This should only be used for special\\n   1077:    * native types.\\n   1078:    */\\n   1079:   void setInstanceType(ObjectType instanceType) {\\n   1080:     typeOfThis = instanceType;\\n   1081:   }\\n   1082: \\n   1083:   /**\"\n    }\n  ]\n}",
+      "observation_truncated": false,
+      "observation_chars": 1351,
+      "duration_seconds": 2.667
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The `TypeCheck.visitNew` method incorrectly assumes that any `FunctionType` that is a constructor must have an instance type. However, some constructor types (like those representing interfaces or incomplete types) do not have an instance type, causing `FunctionType.getInstanceType()` to throw an `IllegalStateException` due to the `Preconditions.checkState(hasInstanceType())` check. The fix is to add a check for `hasInstanceType()` in `TypeCheck.visitNew` before calling `getInstanceType()`.",
+      "prediction": "The code in `TypeCheck.visitNew` will be modified to check `fnType.hasInstanceType()` before calling `fnType.getInstanceType()`, or the logic will be adjusted to handle cases where `getInstanceType()` is not applicable.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Checking",
+      "duration_seconds": 5.745
+    }
+  ],
+  "llm_calls_used": 2,
+  "termination_reason": "concluded",
+  "loop_duration_seconds": 8.412,
+  "probe_misses": 0,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The application crashes with an IllegalStateException at FunctionType.java:1071 because a precondition (hasInstanceType()) is violated when TypeCheck.visitNew calls getInstanceType().\", \"hypothesis\": \"The TypeCheck.visitNew method incorrectly assumes that any FunctionType that is a constructor must have an instance type. However, some constructor types (like those representing interfaces or incomplete types) do not have an instance type, causing FunctionType.getInstanceType() to throw an IllegalStateException due to the Preconditions.checkState(hasInstanceType()) check. The fix is to add a check for hasInstanceType() in TypeCheck.visitNew before calling getInstanceType().\", \"prediction\": \"The code in TypeCheck.visitNew will be modified to check fnType.hasInstanceType() before calling fnType.getInstanceType(), or the logic will be adjusted to handle cases where getInstanceType() is not applicable.\", \"experiment_rationale\": \"The stack trace and source code confirm that the crash is caused by a missing validation check (a precondition) in the calling code (TypeCheck.visitNew) before invoking a method that requires a specific state (hasInstanceType).\", \"reasoning_summary\": \"The bug is a classic 'Checking' defect. The code in `TypeCheck.visitNew` assumes that if a type is a constructor, it must have an instance type. This assumption is invalid for certain types, and the code fails to validate this state before calling `getInstanceType()`, which explicitly enforces this state via `Preconditions.checkState`.\", \"evidence_used\": [\"stack_trace_excerpt\", \"production_code_snippets\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"The issue is not the algorithm itself, but the lack of a guard condition (check) before calling a method that requires a specific state.\"}, {\"type\": \"Function/Class/Object\", \"why_not_primary\": \"This is a local procedural error, not a design-level capability gap.\"}]}"
+}

@@ -1,0 +1,78 @@
+{
+  "project_id": "Closure",
+  "bug_id": 79,
+  "version_id": "79b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-09-15T08:04:06+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The compiler crashes with an INTERNAL COMPILER ERROR at Preconditions.checkState(parent.hasOneChild()) in Normalize$DuplicateDeclarationHandler.onRedeclaration. This indicates that the code incorrectly assumes a 'var' node always has exactly one child when handling redeclarations, which is not true for multi-variable declarations.",
+  "hypothesis": "The Preconditions.checkState(parent.hasOneChild()) in Normalize$DuplicateDeclarationHandler.onRedeclaration is too restrictive. It assumes that a variable declaration being redeclared must be the only child of its parent VAR node, but in some cases (like multiple variable declarations in a single 'var' statement), the parent node may have multiple children, causing the assertion to fail.",
+  "prediction": "The fix will involve removing or relaxing the 'hasOneChild' check, as the logic should handle cases where a 'var' statement contains multiple declarations, not just one.",
+  "experiment_rationale": "The stack trace points directly to a Preconditions check that enforces an invalid assumption about the AST structure. The failure occurs during scope creation/normalization when encountering variable declarations.",
+  "reasoning_summary": "The defect is a classic 'Checking' error where a validation predicate (hasOneChild) is too strict for the actual data structure (a VAR node with multiple children). This is a local procedural error in the normalization logic.",
+  "evidence_used": [
+    "full_stack_trace",
+    "production_code_snippets"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The primary issue is the incorrect validation check, not the algorithm itself."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The Preconditions.checkState(parent.hasOneChild()) in Normalize$DuplicateDeclarationHandler.onRedeclaration is too restrictive. It assumes that a variable declaration being redeclared must be the only child of its parent VAR node, but in some cases (like multiple variable declarations in a single 'var' statement), the parent node may have multiple children, causing the assertion to fail.",
+      "prediction": "If I examine the AST structure or the logic surrounding the 'var' node in the failing test cases, I will find that the 'var' node contains multiple variable declarations (e.g., 'var a, b;'), and the code is attempting to process one of them while the parent still holds the others, violating the 'hasOneChild' assumption.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "full_stack_trace",
+        "argument": "com.google.javascript.jscomp.NormalizeTest::testIssue"
+      },
+      "observation_summary": [
+        "traces"
+      ],
+      "observation": "{\n  \"traces\": [\n    {\n      \"test_name\": \"com.google.javascript.jscomp.NormalizeTest::testIssue\",\n      \"headline\": \"java.lang.RuntimeException: INTERNAL COMPILER ERROR.\",\n      \"stack_trace\": [\n        \"java.lang.RuntimeException: INTERNAL COMPILER ERROR.\",\n        \"Please report this problem.\",\n        \"null\",\n        \"\\tat com.google.common.base.Preconditions.checkState(Preconditions.java:129)\",\n        \"\\tat com.google.javascript.jscomp.Normalize$DuplicateDeclarationHandler.onRedeclaration(Normalize.java:698)\",\n        \"\\tat com.google.javascript.jscomp.SyntacticScopeCreator.declareVar(SyntacticScopeCreator.java:238)\",\n        \"\\tat com.google.javascript.jscomp.SyntacticScopeCreator.scanVars(SyntacticScopeCreator.java:124)\",\n        \"\\tat com.google.javascript.jscomp.SyntacticScopeCreator.scanVars(SyntacticScopeCreator.java:166)\",\n        \"\\tat com.google.javascript.jscomp.SyntacticScopeCreator.scanVars(SyntacticScopeCreator.java:166)\",\n        \"\\tat com.google.javascript.jscomp.SyntacticScopeCreator.scanVars(SyntacticScopeCreator.java:166)\",\n        \"\\tat com.google.javascript.jscomp.SyntacticScopeCreator.scanRoot(SyntacticScopeCreator.java:110)\",\n        \"\\tat com.google.javascript.jscomp.SyntacticScopeCreator.createScope(SyntacticScopeCreator.java:74)\",\n        \"\\tat com.google.javascript.jscomp.NodeTraversal.getScope(NodeTraversal.java:563)\",\n        \"\\tat com.google.javascript.jscomp.Normalize$ScopeTicklingCallback.enterScope(Normalize.java:760)\",\n        \"\\tat com.google.javascript.jscomp.NodeTraversal.pushScope(NodeTraversal.java:527)\",\n        \"\\tat com.google.javascript.jscomp.NodeTraversal.traverseRoots(NodeTraversal.java:271)\",\n        \"\\tat com.google.javascript.jscomp.NodeTraversal.traverseRoots(NodeTraversal.java:257)\",\n        \"\\tat com.google.javascript.jscomp.Normalize.removeDuplicateDeclarations(Normalize.java:633)\",\n        \"\\tat com.google.javascript.jscomp.Normalize.process(Normalize.java:142)\",\n        \"\\tat com.google.javascript.jscomp.Com",
+      "observation_truncated": true,
+      "observation_chars": 5398,
+      "duration_seconds": 2.137
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The Preconditions.checkState(parent.hasOneChild()) in Normalize$DuplicateDeclarationHandler.onRedeclaration is too restrictive. It assumes that a variable declaration being redeclared must be the only child of its parent VAR node, but in some cases (like multiple variable declarations in a single 'var' statement), the parent node may have multiple children, causing the assertion to fail.",
+      "prediction": "The fix will involve removing or relaxing the 'hasOneChild' check, as the logic should handle cases where a 'var' statement contains multiple declarations, not just one.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Checking",
+      "duration_seconds": 3.435
+    }
+  ],
+  "llm_calls_used": 2,
+  "termination_reason": "concluded",
+  "loop_duration_seconds": 5.573,
+  "probe_misses": 0,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The compiler crashes with an INTERNAL COMPILER ERROR at Preconditions.checkState(parent.hasOneChild()) in Normalize$DuplicateDeclarationHandler.onRedeclaration. This indicates that the code incorrectly assumes a 'var' node always has exactly one child when handling redeclarations, which is not true for multi-variable declarations.\", \"hypothesis\": \"The Preconditions.checkState(parent.hasOneChild()) in Normalize$DuplicateDeclarationHandler.onRedeclaration is too restrictive. It assumes that a variable declaration being redeclared must be the only child of its parent VAR node, but in some cases (like multiple variable declarations in a single 'var' statement), the parent node may have multiple children, causing the assertion to fail.\", \"prediction\": \"The fix will involve removing or relaxing the 'hasOneChild' check, as the logic should handle cases where a 'var' statement contains multiple declarations, not just one.\", \"experiment_rationale\": \"The stack trace points directly to a Preconditions check that enforces an invalid assumption about the AST structure. The failure occurs during scope creation/normalization when encountering variable declarations.\", \"reasoning_summary\": \"The defect is a classic 'Checking' error where a validation predicate (hasOneChild) is too strict for the actual data structure (a VAR node with multiple children). This is a local procedural error in the normalization logic.\", \"evidence_used\": [\"full_stack_trace\", \"production_code_snippets\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"The primary issue is the incorrect validation check, not the algorithm itself.\"}]}"
+}

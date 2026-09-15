@@ -1,0 +1,78 @@
+{
+  "project_id": "Closure",
+  "bug_id": 36,
+  "version_id": "36b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-09-15T07:58:26+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The compiler fails to remove unused classes when they are passed to goog.addSingletonGetter, resulting in the retention of the class and the singleton getter logic in the output, even when the class is never used.",
+  "hypothesis": "The compiler's dead code elimination (DCE) pass fails to remove classes that are referenced by goog.addSingletonGetter because it incorrectly assumes the side effects of the singleton getter initialization are necessary, even when the class itself is never instantiated or used elsewhere.",
+  "prediction": "The compiler's optimization pass is incorrectly marking the class as 'referenced' or 'used' due to the way it handles the singleton getter assignment, preventing the removal of the class definition.",
+  "experiment_rationale": "The stack trace and the bug report confirm that the compiler is retaining code that should be removed by dead code elimination. The failure is in the logic that determines whether a class is 'used' or 'referenced'. This is a classic 'Checking' defect where the condition for removal is missing or incorrectly implemented.",
+  "reasoning_summary": "The bug is a failure to prune dead code. The compiler's analysis of whether a class is 'used' is flawed because it treats the registration of a singleton getter as a mandatory side effect, even when the class is never actually used. This is a failure in the validation logic (Checking) that determines if a node can be safely removed.",
+  "evidence_used": [
+    "bug_report",
+    "full_stack_trace"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the removal logic is part of an algorithm, the core issue is the predicate/check that determines if the class is 'used' or 'dead'."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The compiler's dead code elimination (DCE) pass fails to remove classes that are referenced by goog.addSingletonGetter because it incorrectly assumes the side effects of the singleton getter initialization are necessary, even when the class itself is never instantiated or used elsewhere.",
+      "prediction": "The compiler's optimization pass (likely in 'CollapseProperties' or a similar pass) is incorrectly marking the class as 'referenced' or 'used' due to the way it handles the singleton getter assignment, preventing the removal of the class definition.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "full_stack_trace",
+        "argument": "com.google.javascript.jscomp.IntegrationTest::testSingletonGetter1"
+      },
+      "observation_summary": [
+        "traces"
+      ],
+      "observation": "{\n  \"traces\": [\n    {\n      \"test_name\": \"com.google.javascript.jscomp.IntegrationTest::testSingletonGetter1\",\n      \"headline\": \"junit.framework.AssertionFailedError:\",\n      \"stack_trace\": [\n        \"junit.framework.AssertionFailedError: \",\n        \"Expected: \",\n        \"Result: function b(a){a.b=function(){return a.a||(a.a=new a)}}b(function(){});b(function(){})\",\n        \"Node tree inequality:\",\n        \"Tree1:\",\n        \"BLOCK [synthetic: 1]\",\n        \"    SCRIPT 1 [synthetic: 1] [source_file: input0] [input_id: InputId: input0]\",\n        \"\",\n        \"\",\n        \"Tree2:\",\n        \"BLOCK [synthetic: 1]\",\n        \"    SCRIPT 1 [synthetic: 1] [source_file: i0] [input_id: InputId: i0]\",\n        \"        FUNCTION b 3 [source_file: i0]\",\n        \"            NAME b 3 [source_file: i0]\",\n        \"            PARAM_LIST 3 [source_file: i0]\",\n        \"                NAME a 3 [source_file: i0]\",\n        \"            BLOCK 3 [source_file: i0]\",\n        \"                EXPR_RESULT 4 [source_file: i0]\",\n        \"                    ASSIGN 4 [source_file: i0]\",\n        \"                        GETPROP 4 [source_file: i0]\",\n        \"                            NAME a 4 [source_file: i0]\",\n        \"                            STRING b 4 [source_file: i0]\",\n        \"                        FUNCTION  4 [source_file: i0]\",\n        \"                            NAME  4 [source_file: i0]\",\n        \"                            PARAM_LIST 4 [source_file: i0]\",\n        \"                            BLOCK 4 [source_file: i0]\",\n        \"                                RETURN 5 [source_file: i0]\",\n        \"                                    OR 5 [source_file: i0]\",\n        \"                                        GETPROP 5 [source_file: i0]\",\n        \"                                            NAME a 5 [source_file: i0]\",\n        \"                                            STRING a 5 [source_file: i0]\",\n        \"                                        ASSIGN 5 [parenthesized: true] [s",
+      "observation_truncated": true,
+      "observation_chars": 9584,
+      "duration_seconds": 3.883
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The compiler's dead code elimination (DCE) pass fails to remove classes that are referenced by goog.addSingletonGetter because it incorrectly assumes the side effects of the singleton getter initialization are necessary, even when the class itself is never instantiated or used elsewhere. The compiler is failing to recognize that the call to goog.addSingletonGetter is a side-effect-free operation if the class is otherwise unused.",
+      "prediction": "The compiler's optimization pass (likely in 'CollapseProperties' or a similar pass) is incorrectly marking the class as 'referenced' or 'used' due to the way it handles the singleton getter assignment, preventing the removal of the class definition. The fix will involve updating the compiler to correctly identify that these calls can be removed if the class is not used.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Checking",
+      "duration_seconds": 4.561
+    }
+  ],
+  "llm_calls_used": 2,
+  "termination_reason": "concluded",
+  "loop_duration_seconds": 8.444,
+  "probe_misses": 0,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"confidence\": 0.9, \"needs_human_review\": false, \"observation_summary\": \"The compiler fails to remove unused classes when they are passed to goog.addSingletonGetter, resulting in the retention of the class and the singleton getter logic in the output, even when the class is never used.\", \"hypothesis\": \"The compiler's dead code elimination (DCE) pass fails to remove classes that are referenced by goog.addSingletonGetter because it incorrectly assumes the side effects of the singleton getter initialization are necessary, even when the class itself is never instantiated or used elsewhere.\", \"prediction\": \"The compiler's optimization pass is incorrectly marking the class as 'referenced' or 'used' due to the way it handles the singleton getter assignment, preventing the removal of the class definition.\", \"experiment_rationale\": \"The stack trace and the bug report confirm that the compiler is retaining code that should be removed by dead code elimination. The failure is in the logic that determines whether a class is 'used' or 'referenced'. This is a classic 'Checking' defect where the condition for removal is missing or incorrectly implemented.\", \"reasoning_summary\": \"The bug is a failure to prune dead code. The compiler's analysis of whether a class is 'used' is flawed because it treats the registration of a singleton getter as a mandatory side effect, even when the class is never actually used. This is a failure in the validation logic (Checking) that determines if a node can be safely removed.\", \"evidence_used\": [\"bug_report\", \"full_stack_trace\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"While the removal logic is part of an algorithm, the core issue is the predicate/check that determines if the class is 'used' or 'dead'.\"}]}"
+}

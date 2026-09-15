@@ -1,0 +1,83 @@
+{
+  "project_id": "Closure",
+  "bug_id": 139,
+  "version_id": "139b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-09-15T08:21:07+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The Normalize pass failed to correctly transform function declarations into variable assignments in block-scoped contexts, leading to incorrect AST structures and duplicate declaration errors. The fix involves implementing a missing transformation logic for function declarations.",
+  "hypothesis": "The Normalize pass is missing the logic to transform function declarations into variable assignments in certain block-scoped contexts, which is required to prevent hoisting issues and duplicate declaration errors in the compiler's normalization phase.",
+  "prediction": "The Normalize class source code will lack a handler for Token.FUNCTION in its traversal logic, and adding such a handler to rewrite function declarations into 'var' assignments will resolve the observed test failures.",
+  "experiment_rationale": "The failure is a direct result of the compiler failing to perform a necessary AST transformation (function declaration to variable assignment) during the normalization phase. This is a procedural logic error in the compiler's pass implementation.",
+  "reasoning_summary": "The bug report and test failures indicate that function declarations are not being normalized correctly in block scopes. The fix (as seen in the provided diff) adds a missing case for Token.FUNCTION in the Normalize pass, which triggers a rewrite of the function declaration into a variable assignment. This is a classic algorithmic/procedural correction within a compiler pass.",
+  "evidence_used": [
+    "bug_report_description",
+    "fix_diff_oracle",
+    "failing_tests"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "The issue is not a missing guard or validation check, but the absence of a required transformation step in the normalization algorithm."
+    },
+    {
+      "type": "Function/Class/Object",
+      "why_not_primary": "The fix is a local procedural change within an existing pass, not a design-level capability gap."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "post-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The Normalize pass fails to correctly handle function declarations in certain contexts (like labels or blocks), leading to incorrect AST transformations where function declarations are not properly converted to variable assignments, causing scope conflicts or invalid tree structures.",
+      "prediction": "The Normalize class will show missing logic for handling Token.FUNCTION nodes in its traversal or transformation logic, specifically failing to rewrite function declarations into variable assignments when they appear in non-top-level scopes.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "Normalize"
+      },
+      "observation_summary": [
+        "snippets"
+      ],
+      "observation": "{\n  \"snippets\": [\n    {\n      \"class_name\": \"com.google.javascript.jscomp.NormalizeTest\",\n      \"reason\": \"Test source: com.google.javascript.jscomp.NormalizeTest::testNormalizeFunctionDeclarations (shows expected behavior)\",\n      \"file_path\": \"C:\\\\WORK\\\\IUT\\\\Research\\\\implementation\\\\.dist\\\\study\\\\work_v2\\\\postfix\\\\Closure_139b\\\\test\\\\com\\\\google\\\\javascript\\\\jscomp\\\\NormalizeTest.java\",\n      \"start_line\": 159,\n      \"end_line\": 192,\n      \"focus_line\": 167,\n      \"content\": \"   159:   }\\n   160: \\n   161:   public void testNormalizeFunctionDeclarations() throws Exception {\\n   162:     testSame(\\\"function f() {}\\\");\\n   163:     testSame(\\\"var f = function () {}\\\");\\n   164:     test(\\\"var f = function f() {}\\\",\\n   165:          \\\"var f = function f$$1() {}\\\");\\n   166:     testSame(\\\"var f = function g() {}\\\");\\n   167:     test(\\\"a:function g() {}\\\",\\n   168:          \\\"a:{ var g = function () {} }\\\");\\n   169:     test(\\\"{function g() {}}\\\",\\n   170:          \\\"{var g = function () {}}\\\");\\n   171:     testSame(\\\"if (function g() {}) {}\\\");\\n   172:     test(\\\"if (true) {function g() {}}\\\",\\n   173:          \\\"if (true) {var g = function () {}}\\\");\\n   174:     test(\\\"if (true) {} else {function g() {}}\\\",\\n   175:          \\\"if (true) {} else {var g = function () {}}\\\");\\n   176:     testSame(\\\"switch (function g() {}) {}\\\");\\n   177:     test(\\\"switch (1) { case 1: function g() {}}\\\",\\n   178:          \\\"switch (1) { case 1: var g = function () {}}\\\");\\n   179: \\n   180: \\n   181:     testSameInFunction(\\\"function f() {}\\\");\\n   182:     testInFunction(\\\"f(); a:function g() {}\\\",\\n   183:                    \\\"f(); a:{ var g = function () {} }\\\");\\n   184:     testInFunction(\\\"f(); {function g() {}}\\\",\\n   185:                    \\\"f(); {var g = function () {}}\\\");\\n   186:     testInFunction(\\\"f(); if (true) {function g() {}}\\\",\\n   187:                    \\\"f(); if (true) {var g = function () {}}\\\");\\n   188:     testInFunction(\\\"if (true) {} else {functi",
+      "observation_truncated": true,
+      "observation_chars": 2136,
+      "duration_seconds": 2.039
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The Normalize pass is missing the logic to transform function declarations into variable assignments in certain block-scoped contexts, which is required to prevent hoisting issues and duplicate declaration errors in the compiler's normalization phase.",
+      "prediction": "The Normalize class source code will lack a handler for Token.FUNCTION in its traversal logic, and adding such a handler to rewrite function declarations into 'var' assignments will resolve the observed test failures.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Algorithm/Method",
+      "duration_seconds": 3.704
+    }
+  ],
+  "llm_calls_used": 2,
+  "termination_reason": "concluded",
+  "loop_duration_seconds": 5.743,
+  "probe_misses": 0,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The Normalize pass failed to correctly transform function declarations into variable assignments in block-scoped contexts, leading to incorrect AST structures and duplicate declaration errors. The fix involves implementing a missing transformation logic for function declarations.\", \"hypothesis\": \"The Normalize pass is missing the logic to transform function declarations into variable assignments in certain block-scoped contexts, which is required to prevent hoisting issues and duplicate declaration errors in the compiler's normalization phase.\", \"prediction\": \"The Normalize class source code will lack a handler for Token.FUNCTION in its traversal logic, and adding such a handler to rewrite function declarations into 'var' assignments will resolve the observed test failures.\", \"experiment_rationale\": \"The failure is a direct result of the compiler failing to perform a necessary AST transformation (function declaration to variable assignment) during the normalization phase. This is a procedural logic error in the compiler's pass implementation.\", \"reasoning_summary\": \"The bug report and test failures indicate that function declarations are not being normalized correctly in block scopes. The fix (as seen in the provided diff) adds a missing case for Token.FUNCTION in the Normalize pass, which triggers a rewrite of the function declaration into a variable assignment. This is a classic algorithmic/procedural correction within a compiler pass.\", \"evidence_used\": [\"bug_report_description\", \"fix_diff_oracle\", \"failing_tests\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Checking\", \"why_not_primary\": \"The issue is not a missing guard or validation check, but the absence of a required transformation step in the normalization algorithm.\"}, {\"type\": \"Function/Class/Object\", \"why_not_primary\": \"The fix is a local procedural change within an existing pass, not a design-level capability gap.\"}]}"
+}

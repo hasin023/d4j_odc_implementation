@@ -1,0 +1,51 @@
+{
+  "project_id": "Closure",
+  "bug_id": 132,
+  "version_id": "132b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-09-15T08:48:44+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The compiler incorrectly transformed an 'if-else' statement into a ternary operator when the condition contained side effects (e.g., decrementing an index), leading to incorrect execution order and state corruption.",
+  "hypothesis": "",
+  "prediction": "",
+  "experiment_rationale": "",
+  "reasoning_summary": "The fix adds a new condition to the existing guard clause (`!mayEffectMutableState(lhs)`) to ensure that if the condition has side effects, the transformation is only performed if the assignment target is a simple name. This is a classic case of a missing guard/validation check for side effects in a peephole optimization pass.",
+  "evidence_used": [
+    "The fix adds a new condition to the existing guard clause: '(!mayHaveSideEffects(cond) || (thenOp.isAssign() && thenOp.getFirstChild().isName()))'",
+    "The bug report shows that the compiler incorrectly reordered operations involving side effects (e.g., '--y' in the condition vs the assignment)",
+    "The failing test case demonstrates that the transformation was unsafe due to side effects in the condition"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the transformation logic is part of an algorithm, the root cause is the lack of a safety check (guard) to prevent the algorithm from executing in invalid states (when side effects are present)."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "post-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "termination_reason": null,
+  "loop_duration_seconds": null,
+  "probe_misses": 0,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The compiler incorrectly transformed an 'if-else' statement into a ternary operator when the condition contained side effects (e.g., decrementing an index), leading to incorrect execution order and state corruption.\",\n  \"reasoning_summary\": \"The fix adds a new condition to the existing guard clause (`!mayEffectMutableState(lhs)`) to ensure that if the condition has side effects, the transformation is only performed if the assignment target is a simple name. This is a classic case of a missing guard/validation check for side effects in a peephole optimization pass.\",\n  \"evidence_used\": [\n    \"The fix adds a new condition to the existing guard clause: '(!mayHaveSideEffects(cond) || (thenOp.isAssign() && thenOp.getFirstChild().isName()))'\",\n    \"The bug report shows that the compiler incorrectly reordered operations involving side effects (e.g., '--y' in the condition vs the assignment)\",\n    \"The failing test case demonstrates that the transformation was unsafe due to side effects in the condition\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the transformation logic is part of an algorithm, the root cause is the lack of a safety check (guard) to prevent the algorithm from executing in invalid states (when side effects are present).\"\n    }\n  ]\n}"
+}

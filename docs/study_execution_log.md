@@ -933,3 +933,81 @@ conditions (1,044 classification files total for this run).
 per the same "repeat the process" instruction). With this run, all five
 projects (Chart, Time, Mockito, Math, Closure) now have classification data
 for scientific-open/few-open/zero-free.
+
+## 2026-09-15 — Closure project run, artifacts_v2 corpus, scientific-open + few-open (manifest_closure152_v2.json, 152 of 174 bugs)
+
+Context: continuing the artifacts_v2 rerun (Chart/Lang/Math/Mockito/Time already
+done, 2026-09-13/14) after teammates (Alvee + others) collected and pushed
+Closure contexts via a separate WSL/Windows lane, merged into `fix_jss` at
+commit `1fd5fe1`/`765a08f`. Closure was the one project not yet in `artifacts_v2`.
+
+**Bug count**: 174 active (`defects4j bids -p Closure`, confirmed live with
+`JAVA_HOME=java-11`). 152 have both prefix and postfix `context.json` in
+`artifacts_v2` — the manifest (`manifest_closure152_v2.json`, hand-built from the
+folder-listing intersection) covers exactly these. 22 active bugs are not yet
+usable: `1` and `143` were collected but quarantined
+(`.dist/study/quarantine_bad_fix_diff/`) for defective fix diffs; `49`-`69` except
+`63` (one of the two known-deprecated ids, the other being `93`) were simply not
+collected yet. Ran `scripts/check_contexts.py` against the 152-bug manifest first:
+304/304 contexts usable, 0 missing, 0 stale (all collected on/after 2026-08-10,
+i.e. post frame-selection-gap-fix) — confirmed before spending any LLM calls.
+
+```bash
+python -m d4j_odc_pipeline study-run --manifest .dist/study/manifest_closure152_v2.json --artifacts-root .dist/study/artifacts_v2 --taxonomy open --strategy scientific --daily-call-budget 2000 --summary-output .dist/study/closure152_v2_run_summary.scientific-open.json
+python -m d4j_odc_pipeline study-run --manifest .dist/study/manifest_closure152_v2.json --artifacts-root .dist/study/artifacts_v2 --taxonomy open --strategy few --daily-call-budget 2000 --summary-output .dist/study/closure152_v2_run_summary.few-open.json
+```
+
+**Cost and wall-clock**:
+
+| Condition | Calls | Wall-clock | Completed |
+|---|---|---|---|
+| scientific-open | 702 | 44:05 | 152/152 |
+| few-open | ~230 (single-call/bug, some 503 retries) | 24:10 | 152/152 |
+
+Zero failed bugs in either run. A handful of transient Gemini `HTTP 503`s during
+few-open, all recovered on same-key retry with backoff (503/500/502 are treated
+as transient server errors in `llm.py`, not key-specific — unlike 429, which
+triggers failover to the next of the 7 rotating keys). Not a rate-limit issue.
+
+**Verification**: direct file count confirmed 152/152
+`classification.<tag>.json` in both prefix and postfix arms for both conditions
+(608 classification files total for this run).
+
+**Drift analysis**: corrected the analysis scope to match the established
+`artifacts_v2` convention (one combined `study-drift` run over the whole root,
+per-project breakdown inside the JSON's `per_project`/`per_project_kappa` keys —
+not the per-project symlink-view pattern used for the earlier `artifacts_full`
+runs). Re-ran `study-drift` for scientific-open and few-open against the full
+`artifacts_v2/{prefix,postfix}` (all 6 projects now), overwriting
+`.dist/study/reports/artifacts_v2/analysis/analysis.{scientific-open,few-open}.{json,md}`
+in place (257→409 bugs, 5→6 projects). Also re-ran `study-ladder` (few-open →
+scientific-open) and a direct `analysis.py` `compute_project_type_correlation`
+call for the RQ1 chi-squared test, now covering all 6 projects.
+
+**Headline finding**: RQ1's few-open chi-squared test crossed into significance
+once Closure was added — χ²=49.21, dof=25, p=0.0027 (was p=0.056, borderline, at
+5 projects/257 bugs). scientific-open stayed not-significant (p=0.071, down
+from p=0.38). Driven by Closure both leaning harder toward Algorithm/Method
+(71.1% of its prefix labels vs. the 64.5% pooled average) than average, and by
+Closure roughly doubling the total sample size (257→409), which sharpens
+statistical power on the same underlying gap (Chart was already the
+low-Algorithm/Method outlier at 5 projects). Full per-project findings,
+including Closure's dominant Scientific→Checking/Few→Algorithm-Method
+disagreement pattern (75.5% prefix / 82.8% postfix, the sharpest concentration
+of any project) and its lowest-of-all-6 Cohen's κ (0.367, "fair" not
+"moderate"), are in
+`.dist/study/reports/artifacts_v2/interesting_findings.md`.
+
+**Reports**: `scripts/reports/generate_per_project_report.py` and
+`generate_combined_report.py` both had Closure hardcoded as excluded
+("no artifacts_v2 data yet") — updated both `MANIFESTS`/`PROJECT_ORDER` to
+include Closure via `manifest_closure152_v2` (152 bugs), then rebuilt all 6
+per-project xlsx reports and the combined workbook (409 bugs, 6 projects,
+`Combined_2026-09-15.xlsx`).
+
+**Not yet done**: the remaining 20 uncollected Closure bugs (`49`-`69` except
+`63`) and the 2 quarantined ones (`1`, `143`, need a fresh fix-diff collection
+attempt) would bring Closure to its full 174 and the six-project corpus to the
+full 431-bug target. `zero-free` and any `-closed` taxonomy pass remain
+un-run for `artifacts_v2` (same scoping decision as the other 5 projects — see
+`interesting_findings.md`'s RQ section).

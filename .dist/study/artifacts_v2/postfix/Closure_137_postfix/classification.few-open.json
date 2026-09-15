@@ -1,0 +1,56 @@
+{
+  "project_id": "Closure",
+  "bug_id": 137,
+  "version_id": "137b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-09-15T08:49:34+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The compiler's name-uniquing inversion logic was failing to correctly restore original variable names, leading to incorrect code generation where variables were not properly renamed back, causing assertion failures in tests.",
+  "hypothesis": "",
+  "prediction": "",
+  "experiment_rationale": "",
+  "reasoning_summary": "The fix involved a significant rewrite of the `ContextualRenameInverter` class. The original implementation used a post-order traversal that attempted to rename variables on the fly during traversal, which was insufficient for handling scope-based name resolution and conflicts. The fixed version implements a `ScopedCallback` that tracks references per scope, collects all references to a candidate name, and performs the renaming only after verifying that the new name does not conflict with existing names in the scope. This is a fundamental change to the algorithmic strategy for name inversion, not just a simple guard or initialization fix.",
+  "evidence_used": [
+    "The fix replaces AbstractPostOrderCallback with ScopedCallback in ContextualRenameInverter.",
+    "The fix introduces a stack-based reference tracking mechanism (referenceStack, referencedNames) to manage scope-specific name conflicts.",
+    "The fix replaces a simple map-based renaming with a list-based reference collection (nameMap) to ensure all references to a variable are updated consistently.",
+    "The logic for determining when to rename was moved from a per-node visit to a scope-exit handler (handleScopeVar), indicating a change in the procedural strategy for name resolution."
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Relationship",
+      "why_not_primary": "While the fix ensures consistency between variable references and declarations, the root cause is the incorrect procedural strategy for traversing and renaming variables, which is best classified as an algorithmic/method-level defect."
+    },
+    {
+      "type": "Checking",
+      "why_not_primary": "Although the fix adds checks (e.g., `!referencedNames.contains(newName)`), these are part of the new, corrected algorithm for name inversion, not just missing guards."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Incorrect",
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "post-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "termination_reason": null,
+  "loop_duration_seconds": null,
+  "probe_misses": 0,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Algorithm/Method\",\n  \"family\": \"Control and Data Flow\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The compiler's name-uniquing inversion logic was failing to correctly restore original variable names, leading to incorrect code generation where variables were not properly renamed back, causing assertion failures in tests.\",\n  \"reasoning_summary\": \"The fix involved a significant rewrite of the `ContextualRenameInverter` class. The original implementation used a post-order traversal that attempted to rename variables on the fly during traversal, which was insufficient for handling scope-based name resolution and conflicts. The fixed version implements a `ScopedCallback` that tracks references per scope, collects all references to a candidate name, and performs the renaming only after verifying that the new name does not conflict with existing names in the scope. This is a fundamental change to the algorithmic strategy for name inversion, not just a simple guard or initialization fix.\",\n  \"evidence_used\": [\n    \"The fix replaces AbstractPostOrderCallback with ScopedCallback in ContextualRenameInverter.\",\n    \"The fix introduces a stack-based reference tracking mechanism (referenceStack, referencedNames) to manage scope-specific name conflicts.\",\n    \"The fix replaces a simple map-based renaming with a list-based reference collection (nameMap) to ensure all references to a variable are updated consistently.\",\n    \"The logic for determining when to rename was moved from a per-node visit to a scope-exit handler (handleScopeVar), indicating a change in the procedural strategy for name resolution.\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Relationship\",\n      \"why_not_primary\": \"While the fix ensures consistency between variable references and declarations, the root cause is the incorrect procedural strategy for traversing and renaming variables, which is best classified as an algorithmic/method-level defect.\"\n    },\n    {\n      \"type\": \"Checking\",\n      \"why_not_primary\": \"Although the fix adds checks (e.g., `!referencedNames.contains(newName)`), these are part of the new, corrected algorithm for name inversion, not just missing guards.\"\n    }\n  ]\n}"
+}
