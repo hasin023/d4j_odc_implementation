@@ -1,0 +1,51 @@
+{
+  "project_id": "Closure",
+  "bug_id": 87,
+  "version_id": "87b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-09-15T08:42:18+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The compiler was incorrectly optimizing 'if (f.onchange) { f.onchange(); }' into 'f.onchange && f.onchange();', which caused an 'Object doesn't support this action' error in Internet Explorer due to a specific bug in how IE handles event handler method calls when their return value is used.",
+  "hypothesis": "",
+  "prediction": "",
+  "experiment_rationale": "",
+  "reasoning_summary": "The fix involves adding a conditional check to prevent the peephole optimization from triggering when the expression involves an event handler (methods starting with 'on'). This is a classic 'Checking' defect where a guard condition was missing to validate whether the optimization is safe for specific types of method calls in the target environment.",
+  "evidence_used": [
+    "The fix adds a new conditional block: 'if (maybeExpr.getType() == Token.EXPR_RESULT) { ... }' and further checks 'if (calledFn.getType() == Token.GETELEM) { return false; } else if (calledFn.getType() == Token.GETPROP && calledFn.getLastChild().getString().startsWith(\"on\")) { return false; }'.",
+    "The bug report explicitly mentions that the optimization 'e.onchange && e.onchange(...)' causes an error in IE, and the fix is to avoid this optimization for event handlers.",
+    "The fix introduces a guard to prevent the transformation, which is the definition of a 'Checking' defect."
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the optimization logic is a method, the root cause is the absence of a guard condition to handle a specific edge case (IE event handler behavior), which is more precisely classified as 'Checking'."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "post-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "termination_reason": null,
+  "loop_duration_seconds": null,
+  "probe_misses": 0,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The compiler was incorrectly optimizing 'if (f.onchange) { f.onchange(); }' into 'f.onchange && f.onchange();', which caused an 'Object doesn't support this action' error in Internet Explorer due to a specific bug in how IE handles event handler method calls when their return value is used.\",\n  \"reasoning_summary\": \"The fix involves adding a conditional check to prevent the peephole optimization from triggering when the expression involves an event handler (methods starting with 'on'). This is a classic 'Checking' defect where a guard condition was missing to validate whether the optimization is safe for specific types of method calls in the target environment.\",\n  \"evidence_used\": [\n    \"The fix adds a new conditional block: 'if (maybeExpr.getType() == Token.EXPR_RESULT) { ... }' and further checks 'if (calledFn.getType() == Token.GETELEM) { return false; } else if (calledFn.getType() == Token.GETPROP && calledFn.getLastChild().getString().startsWith(\\\"on\\\")) { return false; }'.\",\n    \"The bug report explicitly mentions that the optimization 'e.onchange && e.onchange(...)' causes an error in IE, and the fix is to avoid this optimization for event handlers.\",\n    \"The fix introduces a guard to prevent the transformation, which is the definition of a 'Checking' defect.\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the optimization logic is a method, the root cause is the absence of a guard condition to handle a specific edge case (IE event handler behavior), which is more precisely classified as 'Checking'.\"\n    }\n  ]\n}"
+}

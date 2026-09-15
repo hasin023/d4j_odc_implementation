@@ -141,7 +141,7 @@ punchier "same pair every time" version that looked true after 2 projects.
 
 ---
 
-## Math (106 bugs — largest project, most statistically robust)
+## Math (106 bugs — largest project at the time this section was written, most statistically robust; see Closure below for the current largest)
 
 1. **Checking→Algorithm/Method is dominant again, and at the largest sample size
    yet.** 14/30 prefix disagreements (47%) and 9/26 postfix disagreements (35%) are
@@ -163,26 +163,96 @@ punchier "same pair every time" version that looked true after 2 projects.
 
 ---
 
-## Cross-project summary (5 of 6 target projects — Chart, Time, Mockito, Lang, Math; Closure pending)
+## Closure (153 of 174 active bugs — largest project by far; 21 pending collection)
+
+Teammate-collected via a separate WSL/Windows lane and merged 2026-09-15; `Closure_1`
+was re-collected the same day with its fix_diff/coverage issue fixed and folded in
+right after, bringing the count from 152 to 153. 21 active bugs (`49`-`69` except
+`63`) remain uncollected. `143` is still quarantined as defective (bad fix diff);
+`63` and `93` are the two Defects4J-deprecated ids, correctly excluded from the
+start. All 153 included bugs passed `scripts/check_contexts.py`'s freshness gate
+(collected on/after 2026-08-10, i.e. after the frame-selection-gap fix) — no stale
+contexts mixed in.
+
+1. **Same dominant strategy-confusion pair as Lang/Time/Math, comparable
+   concentration, roughly double the sample.** Scientific→**Checking**,
+   Few→**Algorithm/Method** accounts for 37 of 49 prefix disagreements (**75.5%**)
+   and 24 of 37 postfix disagreements (**64.9%**) — prefix concentration is close to
+   Lang's (79%) though slightly below it, postfix is somewhat above Lang's (62%);
+   not a record either way, but consistent with the same pattern at over double
+   Lang's sample size. *(Correction 2026-09-15: an earlier draft of this bullet
+   misstated the postfix figure as "24 of 29 (82.8%)" — the actual postfix
+   disagreement count is 37, not 29; fixed here.)* With Closure added, 4 of 6
+   projects (the four largest: Lang, Time, Math, Closure) now share this identical
+   dominant pair/direction; Chart and Mockito remain the only exceptions.
+2. **Agreement-rate gap holds direction, 6/6 projects now:** prefix sci-vs-few
+   agreement 68.0% (104/153) vs postfix 75.8% (116/153) — a 7.8-point gap, landing
+   between Math's 3.8 and Time's 27. Postfix beating prefix is now exception-free
+   across every project collected so far.
+3. **Pre→post type drift is identical in count but not in which bugs drift:**
+   Scientific 54/153 (35.3%) and Few 54/153 (35.3%) — the exact same number is a
+   coincidence, not shared mechanism: only 27 bugs drift under *both* strategies, 27
+   drift under Scientific only, 27 under Few only, and 72 drift under neither. Worth
+   citing the breakdown, not just the matching top-line rate — it would be easy to
+   misread "54 = 54" as the two strategies drifting on the same bugs.
+4. **Closure has the lowest Cohen's κ of all 6 projects under scientific-open: 0.359**
+   — "fair" agreement (Landis & Koch), the only project to fall below the >0.4
+   "moderate" floor that Chart/Lang/Math/Mockito/Time all clear (range was
+   0.480-0.672 before Closure; now 0.359-0.672). It still beats its own few-open κ
+   (0.294), so the RQ5 pattern "Scientific's κ beats Few's in every project" now
+   holds 6/6, not 5/5 — but Closure is pulling the overall-κ average down more than
+   any other single project.
+5. **"Other" never predicted** — 0 of 612 classifications, sixth project in a row.
+   Running total across all six projects: **0 of 1,126 classifications ever used
+   "Other."** RQ2's escape-rate finding (0%) is now confirmed on the full corpus,
+   not just 5/6 of it.
+6. **`needs_human_review` flags concentrate on prefix, never postfix:** 5 flags, all
+   on the oracle-free prefix side (`Closure_46`, `Closure_112`, `Closure_148` under
+   scientific-open; `Closure_165`, `Closure_171` under few-open) — zero on postfix,
+   and `Closure_1` itself wasn't among them. Proportionally more than the other five
+   projects combined (6 flags across their 514 classifications). All five are stated
+   at confidence 0.8, above the 0.7 "low-confidence" cutoff used elsewhere in this
+   doc — the review flag and the numeric confidence score are evidently not the
+   same signal; a flagged bug can still self-report moderate-high confidence.
+7. **RQ1's cross-project chi-squared test changes once Closure is included.**
+   Recomputed on the full 410-bug, 6-project prefix distribution:
+   scientific-open χ²=36.11, dof=25, p=0.070 (still not significant, but a sharp drop
+   from the 5-project p=0.38); **few-open χ²=49.48, dof=25, p=0.0025 — now
+   significant** (was borderline non-significant at p=0.056 with 5 projects). Adding
+   Closure — the largest project, and the one built around compiler internals rather
+   than a general-purpose library — is enough to tip few-open's cross-project type
+   distribution into a statistically real difference. Scientific-open's distribution
+   is comparatively more stable across projects even with Closure included.
+
+---
+
+## Cross-project summary (all 6 target projects — Chart, Time, Mockito, Lang, Math, Closure)
 
 What holds everywhere, no exceptions:
-- **Agreement rate is always higher on postfix than prefix.** 5/5 projects, no
-  exceptions, though the gap ranges from 3.8 points (Math) to 27 points (Time) — the
-  direction is a real, repeatable effect; the size is not a fixed constant.
-- **"Other" was never predicted once** — 0 of 514 classifications across all five
-  projects. The open taxonomy's escape category looks structurally unused at this
-  point, not just rare — worth treating as a real RQ2 finding rather than an
+- **Agreement rate is always higher on postfix than prefix.** 6/6 projects, no
+  exceptions, though the gap ranges from 3.8 points (Math) to 27 points (Time) —
+  Closure's 7.8-point gap lands mid-pack. The direction is a real, repeatable effect;
+  the size is not a fixed constant.
+- **"Other" was never predicted once** — 0 of 1,126 classifications across all six
+  projects. The open taxonomy's escape category looks structurally unused, not just
+  rare — a real, final RQ2 finding now confirmed on the complete target set, not an
   early-data quirk.
-- **`needs_human_review` and low-confidence flags are both rare everywhere** (6 and 0
-  occurrences respectively, out of 514) — the model reports near-uniform high
-  confidence regardless of project, which is itself worth a skeptical mention rather
-  than being read as "the model is always right here."
+- **`needs_human_review` is rare everywhere but not evenly so, and low-confidence
+  flags never fire at all** (11 and 0 occurrences respectively, out of 1,126).
+  Closure alone accounts for 5 of the 11 review flags despite being ~half the
+  corpus by bug count — proportionally elevated, and concentrated entirely on the
+  oracle-free prefix side. The model reports near-uniform high confidence
+  regardless of project either way, which is itself worth a skeptical mention
+  rather than being read as "the model is always right here."
 
 What's real but project-dependent, not universal:
 - **Algorithm/Method is an attractor category in every project**, but *which*
-  category it gets confused with is not fixed: Checking (Lang, Time, Math — the three
-  largest), Assignment/Initialization (Chart), and a genuinely diffuse spread
-  including a new category, Interface/O-O Messages (Mockito). Reads as: Algorithm/
+  category it gets confused with is not fixed: Checking (Lang, Time, Math, Closure —
+  the four largest), Assignment/Initialization (Chart), and a genuinely diffuse
+  spread including a new category, Interface/O-O Messages (Mockito). Closure shows
+  this pattern with a comparable concentration to Lang's, at roughly double
+  the sample size (75.5% prefix / 64.9% postfix of disagreements are exactly
+  this one pair). Reads as: Algorithm/
   Method's boundary is generally soft, and what it bleeds into depends on what kinds
   of bugs a given project actually has (Mockito's mocking/interface-heavy code being
   the clearest case of domain shaping the confusion pattern).
@@ -200,83 +270,213 @@ of the supervisor as more than a pattern observation.
 ## Which RQs this dataset actually answers
 
 Computed via `study-drift` (scientific-open, few-open) and `study-ladder`
-(few-open → scientific-open) against `artifacts_v2`'s 257 bugs, 5 projects
-(Chart, Lang, Math, Mockito, Time), plus one direct `analysis.py` call for the
-RQ1 chi-squared test. Closure is still uncollected; `zero-free` and any
-`-closed` taxonomy pass were never run for this corpus — noted per RQ below
-where that matters.
+(few-open → scientific-open) against `artifacts_v2`'s 410 bugs, all 6 target
+projects (Chart, Closure, Lang, Math, Mockito, Time — Closure at 152 of 174
+active bugs; see its section above for the 22 not yet collected), plus one
+direct `analysis.py` call for the RQ1 chi-squared test. Recomputed
+2026-09-15 after Closure was added; prior numbers below (257 bugs, 5
+projects, through 2026-09-14) are struck through inline for traceability.
+`zero-free` and any `-closed` taxonomy pass were still never run for this
+corpus — noted per RQ below where that matters.
 
-**RQ1 (type distribution across projects) — DONE.** Chi-squared cross-project
-test on the 257-bug prefix distribution: scientific-open χ²=21.35, dof=20,
-p=0.38 (not significant); few-open χ²=30.95, dof=20, p=0.056 (borderline, not
-significant at 0.05). ODC type distribution does not differ significantly by
-project for either strategy — Checking (47%) and Algorithm/Method (41%)
-dominate everywhere. Few-open's near-significant p is itself worth a mention:
-its per-project label mix varies a bit more than Scientific's does.
+**RQ1 (type distribution across projects) — DONE, and the finding changed
+with Closure added.** Chi-squared cross-project test on the full 410-bug
+prefix distribution: scientific-open χ²=36.11, dof=25, p=0.070 (still not
+significant, was χ²=21.35/dof=20/p=0.38 at 5 projects — noticeably closer to
+the 0.05 line); **few-open χ²=49.48, dof=25, p=0.0025 — now significant**
+(was χ²=30.95/dof=20/p=0.056, borderline-not-significant, at 5 projects).
+Adding Closure — the largest project, and the only one built around compiler
+internals rather than a general-purpose library — is enough to tip
+few-open's cross-project type distribution into a statistically real
+difference; scientific-open's is comparatively more stable even with Closure
+included. The "Checking and Algorithm/Method dominate everywhere" read still
+holds directionally, but "distribution doesn't differ significantly by
+project" is no longer true for few-open specifically.
 
 **RQ2 (taxonomy coverage / escape rate) — PARTIALLY DONE, rest deliberately
 not pursued.** The escape-rate half of this RQ is fully answered from the
-open-pass data alone, no closed-taxonomy run needed: **0 of 514
-classifications ever used "Other"**, across both strategies and all 5
-projects. That is a solid, final 0% escape rate. The other half of RQ2's
+open-pass data alone, no closed-taxonomy run needed: **0 of 1,126
+classifications ever used "Other"** (was 0/514 at 5 projects), across both
+strategies and now all 6 target projects. That is a solid, final 0% escape
+rate, now confirmed on the complete target set. The other half of RQ2's
 design (`compute_coverage_metrics`'s closed-vs-open shift kappa and KL
 divergence — does removing the escape *option* itself change ordinary labels,
-independent of whether escapes occur) needs a `scientific-closed`/`few-closed`
-pass that does not exist for this corpus. Deliberately not run: given the
-escape rate is already 0%, the expected result (labels barely move) is
-low-value relative to its cost (~900 LLM calls). Recorded as a conscious
-scoping decision, not a gap.
+independent of whether escapes occur) still needs a `scientific-closed`/
+`few-closed` pass that does not exist for this corpus. Deliberately not run:
+given the escape rate is already 0%, the expected result (labels barely
+move) is low-value relative to its cost. Recorded as a conscious scoping
+decision, not a gap.
 
-**RQ3 (four-level accuracy: strict/top-2/family/κ) — DONE, both strategies.**
+**RQ3 (four-level accuracy: strict/top-2/family/κ) — DONE, both strategies,
+all 6 projects.**
 
 | Metric | Scientific-open | Few-open |
 |---|---|---|
-| Strict match | 73.5% | 67.7% |
-| Top-2 match | 96.1% | 97.7% |
-| Family match | 93.0% | 94.2% |
-| Cohen's κ (overall) | 0.577 (moderate) | 0.437 (moderate) |
+| Strict match | 70.2% (was 73.5%) | 66.6% (was 67.7%) |
+| Top-2 match | 97.1% (was 96.1%) | 98.5% (was 97.7%) |
+| Family match | 94.1% (was 93.0%) | 95.6% (was 94.2%) |
+| Cohen's κ (overall) | 0.505 moderate (was 0.577) | 0.389 fair (was 0.437) |
 
-Scientific has higher strict agreement and a higher overall κ; Few has
-slightly higher top-2/family match — Scientific is more likely to land the
-exact same label pre/post fix, Few is a bit more likely to at least land in
-the same neighborhood when it doesn't match exactly.
+Adding Closure pulls both strict-match and overall κ down slightly for both
+strategies — expected, since Closure's own strict-match (65.1%/scientific,
+68.0%/few, see its section above) and κ (0.359, the lowest
+of any project) sit below the 5-project averages. Few-open's overall κ also
+crosses from "moderate" into "fair" territory (Landis & Koch) once Closure
+is folded in. Direction of every comparison (Scientific > Few on strict/κ,
+Few > Scientific on top-2/family) is unchanged.
 
 **RQ4 (component contribution / ablation ladder) — PARTIALLY DONE, headline
 metric out of scope by choice.** The vocabulary-reduction-ratio headline
-number is only meaningful with `zero-free` as the ladder's baseline tier (the
-free-form condition establishes the "before taxonomy" vocabulary size);
-without it the formula is undefined and returns 0.0 — not a finding, a
-non-result. `zero-free` was not run for this corpus and this ratio was
+number is still only meaningful with `zero-free` as the ladder's baseline
+tier; without it the formula is undefined and returns 0.0 — not a finding, a
+non-result. `zero-free` was not run for this corpus and this ratio remains
 consciously waived. What *is* computable between the two taxonomy-constrained
-tiers (few-open → scientific-open): both strategies land on exactly the same
-5 of 7 ODC types across all 257 bugs (Function/Class/Object and
-Timing/Serialization never fire in either); label entropy is marginally
-higher under Scientific (1.490 vs 1.421) — a small signal that the enforced
-loop spreads labels slightly more evenly across those 5 types rather than
-piling onto Checking/Algorithm-Method, consistent with the drift data above.
-Worth reporting as a secondary observation, not as the RQ4 headline result.
+tiers (few-open → scientific-open), recomputed on all 410 bugs: both
+strategies still land on exactly the same 5 of 7 ODC types (Function/Class/
+Object and Timing/Serialization never fire in either — unchanged by adding
+Closure); label entropy is still marginally higher under Scientific (1.446
+vs 1.291, was 1.490 vs 1.421 at 5 projects) — same small signal that the
+enforced loop spreads labels slightly more evenly across those 5 types
+rather than piling onto Checking/Algorithm-Method, consistent with the drift
+data above. Worth reporting as a secondary observation, not as the RQ4
+headline result.
 
 **RQ5 (pre/post drift + per-project reliability) — DONE, both strategies, all
-5 projects.**
+6 projects.**
 
 | Project | Scientific-open κ | Few-open κ |
 |---|---|---|
 | Chart | 0.672 | 0.349 |
+| Closure | 0.359 | 0.294 |
 | Lang | 0.546 | 0.497 |
 | Math | 0.603 | 0.537 |
 | Mockito | 0.499 | 0.272 |
 | Time | 0.480 | 0.212 |
 
-Scientific's κ beats Few's in every one of the 5 projects — a consistent,
-non-cherry-picked signal, largest exactly where the raw agreement-rate gap
-was also largest (Time). A real upgrade over the old n=2-3-bugs-per-project
-table, where several per-project kappas were degenerate (exactly 0.0/0.5/1.0).
+Scientific's κ beats Few's in every one of the 6 projects — a consistent,
+non-cherry-picked signal that now extends to the full target set, largest in
+relative terms where the raw agreement-rate gap was also largest (Time).
+Closure is the new low point on both columns — the least reliable project
+for either strategy — but the direction (Scientific > Few) holds there too.
+(Not compared against the old n=44 dev-validation table here — that table
+used a different, much smaller manifest and is not a valid baseline for this
+corpus; see the section below for the actual old-vs-new comparison, run
+against the real prior 431-bug corpus.)
 
-**Bottom line:** RQ1, RQ3, and RQ5 are fully answered by this corpus with no
-further data collection. RQ2's core finding (0% escape rate) is also final;
-its secondary closed-vs-open shift metric was scoped out on purpose. RQ4's
-secondary metrics are answered; its headline vocabulary-reduction number is
-the one place in the whole study where `zero-free` data would still add
-something, and that gap is accepted, not accidental.
+**Bottom line:** RQ1, RQ3, and RQ5 are now fully answered on the complete
+6-project, 410-bug target corpus with no further data collection needed —
+RQ1's few-open finding actually *changed* (borderline → significant) once
+Closure was added, which is itself worth flagging to the supervisor as a
+"more data changed a borderline conclusion" example. RQ2's core finding (0%
+escape rate) is also final on the full set; its secondary closed-vs-open
+shift metric remains scoped out on purpose. RQ4's secondary metrics are
+answered on the full set; its headline vocabulary-reduction number is still
+the one place in the whole study where `zero-free` data would add something,
+and that gap remains accepted, not accidental. Only the 22 not-yet-collected
+Closure bugs (`1`, `49`-`69` except `63`, `143`) stand between this and the
+full 174-bug Closure / 431-bug six-project corpus.
+
+---
+
+## What changed since the last reported run (old reports vs this rerun)
+
+**Correct baseline, stated plainly:** the prior comparable run is the
+431-bug, 6-project run from 2026-07-26 (`lang61_report.xlsx`,
+`chart26_report.xlsx`, `time26_report.xlsx`, `mockito38_report.xlsx`,
+`math106_report.xlsx`, plus Closure — Closure excluded below since this
+rerun doesn't have it yet), stored on disk as `.dist/study/artifacts_full`.
+This is a well-powered baseline (same per-project bug counts as this rerun:
+Chart 26, Lang 61, Math 106, Mockito 38, Time 26 = 257 bugs, identical
+manifests both sides) — **not** the tiny n=44 dev-validation table used
+elsewhere in this doc for the RQ1-RQ5 walkthrough. Those are two different
+prior corpora; don't conflate them.
+
+**The headline aggregate number barely moved — and for one condition it got
+worse:**
+
+| Condition | OLD agreement (pre==post) | NEW agreement | Change |
+|---|---|---|---|
+| scientific-open | 191/257 = 74.3% | 189/257 = 73.5% | -0.8pt |
+| few-open | 182/257 = 70.8% | 174/257 = 67.7% | -3.1pt |
+| "Other" used (either) | 0/257 | 0/257 | unchanged |
+
+**But underneath that flat/declining topline, a third of the individual
+labels changed anyway: 86 of 257 bugs (33.5%) got a different ODC type**
+(scientific-open, prefix or postfix), per project:
+
+| Project | Bugs changed | Rate |
+|---|---|---|
+| Time | 12/26 | 46.2% |
+| Mockito | 14/38 | 36.8% |
+| Lang | 19/61 | 31.1% |
+| Math | 33/106 | 31.1% |
+| Chart | 8/26 | 30.8% |
+
+**That combination — flat/declining aggregate accuracy plus 33.5% individual
+churn — is label instability, not improvement.** If the pipeline fixes had
+genuinely made classification better, the aggregate agreement rate should
+have moved up, not sat flat (scientific-open) or dropped (few-open, -3.1pt).
+
+**The two dominant categories traded rank, and the two strategies moved in
+opposite directions.** Pre-fix type counts, scientific-open:
+
+| Type | OLD | NEW |
+|---|---|---|
+| Algorithm/Method | 120 | 106 |
+| Checking | 113 | 121 |
+
+Algorithm/Method led old, Checking leads new — same 257 bugs, same
+condition, ranks flipped. Few-open moved the **opposite** direction over the
+same period:
+
+| Type | OLD | NEW |
+|---|---|---|
+| Algorithm/Method | 148 | 156 |
+| Checking | 93 | 79 |
+
+Scientific-open drifted toward Checking; Few-open drifted further toward
+Algorithm/Method, on the identical bug set and time window. That is not
+consistent with one shared cause pushing every classification the same way —
+it's consistent with each prompt template independently interacting with
+whatever changed.
+
+**Pooling every individual pre/post label change, 51 of 93 transitions (55%)
+cross the Algorithm/Method↔Checking boundary specifically** (33
+Algorithm/Method→Checking, 18 Checking→Algorithm/Method) — the same boundary
+that dominates the Scientific-vs-Few strategy-disagreement pattern documented
+above. One clean, uncounfounded axis (strategy disagreement, both computed
+within `artifacts_v2`) plus this old-vs-new axis both point at the same soft
+boundary — worth stating as "Algorithm/Method vs Checking is a genuinely
+unstable line in this taxonomy," not as a taxonomy-coverage improvement.
+
+**The "new types appeared for Lang" finding does not generalize to a
+taxonomy-coverage improvement.** Pooled Function/Class/Object counts across
+all 5 projects actually *dropped* for scientific-open (3 → 1) while
+*increasing* for few-open (2 → 6) over the same period — opposite
+directions again, and all single-digit counts. The specific Lang_23/Lang_29
+bugs examined in detail are still worth citing (the new label matches the
+ODC definition better than the old one, verified against the actual fix
+diff) — but "the taxonomy is being used more fully now" is not a claim the
+pooled numbers support.
+
+**Leading candidate cause, not yet proven:** both classification tags in
+this comparison were called via the exact same model string,
+`gemini-3.1-flash-lite-preview`, but two months apart (old run: 2026-07-10;
+new run: 2026-09-13). That is a rolling "-preview" alias, not a pinned
+snapshot — the hosting provider can update the underlying weights behind
+that name without any visible version change on our side. The taxonomy
+prompt text itself is confirmed unchanged (`git diff` on `odc.py`'s
+`ODC_TYPES` dict between the two runs' commits is empty). Given the
+aggregate accuracy didn't improve, the most defensible explanation for 33.5%
+label churn concentrated on one boundary is that model drift, not the
+evidence-collection fix, is doing most of the work here. **Action for the
+next run: pin an exact dated model snapshot, not a "-preview" alias**, so
+this confound can't recur.
+
+**What this is not:** evidence that the pipeline fixes (evidence-collection
+`6878d90`, data-leakage `bb9d176`) improved classification results. They may
+still be correct, necessary fixes for other reasons (e.g. closing a real
+oracle-leak risk, per `coverage-fallback-oracle-leak`) — but this comparison
+does not show them producing better labels, only different ones.
 
 ---

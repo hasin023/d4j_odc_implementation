@@ -1,0 +1,61 @@
+{
+  "project_id": "Closure",
+  "bug_id": 27,
+  "version_id": "27b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-09-15T07:56:00+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The `IR` class methods `tryFinally` and `tryCatch` throw `IllegalStateException` because they perform incorrect validation on input nodes (checking for `isLabelName` instead of `isBlock`, and using a `block()` helper that enforces `isStatement` on a `CATCH` node).",
+  "hypothesis": "The `IR.tryFinally` and `IR.tryCatch` methods in `com.google.javascript.rhino.IR` contain incorrect validation logic (Checking) in their `Preconditions.checkState` calls. Specifically, `tryFinally` incorrectly checks for `isLabelName()` instead of `isBlock()`, and `tryCatch` uses `block(catchNode)` which internally validates that the node is a statement, but a `CATCH` node is not a statement, causing the `IllegalStateException`.",
+  "prediction": "The `Preconditions.checkState` calls in `IR.tryFinally` will be updated to check for `isBlock()`, and `IR.tryCatch` will be updated to use a method that bypasses the statement validation for the `CATCH` node.",
+  "experiment_rationale": "The stack trace points directly to `Preconditions.checkState` failures within `IR.java`. The code snippets confirm that `tryFinally` checks `isLabelName()` (which is logically incorrect for a try-finally block body) and `tryCatch` calls `block(catchNode)`, which triggers a `mayBeStatement` check that fails for `CATCH` nodes. The fix involves correcting these predicates.",
+  "reasoning_summary": "The bug is a classic validation error where the preconditions for building AST nodes are too restrictive or incorrect for the types of nodes being passed. This falls squarely under the 'Checking' category of ODC.",
+  "evidence_used": [
+    "full_stack_trace",
+    "snippet",
+    "bug_report_description"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The issue is not the logic of the try-catch construction itself, but the validation guards preventing valid nodes from being processed."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "post-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The `IR.tryFinally` and `IR.tryCatch` methods in `com.google.javascript.rhino.IR` contain incorrect validation logic (Checking) in their `Preconditions.checkState` calls. Specifically, `tryFinally` incorrectly checks for `isLabelName()` instead of `isBlock()`, and `tryCatch` uses `block(catchNode)` which internally validates that the node is a statement, but a `CATCH` node is not a statement, causing the `IllegalStateException`.",
+      "prediction": "The `Preconditions.checkState` calls in `IR.tryFinally` will be updated to check for `isBlock()`, and `IR.tryCatch` will be updated to use a method that bypasses the statement validation for the `CATCH` node.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Checking",
+      "duration_seconds": 9.284
+    }
+  ],
+  "llm_calls_used": 1,
+  "termination_reason": "concluded",
+  "loop_duration_seconds": 9.284,
+  "probe_misses": 0,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The `IR` class methods `tryFinally` and `tryCatch` throw `IllegalStateException` because they perform incorrect validation on input nodes (checking for `isLabelName` instead of `isBlock`, and using a `block()` helper that enforces `isStatement` on a `CATCH` node).\", \"hypothesis\": \"The `IR.tryFinally` and `IR.tryCatch` methods in `com.google.javascript.rhino.IR` contain incorrect validation logic (Checking) in their `Preconditions.checkState` calls. Specifically, `tryFinally` incorrectly checks for `isLabelName()` instead of `isBlock()`, and `tryCatch` uses `block(catchNode)` which internally validates that the node is a statement, but a `CATCH` node is not a statement, causing the `IllegalStateException`.\", \"prediction\": \"The `Preconditions.checkState` calls in `IR.tryFinally` will be updated to check for `isBlock()`, and `IR.tryCatch` will be updated to use a method that bypasses the statement validation for the `CATCH` node.\", \"experiment_rationale\": \"The stack trace points directly to `Preconditions.checkState` failures within `IR.java`. The code snippets confirm that `tryFinally` checks `isLabelName()` (which is logically incorrect for a try-finally block body) and `tryCatch` calls `block(catchNode)`, which triggers a `mayBeStatement` check that fails for `CATCH` nodes. The fix involves correcting these predicates.\", \"reasoning_summary\": \"The bug is a classic validation error where the preconditions for building AST nodes are too restrictive or incorrect for the types of nodes being passed. This falls squarely under the 'Checking' category of ODC.\", \"evidence_used\": [\"full_stack_trace\", \"snippet\", \"bug_report_description\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"The issue is not the logic of the try-catch construction itself, but the validation guards preventing valid nodes from being processed.\"}]}"
+}

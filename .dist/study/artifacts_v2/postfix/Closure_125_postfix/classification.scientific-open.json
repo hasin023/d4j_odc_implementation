@@ -1,0 +1,66 @@
+{
+  "project_id": "Closure",
+  "bug_id": 125,
+  "version_id": "125b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-09-15T08:17:16+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The compiler crashes with an IllegalStateException when calling `getInstanceType()` on a `FunctionType` that does not have an instance type, triggered during `new` expression type checking.",
+  "hypothesis": "The `visitNew` method in `TypeCheck.java` incorrectly assumes that if a `FunctionType` is present, it must also have an instance type. The `IllegalStateException` occurs because `getInstanceType()` is called on a `FunctionType` that does not satisfy `hasInstanceType()`.",
+  "prediction": "The `visitNew` method will be modified to include `&& fnType.hasInstanceType()` in the conditional check before calling `fnType.getInstanceType()`.",
+  "experiment_rationale": "The stack trace points directly to `Preconditions.checkState(hasInstanceType())` inside `FunctionType.getInstanceType()`, which is called by `TypeCheck.visitNew`. The fix provided in the oracle confirms that a missing check for `hasInstanceType()` is the root cause.",
+  "reasoning_summary": "The bug is a classic missing validation check. The code assumes a property (instance type) exists on a type object without verifying it, leading to a runtime exception when that assumption is violated. Adding the missing predicate check resolves the issue.",
+  "evidence_used": [
+    "full_stack_trace",
+    "snippet",
+    "bug_report",
+    "fix_diff_oracle"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The issue is not an incorrect algorithm, but a missing guard condition for a state-dependent method call."
+    },
+    {
+      "type": "Assignment/Initialization",
+      "why_not_primary": "The issue is not about an incorrect value being assigned, but about failing to validate the state of an object before using it."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "post-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The `visitNew` method in `TypeCheck.java` incorrectly assumes that if a `FunctionType` is present (i.e., `fnType != null`), it must also have an instance type. The `IllegalStateException` occurs because `getInstanceType()` is called on a `FunctionType` that does not satisfy `hasInstanceType()`. The fix requires adding a check for `hasInstanceType()` before calling `getInstanceType()`.",
+      "prediction": "The `visitNew` method will be modified to include `&& fnType.hasInstanceType()` in the conditional check before calling `fnType.getInstanceType()`.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Checking",
+      "duration_seconds": 4.232
+    }
+  ],
+  "llm_calls_used": 1,
+  "termination_reason": "concluded",
+  "loop_duration_seconds": 4.232,
+  "probe_misses": 0,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The compiler crashes with an IllegalStateException when calling `getInstanceType()` on a `FunctionType` that does not have an instance type, triggered during `new` expression type checking.\", \"hypothesis\": \"The `visitNew` method in `TypeCheck.java` incorrectly assumes that if a `FunctionType` is present, it must also have an instance type. The `IllegalStateException` occurs because `getInstanceType()` is called on a `FunctionType` that does not satisfy `hasInstanceType()`.\", \"prediction\": \"The `visitNew` method will be modified to include `&& fnType.hasInstanceType()` in the conditional check before calling `fnType.getInstanceType()`.\", \"experiment_rationale\": \"The stack trace points directly to `Preconditions.checkState(hasInstanceType())` inside `FunctionType.getInstanceType()`, which is called by `TypeCheck.visitNew`. The fix provided in the oracle confirms that a missing check for `hasInstanceType()` is the root cause.\", \"reasoning_summary\": \"The bug is a classic missing validation check. The code assumes a property (instance type) exists on a type object without verifying it, leading to a runtime exception when that assumption is violated. Adding the missing predicate check resolves the issue.\", \"evidence_used\": [\"full_stack_trace\", \"snippet\", \"bug_report\", \"fix_diff_oracle\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"The issue is not an incorrect algorithm, but a missing guard condition for a state-dependent method call.\"}, {\"type\": \"Assignment/Initialization\", \"why_not_primary\": \"The issue is not about an incorrect value being assigned, but about failing to validate the state of an object before using it.\"}]}"
+}

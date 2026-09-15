@@ -42,7 +42,13 @@ from d4j_odc_pipeline.odc import ODC_TYPE_NAMES, OTHER_TYPE_NAME  # noqa: E402
 
 MANIFESTS = {
     "Chart": ("manifest_chart26", 26),
-    "Closure": ("manifest_closure174", 174),
+    # Closure's full active-bug manifest is 174 (manifest_closure174), but
+    # artifacts_v2 only has 153 of those collected/classified so far (21
+    # bugs — the 49-69 range minus 63 — are pending; 143 is still
+    # quarantined for a bad fix diff; 1 was re-collected 2026-09-15 and is
+    # no longer quarantined). Use the 153-bug subset manifest until the
+    # remaining bugs are collected.
+    "Closure": ("manifest_closure153_v2", 153),
     "Lang": ("manifest_lang61", 61),
     "Math": ("manifest_math106", 106),
     "Mockito": ("manifest_mockito38", 38),

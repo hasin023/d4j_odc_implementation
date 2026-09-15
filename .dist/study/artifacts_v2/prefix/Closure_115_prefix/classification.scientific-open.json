@@ -1,0 +1,94 @@
+{
+  "project_id": "Closure",
+  "bug_id": 115,
+  "version_id": "115b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-09-15T08:14:14+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The compiler incorrectly inlines functions with side effects, causing incorrect evaluation order and state modification in the resulting code. The issue is that the compiler's safety check for inlining is insufficient.",
+  "hypothesis": "The InlineFunctions pass fails to correctly identify that a function has side effects, leading it to inline functions that modify object properties in contexts where those properties are also accessed.",
+  "prediction": "The decision to inline is based on an incomplete check for side effects, failing to account for property modifications within the function body.",
+  "experiment_rationale": "The failure is a classic case of an incorrect guard condition (checking for side effects before inlining). The compiler should have checked if the function had side effects and aborted the inlining if it did.",
+  "reasoning_summary": "The bug report and failing tests demonstrate that the compiler performs an optimization (inlining) that changes the semantics of the program by reordering or incorrectly evaluating expressions involving side effects. This is a failure of the validation logic (the 'check') that determines whether an optimization is safe to perform.",
+  "evidence_used": [
+    "bug_report",
+    "failing_tests"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the inlining algorithm is involved, the root cause is the missing or incorrect validation (check) that determines if the algorithm is applicable."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The InlineFunctions pass is incorrectly inlining functions that contain side effects, specifically when the function being inlined modifies an object property that is also used as an argument or in an expression within the same statement. The compiler fails to detect that the side effect in the inlined function invalidates the cached value of the property, leading to incorrect evaluation order or incorrect usage of the original property value.",
+      "prediction": "I expect to find logic in InlineFunctions.java (or a related class like InliningCostEstimator) that incorrectly assumes it is safe to inline a function even when it contains side effects that might affect the evaluation of other expressions in the same statement.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "InlineFunctions"
+      },
+      "observation_summary": [
+        "snippets"
+      ],
+      "observation": "{\n  \"snippets\": [\n    {\n      \"class_name\": \"com.google.javascript.jscomp.InlineFunctionsTest\",\n      \"reason\": \"Test source: com.google.javascript.jscomp.InlineFunctionsTest::testBug4944818 (shows expected behavior)\",\n      \"file_path\": \"C:\\\\WORK\\\\IUT\\\\Research\\\\implementation\\\\.dist\\\\study\\\\work_v2\\\\prefix\\\\Closure_115b\\\\test\\\\com\\\\google\\\\javascript\\\\jscomp\\\\InlineFunctionsTest.java\",\n      \"start_line\": 2057,\n      \"end_line\": 2096,\n      \"focus_line\": 2060,\n      \"content\": \"  2057:   }\\n  2058: \\n  2059:   public void testBug4944818() {\\n  2060:     test(\\n  2061:         \\\"var getDomServices_ = function(self) {\\\\n\\\" +\\n  2062:         \\\"  if (!self.domServices_) {\\\\n\\\" +\\n  2063:         \\\"    self.domServices_ = goog$component$DomServices.get(\\\" +\\n  2064:         \\\"        self.appContext_);\\\\n\\\" +\\n  2065:         \\\"  }\\\\n\\\" +\\n  2066:         \\\"\\\\n\\\" +\\n  2067:         \\\"  return self.domServices_;\\\\n\\\" +\\n  2068:         \\\"};\\\\n\\\" +\\n  2069:         \\\"\\\\n\\\" +\\n  2070:         \\\"var getOwnerWin_ = function(self) {\\\\n\\\" +\\n  2071:         \\\"  return getDomServices_(self).getDomHelper().getWindow();\\\\n\\\" +\\n  2072:         \\\"};\\\\n\\\" +\\n  2073:         \\\"\\\\n\\\" +\\n  2074:         \\\"HangoutStarter.prototype.launchHangout = function() {\\\\n\\\" +\\n  2075:         \\\"  var self = a.b;\\\\n\\\" +\\n  2076:         \\\"  var myUrl = new goog.Uri(getOwnerWin_(self).location.href);\\\\n\\\" +\\n  2077:         \\\"};\\\",\\n  2078:         \\\"HangoutStarter.prototype.launchHangout = function() { \\\" +\\n  2079:         \\\"  var self$$2 = a.b;\\\" +\\n  2080:         \\\"  var JSCompiler_temp_const$$0 = goog.Uri;\\\" +\\n  2081:         \\\"  var JSCompiler_inline_result$$1;\\\" +\\n  2082:         \\\"  {\\\" +\\n  2083:         \\\"  var self$$inline_2 = self$$2;\\\" +\\n  2084:         \\\"  if (!self$$inline_2.domServices_) {\\\" +\\n  2085:         \\\"    self$$inline_2.domServices_ = goog$component$DomServices.get(\\\" +\\n  2086:         \\\"        self$$inline_2.appContext_);\\\" +\\n  2087:         \\\"  }\\\" +\\n  2088: ",
+      "observation_truncated": true,
+      "observation_chars": 2400,
+      "duration_seconds": 3.435
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The InlineFunctions pass incorrectly assumes that inlining a function is safe even when the function contains side effects that could modify state used elsewhere in the expression. Specifically, the compiler fails to check if the function being inlined has side effects that might invalidate assumptions about the order of evaluation or the values of variables/properties used in the surrounding expression.",
+      "prediction": "I expect to find that the InlineFunctions class lacks a check for side effects (e.g., using NodeUtil.mayHaveSideEffects) before deciding to inline a function, or that the check is insufficient for cases where the inlined function modifies object properties.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "InlineFunctions"
+      },
+      "observation_summary": "probe already served this exact request \u2014 use a different probe or conclude",
+      "observation": "{\n  \"error\": \"probe already served this exact request \\u2014 use a different probe or conclude\"\n}",
+      "observation_truncated": false,
+      "observation_chars": 97,
+      "duration_seconds": 2.712
+    },
+    {
+      "turn": 3,
+      "hypothesis": "The InlineFunctions pass fails to correctly identify that a function has side effects, leading it to inline functions that modify object properties in contexts where those properties are also accessed. This violates the requirement that inlining must preserve the original evaluation order and side-effect behavior of the code.",
+      "prediction": "The code in InlineFunctions.java will show that the decision to inline is based on an incomplete check for side effects, likely missing a call to NodeUtil.mayHaveSideEffects or failing to account for property modifications within the function body.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Checking",
+      "duration_seconds": 3.931
+    }
+  ],
+  "llm_calls_used": 3,
+  "termination_reason": "concluded",
+  "loop_duration_seconds": 10.078,
+  "probe_misses": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"confidence\": 0.9, \"needs_human_review\": false, \"observation_summary\": \"The compiler incorrectly inlines functions with side effects, causing incorrect evaluation order and state modification in the resulting code. The issue is that the compiler's safety check for inlining is insufficient.\", \"hypothesis\": \"The InlineFunctions pass fails to correctly identify that a function has side effects, leading it to inline functions that modify object properties in contexts where those properties are also accessed.\", \"prediction\": \"The decision to inline is based on an incomplete check for side effects, failing to account for property modifications within the function body.\", \"experiment_rationale\": \"The failure is a classic case of an incorrect guard condition (checking for side effects before inlining). The compiler should have checked if the function had side effects and aborted the inlining if it did.\", \"reasoning_summary\": \"The bug report and failing tests demonstrate that the compiler performs an optimization (inlining) that changes the semantics of the program by reordering or incorrectly evaluating expressions involving side effects. This is a failure of the validation logic (the 'check') that determines whether an optimization is safe to perform.\", \"evidence_used\": [\"bug_report\", \"failing_tests\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"While the inlining algorithm is involved, the root cause is the missing or incorrect validation (check) that determines if the algorithm is applicable.\"}]}"
+}

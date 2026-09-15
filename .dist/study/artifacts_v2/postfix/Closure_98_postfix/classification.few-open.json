@@ -1,0 +1,52 @@
+{
+  "project_id": "Closure",
+  "bug_id": 98,
+  "version_id": "98b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-09-15T08:43:47+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The compiler incorrectly inlines variables within loops, leading to incorrect behavior when those variables are captured by closures inside the loop. The fix involves adding a check to ensure that assignments are not inlined if they occur within a loop.",
+  "hypothesis": "",
+  "prediction": "",
+  "experiment_rationale": "",
+  "reasoning_summary": "The fix introduces a new conditional check (a loop traversal to verify if the reference is within a loop) to prevent incorrect inlining. This is a classic 'missing guard' scenario where the compiler lacked the necessary validation to determine if an optimization (inlining) was safe given the surrounding control flow (a loop).",
+  "evidence_used": [
+    "The fix adds a loop that traverses BasicBlock parents to check for 'isLoop' status.",
+    "The fix adds 'isFunction' and 'isLoop' fields to the BasicBlock class to support this check.",
+    "The bug report explicitly mentions 'bad variable inlining' and the test case 'testNoInlineAliasesInLoop' fails because of incorrect inlining behavior.",
+    "The fix diff shows the addition of a guard: 'for (BasicBlock block = ref.getBasicBlock(); block != null; block = block.getParent()) { ... if (block.isLoop) { return false; } }'"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the fix modifies the logic of the inlining process, the root cause is the absence of a validation check (a guard) to determine if the inlining is safe in the context of a loop."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "post-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "termination_reason": null,
+  "loop_duration_seconds": null,
+  "probe_misses": 0,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The compiler incorrectly inlines variables within loops, leading to incorrect behavior when those variables are captured by closures inside the loop. The fix involves adding a check to ensure that assignments are not inlined if they occur within a loop.\",\n  \"reasoning_summary\": \"The fix introduces a new conditional check (a loop traversal to verify if the reference is within a loop) to prevent incorrect inlining. This is a classic 'missing guard' scenario where the compiler lacked the necessary validation to determine if an optimization (inlining) was safe given the surrounding control flow (a loop).\",\n  \"evidence_used\": [\n    \"The fix adds a loop that traverses BasicBlock parents to check for 'isLoop' status.\",\n    \"The fix adds 'isFunction' and 'isLoop' fields to the BasicBlock class to support this check.\",\n    \"The bug report explicitly mentions 'bad variable inlining' and the test case 'testNoInlineAliasesInLoop' fails because of incorrect inlining behavior.\",\n    \"The fix diff shows the addition of a guard: 'for (BasicBlock block = ref.getBasicBlock(); block != null; block = block.getParent()) { ... if (block.isLoop) { return false; } }'\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"While the fix modifies the logic of the inlining process, the root cause is the absence of a validation check (a guard) to determine if the inlining is safe in the context of a loop.\"\n    }\n  ]\n}"
+}

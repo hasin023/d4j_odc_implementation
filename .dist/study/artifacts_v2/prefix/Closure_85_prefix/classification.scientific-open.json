@@ -1,0 +1,78 @@
+{
+  "project_id": "Closure",
+  "bug_id": 85,
+  "version_id": "85b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-09-15T08:05:37+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "The compiler crashes with a NullPointerException in NodeUtil.removeChild because it is called with a node whose parent is null. This occurs during the UnreachableCodeElimination pass, which is attempting to remove a 'break' statement that has likely already been processed or detached.",
+  "hypothesis": "The UnreachableCodeElimination pass incorrectly attempts to remove a node that has already been detached from the AST, or it attempts to remove a node whose parent is null because the node is not properly linked in the tree. Specifically, in the case of 'break' statements within switch blocks, the traversal logic might be visiting nodes that have already been removed by a previous optimization step, or the logic in 'removeDeadExprStatementSafely' assumes a parent exists when it might not.",
+  "prediction": "The 'removeDeadExprStatementSafely' method in UnreachableCodeElimination.java will show that it does not check if the node's parent is null before calling NodeUtil.removeChild, and the traversal logic does not prevent re-visiting or re-processing nodes that have already been detached.",
+  "experiment_rationale": "The stack trace clearly points to a NullPointerException when accessing the parent of a node in NodeUtil.removeChild, which is called by UnreachableCodeElimination. The lack of a null check for the parent before attempting to remove the node is a classic validation/checking error.",
+  "reasoning_summary": "The failure is a direct result of missing validation (a null check) on the node's parent before performing a structural modification (removal) on the AST. This is a 'Checking' defect because the code assumes a valid parent-child relationship that no longer exists due to previous transformations.",
+  "evidence_used": [
+    "full_stack_trace",
+    "production_code_snippets"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the traversal logic is part of the algorithm, the immediate cause of the crash is the missing check for a null parent, which is a validation issue."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The UnreachableCodeElimination pass attempts to remove a node (like a BREAK statement) by calling NodeUtil.removeChild, but the parent of the node is null, indicating the node has already been detached or is in an inconsistent state, leading to the reported INTERNAL COMPILER ERROR.",
+      "prediction": "The node being passed to removeChild in UnreachableCodeElimination.java:234 will have a null parent, and this occurs because the traversal logic in UnreachableCodeElimination does not correctly account for nodes that have already been removed or modified during the traversal.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "full_stack_trace",
+        "argument": "UnreachableCodeEliminationTest"
+      },
+      "observation_summary": [
+        "traces"
+      ],
+      "observation": "{\n  \"traces\": [\n    {\n      \"test_name\": \"com.google.javascript.jscomp.UnreachableCodeEliminationTest::testCascadedRemovalOfUnlessUnconditonalJumps\",\n      \"headline\": \"junit.framework.AssertionFailedError:\",\n      \"stack_trace\": [\n        \"junit.framework.AssertionFailedError: \",\n        \"Expected: switch(a){case \\\"a\\\":break;case \\\"b\\\":case \\\"c\\\":}\",\n        \"Result: switch(a){case \\\"a\\\":case \\\"b\\\":case \\\"c\\\":}\",\n        \"Node tree inequality:\",\n        \"Tree1:\",\n        \"BLOCK [synthetic: 1]\",\n        \"    SCRIPT 1 [sourcename: expected0] [synthetic: 1]\",\n        \"        SWITCH 1 [sourcename: expected0]\",\n        \"            NAME a 1 [sourcename: expected0]\",\n        \"            CASE 1 [sourcename: expected0]\",\n        \"                STRING a 1 [sourcename: expected0]\",\n        \"                BLOCK 1 [sourcename: expected0] [synthetic: 1]\",\n        \"                    BREAK 1 [sourcename: expected0]\",\n        \"            CASE 1 [sourcename: expected0]\",\n        \"                STRING b 1 [sourcename: expected0]\",\n        \"                BLOCK 1 [sourcename: expected0] [synthetic: 1]\",\n        \"            CASE 1 [sourcename: expected0]\",\n        \"                STRING c 1 [sourcename: expected0]\",\n        \"                BLOCK 1 [sourcename: expected0] [synthetic: 1]\",\n        \"\",\n        \"\",\n        \"Tree2:\",\n        \"BLOCK [synthetic: 1]\",\n        \"    SCRIPT 1 [sourcename: testcode] [synthetic: 1]\",\n        \"        SWITCH 1 [sourcename: testcode]\",\n        \"            NAME a 1 [sourcename: testcode]\",\n        \"            CASE 1 [sourcename: testcode]\",\n        \"                STRING a 1 [sourcename: testcode]\",\n        \"                BLOCK 1 [sourcename: testcode] [synthetic: 1]\",\n        \"            CASE 1 [sourcename: testcode]\",\n        \"                STRING b 1 [sourcename: testcode]\",\n        \"                BLOCK 1 [sourcename: testcode] [synthetic: 1]\",\n        \"            CASE 1 [sourcename: testcode]\",\n        \"                S",
+      "observation_truncated": true,
+      "observation_chars": 11734,
+      "duration_seconds": 2.817
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The UnreachableCodeElimination pass incorrectly attempts to remove a node that has already been detached from the AST, or it attempts to remove a node whose parent is null because the node is not properly linked in the tree. Specifically, in the case of 'break' statements within switch blocks, the traversal logic might be visiting nodes that have already been removed by a previous optimization step, or the logic in 'removeDeadExprStatementSafely' assumes a parent exists when it might not.",
+      "prediction": "The 'removeDeadExprStatementSafely' method in UnreachableCodeElimination.java will show that it does not check if the node's parent is null before calling NodeUtil.removeChild, and the traversal logic does not prevent re-visiting or re-processing nodes that have already been detached.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Checking",
+      "duration_seconds": 6.385
+    }
+  ],
+  "llm_calls_used": 2,
+  "termination_reason": "concluded",
+  "loop_duration_seconds": 9.202,
+  "probe_misses": 0,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"confidence\": 0.9, \"needs_human_review\": false, \"observation_summary\": \"The compiler crashes with a NullPointerException in NodeUtil.removeChild because it is called with a node whose parent is null. This occurs during the UnreachableCodeElimination pass, which is attempting to remove a 'break' statement that has likely already been processed or detached.\", \"hypothesis\": \"The UnreachableCodeElimination pass incorrectly attempts to remove a node that has already been detached from the AST, or it attempts to remove a node whose parent is null because the node is not properly linked in the tree. Specifically, in the case of 'break' statements within switch blocks, the traversal logic might be visiting nodes that have already been removed by a previous optimization step, or the logic in 'removeDeadExprStatementSafely' assumes a parent exists when it might not.\", \"prediction\": \"The 'removeDeadExprStatementSafely' method in UnreachableCodeElimination.java will show that it does not check if the node's parent is null before calling NodeUtil.removeChild, and the traversal logic does not prevent re-visiting or re-processing nodes that have already been detached.\", \"experiment_rationale\": \"The stack trace clearly points to a NullPointerException when accessing the parent of a node in NodeUtil.removeChild, which is called by UnreachableCodeElimination. The lack of a null check for the parent before attempting to remove the node is a classic validation/checking error.\", \"reasoning_summary\": \"The failure is a direct result of missing validation (a null check) on the node's parent before performing a structural modification (removal) on the AST. This is a 'Checking' defect because the code assumes a valid parent-child relationship that no longer exists due to previous transformations.\", \"evidence_used\": [\"full_stack_trace\", \"production_code_snippets\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"While the traversal logic is part of the algorithm, the immediate cause of the crash is the missing check for a null parent, which is a validation issue.\"}]}"
+}

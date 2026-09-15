@@ -1,0 +1,112 @@
+{
+  "project_id": "Closure",
+  "bug_id": 131,
+  "version_id": "131b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-09-15T08:18:47+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The compiler incorrectly converts property accessors (e.g., a['\\u0004']) to dot notation (e.g., a.\\u0004), which is invalid syntax in JavaScript because the property name contains a control character. The test failures confirm that the compiler is performing this transformation when it should not.",
+  "hypothesis": "The ConvertToDottedProperties pass incorrectly converts property accessors to dot notation even when the property name contains characters that are invalid in unquoted JavaScript identifiers (such as Unicode control characters). The pass lacks a check to verify if a property name is a valid identifier before performing the conversion.",
+  "prediction": "The implementation of ConvertToDottedProperties will show that it performs the conversion without validating the property name against standard JavaScript identifier rules.",
+  "experiment_rationale": "The stack trace and test failures clearly indicate that the compiler is performing an invalid transformation (GETELEM to GETPROP) on property names containing non-identifier characters. This is a classic missing validation check (Checking) in the transformation logic.",
+  "reasoning_summary": "The bug is caused by the absence of a guard condition in the ConvertToDottedProperties pass that checks if a property name is a valid identifier before converting it to dot notation. This falls under the 'Checking' category as it is a missing validation of data (the property name) in a conditional transformation.",
+  "evidence_used": [
+    "bug_report",
+    "full_stack_trace"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "While the transformation logic is part of an algorithm, the root cause is specifically the missing validation check, which is the defining characteristic of the 'Checking' category."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The ConvertToDottedProperties pass incorrectly assumes that all property names can be converted to dot notation without checking if the property name contains characters that are invalid in unquoted JS identifiers, specifically Unicode control characters.",
+      "prediction": "The ConvertToDottedProperties class will contain a method that checks if a property name is a valid identifier, and this method is either missing a check for non-ASCII/control characters or is incorrectly implemented.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "ConvertToDottedProperties"
+      },
+      "observation_summary": [
+        "snippets"
+      ],
+      "observation": "{\n  \"snippets\": [\n    {\n      \"class_name\": \"com.google.javascript.jscomp.ConvertToDottedPropertiesTest\",\n      \"reason\": \"Test source: com.google.javascript.jscomp.ConvertToDottedPropertiesTest::testQuotedProps (shows expected behavior)\",\n      \"file_path\": \"C:\\\\WORK\\\\IUT\\\\Research\\\\implementation\\\\.dist\\\\study\\\\work_v2\\\\prefix\\\\Closure_131b\\\\test\\\\com\\\\google\\\\javascript\\\\jscomp\\\\ConvertToDottedPropertiesTest.java\",\n      \"start_line\": 66,\n      \"end_line\": 75,\n      \"focus_line\": 72,\n      \"content\": \"    66: \\n    67: \\n    68:   public void testQuotedProps() {\\n    69:     testSame(\\\"({'':0})\\\");\\n    70:     testSame(\\\"({'1.0':0})\\\");\\n    71:     testSame(\\\"({'\\\\u1d17A':0})\\\");\\n    72:     testSame(\\\"({'a\\\\u0004b':0})\\\");\\n    73:   }\\n    74: \\n    75:   public void test5746867() {\"\n    }\n  ]\n}",
+      "observation_truncated": false,
+      "observation_chars": 814,
+      "duration_seconds": 3.071
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The ConvertToDottedProperties pass is missing a validation check to ensure that property names are valid JS identifiers before converting them to dot notation. The current implementation likely assumes any string key can be converted, failing to account for characters like Unicode control characters that are invalid in unquoted identifiers.",
+      "prediction": "The source code for ConvertToDottedProperties will show a transformation logic that lacks a call to a validator like TokenUtil.isJSIdentifier or similar, or the validator itself is insufficient for the specific characters being tested.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "ConvertToDottedProperties"
+      },
+      "observation_summary": "probe already served this exact request \u2014 use a different probe or conclude",
+      "observation": "{\n  \"error\": \"probe already served this exact request \\u2014 use a different probe or conclude\"\n}",
+      "observation_truncated": false,
+      "observation_chars": 97,
+      "duration_seconds": 1.772
+    },
+    {
+      "turn": 3,
+      "hypothesis": "The ConvertToDottedProperties pass is missing a validation check to ensure that property names are valid JS identifiers before converting them to dot notation. The current implementation likely assumes any string key can be converted, failing to account for characters like Unicode control characters that are invalid in unquoted identifiers.",
+      "prediction": "The source code for ConvertToDottedProperties will show a transformation logic that lacks a call to a validator like TokenUtil.isJSIdentifier or similar, or the validator itself is insufficient for the specific characters being tested.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "full_stack_trace",
+        "argument": "ConvertToDottedProperties"
+      },
+      "observation_summary": [
+        "traces"
+      ],
+      "observation": "{\n  \"traces\": [\n    {\n      \"test_name\": \"com.google.javascript.jscomp.ConvertToDottedPropertiesTest::testQuotedProps\",\n      \"headline\": \"junit.framework.AssertionFailedError:\",\n      \"stack_trace\": [\n        \"junit.framework.AssertionFailedError: \",\n        \"Expected: ({\\\"a\\\\u0004b\\\":0})\",\n        \"Result: ({a\\u0004b:0})\",\n        \"Node tree inequality:\",\n        \"Tree1:\",\n        \"BLOCK [synthetic: 1]\",\n        \"    SCRIPT 1 [synthetic: 1] [source_file: expected0] [input_id: InputId: expected0]\",\n        \"        EXPR_RESULT 1 [source_file: expected0]\",\n        \"            OBJECTLIT 1 [source_file: expected0]\",\n        \"                STRING_KEY a\\u0004b 1 [quoted: 1] [source_file: expected0]\",\n        \"                    NUMBER 0.0 1 [source_file: expected0]\",\n        \"\",\n        \"\",\n        \"Tree2:\",\n        \"BLOCK [synthetic: 1]\",\n        \"    SCRIPT 1 [synthetic: 1] [source_file: testcode] [input_id: InputId: testcode]\",\n        \"        EXPR_RESULT 1 [source_file: testcode]\",\n        \"            OBJECTLIT 1 [source_file: testcode]\",\n        \"                STRING_KEY a\\u0004b 1 [source_file: testcode]\",\n        \"                    NUMBER 0.0 1 [source_file: testcode]\",\n        \"\",\n        \"\",\n        \"Subtree1: STRING_KEY a\\u0004b 1 [quoted: 1] [source_file: expected0]\",\n        \"    NUMBER 0.0 1 [source_file: expected0]\",\n        \"\",\n        \"\",\n        \"Subtree2: STRING_KEY a\\u0004b 1 [source_file: testcode]\",\n        \"    NUMBER 0.0 1 [source_file: testcode]\",\n        \"\",\n        \"\\tat junit.framework.Assert.fail(Assert.java:57)\",\n        \"\\tat junit.framework.Assert.assertTrue(Assert.java:22)\",\n        \"\\tat junit.framework.Assert.assertNull(Assert.java:277)\",\n        \"\\tat junit.framework.TestCase.assertNull(TestCase.java:447)\",\n        \"\\tat com.google.javascript.jscomp.CompilerTestCase.test(CompilerTestCase.java:924)\",\n        \"\\tat com.google.javascript.jscomp.CompilerTestCase.test(CompilerTestCase.java:459)\",\n        \"\\tat com.google.javascrip",
+      "observation_truncated": true,
+      "observation_chars": 10744,
+      "duration_seconds": 3.114
+    },
+    {
+      "turn": 4,
+      "hypothesis": "The ConvertToDottedProperties pass incorrectly converts property accessors to dot notation even when the property name contains characters that are invalid in unquoted JavaScript identifiers (such as Unicode control characters). The pass lacks a check to verify if a property name is a valid identifier before performing the conversion.",
+      "prediction": "The implementation of ConvertToDottedProperties will show that it performs the conversion without validating the property name against standard JavaScript identifier rules.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Checking",
+      "duration_seconds": 3.292
+    }
+  ],
+  "llm_calls_used": 4,
+  "termination_reason": "concluded",
+  "loop_duration_seconds": 11.249,
+  "probe_misses": 1,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The compiler incorrectly converts property accessors (e.g., a['\\\\u0004']) to dot notation (e.g., a.\\\\u0004), which is invalid syntax in JavaScript because the property name contains a control character. The test failures confirm that the compiler is performing this transformation when it should not.\", \"hypothesis\": \"The ConvertToDottedProperties pass incorrectly converts property accessors to dot notation even when the property name contains characters that are invalid in unquoted JavaScript identifiers (such as Unicode control characters). The pass lacks a check to verify if a property name is a valid identifier before performing the conversion.\", \"prediction\": \"The implementation of ConvertToDottedProperties will show that it performs the conversion without validating the property name against standard JavaScript identifier rules.\", \"experiment_rationale\": \"The stack trace and test failures clearly indicate that the compiler is performing an invalid transformation (GETELEM to GETPROP) on property names containing non-identifier characters. This is a classic missing validation check (Checking) in the transformation logic.\", \"reasoning_summary\": \"The bug is caused by the absence of a guard condition in the ConvertToDottedProperties pass that checks if a property name is a valid identifier before converting it to dot notation. This falls under the 'Checking' category as it is a missing validation of data (the property name) in a conditional transformation.\", \"evidence_used\": [\"bug_report\", \"full_stack_trace\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"While the transformation logic is part of an algorithm, the root cause is specifically the missing validation check, which is the defining characteristic of the 'Checking' category.\"}]}"
+}

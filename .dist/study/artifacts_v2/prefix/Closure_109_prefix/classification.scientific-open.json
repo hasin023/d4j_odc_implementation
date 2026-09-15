@@ -1,0 +1,78 @@
+{
+  "project_id": "Closure",
+  "bug_id": 109,
+  "version_id": "109b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "created_at": "2026-09-15T08:12:08+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The JSDoc parser fails to parse 'function(new:?)' and 'function(new:*)' because 'parseContextTypeExpression' delegates to 'parseTypeName', which strictly expects a 'JsDocToken.STRING' and reports a syntax error for any other token, including '?' and '*'.",
+  "hypothesis": "The method 'parseContextTypeExpression' is responsible for parsing the type after 'new:' or 'this:'. It currently calls 'parseTypeName', which only accepts 'JsDocToken.STRING'. However, '?' and '*' are valid type expressions in this context but are represented by 'JsDocToken.QMARK' and 'JsDocToken.STAR' respectively. The parser fails because it does not handle these tokens in 'parseContextTypeExpression'.",
+  "prediction": "Modifying 'parseContextTypeExpression' to check for 'JsDocToken.QMARK' and 'JsDocToken.STAR' and return the corresponding nodes (e.g., 'newNode(Token.QMARK)' or 'newNode(Token.STAR)') will resolve the syntax error.",
+  "experiment_rationale": "The stack trace and source code confirm that 'parseContextTypeExpression' is the bottleneck. It is a simple wrapper around 'parseTypeName' that lacks the necessary logic to handle non-string type tokens that are valid in this specific context.",
+  "reasoning_summary": "The bug is a classic missing validation/handling case in a recursive descent parser. The 'parseContextTypeExpression' method is too restrictive, failing to account for valid JSDoc type tokens ('?' and '*') that are handled elsewhere in the parser but not in this specific branch.",
+  "evidence_used": [
+    "stack_trace_excerpt",
+    "snippet"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The fix is not a change to the algorithm itself, but rather adding a missing check/case to the existing parsing logic."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "The parser for JSDoc type expressions fails to handle the '?' (unknown) and '*' (all) types when they appear as the context type in a constructor definition (e.g., 'new:?' or 'new:*'). The 'parseContextTypeExpression' method only calls 'parseTypeName', which expects a string token, but '?' and '*' are not string tokens in the JSDoc parser.",
+      "prediction": "If I examine the 'parseContextTypeExpression' method and the 'parseTypeName' method, I will find that 'parseTypeName' explicitly checks for 'JsDocToken.STRING' and returns a syntax error if it encounters anything else, failing to account for 'JsDocToken.QMARK' or 'JsDocToken.STAR'.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "snippet",
+        "argument": "com.google.javascript.jscomp.parsing.JsDocInfoParser"
+      },
+      "observation_summary": [
+        "snippets"
+      ],
+      "observation": "{\n  \"snippets\": [\n    {\n      \"class_name\": \"com.google.javascript.jscomp.parsing.JsDocInfoParser$ErrorReporterParser\",\n      \"reason\": \"Stack frame from com.google.javascript.jscomp.parsing.JsDocInfoParser$ErrorReporterParser.addTypeWarning\",\n      \"file_path\": \"C:\\\\WORK\\\\IUT\\\\Research\\\\implementation\\\\.dist\\\\study\\\\work_v2\\\\prefix\\\\Closure_109b\\\\src\\\\com\\\\google\\\\javascript\\\\jscomp\\\\parsing\\\\JsDocInfoParser.java\",\n      \"start_line\": 71,\n      \"end_line\": 95,\n      \"focus_line\": 83,\n      \"content\": \"     71:           getSourceName(), lineno, null, charno);\\n     72:     }\\n     73: \\n     74:     void addTypeWarning(String messageId, String messageArg, int lineno,\\n     75:                     int charno) {\\n     76:       errorReporter.warning(\\n     77:           \\\"Bad type annotation. \\\" +\\n     78:           SimpleErrorReporter.getMessage1(messageId, messageArg),\\n     79:           getSourceName(), lineno, null, charno);\\n     80:     }\\n     81: \\n     82:     void addTypeWarning(String messageId, int lineno, int charno) {\\n>>   83:       errorReporter.warning(\\n     84:           \\\"Bad type annotation. \\\" +\\n     85:           SimpleErrorReporter.getMessage0(messageId),\\n     86:           getSourceName(), lineno, null, charno);\\n     87:     }\\n     88:   }\\n     89: \\n     90:   // The DocInfo with the fileoverview tag for the whole file.\\n     91:   private JSDocInfo fileOverviewJSDocInfo = null;\\n     92:   private State state;\\n     93: \\n     94:   private final Map<String, Annotation> annotationNames;\\n     95:   private final Set<String> suppressionNames;\"\n    },\n    {\n      \"class_name\": \"com.google.javascript.jscomp.parsing.JsDocInfoParser\",\n      \"reason\": \"Stack frame from com.google.javascript.jscomp.parsing.JsDocInfoParser.reportTypeSyntaxWarning\",\n      \"file_path\": \"C:\\\\WORK\\\\IUT\\\\Research\\\\implementation\\\\.dist\\\\study\\\\work_v2\\\\prefix\\\\Closure_109b\\\\src\\\\com\\\\google\\\\javascript\\\\jscomp\\\\parsing\\\\JsDocInfoParser.java\",\n      \"start_line\": ",
+      "observation_truncated": true,
+      "observation_chars": 18806,
+      "duration_seconds": 3.147
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The method 'parseContextTypeExpression' is responsible for parsing the type after 'new:' or 'this:'. It currently calls 'parseTypeName', which only accepts 'JsDocToken.STRING'. However, '?' and '*' are valid type expressions in this context but are represented by 'JsDocToken.QMARK' and 'JsDocToken.STAR' respectively. The parser fails because it does not handle these tokens in 'parseContextTypeExpression'.",
+      "prediction": "Modifying 'parseContextTypeExpression' to check for 'JsDocToken.QMARK' and 'JsDocToken.STAR' and return the corresponding nodes (e.g., 'newNode(Token.QMARK)' or 'newNode(Token.STAR)') will resolve the syntax error.",
+      "action": "conclude",
+      "forced": false,
+      "conclusion_odc_type": "Checking",
+      "duration_seconds": 5.601
+    }
+  ],
+  "llm_calls_used": 2,
+  "termination_reason": "concluded",
+  "loop_duration_seconds": 8.748,
+  "probe_misses": 0,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The JSDoc parser fails to parse 'function(new:?)' and 'function(new:*)' because 'parseContextTypeExpression' delegates to 'parseTypeName', which strictly expects a 'JsDocToken.STRING' and reports a syntax error for any other token, including '?' and '*'.\", \"hypothesis\": \"The method 'parseContextTypeExpression' is responsible for parsing the type after 'new:' or 'this:'. It currently calls 'parseTypeName', which only accepts 'JsDocToken.STRING'. However, '?' and '*' are valid type expressions in this context but are represented by 'JsDocToken.QMARK' and 'JsDocToken.STAR' respectively. The parser fails because it does not handle these tokens in 'parseContextTypeExpression'.\", \"prediction\": \"Modifying 'parseContextTypeExpression' to check for 'JsDocToken.QMARK' and 'JsDocToken.STAR' and return the corresponding nodes (e.g., 'newNode(Token.QMARK)' or 'newNode(Token.STAR)') will resolve the syntax error.\", \"experiment_rationale\": \"The stack trace and source code confirm that 'parseContextTypeExpression' is the bottleneck. It is a simple wrapper around 'parseTypeName' that lacks the necessary logic to handle non-string type tokens that are valid in this specific context.\", \"reasoning_summary\": \"The bug is a classic missing validation/handling case in a recursive descent parser. The 'parseContextTypeExpression' method is too restrictive, failing to account for valid JSDoc type tokens ('?' and '*') that are handled elsewhere in the parser but not in this specific branch.\", \"evidence_used\": [\"stack_trace_excerpt\", \"snippet\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"The fix is not a change to the algorithm itself, but rather adding a missing check/case to the existing parsing logic.\"}]}"
+}
