@@ -1,0 +1,74 @@
+{
+  "project_id": "Time",
+  "bug_id": 3,
+  "version_id": "3b",
+  "prompt_style": "scientific",
+  "model": "gpt-5-mini",
+  "provider": "openai-compatible",
+  "created_at": "2026-09-15T12:39:46+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.95,
+  "needs_human_review": false,
+  "observation_summary": "Tests showed that calling addDays(0)/addMonths(0)/addYears(0)/etc. on a MutableDateTime during a DST overlap changed the object's millisecond instant / offset (expected +01:00 but got +02:00). The failing tests compare string representations before and after adding zero and observed an unintended one-hour change.",
+  "hypothesis": "",
+  "prediction": "",
+  "experiment_rationale": "",
+  "reasoning_summary": "The post-fix diff wraps each addX(...) implementation with an explicit guard that checks for a zero amount (if (amount != 0) { setMillis(...); }). This indicates the bug was caused by missing validation/guard logic: methods applied an update even when the requested delta was zero, triggering side effects (DST/offset adjustments). The fix does not change values, algorithms, method signatures, relationships, or add synchronization \u2014 it simply adds missing conditional checks, so 'Checking' is the correct ODC type.",
+  "evidence_used": [
+    "failing_tests: ComparisonFailure expecting +01:00 but was +02:00 for addYears/addDays/addWeeks/addMonths/add(DurationFieldType,0)",
+    "bug_report_description: addDays(0) changes value of MutableDateTime; reproducer showing addDays(0) changed millis by one hour",
+    "fix_diff_oracle unified_diff: added 'if (amount != 0) { setMillis(...); }' (and similar 'if (years != 0) { ... }') around setMillis calls in addX methods"
+  ],
+  "evidence_gaps": [
+    "No pre-fix implementation details of the chronology field add(...) methods themselves (we rely on diff showing setMillis invocation being called even for zero deltas).",
+    "No explicit comment in the diff referencing DST rationale; inference based on test failure and added guard."
+  ],
+  "alternative_types": [
+    {
+      "type": "Assignment/Initialization",
+      "why_not_primary": "The change does not adjust any assigned constant or initialization; it adds conditional guards around existing setMillis calls rather than changing assigned values."
+    },
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The core computation (calling chronology's add and setMillis) remains unchanged. The fix is not a rewrite of algorithmic logic but a guard to prevent invoking the algorithm for a zero delta."
+    },
+    {
+      "type": "Timing/Serialization",
+      "why_not_primary": "Although the symptom involves time/DST, the fix does not add synchronization or reorder operations; it simply avoids an unnecessary state update when amount is zero."
+    },
+    {
+      "type": "Interface/O-O Messages",
+      "why_not_primary": "No method signatures, parameter contracts, or inter-module message formats were changed."
+    },
+    {
+      "type": "Relationship",
+      "why_not_primary": "The fix does not correct associations between separate data structures or procedures; it is localized to guard checks in methods."
+    },
+    {
+      "type": "Function/Class/Object",
+      "why_not_primary": "No new capability, class, or major design-level change was introduced \u2014 only guards were added to existing methods."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "post-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "termination_reason": null,
+  "loop_duration_seconds": null,
+  "probe_misses": 0,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.95,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"Tests showed that calling addDays(0)/addMonths(0)/addYears(0)/etc. on a MutableDateTime during a DST overlap changed the object's millisecond instant / offset (expected +01:00 but got +02:00). The failing tests compare string representations before and after adding zero and observed an unintended one-hour change.\",\n  \"reasoning_summary\": \"The post-fix diff wraps each addX(...) implementation with an explicit guard that checks for a zero amount (if (amount != 0) { setMillis(...); }). This indicates the bug was caused by missing validation/guard logic: methods applied an update even when the requested delta was zero, triggering side effects (DST/offset adjustments). The fix does not change values, algorithms, method signatures, relationships, or add synchronization \u2014 it simply adds missing conditional checks, so 'Checking' is the correct ODC type.\",\n  \"evidence_used\": [\n    \"failing_tests: ComparisonFailure expecting +01:00 but was +02:00 for addYears/addDays/addWeeks/addMonths/add(DurationFieldType,0)\",\n    \"bug_report_description: addDays(0) changes value of MutableDateTime; reproducer showing addDays(0) changed millis by one hour\",\n    \"fix_diff_oracle unified_diff: added 'if (amount != 0) { setMillis(...); }' (and similar 'if (years != 0) { ... }') around setMillis calls in addX methods\"\n  ],\n  \"evidence_gaps\": [\n    \"No pre-fix implementation details of the chronology field add(...) methods themselves (we rely on diff showing setMillis invocation being called even for zero deltas).\",\n    \"No explicit comment in the diff referencing DST rationale; inference based on test failure and added guard.\"\n  ],\n  \"alternative_types\": [\n    {\n      \"type\": \"Assignment/Initialization\",\n      \"why_not_primary\": \"The change does not adjust any assigned constant or initialization; it adds conditional guards around existing setMillis calls rather than changing assigned values.\"\n    },\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"The core computation (calling chronology's add and setMillis) remains unchanged. The fix is not a rewrite of algorithmic logic but a guard to prevent invoking the algorithm for a zero delta.\"\n    },\n    {\n      \"type\": \"Timing/Serialization\",\n      \"why_not_primary\": \"Although the symptom involves time/DST, the fix does not add synchronization or reorder operations; it simply avoids an unnecessary state update when amount is zero.\"\n    },\n    {\n      \"type\": \"Interface/O-O Messages\",\n      \"why_not_primary\": \"No method signatures, parameter contracts, or inter-module message formats were changed.\"\n    },\n    {\n      \"type\": \"Relationship\",\n      \"why_not_primary\": \"The fix does not correct associations between separate data structures or procedures; it is localized to guard checks in methods.\"\n    },\n    {\n      \"type\": \"Function/Class/Object\",\n      \"why_not_primary\": \"No new capability, class, or major design-level change was introduced \u2014 only guards were added to existing methods.\"\n    }\n  ]\n}"
+}

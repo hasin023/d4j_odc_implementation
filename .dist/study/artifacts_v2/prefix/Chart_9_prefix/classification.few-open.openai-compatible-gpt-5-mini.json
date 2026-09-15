@@ -1,0 +1,76 @@
+{
+  "project_id": "Chart",
+  "bug_id": 9,
+  "version_id": "9b",
+  "prompt_style": "scientific",
+  "model": "gpt-5-mini",
+  "provider": "openai-compatible",
+  "created_at": "2026-09-15T12:33:59+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.81,
+  "needs_human_review": false,
+  "observation_summary": "A call to TimeSeries.createCopy(startIndex, endIndex) is made when startIndex and endIndex (computed from time periods) can be in the wrong order, producing an IllegalArgumentException \"Requires start <= end.\" The outer createCopy(period, period) path computes integer indexes and only checks for endIndex < 0 but does not check for startIndex > endIndex, so an exception is thrown instead of returning an empty series.",
+  "hypothesis": "",
+  "prediction": "",
+  "experiment_rationale": "",
+  "reasoning_summary": "The failure is caused by a missing validation/guard: after mapping requested time periods to integer indexes the code fails to check the ordering (startIndex <= endIndex) before calling the index-based createCopy. The immediate fix is to add the missing check (or otherwise handle the empty-range case) in the period-based createCopy path. This is a predicate/validation error (Checking) rather than a pure assignment or a larger design change.",
+  "evidence_used": [
+    "production_code_snippets:TimeSeries.java lines 871-895 (focus 883) - createCopy(int start, int end) throws IllegalArgumentException if end < start",
+    "production_code_snippets:TimeSeries.java lines 941-953 (focus 953) - period-based createCopy computes startIndex/endIndex, sets emptyRange only when endIndex < 0, otherwise calls createCopy(startIndex, endIndex)",
+    "test_code_snippets:TimeSeriesTests.java lines 821-837 (focus 829) - test calls s.createCopy(new Day(1,12,2005), new Day(18,1,2006)) and expects no exception",
+    "bug_report_description - states indexes are computed incorrectly and empty series expected rather than exception"
+  ],
+  "evidence_gaps": [
+    "No provided code showing how startIndex and endIndex are computed (the binary search/mapping logic is not included)",
+    "No pre-fix diff or author comments showing intended contract for createCopy(int,int) (whether it should accept start> end and return empty)",
+    "No explicit patch showing whether fix adjusts the computation or adds a guard; ambiguity whether root cause is computation algorithm vs. missing check"
+  ],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The bug report mentions incorrect index computation which could indicate an algorithmic error mapping periods to indexes. However, the immediate symptom and available code show a missing validation (no check for startIndex > endIndex) before calling createCopy(int,int). Since adding the predicate check is the most direct corrective action indicated by the pre-fix evidence, Checking is the better fit."
+    },
+    {
+      "type": "Assignment/Initialization",
+      "why_not_primary": "There is no evidence of an incorrect literal or variable initialization; the failure arises from index ordering/validation rather than a wrong assigned value."
+    },
+    {
+      "type": "Function/Class/Object",
+      "why_not_primary": "This is a local behavioral/validation issue in an existing method, not a missing or new capability or class-level design change."
+    },
+    {
+      "type": "Interface/O-O Messages",
+      "why_not_primary": "No inter-component or API signature mismatch is evident; the problem occurs within TimeSeries methods."
+    },
+    {
+      "type": "Timing/Serialization",
+      "why_not_primary": "No concurrency, ordering, or serialization/resource lock issues are present in the evidence."
+    },
+    {
+      "type": "Relationship",
+      "why_not_primary": "No broken association between multiple data structures or modules is shown; the issue is local to index validation/period-to-index mapping."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "termination_reason": null,
+  "loop_duration_seconds": null,
+  "probe_misses": 0,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.81,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"A call to TimeSeries.createCopy(startIndex, endIndex) is made when startIndex and endIndex (computed from time periods) can be in the wrong order, producing an IllegalArgumentException \\\"Requires start <= end.\\\" The outer createCopy(period, period) path computes integer indexes and only checks for endIndex < 0 but does not check for startIndex > endIndex, so an exception is thrown instead of returning an empty series.\",\n  \"reasoning_summary\": \"The failure is caused by a missing validation/guard: after mapping requested time periods to integer indexes the code fails to check the ordering (startIndex <= endIndex) before calling the index-based createCopy. The immediate fix is to add the missing check (or otherwise handle the empty-range case) in the period-based createCopy path. This is a predicate/validation error (Checking) rather than a pure assignment or a larger design change.\",\n  \"evidence_used\": [\n    \"production_code_snippets:TimeSeries.java lines 871-895 (focus 883) - createCopy(int start, int end) throws IllegalArgumentException if end < start\",\n    \"production_code_snippets:TimeSeries.java lines 941-953 (focus 953) - period-based createCopy computes startIndex/endIndex, sets emptyRange only when endIndex < 0, otherwise calls createCopy(startIndex, endIndex)\",\n    \"test_code_snippets:TimeSeriesTests.java lines 821-837 (focus 829) - test calls s.createCopy(new Day(1,12,2005), new Day(18,1,2006)) and expects no exception\",\n    \"bug_report_description - states indexes are computed incorrectly and empty series expected rather than exception\"\n  ],\n  \"evidence_gaps\": [\n    \"No provided code showing how startIndex and endIndex are computed (the binary search/mapping logic is not included)\",\n    \"No pre-fix diff or author comments showing intended contract for createCopy(int,int) (whether it should accept start> end and return empty)\",\n    \"No explicit patch showing whether fix adjusts the computation or adds a guard; ambiguity whether root cause is computation algorithm vs. missing check\"\n  ],\n  \"alternative_types\": [\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"The bug report mentions incorrect index computation which could indicate an algorithmic error mapping periods to indexes. However, the immediate symptom and available code show a missing validation (no check for startIndex > endIndex) before calling createCopy(int,int). Since adding the predicate check is the most direct corrective action indicated by the pre-fix evidence, Checking is the better fit.\"\n    },\n    {\n      \"type\": \"Assignment/Initialization\",\n      \"why_not_primary\": \"There is no evidence of an incorrect literal or variable initialization; the failure arises from index ordering/validation rather than a wrong assigned value.\"\n    },\n    {\n      \"type\": \"Function/Class/Object\",\n      \"why_not_primary\": \"This is a local behavioral/validation issue in an existing method, not a missing or new capability or class-level design change.\"\n    },\n    {\n      \"type\": \"Interface/O-O Messages\",\n      \"why_not_primary\": \"No inter-component or API signature mismatch is evident; the problem occurs within TimeSeries methods.\"\n    },\n    {\n      \"type\": \"Timing/Serialization\",\n      \"why_not_primary\": \"No concurrency, ordering, or serialization/resource lock issues are present in the evidence.\"\n    },\n    {\n      \"type\": \"Relationship\",\n      \"why_not_primary\": \"No broken association between multiple data structures or modules is shown; the issue is local to index validation/period-to-index mapping.\"\n    }\n  ]\n}"
+}

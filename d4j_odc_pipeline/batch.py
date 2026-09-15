@@ -326,6 +326,7 @@ def run_batch_from_manifest(
     daily_call_budget: int | None = 1400,
     self_consistency: int = 1,
     keep_work: bool = False,
+    reasoning_effort: str | None = None,
 ) -> dict[str, Any]:
     entries = list(manifest.get("entries", []))
     if not entries:
@@ -532,6 +533,7 @@ def run_batch_from_manifest(
                         taxonomy=taxonomy,
                         strategy=strategy,
                         self_consistency=self_consistency,
+                        reasoning_effort=reasoning_effort,
                     )
 
                     if classification is None:

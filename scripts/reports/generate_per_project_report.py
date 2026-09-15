@@ -38,7 +38,7 @@ from openpyxl.utils import get_column_letter
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
-from d4j_odc_pipeline.odc import ODC_TYPE_NAMES, OTHER_TYPE_NAME  # noqa: E402
+from d4j_odc_pipeline.odc import ODC_TYPE_NAMES, OTHER_TYPE_NAME, model_slug, resolve_effective_tag_from_root  # noqa: E402
 
 MANIFESTS = {
     "Chart": ("manifest_chart26", 26),
@@ -268,20 +268,26 @@ def build_ablation_tab(wb, records):
 
 # ── Data loading ─────────────────────────────────────────────────────────────
 
-def load_records(root: Path, project: str, expected: int, manifest_slug: str) -> list[dict]:
+def load_records(
+    root: Path, project: str, expected: int, manifest_slug: str,
+    provider: str | None = None, model: str | None = None,
+) -> list[dict]:
     manifest = load_json(REPO_ROOT / f".dist/study/{manifest_slug}.json")
     bug_ids = sorted({e["bug_id"] for e in manifest["entries"]})
     assert len(bug_ids) == expected, f"{project}: expected {expected} bugs in manifest, got {len(bug_ids)}"
 
+    sci_tag = resolve_effective_tag_from_root(root, "scientific-open", provider, model)
+    few_tag = resolve_effective_tag_from_root(root, "few-open", provider, model)
+
     records = []
     for b in bug_ids:
-        sci_pre = load_classification(root, project, b, "prefix", "scientific-open")
-        sci_post = load_classification(root, project, b, "postfix", "scientific-open")
-        few_pre = load_classification(root, project, b, "prefix", "few-open")
-        few_post = load_classification(root, project, b, "postfix", "few-open")
+        sci_pre = load_classification(root, project, b, "prefix", sci_tag)
+        sci_post = load_classification(root, project, b, "postfix", sci_tag)
+        few_pre = load_classification(root, project, b, "prefix", few_tag)
+        few_post = load_classification(root, project, b, "postfix", few_tag)
         missing = [name for name, v in [
-            ("scientific-open prefix", sci_pre), ("scientific-open postfix", sci_post),
-            ("few-open prefix", few_pre), ("few-open postfix", few_post),
+            (f"{sci_tag} prefix", sci_pre), (f"{sci_tag} postfix", sci_post),
+            (f"{few_tag} prefix", few_pre), (f"{few_tag} postfix", few_post),
         ] if v is None]
         assert not missing, f"{project}-{b}: missing classification(s): {', '.join(missing)}"
         records.append({
@@ -307,19 +313,25 @@ def main():
     ap.add_argument("--project", required=True, choices=sorted(MANIFESTS))
     ap.add_argument("--artifacts-root", default=".dist/study/artifacts_v2")
     ap.add_argument("--output", default=None, help="Override output path (default: auto under .dist/study/reports/<root>/per_project/)")
+    ap.add_argument("--provider", default=None, help="Read a second-model run's tagged classification files instead of the bare (first-model) ones — see odc.py::resolve_effective_tag. Must match --provider/--model used to write it.")
+    ap.add_argument("--model", default=None, help="Paired with --provider above.")
     args = ap.parse_args()
 
     root = REPO_ROOT / args.artifacts_root
     root_name = Path(args.artifacts_root).name
     manifest_slug, expected = MANIFESTS[args.project]
 
-    records = load_records(root, args.project, expected, manifest_slug)
+    records = load_records(root, args.project, expected, manifest_slug, args.provider, args.model)
+
+    # A second model's report gets its own filename suffix so it never overwrites
+    # the first model's report of the same project on the same day.
+    model_suffix = f".{model_slug(args.provider, args.model)}" if args.provider and args.model else ""
 
     date_str = datetime.now().strftime("%Y-%m-%d")  # local date — human-facing filename, not the machine-readable ledger timestamp
     if args.output:
         out_file = REPO_ROOT / args.output
     else:
-        out_file = REPO_ROOT / ".dist/study/reports" / root_name / "per_project" / f"{args.project}_{date_str}.xlsx"
+        out_file = REPO_ROOT / ".dist/study/reports" / root_name / "per_project" / f"{args.project}_{date_str}{model_suffix}.xlsx"
     out_file.parent.mkdir(parents=True, exist_ok=True)
 
     type_names = list(ODC_TYPE_NAMES) + [OTHER_TYPE_NAME]
@@ -341,6 +353,8 @@ def main():
         "report_type": "per_project",
         "project": args.project,
         "conditions": ["scientific-open", "few-open"],
+        "provider": args.provider,
+        "model": args.model,
         "bug_count": len(records),
         "output": str(out_file.relative_to(REPO_ROOT)),
     })

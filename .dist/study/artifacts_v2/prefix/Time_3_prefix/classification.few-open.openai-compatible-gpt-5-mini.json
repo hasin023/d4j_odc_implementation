@@ -1,0 +1,75 @@
+{
+  "project_id": "Time",
+  "bug_id": 3,
+  "version_id": "3b",
+  "prompt_style": "scientific",
+  "model": "gpt-5-mini",
+  "provider": "openai-compatible",
+  "created_at": "2026-09-15T12:39:22+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 0.7,
+  "needs_human_review": true,
+  "observation_summary": "Calling addDays(0)/addWeeks(0)/addMonths(0)/addYears(0) on a MutableDateTime after crossing a DST boundary changes the instant/offset (observed offset +02:00 instead of expected +01:00). addHours(0), addMinutes(0), addSeconds(0) do not exhibit the problem.",
+  "hypothesis": "",
+  "prediction": "",
+  "experiment_rationale": "",
+  "reasoning_summary": "The failure is due to incorrect computation in the 'add' procedures for certain DurationField types (days/weeks/months/years) when handling DST overlap and zero amounts. The tests demonstrate correct behavior for hour-based additions but incorrect behavior for larger-field additions, indicating the algorithm used by those addX methods (or the DateTimeField logic they call) computes or adjusts the instant incorrectly across zone transitions. This is a procedural/algorithmic error rather than a missing guard, wrong assignment, API boundary, concurrency, or design-level missing capability.",
+  "evidence_used": [
+    "failing_tests: comparison failures showing expected offset +01:00 but actual +02:00 for addYears/addDays/addWeeks/addMonths/add(DurationFieldType,0)",
+    "production_code_snippets: TestMutableDateTime_Adds test cases (lines showing test.construct -> addHours(1) -> addX(0) -> assert expecting same toString with +01:00)",
+    "bug_report_description: example output showing addHours(0) leaves instant unchanged but addDays(0) changes instant by 1 hour across DST transition"
+  ],
+  "evidence_gaps": [
+    "No production implementation code for MutableDateTime.addDays/addMonths/addYears/add(DurationFieldType,...) provided to show exact faulty lines or algorithmic steps",
+    "No diff or proposed fix to confirm whether remedy is a small guard, assignment change, or algorithm rewrite",
+    "No stack frames into library internals showing which DateTimeField/Chronology method produced the incorrect offset"
+  ],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "The symptom is not simply a missing null/bounds guard \u2014 tests show the methods execute and produce a wrong instant/offset; the core issue appears to be how the add methods compute the resulting instant across DST, not a missing conditional."
+    },
+    {
+      "type": "Assignment/Initialization",
+      "why_not_primary": "There's no evidence of an incorrect literal or variable initialization; behavior differs by algorithm used for different duration fields, pointing to procedural computation rather than a bad assignment."
+    },
+    {
+      "type": "Function/Class/Object",
+      "why_not_primary": "The capability exists (addDays, addMonths, etc.) and is executed; the failure is incorrect behavior of those methods, not a missing or unimplemented class/function or a design-level capability omission."
+    },
+    {
+      "type": "Interface/O-O Messages",
+      "why_not_primary": "No indication of a boundary or API signature mismatch between modules \u2014 the tests invoke public methods and receive incorrect results, implying internal algorithm error."
+    },
+    {
+      "type": "Timing/Serialization",
+      "why_not_primary": "The issue relates to DST/timezone arithmetic, not concurrent access or serialization of shared resources."
+    },
+    {
+      "type": "Relationship",
+      "why_not_primary": "While behavior involves interactions between date fields and chronology/time zone, the evidence points to incorrect local computation in the add methods rather than a broken association across multiple data structures or modules."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Incorrect",
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "termination_reason": null,
+  "loop_duration_seconds": null,
+  "probe_misses": 0,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Algorithm/Method\",\n  \"family\": \"Control and Data Flow\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"confidence\": 0.7,\n  \"needs_human_review\": true,\n  \"observation_summary\": \"Calling addDays(0)/addWeeks(0)/addMonths(0)/addYears(0) on a MutableDateTime after crossing a DST boundary changes the instant/offset (observed offset +02:00 instead of expected +01:00). addHours(0), addMinutes(0), addSeconds(0) do not exhibit the problem.\",\n  \"reasoning_summary\": \"The failure is due to incorrect computation in the 'add' procedures for certain DurationField types (days/weeks/months/years) when handling DST overlap and zero amounts. The tests demonstrate correct behavior for hour-based additions but incorrect behavior for larger-field additions, indicating the algorithm used by those addX methods (or the DateTimeField logic they call) computes or adjusts the instant incorrectly across zone transitions. This is a procedural/algorithmic error rather than a missing guard, wrong assignment, API boundary, concurrency, or design-level missing capability.\",\n  \"evidence_used\": [\n    \"failing_tests: comparison failures showing expected offset +01:00 but actual +02:00 for addYears/addDays/addWeeks/addMonths/add(DurationFieldType,0)\",\n    \"production_code_snippets: TestMutableDateTime_Adds test cases (lines showing test.construct -> addHours(1) -> addX(0) -> assert expecting same toString with +01:00)\",\n    \"bug_report_description: example output showing addHours(0) leaves instant unchanged but addDays(0) changes instant by 1 hour across DST transition\"\n  ],\n  \"evidence_gaps\": [\n    \"No production implementation code for MutableDateTime.addDays/addMonths/addYears/add(DurationFieldType,...) provided to show exact faulty lines or algorithmic steps\",\n    \"No diff or proposed fix to confirm whether remedy is a small guard, assignment change, or algorithm rewrite\",\n    \"No stack frames into library internals showing which DateTimeField/Chronology method produced the incorrect offset\"\n  ],\n  \"alternative_types\": [\n    {\n      \"type\": \"Checking\",\n      \"why_not_primary\": \"The symptom is not simply a missing null/bounds guard \u2014 tests show the methods execute and produce a wrong instant/offset; the core issue appears to be how the add methods compute the resulting instant across DST, not a missing conditional.\"\n    },\n    {\n      \"type\": \"Assignment/Initialization\",\n      \"why_not_primary\": \"There's no evidence of an incorrect literal or variable initialization; behavior differs by algorithm used for different duration fields, pointing to procedural computation rather than a bad assignment.\"\n    },\n    {\n      \"type\": \"Function/Class/Object\",\n      \"why_not_primary\": \"The capability exists (addDays, addMonths, etc.) and is executed; the failure is incorrect behavior of those methods, not a missing or unimplemented class/function or a design-level capability omission.\"\n    },\n    {\n      \"type\": \"Interface/O-O Messages\",\n      \"why_not_primary\": \"No indication of a boundary or API signature mismatch between modules \u2014 the tests invoke public methods and receive incorrect results, implying internal algorithm error.\"\n    },\n    {\n      \"type\": \"Timing/Serialization\",\n      \"why_not_primary\": \"The issue relates to DST/timezone arithmetic, not concurrent access or serialization of shared resources.\"\n    },\n    {\n      \"type\": \"Relationship\",\n      \"why_not_primary\": \"While behavior involves interactions between date fields and chronology/time zone, the evidence points to incorrect local computation in the add methods rather than a broken association across multiple data structures or modules.\"\n    }\n  ]\n}"
+}

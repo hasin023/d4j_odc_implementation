@@ -1,0 +1,74 @@
+{
+  "project_id": "Chart",
+  "bug_id": 9,
+  "version_id": "9b",
+  "prompt_style": "scientific",
+  "model": "gpt-5-mini",
+  "provider": "openai-compatible",
+  "created_at": "2026-09-15T12:34:26+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "A unit test calls TimeSeries.createCopy(...) with start and end periods that map to no items in the series. Instead of returning an empty series, the code throws IllegalArgumentException \"Requires start <= end.\" The stack trace points to the check that enforces start <= end, and the index-based path later should detect an empty range but did not because a missing condition allowed createCopy(startIndex, endIndex) to be invoked with endIndex < startIndex.",
+  "hypothesis": "",
+  "prediction": "",
+  "experiment_rationale": "",
+  "reasoning_summary": "The fix (diff) adds an extra predicate to mark the computed index range as empty when endIndex < startIndex. This is clearly a missing/incorrect validation/guard: the code needed to detect an invalid/empty index range and avoid calling createCopy with swapped indices. The change is an addition to conditional logic (a guard), not a value assignment, algorithm rewrite, API change, concurrency fix, or structural design change\u2014so it matches Checking.",
+  "evidence_used": [
+    "fix_diff_oracle unified_diff: changed if (endIndex < 0) to if ((endIndex < 0) || (endIndex < startIndex)) \u2014 added missing condition to detect empty ranges",
+    "production_code_snippets (TimeSeries.java lines 941-953): computation of endIndex and the branch that returns createCopy(startIndex, endIndex)",
+    "production_code_snippets (TimeSeries.java lines 879-885): existing explicit checks that throw IllegalArgumentException(\"Requires start <= end.\") when end < start for the int-based createCopy overload",
+    "failing_tests (TimeSeriesTests::testBug1864222): test calls s.createCopy(new Day(...), new Day(...)) expecting no exception; stack trace shows IllegalArgumentException at TimeSeries.createCopy"
+  ],
+  "evidence_gaps": [
+    "No full method bodies for all overloads are included, but the provided snippets plus the diff give a direct view of the conditional fix and its intent."
+  ],
+  "alternative_types": [
+    {
+      "type": "Assignment/Initialization",
+      "why_not_primary": "The diff does not change any variable initializations or assignment values; it only augments a conditional predicate to detect an empty range."
+    },
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The core computation and control flow are unchanged; only a guard was added. There is no rewrite of the algorithm or looping/indexing logic."
+    },
+    {
+      "type": "Interface/O-O Messages",
+      "why_not_primary": "No changes to method signatures, parameter contracts, or module boundaries are present."
+    },
+    {
+      "type": "Timing/Serialization",
+      "why_not_primary": "The fix does not add synchronization or change execution ordering for concurrent access."
+    },
+    {
+      "type": "Relationship",
+      "why_not_primary": "This is not a correction of associations among different data structures or procedures\u2014it's a local predicate added to validate computed indices."
+    },
+    {
+      "type": "Function/Class/Object",
+      "why_not_primary": "The change does not add or alter a design-level capability or class-level structure; it's a localized conditional fix."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "post-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "termination_reason": null,
+  "loop_duration_seconds": null,
+  "probe_misses": 0,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"A unit test calls TimeSeries.createCopy(...) with start and end periods that map to no items in the series. Instead of returning an empty series, the code throws IllegalArgumentException \\\"Requires start <= end.\\\" The stack trace points to the check that enforces start <= end, and the index-based path later should detect an empty range but did not because a missing condition allowed createCopy(startIndex, endIndex) to be invoked with endIndex < startIndex.\",\n  \"reasoning_summary\": \"The fix (diff) adds an extra predicate to mark the computed index range as empty when endIndex < startIndex. This is clearly a missing/incorrect validation/guard: the code needed to detect an invalid/empty index range and avoid calling createCopy with swapped indices. The change is an addition to conditional logic (a guard), not a value assignment, algorithm rewrite, API change, concurrency fix, or structural design change\u2014so it matches Checking.\",\n  \"evidence_used\": [\n    \"fix_diff_oracle unified_diff: changed if (endIndex < 0) to if ((endIndex < 0) || (endIndex < startIndex)) \u2014 added missing condition to detect empty ranges\",\n    \"production_code_snippets (TimeSeries.java lines 941-953): computation of endIndex and the branch that returns createCopy(startIndex, endIndex)\",\n    \"production_code_snippets (TimeSeries.java lines 879-885): existing explicit checks that throw IllegalArgumentException(\\\"Requires start <= end.\\\") when end < start for the int-based createCopy overload\",\n    \"failing_tests (TimeSeriesTests::testBug1864222): test calls s.createCopy(new Day(...), new Day(...)) expecting no exception; stack trace shows IllegalArgumentException at TimeSeries.createCopy\"\n  ],\n  \"evidence_gaps\": [\n    \"No full method bodies for all overloads are included, but the provided snippets plus the diff give a direct view of the conditional fix and its intent.\"\n  ],\n  \"alternative_types\": [\n    {\n      \"type\": \"Assignment/Initialization\",\n      \"why_not_primary\": \"The diff does not change any variable initializations or assignment values; it only augments a conditional predicate to detect an empty range.\"\n    },\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"The core computation and control flow are unchanged; only a guard was added. There is no rewrite of the algorithm or looping/indexing logic.\"\n    },\n    {\n      \"type\": \"Interface/O-O Messages\",\n      \"why_not_primary\": \"No changes to method signatures, parameter contracts, or module boundaries are present.\"\n    },\n    {\n      \"type\": \"Timing/Serialization\",\n      \"why_not_primary\": \"The fix does not add synchronization or change execution ordering for concurrent access.\"\n    },\n    {\n      \"type\": \"Relationship\",\n      \"why_not_primary\": \"This is not a correction of associations among different data structures or procedures\u2014it's a local predicate added to validate computed indices.\"\n    },\n    {\n      \"type\": \"Function/Class/Object\",\n      \"why_not_primary\": \"The change does not add or alter a design-level capability or class-level structure; it's a localized conditional fix.\"\n    }\n  ]\n}"
+}

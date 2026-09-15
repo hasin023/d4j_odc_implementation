@@ -1,0 +1,72 @@
+{
+  "project_id": "Chart",
+  "bug_id": 17,
+  "version_id": "17b",
+  "prompt_style": "scientific",
+  "model": "gpt-5-mini",
+  "provider": "openai-compatible",
+  "created_at": "2026-09-15T12:36:13+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 0.95,
+  "needs_human_review": false,
+  "observation_summary": "Cloning an empty TimeSeries threw IllegalArgumentException \"Requires start <= end.\" because clone() delegated to createCopy(0, getItemCount()-1), which passes end = -1 when the series is empty.",
+  "hypothesis": "",
+  "prediction": "",
+  "experiment_rationale": "",
+  "reasoning_summary": "The fix rewrites the clone() implementation: instead of calling createCopy(0, getItemCount()-1) (which relies on createCopy's index-based copy logic and its guards), clone() now performs a shallow super.clone() and deep-clones the data list. This is a change to the local method's algorithm/implementation (not merely a guard, assignment, or interface change), so Algorithm/Method best describes the root cause and fix.",
+  "evidence_used": [
+    "fix_diff_oracle.unified_diff: clone() changed from createCopy(0, getItemCount() - 1) to using super.clone() and ObjectUtilities.deepClone(this.data)",
+    "production_code_snippets TimeSeries.createCopy (lines 876-881): checks that start >= 0 and throws IllegalArgumentException if end < start (\"Requires start <= end.\")",
+    "production_code_snippets TimeSeries.clone (line 857): original code called createCopy(0, getItemCount() - 1)",
+    "failing_tests stack trace and test: IllegalArgumentException thrown from TimeSeries.createCopy during clone in testBug1832432"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "The fix did not add or alter a guard/check. Instead it replaced the cloning approach. The bug arose because clone() used another method whose precondition failed; the fix reimplemented clone logic rather than adding a missing boundary check."
+    },
+    {
+      "type": "Assignment/Initialization",
+      "why_not_primary": "No single incorrect constant or initialization was changed. The change is a behavioral rewrite of clone(), not a correction of an assigned value."
+    },
+    {
+      "type": "Interface/O-O Messages",
+      "why_not_primary": "No method signature or cross-module contract was changed; the fix stayed within the TimeSeries.clone implementation."
+    },
+    {
+      "type": "Timing/Serialization",
+      "why_not_primary": "No concurrency, ordering, or synchronization issues are involved."
+    },
+    {
+      "type": "Relationship",
+      "why_not_primary": "The problem is not about inconsistent associations among multiple structures; it's the cloning algorithm chosen for this method."
+    },
+    {
+      "type": "Function/Class/Object",
+      "why_not_primary": "The capability existed (cloning) but was implemented incorrectly for empty series; the fix corrected method-level behavior rather than adding a new design-level capability."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Incorrect",
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "post-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "termination_reason": null,
+  "loop_duration_seconds": null,
+  "probe_misses": 0,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Algorithm/Method\",\n  \"family\": \"Control and Data Flow\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"confidence\": 0.95,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"Cloning an empty TimeSeries threw IllegalArgumentException \\\"Requires start <= end.\\\" because clone() delegated to createCopy(0, getItemCount()-1), which passes end = -1 when the series is empty.\",\n  \"reasoning_summary\": \"The fix rewrites the clone() implementation: instead of calling createCopy(0, getItemCount()-1) (which relies on createCopy's index-based copy logic and its guards), clone() now performs a shallow super.clone() and deep-clones the data list. This is a change to the local method's algorithm/implementation (not merely a guard, assignment, or interface change), so Algorithm/Method best describes the root cause and fix.\",\n  \"evidence_used\": [\n    \"fix_diff_oracle.unified_diff: clone() changed from createCopy(0, getItemCount() - 1) to using super.clone() and ObjectUtilities.deepClone(this.data)\",\n    \"production_code_snippets TimeSeries.createCopy (lines 876-881): checks that start >= 0 and throws IllegalArgumentException if end < start (\\\"Requires start <= end.\\\")\",\n    \"production_code_snippets TimeSeries.clone (line 857): original code called createCopy(0, getItemCount() - 1)\",\n    \"failing_tests stack trace and test: IllegalArgumentException thrown from TimeSeries.createCopy during clone in testBug1832432\"\n  ],\n  \"evidence_gaps\": [],\n  \"alternative_types\": [\n    {\n      \"type\": \"Checking\",\n      \"why_not_primary\": \"The fix did not add or alter a guard/check. Instead it replaced the cloning approach. The bug arose because clone() used another method whose precondition failed; the fix reimplemented clone logic rather than adding a missing boundary check.\"\n    },\n    {\n      \"type\": \"Assignment/Initialization\",\n      \"why_not_primary\": \"No single incorrect constant or initialization was changed. The change is a behavioral rewrite of clone(), not a correction of an assigned value.\"\n    },\n    {\n      \"type\": \"Interface/O-O Messages\",\n      \"why_not_primary\": \"No method signature or cross-module contract was changed; the fix stayed within the TimeSeries.clone implementation.\"\n    },\n    {\n      \"type\": \"Timing/Serialization\",\n      \"why_not_primary\": \"No concurrency, ordering, or synchronization issues are involved.\"\n    },\n    {\n      \"type\": \"Relationship\",\n      \"why_not_primary\": \"The problem is not about inconsistent associations among multiple structures; it's the cloning algorithm chosen for this method.\"\n    },\n    {\n      \"type\": \"Function/Class/Object\",\n      \"why_not_primary\": \"The capability existed (cloning) but was implemented incorrectly for empty series; the fix corrected method-level behavior rather than adding a new design-level capability.\"\n    }\n  ]\n}"
+}

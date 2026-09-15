@@ -1,0 +1,76 @@
+{
+  "project_id": "Math",
+  "bug_id": 23,
+  "version_id": "23b",
+  "prompt_style": "scientific",
+  "model": "gpt-5-mini",
+  "provider": "openai-compatible",
+  "created_at": "2026-09-15T12:37:59+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "A unit test fails with 'Best point not reported' because BrentOptimizer returned the last-evaluated point rather than the best point seen. The fix adds a 'best' local variable, initializes it to the initial point, updates it each iteration to keep the overall best, and returns that tracked best instead of simply returning the last (or last-two) evaluated point(s).",
+  "hypothesis": "",
+  "prediction": "",
+  "experiment_rationale": "",
+  "reasoning_summary": "The patch changes the algorithmic behavior inside the optimization loop: it introduces and maintains a global 'best' candidate and changes return logic to use that tracked best. This is a procedural/algorithmic correction (maintaining state across iterations and selecting the correct result). It is not merely adding a guard or fixing an assignment constant, nor is it an API/interface, concurrency, or design-level structural change.",
+  "evidence_used": [
+    "failing_tests: junit.framework.AssertionFailedError: Best point not reported from BrentOptimizerTest::testKeepInitIfBest",
+    "bug_report_description: BrentOptimizer does not check that the point it will return is the best encountered; last evaluated point might be slightly worse",
+    "fix_diff_oracle: added 'UnivariatePointValuePair best = current;' initializing best to current",
+    "fix_diff_oracle: added code in loop 'best = best(best, best(current, previous, isMinim), isMinim);' to update overall best each iteration",
+    "fix_diff_oracle: changed convergence return from 'return best(current, previous, isMinim);' to 'return best;' and adjusted default termination to return best(...) combining overall best and last evaluations"
+  ],
+  "evidence_gaps": [
+    "Complete surrounding method body and implementation of helper best(...) not included (assumed present elsewhere)",
+    "No dynamic traces showing specific iteration where last point was worse (we rely on test failure message and diff)"
+  ],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "The fix does not add or change a guard/validation or boundary check; it alters state-tracking and selection logic across iterations rather than inserting a missing predicate."
+    },
+    {
+      "type": "Assignment/Initialization",
+      "why_not_primary": "Although the patch adds an initialization (best = current), the core change is the ongoing maintenance and use of 'best' across the algorithm (behavioral/algorithmic), not just correcting a single incorrect constant or initial value."
+    },
+    {
+      "type": "Interface/O-O Messages",
+      "why_not_primary": "No method signatures, parameter lists, or module boundary contracts are changed; the change is internal to the optimizer's algorithm."
+    },
+    {
+      "type": "Timing/Serialization",
+      "why_not_primary": "There is no evidence of concurrency, locking, or ordering/race-condition fixes; changes are deterministic algorithm updates."
+    },
+    {
+      "type": "Relationship",
+      "why_not_primary": "The change does not correct associations between different data structures or procedures across modules; it updates local algorithm state management."
+    },
+    {
+      "type": "Function/Class/Object",
+      "why_not_primary": "This is not a design-level capability addition or new class; it corrects local algorithm behavior within the existing class."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "post-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "termination_reason": null,
+  "loop_duration_seconds": null,
+  "probe_misses": 0,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Algorithm/Method\",\n  \"family\": \"Control and Data Flow\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"A unit test fails with 'Best point not reported' because BrentOptimizer returned the last-evaluated point rather than the best point seen. The fix adds a 'best' local variable, initializes it to the initial point, updates it each iteration to keep the overall best, and returns that tracked best instead of simply returning the last (or last-two) evaluated point(s).\",\n  \"reasoning_summary\": \"The patch changes the algorithmic behavior inside the optimization loop: it introduces and maintains a global 'best' candidate and changes return logic to use that tracked best. This is a procedural/algorithmic correction (maintaining state across iterations and selecting the correct result). It is not merely adding a guard or fixing an assignment constant, nor is it an API/interface, concurrency, or design-level structural change.\",\n  \"evidence_used\": [\n    \"failing_tests: junit.framework.AssertionFailedError: Best point not reported from BrentOptimizerTest::testKeepInitIfBest\",\n    \"bug_report_description: BrentOptimizer does not check that the point it will return is the best encountered; last evaluated point might be slightly worse\",\n    \"fix_diff_oracle: added 'UnivariatePointValuePair best = current;' initializing best to current\",\n    \"fix_diff_oracle: added code in loop 'best = best(best, best(current, previous, isMinim), isMinim);' to update overall best each iteration\",\n    \"fix_diff_oracle: changed convergence return from 'return best(current, previous, isMinim);' to 'return best;' and adjusted default termination to return best(...) combining overall best and last evaluations\"\n  ],\n  \"evidence_gaps\": [\n    \"Complete surrounding method body and implementation of helper best(...) not included (assumed present elsewhere)\",\n    \"No dynamic traces showing specific iteration where last point was worse (we rely on test failure message and diff)\"\n  ],\n  \"alternative_types\": [\n    {\n      \"type\": \"Checking\",\n      \"why_not_primary\": \"The fix does not add or change a guard/validation or boundary check; it alters state-tracking and selection logic across iterations rather than inserting a missing predicate.\"\n    },\n    {\n      \"type\": \"Assignment/Initialization\",\n      \"why_not_primary\": \"Although the patch adds an initialization (best = current), the core change is the ongoing maintenance and use of 'best' across the algorithm (behavioral/algorithmic), not just correcting a single incorrect constant or initial value.\"\n    },\n    {\n      \"type\": \"Interface/O-O Messages\",\n      \"why_not_primary\": \"No method signatures, parameter lists, or module boundary contracts are changed; the change is internal to the optimizer's algorithm.\"\n    },\n    {\n      \"type\": \"Timing/Serialization\",\n      \"why_not_primary\": \"There is no evidence of concurrency, locking, or ordering/race-condition fixes; changes are deterministic algorithm updates.\"\n    },\n    {\n      \"type\": \"Relationship\",\n      \"why_not_primary\": \"The change does not correct associations between different data structures or procedures across modules; it updates local algorithm state management.\"\n    },\n    {\n      \"type\": \"Function/Class/Object\",\n      \"why_not_primary\": \"This is not a design-level capability addition or new class; it corrects local algorithm behavior within the existing class.\"\n    }\n  ]\n}"
+}

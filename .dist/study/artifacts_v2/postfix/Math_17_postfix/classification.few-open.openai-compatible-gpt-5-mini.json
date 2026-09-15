@@ -1,0 +1,74 @@
+{
+  "project_id": "Math",
+  "bug_id": 17,
+  "version_id": "17b",
+  "prompt_style": "scientific",
+  "model": "gpt-5-mini",
+  "provider": "openai-compatible",
+  "created_at": "2026-09-15T12:38:51+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.9,
+  "needs_human_review": false,
+  "observation_summary": "A test (Multiply #37) produced NaN when multiplying by 10000. The multiply(int) implementation only used multiplyFast(x) which is limited to 0 <= x < RADIX, so values >= RADIX were not handled correctly.",
+  "hypothesis": "",
+  "prediction": "",
+  "experiment_rationale": "",
+  "reasoning_summary": "The fix adds an explicit range check (if (x >= 0 && x < RADIX) ...) and dispatches out-of-range values to multiply(newInstance(x)). This corrects a missing/incorrect guard on the int parameter and routes large or negative integers to the general multiplication implementation. The change is a predicate/validation addition rather than a value initialization or algorithm rewrite, so it matches Checking.",
+  "evidence_used": [
+    "failing test: org.apache.commons.math3.dfp.DfpTest::testMultiply showing Multiply #37 produced NaN",
+    "bug_report_description stating multiply(int n) was limited to 0 <= n <= 9999 and should have no limitation",
+    "fix_diff_oracle unified_diff showing added conditional: if (x >= 0 && x < RADIX) return multiplyFast(x); else return multiply(newInstance(x));"
+  ],
+  "evidence_gaps": [
+    "Full original method body before the fix is not shown (but diff indicates previous behavior always used multiplyFast)",
+    "No explicit definition of RADIX value in the snippet (inferred from bug report and context)"
+  ],
+  "alternative_types": [
+    {
+      "type": "Assignment/Initialization",
+      "why_not_primary": "The fix does not change any assigned value or initialization; it adds a guard and dispatch path. The root cause was lack of validation, not a wrong constant or initialization."
+    },
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The core multiplication algorithms remain unchanged (multiplyFast and multiply(Dfp)); the fix only chooses which algorithm to call based on a new condition, so it's primarily a missing check rather than an algorithmic rewrite."
+    },
+    {
+      "type": "Interface/O-O Messages",
+      "why_not_primary": "No change to method signatures or cross-component contract; only internal parameter validation and dispatch were added."
+    },
+    {
+      "type": "Timing/Serialization",
+      "why_not_primary": "No concurrency, ordering, or synchronization changes were made."
+    },
+    {
+      "type": "Relationship",
+      "why_not_primary": "The change does not modify associations between separate data structures or procedures beyond routing to an existing alternate routine; it's a local guard fix."
+    },
+    {
+      "type": "Function/Class/Object",
+      "why_not_primary": "The capability existed (multiplication for arbitrary ints) via multiply(Dfp); the bug was a missing dispatch for int inputs, not a missing class/function that required design-level changes."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "post-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "termination_reason": null,
+  "loop_duration_seconds": null,
+  "probe_misses": 0,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.9,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"A test (Multiply #37) produced NaN when multiplying by 10000. The multiply(int) implementation only used multiplyFast(x) which is limited to 0 <= x < RADIX, so values >= RADIX were not handled correctly.\",\n  \"reasoning_summary\": \"The fix adds an explicit range check (if (x >= 0 && x < RADIX) ...) and dispatches out-of-range values to multiply(newInstance(x)). This corrects a missing/incorrect guard on the int parameter and routes large or negative integers to the general multiplication implementation. The change is a predicate/validation addition rather than a value initialization or algorithm rewrite, so it matches Checking.\",\n  \"evidence_used\": [\n    \"failing test: org.apache.commons.math3.dfp.DfpTest::testMultiply showing Multiply #37 produced NaN\",\n    \"bug_report_description stating multiply(int n) was limited to 0 <= n <= 9999 and should have no limitation\",\n    \"fix_diff_oracle unified_diff showing added conditional: if (x >= 0 && x < RADIX) return multiplyFast(x); else return multiply(newInstance(x));\"\n  ],\n  \"evidence_gaps\": [\n    \"Full original method body before the fix is not shown (but diff indicates previous behavior always used multiplyFast)\",\n    \"No explicit definition of RADIX value in the snippet (inferred from bug report and context)\"\n  ],\n  \"alternative_types\": [\n    {\n      \"type\": \"Assignment/Initialization\",\n      \"why_not_primary\": \"The fix does not change any assigned value or initialization; it adds a guard and dispatch path. The root cause was lack of validation, not a wrong constant or initialization.\"\n    },\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"The core multiplication algorithms remain unchanged (multiplyFast and multiply(Dfp)); the fix only chooses which algorithm to call based on a new condition, so it's primarily a missing check rather than an algorithmic rewrite.\"\n    },\n    {\n      \"type\": \"Interface/O-O Messages\",\n      \"why_not_primary\": \"No change to method signatures or cross-component contract; only internal parameter validation and dispatch were added.\"\n    },\n    {\n      \"type\": \"Timing/Serialization\",\n      \"why_not_primary\": \"No concurrency, ordering, or synchronization changes were made.\"\n    },\n    {\n      \"type\": \"Relationship\",\n      \"why_not_primary\": \"The change does not modify associations between separate data structures or procedures beyond routing to an existing alternate routine; it's a local guard fix.\"\n    },\n    {\n      \"type\": \"Function/Class/Object\",\n      \"why_not_primary\": \"The capability existed (multiplication for arbitrary ints) via multiply(Dfp); the bug was a missing dispatch for int inputs, not a missing class/function that required design-level changes.\"\n    }\n  ]\n}"
+}

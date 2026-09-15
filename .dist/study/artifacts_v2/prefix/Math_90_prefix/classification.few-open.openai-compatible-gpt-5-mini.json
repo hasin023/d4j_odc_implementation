@@ -1,0 +1,75 @@
+{
+  "project_id": "Math",
+  "bug_id": 90,
+  "version_id": "90b",
+  "prompt_style": "scientific",
+  "model": "gpt-5-mini",
+  "provider": "openai-compatible",
+  "created_at": "2026-09-15T12:36:40+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.88,
+  "needs_human_review": false,
+  "observation_summary": "The test expects a ClassCastException when adding a non-Comparable object to Frequency. Current addValue(Object) allows the first plain Object to be inserted and later operations throw an IllegalArgumentException (caught ClassCastException rethrown as IllegalArgumentException), causing the failing test.",
+  "hypothesis": "",
+  "prediction": "",
+  "experiment_rationale": "",
+  "reasoning_summary": "The root cause is a missing validation/guard: addValue does not check that the provided object implements Comparable before using the TreeMap. The code relies on a downstream ClassCastException from TreeMap and then maps it to IllegalArgumentException. Fixing requires adding an explicit instanceof Comparable check or adjusting the thrown exception \u2014 this is a predicate/validation issue (Checking), not an assignment, algorithmic rewrite, interface mismatch, concurrency, relationship, or design-level omission.",
+  "evidence_used": [
+    "Frequency.java lines 122-135 showing try/catch: no instanceof Comparable check; catch(ClassCastException) { throw new IllegalArgumentException(\"Value not comparable to existing values.\"); } (focus line 134)",
+    "FrequencyTest.testAddNonComparable source (lines 191-206) showing the test expects a ClassCastException when adding new Object() and comments noting previous behavior",
+    "bug_report_description explicitly stating addValue(Object) should only allow Comparable and recommending adding instanceof check"
+  ],
+  "evidence_gaps": [
+    "Exact intended exception type to be thrown (test expects ClassCastException, bug report suggests changing behavior to fail on first add) \u2014 though test clarifies expectation",
+    "Full implementation context of freqTable (its declared type, comparator, and how TreeMap is initialized) is not shown but implied",
+    "No pre-fix diff; exact proposed fix code not provided"
+  ],
+  "alternative_types": [
+    {
+      "type": "Assignment/Initialization",
+      "why_not_primary": "The bug is not due to an incorrect value assignment or initialization; the code's values (freqTable, counts) are used correctly. The issue is lack of an input validation guard."
+    },
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The algorithmic procedure for counting frequencies is correct. The failure arises from missing validation/guard logic rather than wrong computational steps or iteration."
+    },
+    {
+      "type": "Interface/O-O Messages",
+      "why_not_primary": "There is no evidence of a module-to-module API contract mismatch; the problem is internal validation of the parameter type, not a boundary/parameter signature difference."
+    },
+    {
+      "type": "Timing/Serialization",
+      "why_not_primary": "No concurrency, ordering, or serialization issues are indicated in the provided evidence."
+    },
+    {
+      "type": "Relationship",
+      "why_not_primary": "The bug does not stem from inconsistent associations among multiple data structures or procedures; it is a local input validation problem."
+    },
+    {
+      "type": "Function/Class/Object",
+      "why_not_primary": "A design-level capability is present (Frequency.addValue exists and functions), the issue is localized validation behavior rather than a missing class or major design change."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Missing",
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "termination_reason": null,
+  "loop_duration_seconds": null,
+  "probe_misses": 0,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Checking\",\n  \"family\": \"Control and Data Flow\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Missing\",\n  \"confidence\": 0.88,\n  \"needs_human_review\": false,\n  \"observation_summary\": \"The test expects a ClassCastException when adding a non-Comparable object to Frequency. Current addValue(Object) allows the first plain Object to be inserted and later operations throw an IllegalArgumentException (caught ClassCastException rethrown as IllegalArgumentException), causing the failing test.\",\n  \"reasoning_summary\": \"The root cause is a missing validation/guard: addValue does not check that the provided object implements Comparable before using the TreeMap. The code relies on a downstream ClassCastException from TreeMap and then maps it to IllegalArgumentException. Fixing requires adding an explicit instanceof Comparable check or adjusting the thrown exception \u2014 this is a predicate/validation issue (Checking), not an assignment, algorithmic rewrite, interface mismatch, concurrency, relationship, or design-level omission.\",\n  \"evidence_used\": [\n    \"Frequency.java lines 122-135 showing try/catch: no instanceof Comparable check; catch(ClassCastException) { throw new IllegalArgumentException(\\\"Value not comparable to existing values.\\\"); } (focus line 134)\",\n    \"FrequencyTest.testAddNonComparable source (lines 191-206) showing the test expects a ClassCastException when adding new Object() and comments noting previous behavior\",\n    \"bug_report_description explicitly stating addValue(Object) should only allow Comparable and recommending adding instanceof check\"\n  ],\n  \"evidence_gaps\": [\n    \"Exact intended exception type to be thrown (test expects ClassCastException, bug report suggests changing behavior to fail on first add) \u2014 though test clarifies expectation\",\n    \"Full implementation context of freqTable (its declared type, comparator, and how TreeMap is initialized) is not shown but implied\",\n    \"No pre-fix diff; exact proposed fix code not provided\"\n  ],\n  \"alternative_types\": [\n    {\n      \"type\": \"Assignment/Initialization\",\n      \"why_not_primary\": \"The bug is not due to an incorrect value assignment or initialization; the code's values (freqTable, counts) are used correctly. The issue is lack of an input validation guard.\"\n    },\n    {\n      \"type\": \"Algorithm/Method\",\n      \"why_not_primary\": \"The algorithmic procedure for counting frequencies is correct. The failure arises from missing validation/guard logic rather than wrong computational steps or iteration.\"\n    },\n    {\n      \"type\": \"Interface/O-O Messages\",\n      \"why_not_primary\": \"There is no evidence of a module-to-module API contract mismatch; the problem is internal validation of the parameter type, not a boundary/parameter signature difference.\"\n    },\n    {\n      \"type\": \"Timing/Serialization\",\n      \"why_not_primary\": \"No concurrency, ordering, or serialization issues are indicated in the provided evidence.\"\n    },\n    {\n      \"type\": \"Relationship\",\n      \"why_not_primary\": \"The bug does not stem from inconsistent associations among multiple data structures or procedures; it is a local input validation problem.\"\n    },\n    {\n      \"type\": \"Function/Class/Object\",\n      \"why_not_primary\": \"A design-level capability is present (Frequency.addValue exists and functions), the issue is localized validation behavior rather than a missing class or major design change.\"\n    }\n  ]\n}"
+}
