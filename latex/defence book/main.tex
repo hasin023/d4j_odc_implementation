@@ -467,6 +467,41 @@ Because an ODC defect type describes the nature of the correction made to fix a 
 \label{sec:conditions_intro}
 Each classification is made under a \emph{condition}, defined by two independent choices. The \textbf{taxonomy} determines the label space: \textit{free}, in which the model describes the defect in its own words; \textit{closed}, in which it must select one of the seven ODC types; or \textit{open}, in which it may also select the ``Other'' escape category. The \textbf{strategy} determines how the model reasons: \textit{zero}, a single plain prompt without a taxonomy or examples; \textit{few}, a single prompt with type definitions, a decision checklist, and worked examples; or \textit{scientific}, an enforced reasoning loop in which, on every turn, the model states a hypothesis about the defect type and a prediction, and then either requests a specific piece of additional evidence, called a \emph{probe}, or concludes. A condition is named by its strategy and taxonomy, such as \textit{scientific-open}, which is the default condition in this thesis. Section~\ref{sec:conditions} defines the valid conditions, and Section~\ref{sec:loop} describes the reasoning loop.
 
+\section{Problem Statement} \label{sec:problem}
+
+This section defines the specific research gap that this thesis addresses and formally states the problem we aim to solve.
+
+\subsection{Limitations of Existing Approaches}
+
+Current attempts at classifying Defects4J bugs suffer from five limitations:
+
+\begin{enumerate}
+    \item \textbf{Coverage gap:} No study has fully labelled the active Defects4J set. Existing work covers only tens to a few hundred bugs \cite{sobreira2018dissection, vanderspuy2025anatomy, jiang2019manual}.
+    \item \textbf{Structural-only labels:} Control-flow and data-flow analyses capture how bugs manifest syntactically, not the defect type they belong to \cite{vanderspuy2025anatomy}.
+    \item \textbf{Patch-focused taxonomies:} Repair-action classification describes fix patterns, not the underlying defect mechanism \cite{sobreira2018dissection}.
+    \item \textbf{Post-fix dependency:} Machine learning approaches require labelled training data, which Defects4J does not have for ODC, or access to post-fix code, which limits their applicability to pre-triage scenarios \cite{thung2012automatic}.
+    \item \textbf{Evaluation scarcity:} Without ODC ground truth, there is no practical evaluation framework for large-scale automated classification \cite{andrade2025empirical}.
+\end{enumerate}
+
+\subsection{The Research Gap}
+
+No study has produced a context-aware, semantically grounded, scalable classification of Defects4J. Addressing this gap requires a solution that is:
+
+\begin{itemize}
+    \item \textbf{Context-aware:} using multi-modal evidence from code, tests, bug reports, and stack traces, rather than a single information source.
+    \item \textbf{Semantic:} classifying defects by their defect mechanism, not by syntactic patterns.
+    \item \textbf{Taxonomy-constrained:} using a principled framework such as ODC to prevent label inconsistency and to make results comparable across studies.
+    \item \textbf{Open to its own limits:} able to record a defect that does not fit, rather than forcing it into the nearest category.
+    \item \textbf{Scalable:} using LLM-based reasoning to classify at benchmark scale without manual labelling.
+    \item \textbf{Evaluable without ground truth:} providing its own evaluation reference, since Defects4J supplies none.
+\end{itemize}
+
+\subsection{Problem Definition}
+
+Given these limitations, we define the problem as follows: \emph{how can we classify Defects4J bugs into ODC Design/Code defect types from pre-fix evidence alone, while also being able to evaluate that classification without ground-truth labels?}
+
+The four research questions of Section~\ref{sec:rqs} decompose this problem into measurable parts. Our guiding intuition is that pre-fix classification is a prediction made from symptoms alone, while post-fix classification is a reference made with the fix visible; agreement between the two indicates that the prediction is stable enough to justify operational use of the pre-fix signal.
+
 \section{Research Objectives}
 
 This thesis addresses the following four research objectives:
@@ -510,7 +545,7 @@ The main contributions of this thesis are:
 
 \section{Report Organization}
 
-The rest of this report is organized as follows. Chapter~\ref{chapter:related} reviews the literature on Defects4J classification, the ODC framework, LLM-based bug categorization, and human agreement on ODC labels. Chapter~\ref{chapter:problem} defines the research gap and problem statement. Chapter~\ref{chapter:proposed} describes the proposed methodology. Chapter~\ref{chapter:experiment} explains the experimental design, the data, and the statistical methods. Chapter~\ref{chapter:results} presents the results for all four research questions. Chapter~\ref{chapter:threats} discusses threats to validity. Finally, Chapter~\ref{chapter:conclusion} concludes the report with a summary, limitations, and future work.
+The research gap and the problem statement are given in Section~\ref{sec:problem} above. The rest of this report is organized as follows. Chapter~\ref{chapter:related} reviews the literature on Defects4J classification, the ODC framework, LLM-based bug categorization, and human agreement on ODC labels. Chapter~\ref{chapter:proposed} describes the proposed methodology. Chapter~\ref{chapter:experiment} explains the experimental design, the data, and the statistical methods. Chapter~\ref{chapter:results} presents the results for all four research questions. Chapter~\ref{chapter:threats} discusses threats to validity. Finally, Chapter~\ref{chapter:conclusion} concludes the report with a summary, limitations, and future work.
 
 
 % ================================================================
@@ -665,46 +700,7 @@ Despite the growing adoption of LLMs in software engineering, their application 
 
 
 % ================================================================
-% CHAPTER 3: PROBLEM STATEMENT
-% ================================================================
-\chapter{Problem Statement} \label{chapter:problem}
-
-This chapter defines the specific research gap that our thesis addresses and formally states the problem we aim to solve.
-
-\section{Limitations of Existing Approaches}
-
-Current attempts at classifying Defects4J bugs suffer from five limitations:
-
-\begin{enumerate}
-    \item \textbf{Coverage gap:} No study has fully labelled the active Defects4J set. Existing work covers only tens to a few hundred bugs \cite{sobreira2018dissection, vanderspuy2025anatomy, jiang2019manual}.
-    \item \textbf{Structural-only labels:} Control-flow and data-flow analyses capture how bugs manifest syntactically, not the defect type they belong to \cite{vanderspuy2025anatomy}.
-    \item \textbf{Patch-focused taxonomies:} Repair-action classification describes fix patterns, not the underlying defect mechanism \cite{sobreira2018dissection}.
-    \item \textbf{Post-fix dependency:} Machine learning approaches require labelled training data, which Defects4J does not have for ODC, or access to post-fix code, which limits their applicability to pre-triage scenarios \cite{thung2012automatic}.
-    \item \textbf{Evaluation scarcity:} Without ODC ground truth, there is no practical evaluation framework for large-scale automated classification \cite{andrade2025empirical}.
-\end{enumerate}
-
-\section{The Research Gap}
-
-No study has produced a context-aware, semantically grounded, scalable classification of Defects4J. Addressing this gap requires a solution that is:
-
-\begin{itemize}
-    \item \textbf{Context-aware:} using multi-modal evidence from code, tests, bug reports, and stack traces, rather than a single information source.
-    \item \textbf{Semantic:} classifying defects by their defect mechanism, not by syntactic patterns.
-    \item \textbf{Taxonomy-constrained:} using a principled framework such as ODC to prevent label inconsistency and to make results comparable across studies.
-    \item \textbf{Open to its own limits:} able to record a defect that does not fit, rather than forcing it into the nearest category.
-    \item \textbf{Scalable:} using LLM-based reasoning to classify at benchmark scale without manual labelling.
-    \item \textbf{Evaluable without ground truth:} providing its own evaluation reference, since Defects4J supplies none.
-\end{itemize}
-
-\section{Problem Statement}
-
-Given these limitations, we define the problem as follows: \emph{how can we classify Defects4J bugs into ODC Design/Code defect types from pre-fix evidence alone, while also being able to evaluate that classification without ground-truth labels?}
-
-The four research questions of Section~\ref{sec:rqs} decompose this problem into measurable parts. Our guiding intuition is that pre-fix classification is a prediction made from symptoms alone, while post-fix classification is a reference made with the fix visible; agreement between the two indicates that the prediction is stable enough to justify operational use of the pre-fix signal.
-
-
-% ================================================================
-% CHAPTER 4: PROPOSED METHODOLOGY
+% CHAPTER 3: PROPOSED METHODOLOGY
 % ================================================================
 \chapter{Proposed Methodology} \label{chapter:proposed}
 
@@ -1074,7 +1070,7 @@ The proposed methodology combines three ideas: multi-modal evidence collected fr
 
 
 % ================================================================
-% CHAPTER 5: EXPERIMENTAL DESIGN / DATA COLLECTION
+% CHAPTER 4: EXPERIMENTAL DESIGN / DATA COLLECTION
 % ================================================================
 \chapter{Experimental Design and Data Collection} \label{chapter:experiment}
 
@@ -1216,7 +1212,7 @@ All figures in Chapter~\ref{chapter:results} were recomputed directly from the p
 
 
 % ================================================================
-% CHAPTER 6: RESULTS AND ANALYSIS
+% CHAPTER 5: RESULTS AND ANALYSIS
 % ================================================================
 \chapter{Results and Analysis} \label{chapter:results}
 
@@ -1406,6 +1402,8 @@ As noted in Section~\ref{sec:l3l4}, Tiers 2 and 3 are close to their chance leve
 \end{table}
 
 The pre-fix \textit{scientific-open} classification assigns the same defect type as the fix-informed reference for 70.2\% of bugs. For a further 27.3\%, the two labels differ but one of them appears among the other classification's alternative types, or both belong to the same ODC family. For only 2.4\% of bugs (10 of 410) is the pre-fix label unrelated to the reference.
+
+A directional reading of the same disagreements is useful for practice. Asking only whether the pre-fix classification had \emph{already recorded} the fix-informed type, the post-fix type appears among the pre-fix alternative types for 94 of the 122 scientific drifts (77.0\%) and for 110 of the 137 few-shot drifts (80.3\%). Shuffling the post-fix labels across the same alternative lists yields 36.6\% and 39.0\% respectively (permutation test, 5,000 shuffles, $p = 0.0002$), so this is not a consequence of three types dominating the corpus. Counting strict matches together with these bugs, the pre-fix classification names the fix-informed type either as its primary label or as a recorded alternative for 93.2\% of bugs under the scientific condition and 93.4\% under few-shot. Section~\ref{sec:repair_choice} gives the reason this matters: where a defect admits more than one repair, the type of the repair that was not taken is usually the type already recorded as the alternative.
 
 For Closure, the largest project in the corpus, disagreements are mostly near misses: 96.3\% of its drifts have one label among the other classification's alternatives, 88.9\% remain within the same family, and only one Closure bug (Closure\_171) is unrelated to the reference.
 
@@ -1633,13 +1631,13 @@ In both bugs, the few-shot classification changed its label once the diff was vi
 
 In \textbf{Math\_23}, the fix threads a \texttt{best} point through every iteration of \texttt{Brent\allowbreak Optimizer}. The pre-fix scientific classification correctly assigns Algorithm/Method, but the post-fix classification changes to Assignment/\allowbreak Initialization because the patch introduces a new variable with assignments. ODC classifies coordinated multi-site assignment changes as Algorithm/Method. The few-shot classification did not change.
 
-In \textbf{Math\_17}, a missing range check is added with an \texttt{else} branch. Under ODC, a Checking defect remains Checking even when the fix adds a branch. The pre-fix classification applied this rule correctly, while the post-fix classification changed its label based on the added branch, although its own alternative-types note stated that ``a check is added''.
+In \textbf{Math\_17}, a missing range check is added, and its \texttt{else} branch routes out-of-range values to the general multiplication instead of the fast path. Under ODC, a Checking defect remains Checking even when the fix adds a branch, and the pre-fix classification applied this rule correctly, while the post-fix classification changed its label based on the added branch, although its own alternative-types note stated that ``a check is added''. This bug is also the one case in which the developers made two repairs of different types at once (Section~\ref{sec:repair_choice}), so a single-label reference cannot represent the fix completely.
 
 In both cases, the post-fix classification followed the surface form of the patch rather than the taxonomy's definition. This is a limitation of the post-fix reference, and it is one reason RQ3 is seen as reproduction of a reference rather than as correctness.
 
 \subsection{S4: The Fix Leads to a Better Label}
 
-\textbf{Time\_3} is a case of a correct mechanism with an incorrect label. The pre-fix classification described the exact fix, stating that the methods ``do not contain an \texttt{if (amount == 0) return;} guard'', but assigned Algorithm/Method, because it classified according to its explanation of the root cause rather than the nature of the change. The post-fix classification corrected the label to Checking, and both strategies changed in the same way.
+\textbf{Time\_3} is a case of a correct mechanism with an incorrect label. The pre-fix classification described the exact fix, stating that the methods ``do not contain an \texttt{if (amount == 0) return;} guard'', but assigned Algorithm/Method, because it classified according to its explanation of the root cause rather than the nature of the change. The post-fix classification corrected the label to Checking, and both strategies changed in the same way. The developer added the guard to each \texttt{add} method rather than changing the chronology arithmetic itself, which is a repair choice we return to in Section~\ref{sec:repair_choice}.
 
 \textbf{Chart\_11} is a one-token copy-paste error: \texttt{p1.\allowbreak get\allowbreak Path\allowbreak Iterator} should be \texttt{p2.\allowbreak get\allowbreak Path\allowbreak Iterator}. The pre-fix loop used five turns and four probes, never reached the modified class because it is not present in \texttt{context.json}, and still concluded with confidence 1.0. Unsuccessful probes did not reduce the model's confidence.
 
@@ -1647,7 +1645,7 @@ In both cases, the post-fix classification followed the surface form of the patc
 
 In \textbf{Time\_27}, the pre-fix classification hypothesised an integer overflow while also stating that the value fits in an \texttt{int}, and did not revise the hypothesis. The post-fix classification interpreted an added guard as a structural Relationship defect.
 
-\textbf{Lang\_20} illustrates a limitation of the task itself. A null dereference occurs inside a \texttt{String\allowbreak Builder} capacity estimate. A null guard would be a Checking fix, but the developer instead changed the initial capacity expression so that the dereference no longer occurs, which is an Assignment/\allowbreak Initialization fix. Because ODC classifies the nature of the correction, a bug with more than one reasonable fix can have more than one valid defect type, and a pre-fix classification cannot determine which fix the developer will choose.
+\textbf{Lang\_20} illustrates a limitation of the task itself. A null dereference occurs inside a \texttt{String\allowbreak Builder} capacity estimate. A null guard would be a Checking fix, but the developer instead changed the initial capacity expression so that the dereference no longer occurs, which is an Assignment/\allowbreak Initialization fix. Because ODC classifies the nature of the correction, a bug with more than one reasonable fix can have more than one valid defect type, and a pre-fix classification cannot determine which fix the developer will choose. Section~\ref{sec:repair_choice} collects the bugs in which we observed this.
 
 \subsection{S6: Scientific and Few-Shot on Identical Evidence}
 
@@ -1680,6 +1678,36 @@ Table~\ref{tab:rq4b_manual} compares the two strategies against the manual readi
 
 In pre-fix mode, the scientific condition matches the manual reading more often than the few-shot condition (6 versus 4 of 13), consistent with the RQ4b result that the loop improves pre-fix classification. In post-fix mode, the few-shot condition matches the manual reading far more often (11 versus 6), consistent with the behaviour observed for Chart\_17 and Math\_90, where the scientific classification retained its own line of reasoning and made little use of the fix diff. Section~\ref{sec:crossmodel} examines whether this behaviour depends on the model. Because these bugs were selected to illustrate specific scenarios, this comparison describes mechanisms rather than measuring accuracy.
 
+\subsection{When the Developer Had More Than One Option}
+\label{sec:repair_choice}
+
+A further reading of the fixes behind the thirteen bugs shows a limit that is not a property of the pipeline but of the reference itself. An ODC defect type describes the nature of the correction that was made, so the post-fix label records \emph{the repair the developer chose}, not the repair the defect required. Where more than one repair was available, the developer's choice, which may be driven by risk, minimality, or the design of the surrounding code, decides the defect type that the post-fix classification can observe. Table~\ref{tab:repair_choice} lists the four bugs in which we found this effect.
+
+\begin{table}[!htbp]
+    \centering
+    \small
+    \begin{tabular}{l p{5.0cm} p{5.4cm}}
+        \toprule
+        \textbf{Bug} & \textbf{Repair that was available} & \textbf{Repair the developer made} \\
+        \midrule
+        Math\_90  & a \texttt{Comparable} check before the value is stored, as the bug report itself suggests (CHK) & a new \texttt{add\allowbreak Value(Comparable<?>)} overload, with the deprecated \texttt{add\allowbreak Value(Object)} delegating to it through a cast (INT) \\
+        Math\_17  & a range check on the fast path alone (CHK) & both: a range guard \emph{and} an alternative path that routes out-of-range values to the general multiplication (CHK and ALG) \\
+        Time\_3   & a more accurate computation inside the chronology arithmetic (ALG) & an \texttt{amount != 0} guard added to each \texttt{add} method, leaving the arithmetic untouched (CHK) \\
+        Lang\_20  & a null check before the dereference (CHK) & a rewritten capacity expression, \texttt{no\allowbreak Of\allowbreak Items * 16}, so the dereference no longer occurs (ASN) \\
+        \bottomrule
+    \end{tabular}
+    \caption{Bugs whose ODC defect type depended on which repair the developer chose. Types in parentheses are those of the manual reading; abbreviations as in Table~\ref{tab:manual}.}
+    \label{tab:repair_choice}
+\end{table}
+
+Three effects appear in this small set. In Math\_90 and Lang\_20, a Checking repair was available and was not taken: the Math\_90 fix changes the method signature so that the type constraint is expressed by the API rather than by a guard, and the Lang\_20 fix removes the dereference instead of guarding it. In both, the recorded defect type is the one the implemented repair belongs to rather than the one the symptom suggests. In Time\_3, the developer chose the safer of two correct repairs and left the underlying computation untouched, so the recorded type reflects an engineering judgement about risk as much as the defect. Math\_17 is different again: the developers made both a check and an algorithmic change, while our reference assigns one type per bug and can therefore record only one of them.
+
+\paragraph{What the recorded alternatives contribute.} Our classification schema never commits to a single type. Every classification also returns one or two close alternative types, each with a written reason for not being the primary label (Section~\ref{sec:conditions}), and Tier~2 of the evaluation framework is defined over exactly these lists (Section~\ref{sec:eval}). The repair-choice cases show why that design is necessary rather than merely convenient: when a defect admits more than one repair, the type of the repair that was \emph{not} taken is usually the type the classification has already recorded as its alternative. Across the 122 bugs whose label changes once the fix is visible, the post-fix type appears among the pre-fix alternatives for 94 of them (77.0\%), against 36.6\% expected if the post-fix labels were shuffled across the same alternative lists (permutation test, 5,000 shuffles, $p = 0.0002$). Counting these together with the strict matches, the pre-fix classification names the fix-informed type either as its primary label or as a recorded alternative for 382 of 410 bugs (93.2\%).
+
+This does not resolve the ambiguity, and it is not a claim that the pipeline anticipates which repair a developer will choose. The classification reports the type the pre-fix evidence favours and preserves the competing type instead of discarding it, so a reader of the output can see the other repair that was open. The limit is visible in the same set of bugs: the pre-fix alternatives for Math\_90 are Algorithm/Method and Assignment/\allowbreak Initialization, and the interface-level repair the developers made is not among them. Where several repairs are viable, a recorded alternative with a stated reason is more useful for triage than a single label, and it is the form in which our results should be read.
+
+These cases sharpen the interpretation of RQ3. A pre-fix classification cannot know which repair a developer will select, so for bugs of this kind no pre-fix label can be expected to reproduce the post-fix reference, however good the reasoning is. They also bound the reference itself: the post-fix classification is better informed than the pre-fix one, but it is better informed about the repair, not about a defect type that exists independently of it. This is the concrete form of the caveat stated in Section~\ref{sec:human_agreement} and revisited in Chapter~\ref{chapter:threats}, and it is a further reason to read RQ3 as reproduction of a reference rather than as correctness.
+
 \subsection{Findings from the Manual Analysis}
 
 Reading the reasoning transcripts, rather than only the labels, yields the following findings:
@@ -1691,6 +1719,7 @@ Reading the reasoning transcripts, rather than only the labels, yields the follo
     \item \textbf{Confidence is not a reliable signal.} Chart\_11 issued four unsuccessful probes and reported confidence 1.0.
     \item \textbf{Some pre-fix labels are underdetermined.} Lang\_20 has two reasonable fixes corresponding to two different ODC types.
     \item \textbf{The loop is not always exercised.} Chart\_17 and Math\_90 concluded at the first turn without probes; in Math\_90, a single probe of the failing test would have contradicted the hypothesis.
+    \item \textbf{The reference records the repair, not the defect alone.} In four bugs (Section~\ref{sec:repair_choice}) another repair of a different ODC type was available, and in one of them the developers made two repairs at once, so the post-fix label reflects the developer's choice as much as the defect.
 \end{enumerate}
 
 This analysis is a qualitative study of mechanisms and not an accuracy measurement. The thirteen bugs were selected to populate specific scenarios, none of them is from Closure, and the reference reading is the judgement of a single rater applying the pipeline's ODC definitions. Three of the bugs, Time\_27, Lang\_20, and Math\_17, remain open to reasonable disagreement.
@@ -1808,7 +1837,7 @@ Table~\ref{tab:summary} summarizes the findings for each research question.
 
 
 % ================================================================
-% CHAPTER 7: THREATS TO VALIDITY
+% CHAPTER 6: THREATS TO VALIDITY
 % ================================================================
 \chapter{Threats to Validity} \label{chapter:threats}
 
@@ -1824,6 +1853,8 @@ Table~\ref{tab:summary} summarizes the findings for each research question.
 \section{Construct Validity}
 
 \paragraph{Agreement as a proxy for correctness.} Pre-fix/post-fix agreement is a proxy for correctness, not a direct measure of it, since Defects4J provides no ODC labels. The manual analysis includes bugs that receive the same incorrect label in both modes. This strategy is justified by ODC's two-phase model and by the evidence dependence of human agreement (Section~\ref{sec:human_agreement}), but it cannot substitute for expert-labelled validation.
+
+\paragraph{The reference records one chosen repair.} Because an ODC defect type describes the correction, the post-fix reference captures the repair the developer implemented. Section~\ref{sec:repair_choice} documents four bugs in which a repair of a different ODC type was equally available, and one in which the developers made two repairs of different types while the reference records a single label. For such bugs the pre-fix label cannot be expected to reproduce the reference, and the disagreement measures the space of valid repairs rather than a classification error. This is the reason every classification also records close alternative types with a written justification: for 77.0\% of the bugs whose label changes, the fix-informed type is already present in the pre-fix alternatives, so the competing repair remains visible in the output even when the primary label does not match.
 
 \paragraph{Intended use of ODC.} ODC was designed to provide process feedback from distributions of defect types, not to route individual bugs to developers. Our aggregate-level results support the former use; we make no claim about the latter.
 
@@ -1845,7 +1876,7 @@ Table~\ref{tab:summary} summarizes the findings for each research question.
 
 
 % ================================================================
-% CHAPTER 8: CONCLUSION
+% CHAPTER 7: CONCLUSION
 % ================================================================
 \chapter{Conclusion} \label{chapter:conclusion}
 
@@ -1862,7 +1893,7 @@ This thesis presents an automated, evidence-grounded pipeline that classifies De
     \item A dual-mode pre-fix/post-fix evaluation with a four-tier framework, which provides an evaluation reference for a benchmark without ODC labels.
 \end{enumerate}
 
-Together, these address the five limitations of prior work set out in Chapter~\ref{chapter:problem}: coverage through scalable automation, semantic defect-type labels rather than structural or patch-level ones, classification from pre-fix evidence, controlled oracle leakage, and an evaluation framework that does not require ground-truth labels.
+Together, these address the five limitations of prior work set out in Section~\ref{sec:problem}: coverage through scalable automation, semantic defect-type labels rather than structural or patch-level ones, classification from pre-fix evidence, controlled oracle leakage, and an evaluation framework that does not require ground-truth labels.
 
 Across 410 bugs from six projects and 1{,}640 classifications, three ODC types account for 97.8\% of the bugs, with no significant variation across projects under the default condition. The ``Other'' category was never selected, bounding the true escape rate at 0.2\%. A classification made before the fix exists reproduces the fix-informed reference for 70.2\% of bugs, and is unrelated to it for only 2.4\%. The enforced loop significantly improves chance-corrected agreement over a strong few-shot prompt ($\Delta\kappa = 0.115$) and has the higher agreement in all six projects, although its gain on Closure is not significant. About 30\% of labels change when the fix becomes visible, with 80\% of those changes confined to three closely related types. Running the pipeline with a second model, \texttt{gpt-5-mini}, showed that the pre-fix advantage of the loop and the evidence-driven failure modes are properties of the pipeline, while the loop's use of the fix diff depends on the model.
 
