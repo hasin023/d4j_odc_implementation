@@ -5,8 +5,8 @@ Writes ONLY to the Defence copy:
 The pre-defence files are never touched.
 
 All content comes from the finalized defence book (latex/defence book/main.tex);
-the reference list and its numbering follow the book's bibliography — 28 entries
-are actually cited (the commented-out multi-fault citation is excluded).
+the reference list and its numbering follow the book's bibliography — 29 entries
+are cited, in order of first citation.
 
 Design: an academic, non-Beamer deck — white canvas, one deep navy primary,
 grey neutrals, colour only inside figures. One sans family (Source Sans 3) for
@@ -58,6 +58,10 @@ PANEL2 = "E6EAF0"
 PRE, PRE_BG = "A23B3B", "F7E6E6"
 POST, POST_BG = "2F7D4F", "E3F1E8"
 GOLD = "B7791F"
+GOLD_BG = "FBF1DF"
+BLUE, BLUE_BG = "2F5D9B", "E4ECF7"
+PURPLE, PURPLE_BG = "5B4B9A", "ECE8F6"
+TEAL, TEAL_BG = "2B7F72", "E0F0ED"
 GREY_BAR = "B3B9C3"
 # Muted ODC type colours, used only inside figures.
 T = {"CHK": "C07A2C", "ALG": "2F5D9B", "ASN": "6D4C9A", "TIM": "8A9199",
@@ -68,7 +72,7 @@ TYPE_NAME = {"ALG": "Algorithm/Method", "ASN": "Assignment/Initialization", "CHK
 
 SANS = "Source Sans 3"
 MONO = "Source Code Pro"
-SECTIONS = [("Context", 3, 8), ("Methodology", 9, 16), ("Results", 17, 24)]
+SECTIONS = [("Context", 2, 7), ("Methodology", 8, 15), ("Results", 16, 24)]
 
 
 # ── Primitives ─────────────────────────────────────────────────────────────
@@ -144,7 +148,7 @@ def line(s, x1, y1, x2, y2, color=RULE, width=0.75, arrow=False, dash=False):
 
 
 def bullets(s, x, y, w, h, items, size=17, after=10):
-    paras = [[("▪  ", {"color": NAVY, "size": size - 4}), (it, {})] for it in items]
+    paras = [[("▪  ", {"color": NAVY, "size": size - 4})] + (it if isinstance(it, list) else [(it, {})]) for it in items]
     return text(s, x, y, w, h, paras, size=size, after=after, spacing=1.05)
 
 
@@ -252,6 +256,8 @@ def kappa_ruler(s, x, y, w, value, h=0.34, size=17):
         bx, bw = x + w * lo, w * (hi - lo)
         box(s, bx, y, bw, h, fill=col)
         text(s, bx, y + h + 0.02, bw, 0.3, name, size=13, color=MUTED, align="c")
+    if value is None:
+        return
     mx = x + w * value
     box(s, mx - 0.015, y - 0.16, 0.03, h + 0.32, fill=INK)
     text(s, mx - 0.9, y - 0.56, 1.8, 0.4, f"κ = {value:.3f}", size=size, bold=True, align="c")
@@ -342,9 +348,11 @@ def s03_motivation(prs, num):
     stat(s, 0.6, 1.45, 2.7, "836", "reproducible real bugs", size=46)
     stat(s, 3.5, 1.45, 2.7, "17", "Java projects [5]", size=46)
     line(s, 0.6, 2.75, 6.3, 2.75, color=RULE)
-    bullets(s, 0.6, 2.95, 5.9, 2.4, ["Defect types need different debugging strategies",
-                                     "Aggregated labels expose recurring mistakes",
-                                     "Manual triage is accurate, but does not scale"], size=18, after=18)
+    bullets(s, 0.6, 2.9, 6.0, 2.9, ["A standard benchmark for debugging research [6, 7]",
+                                    "Defect types need different debugging strategies [1]",
+                                    "Manual triage is accurate, but does not scale [3]",
+                                    [("LLMs can read all this evidence — ", {}), ("but should they answer at once, or investigate?", {"bold": True, "color": NAVY})]],
+            size=17, after=12)
     x, w = 6.9, 5.83
     label(s, x, 1.45, w, "What every Defects4J bug ships with")
     rows = [("Bug report", MUTED), ("Failing tests + stack traces", MUTED),
@@ -410,30 +418,37 @@ def s05_related(prs, num):
     box(s, gx, ay - 1.45, ax + aw - gx, 2.7, fill=PANEL2)
     text(s, gx, ay - 1.35, ax + aw - gx, 0.9, ["semantic", "defect type"], size=19, bold=True, color=NAVY, align="c", spacing=0.95)
     text(s, gx, ay + 0.25, ax + aw - gx, 0.8, ["not labelled", "at scale"], size=16, color=PRE, align="c", spacing=1.0)
-    text(s, 0.6, 4.65, 5.9, 1.2, [[("LLM classifiers [11, 12, 14, 16]", {"bold": True})],
-                                  [("read bug-report text only; without a fixed taxonomy their labels are inconsistent.", {"color": MUTED})]],
-         size=17, spacing=1.05, after=4)
-    text(s, 6.9, 4.65, 5.83, 1.2, [[("ODC studies [19, 20, 21]", {"bold": True})],
-                                   [("classify other corpora — never Defects4J at benchmark scale.", {"color": MUTED})]],
-         size=17, spacing=1.05, after=4)
-    keyline(s, 5.95, "Gap: no semantic defect-type labels for Defects4J, and no way to evaluate them without ground truth.", h=0.6)
+    for k, (a, b, col) in enumerate([("LLM classifiers [11–14, 16]", "read report text only; without a fixed taxonomy, labels drift", BLUE),
+                                     ("ODC studies [19–21]", "classify other corpora, never Defects4J at scale", TEAL),
+                                     ("Scientific debugging [17, 18]", "hypothesis → experiment loops, used to find faults, not to type them", PURPLE)]):
+        x = 0.6 + k * 4.1
+        box(s, x, 4.6, 3.9, 0.06, fill=col)
+        text(s, x, 4.72, 3.9, 1.15, [[(a, {"bold": True, "color": col})], [(b, {"color": MUTED, "size": 15})]], size=17, spacing=1.03, after=3)
+    keyline(s, 5.98, "Gap: no semantic defect types for Defects4J, no way to evaluate them, and no test of whether investigating helps.", h=0.6)
 
 
 def s06_problem(prs, num):
     s = chrome(prs, "Problem Statement", num)
-    box(s, 0.6, 1.5, 0.07, 1.6, fill=NAVY)
-    text(s, 0.95, 1.45, 11.7, 1.7, [[("Classify Defects4J bugs into ODC defect types ", {}),
+    box(s, 0.6, 1.45, 0.07, 1.2, fill=NAVY)
+    text(s, 0.95, 1.4, 11.7, 1.3, [[("Classify Defects4J bugs into ODC defect types ", {}),
         ("from pre-fix evidence alone", {"bold": True, "color": NAVY}), (" — and evaluate that classification ", {}),
-        ("without ground-truth labels.", {"bold": True, "color": NAVY})]], size=27, anchor="m", spacing=1.08)
-    label(s, 0.6, 3.5, 12.13, "A solution therefore has to be")
-    reqs = [("Context-aware", "code, tests, traces and reports together"), ("Semantic", "the defect mechanism, not the syntax"),
-            ("Taxonomy-constrained", "a fixed, comparable label space"), ("Evaluable", "carries its own reference, without ground truth")]
-    for i, (a, b) in enumerate(reqs):
+        ("without ground-truth labels.", {"bold": True, "color": NAVY})]], size=24, anchor="m", spacing=1.08)
+    label(s, 0.6, 2.9, 12.13, "A solution has to be …   →   how we meet it")
+    reqs = [("Context-aware", "code, tests, traces, report", "one case file per bug", BLUE),
+            ("Semantic", "mechanism, not syntax", "ODC defect type", BLUE),
+            ("Taxonomy-constrained", "a fixed, comparable label space", "7 ODC types", PURPLE),
+            ("Open to its own limits", "can say a bug does not fit", "“Other” + justification", PURPLE),
+            ("Scalable", "no manual labelling", "LLM strategies", PURPLE),
+            ("Evaluable", "brings its own reference", "post-fix reference", TEAL)]
+    for i, (a, b, ans, col) in enumerate(reqs):
         x = 0.6 + (i % 2) * 6.2
-        y = 4.1 + (i // 2) * 1.5
-        line(s, x, y, x + 5.93, y, color=NAVY, width=1.25)
-        text(s, x, y + 0.14, 5.93, 0.48, a, size=21, bold=True)
-        text(s, x, y + 0.66, 5.93, 0.5, b, size=17, color=MUTED)
+        y = 3.3 + (i // 2) * 1.15
+        box(s, x, y, 5.93, 1.0, fill=PANEL)
+        text(s, x + 0.2, y + 0.06, 3.3, 0.45, a, size=19, bold=True, color=NAVY, anchor="m")
+        text(s, x + 0.2, y + 0.5, 3.3, 0.42, b, size=15, color=MUTED, anchor="m")
+        text(s, x + 3.35, y, 0.35, 1.0, "→", size=20, color=FAINT, align="c", anchor="m")
+        box(s, x + 3.72, y + 0.24, 2.05, 0.52, fill=col)
+        text(s, x + 3.72, y + 0.24, 2.05, 0.52, ans, size=14, bold=True, color=WHITE, align="c", anchor="m")
 
 
 def s07_idea(prs, num):
@@ -452,7 +467,7 @@ def s07_idea(prs, num):
         text(s, vx + 0.25, yy + 0.53, vw - 0.4, 0.42, ev, size=16, font=MONO)
         text(s, vx + 0.25, yy + 0.98, vw - 0.4, 0.45, why, size=16, color=MUTED)
     label(s, 0.6, 4.95, 12.13, "Defects4J has no ODC labels, so we define")
-    for i, (a, b) in enumerate([("Post-fix label", "the fix-informed reference"), ("Pre-fix vs post-fix", "does the triage label hold?"), ("Labels differ", "drift")]):
+    for i, (a, b) in enumerate([("Post-fix label", "the reference answer"), ("Pre-fix vs post-fix", "does the triage label hold?"), ("Labels differ", "drift")]):
         x = 0.6 + i * 4.15
         line(s, x, 5.35, x + 3.85, 5.35, color=NAVY, width=1.25)
         text(s, x, 5.42, 3.85, 0.42, a, size=19, bold=True, color=NAVY)
@@ -462,262 +477,452 @@ def s07_idea(prs, num):
 
 def s08_rqs(prs, num):
     s = chrome(prs, "Research Questions", num)
-    rqs = [("RQ1", "Distribution", "Which ODC types dominate, and does the mix differ by project?"),
-           ("RQ2", "Coverage", "Do the seven types cover every bug, or is “Other” needed?"),
-           ("RQ3", "Accuracy", "How often does the pre-fix label match the post-fix reference?"),
-           ("RQ4", "Components", "What do (a) the taxonomy and (b) the enforced loop contribute?")]
-    for i, (k, n, q) in enumerate(rqs):
-        y = 1.5 + i * 1.2
-        box(s, 0.6, y + 0.08, 1.25, 0.82, fill=NAVY)
-        text(s, 0.6, y + 0.08, 1.25, 0.82, k, size=22, bold=True, color=WHITE, align="c", anchor="m")
-        text(s, 2.1, y + 0.08, 10.6, 0.45, n, size=21, bold=True)
-        text(s, 2.1, y + 0.52, 10.6, 0.5, q, size=17, color=MUTED)
-        if i < 3:
-            line(s, 0.6, y + 1.12, 12.73, y + 1.12, color=RULE)
-    note(s, "410 bugs  ·  six Defects4J projects  ·  1,640 classifications.")
+    rqs = [("RQ1", "Distribution", "Which ODC types dominate, and does the mix differ by project?", "p. 16", BLUE),
+           ("RQ2", "Coverage", "Do the seven types cover every bug, or is “Other” needed?", "p. 16", TEAL),
+           ("RQ3", "Accuracy", "How often does the pre-fix label match the post-fix reference?", "pp. 17–18", GOLD),
+           ("RQ4a", "Taxonomy", "What does the ODC taxonomy add over the model’s own words?", "p. 19", PURPLE),
+           ("RQ4b", "Scientific strategy", "What does the scientific strategy add over a strong few-shot prompt?", "pp. 20–22", POST)]
+    for i, (k, n, q, pg, col) in enumerate(rqs):
+        y = 1.42 + i * 1.08
+        box(s, 0.6, y + 0.1, 1.25, 0.8, fill=col)
+        text(s, 0.6, y + 0.1, 1.25, 0.8, k, size=21, bold=True, color=WHITE, align="c", anchor="m")
+        text(s, 2.1, y + 0.08, 9.0, 0.44, n, size=21, bold=True, color=NAVY)
+        text(s, 2.1, y + 0.52, 9.0, 0.44, q, size=17, color=MUTED)
+        text(s, 11.2, y + 0.1, 1.53, 0.8, pg, size=15, color=col, bold=True, align="r", anchor="m")
+        if i < 4:
+            line(s, 0.6, y + 1.03, 12.73, y + 1.03, color=RULE)
+
+
+def rbox(s, x, y, w, h, fill=WHITE, line_col=NAVY, lw=1.25):
+    b = box(s, x, y, w, h, fill=fill, line=line_col, lw=lw, shape=MSO_SHAPE.ROUNDED_RECTANGLE)
+    b.adjustments[0] = min(0.12, 0.08 / max(min(w, h), 0.1))
+    return b
+
+
+def node(s, x, y, w, h, runs, fill=WHITE, line_col=NAVY, size=14, color=INK, bold=False, lw=1.0):
+    rbox(s, x, y, w, h, fill=fill, line_col=line_col, lw=lw)
+    text(s, x + 0.05, y, w - 0.1, h, runs, size=size, color=color, bold=bold, align="c", anchor="m", spacing=0.95)
 
 
 def s09_pipeline(prs, num):
     s = chrome(prs, "Pipeline Overview", num)
-    img = ROOT / "scripts/slides/assets/methodology_diagram.png"  # cropped copy of latex/defence book/Methodology Diagram.png
-    h = 5.45
-    w = h * 1920 / 1000
-    s.shapes.add_picture(str(img), Inches((SW - w) / 2), Inches(1.4), Inches(w), Inches(h))
+    cols = [(0.6, 3.45, "1  Preprocessing", BLUE), (4.4, 5.05, "2  Classification", PURPLE), (9.8, 2.93, "3  Evaluation", TEAL)]
+    for x, w, t_, col in cols:
+        rbox(s, x, 1.35, w, 0.42, fill=col, line_col=col)
+        text(s, x, 1.35, w, 0.42, t_, size=17, bold=True, color=WHITE, align="c", anchor="m")
+    # ── Preprocessing
+    x, w = 0.6, 3.45
+    node(s, x, 1.95, w, 0.72, [[("Defects4J v3.0.1", {"bold": True, "color": BLUE, "size": 16})],
+                               [("17 Java projects  ·  836 bugs", {"color": MUTED})]], line_col=BLUE, fill=BLUE_BG)
+    line(s, x + w / 2, 2.67, x + w / 2, 2.87, color=BLUE, width=1.5, arrow=True)
+    rbox(s, x, 2.9, w, 1.92, line_col=BLUE)
+    text(s, x, 2.95, w, 0.36, "Collect, per bug", size=15, bold=True, color=BLUE, align="c", anchor="m")
+    for i, (t_, col) in enumerate([("Bug report", BLUE), ("Failing tests + stack traces", PRE), ("Suspicious frames + code snippets", GOLD),
+                                   ("Coverage (optional)", TEAL), ("Fix diff: buggy → fixed", POST)]):
+        yy = 3.33 + i * 0.29
+        box(s, x + 0.2, yy + 0.07, 0.15, 0.15, fill=col)
+        text(s, x + 0.45, yy, w - 0.5, 0.29, t_, size=14, anchor="m")
+    line(s, x + w / 2, 4.82, x + w / 2, 5.02, color=BLUE, width=1.5, arrow=True)
+    rbox(s, x, 5.05, w, 1.75, fill=PANEL, line_col=BLUE)
+    text(s, x, 5.1, w, 0.36, [[("context.json", {"font": MONO, "bold": True, "color": BLUE}), ("  one case file", {"color": MUTED, "size": 14})]],
+         size=15, align="c", anchor="m")
+    node(s, x + 0.15, 5.5, w - 0.3, 0.38, [[("Pre-fix  ", {"bold": True, "color": PRE}), ("symptoms, sanitised", {})]], line_col=PRE, fill=PRE_BG)
+    node(s, x + 0.15, 5.95, w - 0.3, 0.38, [[("Post-fix  ", {"bold": True, "color": POST}), ("symptoms + fix diff", {})]], line_col=POST, fill=POST_BG)
+    text(s, x, 6.37, w, 0.36, "modified classes = hidden oracle", size=14, color=GOLD, bold=True, align="c", anchor="m")
+    line(s, 4.05, 5.9, 4.38, 5.9, color=NAVY, width=1.75, arrow=True)
+    # ── Classification
+    x, w = 4.4, 5.05
+    node(s, x, 1.95, 2.45, 0.5, [[("LLM  ", {"bold": True, "color": PURPLE}), ("Gemini · gpt-5-mini", {})]], line_col=PURPLE, fill=PURPLE_BG)
+    node(s, x + 2.6, 1.95, 2.45, 0.5, [[("ODC  ", {"bold": True, "color": PURPLE}), ("7 types + “Other”", {})]], line_col=PURPLE, fill=PURPLE_BG)
+    # single-call lane
+    fx, fw = x, 1.55
+    rbox(s, fx, 2.6, fw, 3.35, line_col=RULE, fill=WHITE)
+    text(s, fx, 2.64, fw, 0.34, "single call", size=15, bold=True, color=BLUE, align="c", anchor="m")
+    node(s, fx + 0.1, 3.0, fw - 0.2, 0.45, "Evidence summary", size=13)
+    line(s, fx + fw / 2, 3.45, fx + fw / 2, 3.57, color=NAVY, width=1.25, arrow=True)
+    node(s, fx + 0.1, 3.6, fw - 0.2, 0.55, [[("zero-shot", {"bold": True, "color": FAINT})], "own words"], size=13, line_col=FAINT)
+    text(s, fx, 4.15, fw, 0.22, "or", size=12, color=MUTED, italic=True, align="c", anchor="m")
+    node(s, fx + 0.1, 4.37, fw - 0.2, 0.55, [[("few-shot", {"bold": True, "color": BLUE})], "+ 5 examples"], size=13, line_col=BLUE, fill=BLUE_BG)
+    line(s, fx + fw / 2, 4.92, fx + fw / 2, 5.32, color=NAVY, width=1.25, arrow=True)
+    text(s, fx + fw / 2 + 0.05, 4.98, 0.7, 0.3, "1 call", size=12, color=MUTED, italic=True, anchor="m")
+    node(s, fx + 0.1, 5.35, fw - 0.2, 0.45, "Label", size=14, bold=True, color=POST, fill=POST_BG, line_col=POST)
+    # scientific lane
+    sx, sw = x + 1.65, 3.4
+    rbox(s, sx, 2.6, sw, 3.35, line_col=PURPLE, fill=WHITE, lw=1.5)
+    text(s, sx, 2.64, sw, 0.34, "scientific: enforced loop", size=15, bold=True, color=PURPLE, align="c", anchor="m")
+    mx, mw = sx + 0.12, 1.85
+    node(s, mx, 3.0, mw, 0.42, "Evidence summary", size=14)
+    line(s, mx + mw / 2, 3.42, mx + mw / 2, 3.55, color=NAVY, width=1.25, arrow=True)
+    node(s, mx, 3.58, mw, 0.55, ["Hypothesis", "+ prediction"], size=14, bold=True, color=PURPLE, fill=PURPLE_BG, line_col=PURPLE)
+    line(s, mx + mw / 2, 4.13, mx + mw / 2, 4.3, color=NAVY, width=1.25, arrow=True)
+    node(s, mx, 4.33, mw, 0.45, "Enough evidence?", size=14, fill=GOLD_BG, line_col=GOLD, bold=True, color=GOLD)
+    line(s, mx + mw / 2, 4.78, mx + mw / 2, 5.32, color=POST, width=1.25, arrow=True)
+    text(s, mx + mw / 2 + 0.05, 4.86, 0.6, 0.3, "yes", size=14, color=POST, bold=True, anchor="m")
+    node(s, mx, 5.35, mw, 0.45, "Conclude", size=14, bold=True, color=POST, fill=POST_BG, line_col=POST)
+    px, pw = mx + mw + 0.32, sw - mw - 0.56
+    node(s, px, 4.33, pw, 0.45, "Probe", size=14, bold=True, color=BLUE, fill=BLUE_BG, line_col=BLUE)
+    line(s, mx + mw, 4.555, px, 4.555, color=NAVY, width=1.25, arrow=True)
+    text(s, mx + mw - 0.02, 4.3, 0.36, 0.22, "no", size=13, color=MUTED, bold=True, align="c", anchor="m")
+    line(s, px + pw / 2, 4.33, px + pw / 2, 4.16, color=NAVY, width=1.25, arrow=True)
+    node(s, px, 3.58, pw, 0.55, "Observe", size=14, color=BLUE, fill=BLUE_BG, line_col=BLUE)
+    line(s, px, 3.855, mx + mw, 3.855, color=NAVY, width=1.25, arrow=True)
+    text(s, px - 0.05, 4.92, pw + 0.1, 0.8, ["max 6 turns,", "then forced", "conclusion"], size=13, color=MUTED, italic=True, align="c", spacing=0.95)
+    # output
+    line(s, fx + fw / 2, 5.8, fx + fw / 2, 6.1, color=NAVY, width=1.25, arrow=True)
+    line(s, mx + mw / 2, 5.8, mx + mw / 2, 6.1, color=NAVY, width=1.25, arrow=True)
+    node(s, x, 6.12, w, 0.68, [[("classification.json", {"font": MONO, "bold": True, "color": PURPLE})],
+                               [("ODC label  ·  alternative types  ·  reasoning transcript", {"color": MUTED})]], size=14, fill=PANEL, line_col=PURPLE)
+    line(s, 9.45, 6.46, 9.62, 6.46, color=NAVY, width=1.75)
+    line(s, 9.62, 6.46, 9.62, 2.45, color=NAVY, width=1.75)
+    line(s, 9.62, 2.45, 9.78, 2.45, color=NAVY, width=1.75, arrow=True)
+    # ── Evaluation
+    x, w = 9.8, 2.93
+    rbox(s, x, 1.95, w, 1.12, line_col=TEAL, fill=TEAL_BG)
+    text(s, x, 1.97, w, 0.34, "Compare labels", size=15, bold=True, color=TEAL, align="c", anchor="m")
+    for i, t_ in enumerate(["pre-fix vs post-fix: 4 tiers", "scientific vs few-shot", "manual reading: 13 bugs"]):
+        text(s, x + 0.1, 2.3 + i * 0.25, w - 0.2, 0.25, t_, size=14, color=INK, align="c", anchor="m")
+    line(s, x + w / 2, 3.07, x + w / 2, 3.2, color=TEAL, width=1.5, arrow=True)
+    rbox(s, x, 3.22, w, 2.03, line_col=TEAL)
+    text(s, x, 3.25, w, 0.34, "Research questions", size=15, bold=True, color=TEAL, align="c", anchor="m")
+    for i, (a, b, col) in enumerate([("RQ1", "type distribution", BLUE), ("RQ2", "taxonomy coverage", TEAL), ("RQ3", "pre-fix accuracy", GOLD),
+                                     ("RQ4a", "taxonomy's value", PURPLE), ("RQ4b", "scientific vs few-shot", POST)]):
+        yy = 3.6 + i * 0.32
+        box(s, x + 0.15, yy + 0.03, 0.62, 0.26, fill=col)
+        text(s, x + 0.15, yy + 0.03, 0.62, 0.26, a, size=12, bold=True, color=WHITE, align="c", anchor="m")
+        text(s, x + 0.85, yy, w - 0.9, 0.32, b, size=14, anchor="m")
+    line(s, x + w / 2, 5.25, x + w / 2, 5.4, color=TEAL, width=1.5, arrow=True)
+    rbox(s, x, 5.42, w, 1.38, fill=PANEL, line_col=TEAL)
+    text(s, x, 5.45, w, 0.34, "Outputs", size=15, bold=True, color=TEAL, align="c", anchor="m")
+    for i, t_ in enumerate(["ODC labels with transcripts", "Statistics and result tables", "Code, prompts and data"]):
+        yy = 5.8 + i * 0.32
+        dot(s, x + 0.2, yy + 0.11, 0.1, TEAL)
+        text(s, x + 0.38, yy, w - 0.45, 0.32, t_, size=14, anchor="m")
 
 
 def s10_evidence(prs, num):
-    s = chrome(prs, "Evidence Collection: the Case File", num)
-    x, w = 0.6, 6.1
-    label(s, x, 1.42, w, "context.json  ·  one per bug and evidence mode")
-    box(s, x, 1.82, w, 4.4, fill=PANEL)
-    rows = [("{", INK), ('  "bug_report":        sanitized,', INK), ('  "failing_tests":     name, message,', INK),
-            ('                       stack trace,', INK), ('  "suspicious_frames": project frames,', INK),
-            ('  "code_snippets":     ±12 / ±18 lines,', INK), ('  "coverage":          line, branch,', INK),
-            ('  "hidden_oracles":    modified classes,', GOLD), ('  "fix_diff":          post-fix only', POST), ("}", INK)]
-    for i, (t_, c) in enumerate(rows):
-        text(s, x + 0.25, 1.98 + i * 0.42, w - 0.4, 0.42, t_, size=15, font=MONO, color=c)
-    items = [("Suspicious frames", "Only frames in the project's own source; JUnit, JDK and build-tool frames are dropped.", NAVY),
-             ("Sanitized pre-fix evidence", "Classes touched by the fix and “fixed in” discussion are removed.", NAVY),
-             ("Hidden oracle", "Modified classes are kept for evaluation, never put in the prompt.", GOLD)]
-    for i, (a, b, col) in enumerate(items):
-        yy = 1.85 + i * 1.5
-        box(s, 7.1, yy + 0.06, 0.06, 1.1, fill=col)
-        text(s, 7.35, yy, 5.38, 0.45, a, size=19, bold=True, color=NAVY)
-        text(s, 7.35, yy + 0.45, 5.38, 0.95, b, size=16, color=MUTED, spacing=1.05)
-    note(s, "Pre-fix and post-fix runs share one evidence store; only the fix diff differs.")
+    s = chrome(prs, "Evidence Collection: One Case File per Bug", num)
+    # 0. the bug
+    box(s, 0.6, 1.8, 1.65, 2.45, fill=NAVY)
+    text(s, 0.6, 1.8, 1.65, 2.45, [[("Defects4J", {"size": 15, "bold": False})], "bug",
+                                   [("", {"size": 8})], [("buggy version", {"size": 14, "bold": False})],
+                                   [("fixed version", {"size": 14, "bold": False})], [("issue link", {"size": 14, "bold": False})]],
+         size=21, bold=True, color=WHITE, align="c", anchor="m", spacing=1.0)
+    line(s, 2.3, 3.02, 2.7, 3.02, color=NAVY, width=1.75, arrow=True)
+    # 1. collect
+    label(s, 2.75, 1.4, 5.05, "1 · Collect")
+    rows = [("Bug report", "fetched from the issue tracker"),
+            ("Failing tests", "buggy version run: error + trace"),
+            ("Suspicious frames", "trace lines in the project’s own code"),
+            ("Code snippets", "±12 lines of code, ±18 of tests"),
+            ("Coverage", "line and branch data (optional)")]
+    for r, (a, b) in enumerate(rows):
+        y = 1.8 + r * 0.5
+        box(s, 2.75, y, 5.05, 0.43, fill=PANEL)
+        text(s, 2.9, y, 1.8, 0.43, a, size=15, bold=True, color=NAVY, anchor="m")
+        text(s, 4.7, y, 3.08, 0.43, b, size=14, color=MUTED, anchor="m", spacing=0.95)
+    line(s, 7.85, 3.02, 8.2, 3.02, color=NAVY, width=1.75, arrow=True)
+    # 2. store
+    x, w = 8.25, 4.48
+    label(s, x, 1.4, w, "2 · Store: context.json")
+    bands = [(PANEL2, NAVY, "Evidence", "cleaned and deduplicated; shown to the model"),
+             (GOLD_BG, GOLD, "Hidden oracle", "modified classes; for evaluation only"),
+             (POST_BG, POST, "Fix diff", "buggy → fixed code; post-fix only")]
+    for r, (bg, col, a, b) in enumerate(bands):
+        y = 1.8 + r * 0.83
+        box(s, x, y, w, 0.76, fill=bg)
+        box(s, x, y, 0.07, 0.76, fill=col)
+        text(s, x + 0.25, y + 0.02, w - 0.35, 0.36, a, size=16, bold=True, color=col, anchor="m")
+        text(s, x + 0.25, y + 0.37, w - 0.35, 0.36, b, size=14, color=INK, anchor="m")
+    # 3. two case files
+    label(s, 0.6, 4.5, 12.13, "3 · Build two case files  ·  the only difference is the fix diff")
+    for c, (col, bg, a, b, c2) in enumerate([
+            (PRE, PRE_BG, "Pre-fix case file", "evidence only; fix hints removed from the report and metadata", "→ the label we evaluate"),
+            (POST, POST_BG, "Post-fix case file", "the same evidence + the fix diff", "→ the reference label")]):
+        x = 0.6 + c * 6.2
+        box(s, x, 4.88, 5.93, 1.02, fill=bg)
+        box(s, x, 4.88, 0.07, 1.02, fill=col)
+        text(s, x + 0.25, 4.92, 3.2, 0.42, a, size=18, bold=True, color=col, anchor="m")
+        text(s, x + 3.2, 4.92, 2.6, 0.42, c2, size=16, bold=True, color=col, anchor="m", align="r")
+        text(s, x + 0.25, 5.36, 5.55, 0.48, b, size=15, color=INK, anchor="m")
+    # who reads it
+    box(s, 0.6, 6.08, 12.13, 0.74, fill=PANEL)
+    text(s, 0.8, 6.08, 11.8, 0.74,
+         [[("Every strategy and both LLMs read the same file.  ", {"bold": True, "color": NAVY}),
+           ("few-shot", {"bold": True}), (" reads the evidence summary once;  ", {"color": MUTED}),
+           ("scientific", {"bold": True}), (" reads the same summary, then probes for the held-back rest.", {"color": MUTED})]],
+         size=15, anchor="m")
 
 
 def s11_conditions(prs, num):
-    s = chrome(prs, "Classification Conditions", num)
-    text(s, 0.6, 1.32, 12.13, 0.45, "A condition = taxonomy (label space) × strategy (reasoning).", size=18, color=MUTED)
-    gx, gy, cw, ch = 2.3, 2.4, 1.85, 0.92
-    label(s, gx, 1.95, cw * 3, "Taxonomy", align="c")
-    text(s, 0.6, gy, 1.7, 0.45, "STRATEGY", size=14, bold=True, color=MUTED, anchor="m")
-    valid = {("zero", "free"), ("few", "closed"), ("few", "open"), ("scientific", "closed"), ("scientific", "open")}
-    for ci, c in enumerate(["free", "closed", "open"]):
-        text(s, gx + ci * cw, gy, cw, 0.45, c, size=17, bold=True, align="c", anchor="m")
-    line(s, 0.6, gy + 0.5, gx + 3 * cw, gy + 0.5, color=NAVY, width=1.25)
-    for ri, r in enumerate(["zero", "few", "scientific"]):
-        y = gy + 0.55 + ri * ch
-        text(s, 0.6, y, 1.7, ch, r, size=17, bold=True, anchor="m")
-        for ci, c in enumerate(["free", "closed", "open"]):
+    s = chrome(prs, "Classification Conditions and Models", num)
+    text(s, 0.6, 1.3, 12.13, 0.42, [[("A condition = ", {"color": MUTED}), ("taxonomy", {"bold": True}), (" (which labels)  ×  ", {"color": MUTED}),
+                                     ("strategy", {"bold": True}), (" (how it reasons),  run by an ", {"color": MUTED}),
+                                     ("LLM", {"bold": True}), (".", {"color": MUTED})]], size=17, anchor="m")
+    gx, gy, cw, ch = 2.35, 1.95, 1.62, 0.95
+    label(s, gx, gy, cw * 3, "Taxonomy", align="c")
+    cols = [("free", "own words"), ("closed", "7 ODC types"), ("open", "7 types + “Other”")]
+    for ci, (c, d) in enumerate(cols):
+        text(s, gx + ci * cw, gy + 0.35, cw, 0.62, [c, [(d, {"size": 14, "bold": False, "color": MUTED})]],
+             size=17, bold=True, align="c", anchor="m", spacing=0.95)
+    text(s, 0.6, gy + 0.35, 1.7, 0.62, "STRATEGY", size=14, bold=True, color=MUTED, anchor="m")
+    line(s, 0.6, gy + 1.02, gx + 3 * cw, gy + 1.02, color=NAVY, width=1.25)
+    rows = [("zero", "plain prompt"), ("few", "worked examples"), ("scientific", "hypothesis → probe")]
+    used = {("zero", "free"): PANEL2, ("few", "open"): PANEL2, ("scientific", "open"): NAVY,
+            ("few", "closed"): PANEL2, ("scientific", "closed"): PANEL2}
+    defined = set()
+    for ri, (r, d) in enumerate(rows):
+        y = gy + 1.07 + ri * ch
+        text(s, 0.6, y, 1.75, ch, [r, [(d, {"size": 14, "bold": False, "color": MUTED})]], size=17, bold=True, anchor="m", spacing=0.95)
+        for ci, (c, _) in enumerate(cols):
             x = gx + ci * cw
-            if (r, c) == ("scientific", "open"):
-                box(s, x + 0.08, y + 0.08, cw - 0.16, ch - 0.16, fill=NAVY)
-                text(s, x + 0.08, y + 0.08, cw - 0.16, ch - 0.16,
-                     ["scientific-open", [("default", {"size": 14, "bold": False})]],
-                     size=15, bold=True, color=WHITE, align="c", anchor="m", spacing=0.95)
-            elif (r, c) in valid:
-                box(s, x + 0.08, y + 0.08, cw - 0.16, ch - 0.16, fill=PANEL2)
-                text(s, x + 0.08, y + 0.08, cw - 0.16, ch - 0.16, f"{r}-{c}", size=15, bold=True, color=NAVY, align="c", anchor="m")
+            if (r, c) in used:
+                fill = used[(r, c)]
+                box(s, x + 0.07, y + 0.08, cw - 0.14, ch - 0.16, fill=fill)
+                runs = [f"{r}-{c}"] + ([[("default", {"size": 13, "bold": False})]] if fill == NAVY else [])
+                text(s, x + 0.07, y + 0.08, cw - 0.14, ch - 0.16, runs, size=15, bold=True,
+                     color=WHITE if fill == NAVY else NAVY, align="c", anchor="m", spacing=0.95)
+            elif (r, c) in defined:
+                b = box(s, x + 0.07, y + 0.08, cw - 0.14, ch - 0.16, fill=WHITE, line=RULE, lw=1.0)
+                text(s, x + 0.07, y + 0.08, cw - 0.14, ch - 0.16, f"{r}-{c}", size=14, color=FAINT, align="c", anchor="m")
             else:
                 text(s, x, y, cw, ch, "—", size=16, color=FAINT, align="c", anchor="m")
         line(s, 0.6, y + ch, gx + 3 * cw, y + ch, color=RULE)
-    text(s, 0.6, 5.7, 7.2, 0.8, "Five of nine combinations are valid: zero uses no taxonomy, and free defines none.", size=16, color=MUTED)
-    dx = 8.05
-    yy = 1.95
-    for head, items in [("Taxonomy", [("free", "the model's own words"), ("closed", "one of the 7 ODC types"), ("open", "7 types + a justified “Other”")]),
-                        ("Strategy", [("zero", "one plain prompt"), ("few", "definitions, tree, 5 examples"), ("scientific", "enforced hypothesis–probe loop")])]:
-        label(s, dx, yy, 4.68, head)
-        yy += 0.42
-        for k, d in items:
-            text(s, dx, yy, 1.25, 0.56, k, size=17, bold=True, color=NAVY, anchor="m")
-            text(s, dx + 1.25, yy, 3.43, 0.56, d, size=16, anchor="m", spacing=0.98)
-            line(s, dx, yy + 0.58, 12.73, yy + 0.58, color=RULE)
-            yy += 0.6
-        yy += 0.25
+    text(s, 0.6, 5.95, 7.2, 0.5, "Five of nine combinations are valid: zero-shot uses no taxonomy, so it pairs only with free.",
+         size=15, color=MUTED, italic=True, spacing=1.0)
+    # right: the LLM as a third, swappable axis
+    x, w = 8.0, 4.73
+    label(s, x, gy, w, "Third axis: the LLM")
+    models = [("Gemini 3.1 Flash-Lite", "Google  ·  main model", "structured output enforced by the API"),
+              ("gpt-5-mini", "OpenAI  ·  second model", "a reasoning model, used to cross-check")]
+    for k, (a, b, c) in enumerate(models):
+        y = gy + 0.42 + k * 1.45
+        box(s, x, y, w, 1.28, fill=PANEL)
+        box(s, x, y, 0.07, 1.28, fill=NAVY)
+        text(s, x + 0.25, y + 0.08, w - 0.35, 0.42, a, size=18, bold=True, color=NAVY, anchor="m")
+        text(s, x + 0.25, y + 0.48, w - 0.35, 0.36, b, size=15, color=INK, anchor="m")
+        text(s, x + 0.25, y + 0.84, w - 0.35, 0.36, c, size=14, color=MUTED, anchor="m")
+    box(s, x, gy + 3.35, w, 0.95, fill=PANEL2)
+    text(s, x + 0.2, gy + 3.35, w - 0.4, 0.95, [[("Only the model changes: ", {"bold": True, "color": NAVY}),
+                                                ("same case files, prompts, taxonomy and validation.", {})]], size=16, anchor="m", spacing=1.02)
 
 
 def s12_prompts(prs, num):
-    s = chrome(prs, "Prompt Design", num)
-    text(s, 0.6, 1.3, 12.13, 0.42, "Capitalised names are prompt components: defined once, or filled in per bug.", size=17, color=MUTED)
+    s = chrome(prs, "Prompt Design: What Each Strategy Sends", num)
+    box(s, 0.6, 1.35, 12.13, 0.55, fill=PANEL2)
+    text(s, 0.8, 1.35, 11.8, 0.55, [[("Same in both:  ", {"bold": True, "color": NAVY}),
+                                     ("ODC taxonomy  ·  anti-bias rules  ·  the bug’s evidence summary  ·  JSON answer format", {})]],
+         size=17, anchor="m")
 
-    def msg(x, y, w, h, role, lines, accent, fill=PANEL, size=15):
-        box(s, x, y, w, h, fill=fill)
-        box(s, x, y, 0.06, h, fill=accent)
-        text(s, x + 0.22, y + 0.06, 1.15, 0.32, role, size=13, font=MONO, bold=True, color=accent)
-        text(s, x + 1.45, y + 0.04, w - 1.65, h - 0.1, lines, size=size, font=MONO, spacing=1.12, after=2, anchor="m")
+    def bubble(x, y, w, h, tag, body, col, bg):
+        box(s, x, y, w, h, fill=bg)
+        box(s, x, y, 0.07, h, fill=col)
+        text(s, x + 0.25, y + 0.04, 1.4, 0.34, tag, size=14, bold=True, color=col, anchor="m")
+        text(s, x + 0.25, y + 0.36, w - 0.4, h - 0.4, body, size=16, color=INK, spacing=1.02)
 
-    def arrow(x, y1, y2):
-        line(s, x, y1, x, y2, color=FAINT, width=1.25, arrow=True)
-
-    # left: single call
-    lx, lw = 0.6, 5.95
-    box(s, lx, 1.88, lw, 0.46, fill=NAVY)
-    text(s, lx + 0.22, 1.88, lw - 0.4, 0.46, [[("few-open", {"bold": True}), ("     one call, one answer", {"size": 15})]],
-         size=16, font=MONO, color=WHITE, anchor="m")
-    msg(lx, 2.55, lw, 1.5, "system", ["ODC_TAXONOMY  ANTI_BIAS_RULES", "DECISION_TREE      (7 questions)",
-                                      "FEW_SHOT_EXAMPLES  (5 bugs)", "OUTPUT_SCHEMA"], NAVY)
-    arrow(lx + lw / 2, 4.05, 4.32)
-    msg(lx, 4.32, lw, 0.62, "user", ["BUG_CONTEXT"], MUTED)
-    arrow(lx + lw / 2, 4.94, 5.21)
-    msg(lx, 5.21, lw, 0.62, "model", ["one JSON classification"], POST, fill=POST_BG)
-    # right: loop
-    rx, rw = 6.78, 5.95
-    box(s, rx, 1.88, rw, 0.46, fill=NAVY)
-    text(s, rx + 0.22, 1.88, rw - 0.4, 0.46, [[("scientific-open", {"bold": True}), ("     up to 6 turns", {"size": 15})]],
-         size=16, font=MONO, color=WHITE, anchor="m")
-    msg(rx, 2.55, rw, 1.0, "system", ["ODC_TAXONOMY  ANTI_BIAS_RULES", "PROBE_CATALOGUE  TURN_SCHEMA"], NAVY)
-    arrow(rx + rw / 2, 3.55, 3.78)
-    msg(rx, 3.78, rw, 0.54, "user", ["BUG_CONTEXT (summary)"], MUTED)
-    box(s, rx - 0.12, 4.5, rw + 0.24, 1.42, fill=WHITE, line=NAVY, lw=1.0)
-    text(s, rx + 0.02, 4.53, 2.6, 0.3, "EACH TURN", size=13, bold=True, color=NAVY)
-    msg(rx, 4.86, rw, 0.48, "model", ["hypothesis · prediction · probe"], NAVY, fill=PANEL, size=14)
-    msg(rx, 5.38, rw, 0.48, "user", ["PROBE_RESULT"], GOLD, fill="FBF2E3", size=14)
-    text(s, rx + rw + 0.02, 4.5, 0.55, 1.42, "×6", size=16, bold=True, color=NAVY, align="c", anchor="m")
-    arrow(rx + rw / 2, 5.92, 6.15)
-    msg(rx, 6.15, rw, 0.55, "model", ["conclude → ODC defect type"], POST, fill=POST_BG)
-    text(s, lx, 6.15, lw, 0.55, "The taxonomy and the evidence are identical in both.", size=16, italic=True, color=MUTED, anchor="m")
+    for c, (title, sub, col, bg) in enumerate([("few-shot", "one call, one answer", BLUE, BLUE_BG),
+                                               ("scientific", "up to 6 turns", PURPLE, PURPLE_BG)]):
+        x = 0.6 + c * 6.25
+        w = 5.88
+        box(s, x, 2.1, w, 0.48, fill=col)
+        text(s, x + 0.2, 2.1, w - 0.3, 0.48, [[(title, {"bold": True}), (f"   ·   {sub}", {"size": 15})]], size=18, color=WHITE, anchor="m")
+    # few-shot column
+    x, w = 0.6, 5.88
+    bubble(x, 2.75, w, 0.95, "① Instructions", "ODC definitions, a 7-question decision tree, 5 worked examples", BLUE, BLUE_BG)
+    bubble(x, 3.85, w, 0.8, "② The bug", "the evidence summary", MUTED, PANEL)
+    line(s, x + w / 2, 4.7, x + w / 2, 5.95, color=FAINT, width=1.5, arrow=True)
+    text(s, x + w / 2 + 0.15, 4.95, 2.6, 0.8, ["one call,", "no extra evidence"], size=16, color=MUTED, italic=True, anchor="m")
+    bubble(x, 6.0, w, 0.8, "③ Answer", "one JSON: type, alternatives, reasoning", POST, POST_BG)
+    # scientific column
+    x = 6.85
+    bubble(x, 2.75, w, 0.95, "① Instructions", "ODC definitions, the list of 5 probes, turn rules", PURPLE, PURPLE_BG)
+    bubble(x, 3.85, w, 0.8, "② The bug", "the same summary; the rest is held back", MUTED, PANEL)
+    box(s, x, 4.8, w, 1.05, fill=WHITE, line=PURPLE, lw=1.0)
+    text(s, x + 0.2, 4.82, 2.0, 0.3, "EACH TURN", size=13, bold=True, color=PURPLE, anchor="m")
+    text(s, x + 0.2, 5.12, w - 0.4, 0.34, [[("model  ", {"bold": True, "color": PURPLE}), ("hypothesis → prediction → probe request", {})]], size=15, anchor="m")
+    text(s, x + 0.2, 5.46, w - 0.4, 0.34, [[("pipeline  ", {"bold": True, "color": GOLD}), ("returns what the probe found", {})]], size=15, anchor="m")
+    bubble(x, 6.0, w, 0.8, "③ Answer", "the same JSON + the full turn transcript", POST, POST_BG)
 
 
 def s13_loop(prs, num):
-    s = chrome(prs, "The Enforced Scientific Reasoning Loop", num)
-    steps = [("Hypothesis", "commit to a type"), ("Prediction", "evidence that must exist"),
-             ("Probe", "request that evidence"), ("Observation", "read what came back")]
-    x0, y0, bw, gap = 0.6, 1.6, 2.55, 0.64
-    for i, (a, b) in enumerate(steps):
-        x = x0 + i * (bw + gap)
-        box(s, x, y0, bw, 1.1, fill=WHITE, line=NAVY, lw=1.25)
-        box(s, x, y0, bw, 0.06, fill=NAVY)
-        text(s, x, y0 + 0.12, bw, 0.45, a, size=19, bold=True, color=NAVY, align="c")
-        text(s, x, y0 + 0.58, bw, 0.42, b, size=16, color=MUTED, align="c")
-        if i < 3:
-            line(s, x + bw + 0.06, y0 + 0.55, x + bw + gap - 0.06, y0 + 0.55, color=NAVY, width=1.75, arrow=True)
-    lx = x0 + 3 * (bw + gap) + bw / 2
-    fx = x0 + bw / 2
-    yb = y0 + 1.55
-    line(s, lx, y0 + 1.1, lx, yb, color=NAVY, width=1.5)
-    line(s, lx, yb, fx, yb, color=NAVY, width=1.5, dash=True)
-    line(s, fx, yb, fx, y0 + 1.14, color=NAVY, width=1.5, dash=True, arrow=True)
-    text(s, 3.2, yb + 0.02, 6.9, 0.42, "next turn while the evidence is insufficient  ·  at most 6 turns", size=15, color=MUTED, italic=True, align="c")
-    box(s, 10.18, yb + 0.52, 2.55, 0.55, fill=POST_BG)
-    text(s, 10.18, yb + 0.52, 2.55, 0.55, "Conclude: ODC label", size=16, bold=True, color=POST, align="c", anchor="m")
-    text(s, 0.6, yb + 0.52, 9.3, 0.55, "Adapted from AutoSD [17, 18]: from locating a fault to naming its type.", size=16, color=MUTED, anchor="m")
-    label(s, 0.6, 4.3, 12.13, "Five probes, executed against the evidence store")
-    probes = [("list_evidence()", "what evidence exists"), ("full_stack_trace(test)", "trace and message"),
-              ("snippet(class)", "source snippets"), ("coverage(class)", "line and branch"), ("bug_report()", "the full report")]
-    for i, (p, d) in enumerate(probes):
-        x = 0.6 + (i % 2) * 4.3
-        y = 4.72 + (i // 2) * 0.68
-        box(s, x, y, 4.1, 0.56, fill=PANEL)
-        text(s, x + 0.2, y, 2.65, 0.56, p, size=14, font=MONO, bold=True, color=NAVY, anchor="m")
-        text(s, x + 2.85, y, 1.05, 0.56, d, size=14, color=MUTED, anchor="m", align="r")
-    text(s, 9.3, 4.9, 3.43, 1.2, "The prediction is fixed before the evidence arrives, so a first guess cannot be rationalised.", size=17, italic=True, anchor="m", spacing=1.05)
+    s = chrome(prs, "How the Scientific Strategy Reasons", num)
+    label(s, 0.6, 1.35, 12.13, "The summary is read once  ·  every turn then starts at Hypothesis")
+
+    def step(x, y, w, h, title, sub, col, bg, lw=1.25):
+        rbox(s, x, y, w, h, fill=bg, line_col=col, lw=lw)
+        text(s, x, y + 0.08, w, 0.42, title, size=18, bold=True, color=col, align="c", anchor="m")
+        text(s, x + 0.08, y + 0.48, w - 0.16, h - 0.52, sub, size=14, color=INK, align="c", spacing=0.98)
+
+    y1, h1 = 1.78, 1.05
+    step(0.6, y1, 1.85, h1, "Start", "evidence summary", MUTED, PANEL)
+    step(2.8, y1, 2.2, h1, "Hypothesis", "a specific cause", PURPLE, PURPLE_BG)
+    step(5.35, y1, 2.2, h1, "Prediction", "what must be there", PURPLE, PURPLE_BG)
+    step(7.9, y1, 2.2, h1, "Enough evidence?", "the model decides", GOLD, GOLD_BG)
+    step(10.53, y1, 2.2, h1, "Conclude", "ODC label + alternatives", POST, POST_BG, lw=1.75)
+    for x_from, x_to in [(2.45, 2.8), (5.0, 5.35), (7.55, 7.9)]:
+        line(s, x_from + 0.03, y1 + h1 / 2, x_to - 0.03, y1 + h1 / 2, color=NAVY, width=1.75, arrow=True)
+    line(s, 10.13, y1 + h1 / 2, 10.5, y1 + h1 / 2, color=POST, width=2.0, arrow=True)
+    text(s, 10.02, y1 + 0.1, 0.6, 0.28, "yes", size=15, bold=True, color=POST, align="c", anchor="m")
+    # second row: the experiment
+    y2, h2 = 3.25, 1.0
+    line(s, 9.0, y1 + h1, 9.0, y2 - 0.03, color=NAVY, width=1.75, arrow=True)
+    text(s, 9.08, y1 + h1 + 0.05, 0.5, 0.3, "no", size=15, bold=True, color=MUTED, anchor="m")
+    step(7.9, y2, 2.2, h2, "Probe", "ask for hidden evidence", BLUE, BLUE_BG)
+    line(s, 7.87, y2 + h2 / 2, 7.58, y2 + h2 / 2, color=NAVY, width=1.75, arrow=True)
+    step(5.35, y2, 2.2, h2, "Observation", "read what came back", BLUE, BLUE_BG)
+    line(s, 5.32, y2 + h2 / 2, 3.9, y2 + h2 / 2, color=NAVY, width=1.75, dash=True)
+    line(s, 3.9, y2 + h2 / 2, 3.9, y1 + h1 + 0.03, color=NAVY, width=1.75, dash=True, arrow=True)
+    text(s, 3.98, y2 + 0.12, 1.3, 0.34, "next turn", size=15, italic=True, color=NAVY, anchor="m")
+    text(s, 10.53, y2 + 0.05, 2.2, 0.95, ["at most 6 turns;", "on the last one it", "must conclude"],
+         size=14, italic=True, color=MUTED, align="c", spacing=0.98)
+    text(s, 0.6, y2 + 0.1, 3.1, 0.9, [[("Adapted from AutoSD [17, 18]", {"bold": True, "color": NAVY})],
+                                      [("from locating a fault to naming its type", {"color": MUTED})]], size=15, spacing=1.02)
+    # probes
+    label(s, 0.6, 4.55, 12.13, "Five probes: the only way to see evidence held back from the prompt")
+    probes = [(["list_evidence()"], "what evidence exists"), (["full_stack_trace", "(test)"], "full trace and message"),
+              (["snippet(class)"], "source of a class"), (["coverage(class)"], "line and branch data"), (["bug_report()"], "the full report")]
+    tw = (12.13 - 4 * 0.15) / 5
+    for k, (p_, d) in enumerate(probes):
+        x = 0.6 + k * (tw + 0.15)
+        box(s, x, 4.93, tw, 1.05, fill=BLUE_BG)
+        box(s, x, 4.93, tw, 0.06, fill=BLUE)
+        text(s, x + 0.12, 5.02, tw - 0.2, 0.58, p_, size=14, font=MONO, bold=True, color=BLUE, anchor="m", spacing=0.95)
+        text(s, x + 0.12, 5.58, tw - 0.2, 0.36, d, size=14, color=INK, anchor="m")
+    keyline(s, 6.2, "The prediction is written before the evidence arrives, so a first guess cannot be rationalised afterwards.", h=0.55)
 
 
 def s14_eval(prs, num):
-    s = chrome(prs, "Evaluation Framework: Four Tiers of Agreement", num)
-    label(s, 0.6, 1.4, 6.9, "Tiers 1–3 are nested: strict inside forgiving")
-    tiers = [(0.0, 6.9, "EDF0F4", "Tier 3   Family match", "both types in the same family", MUTED),
-             (0.8, 5.3, "C9D3E1", "Tier 2   Top-2 match", "either label is the other's alternative", NAVY),
-             (1.6, 3.7, "2E4A7D", "Tier 1   Strict match", "the same ODC type", WHITE)]
-    for i, (dx, w, col, name, desc, tc) in enumerate(tiers):
-        y = 1.85 + i * 0.95
-        box(s, 0.6 + dx, y, w, 0.85, fill=col)
-        text(s, 0.78 + dx, y, w - 0.3, 0.45, name, size=17, bold=True, color=tc)
-        text(s, 0.78 + dx, y + 0.42, w - 0.3, 0.4, desc, size=15, color=tc)
-    text(s, 0.6, 4.75, 6.9, 1.0, "Three types cover 97.8% of labels, so shuffled labels still reach >92% on Tiers 2–3: we use them to grade disagreements, not as scores.",
-         size=16, color=MUTED, spacing=1.05)
-    x, w = 7.85, 4.88
-    label(s, x, 1.4, w, "Tier 4  ·  Cohen's kappa")
-    text(s, x, 1.75, w, 0.7, [[("κ", {"italic": True}), ("  =  (", {}), ("p", {"italic": True}), ("o", {"sub": True}), (" − ", {}),
-                               ("p", {"italic": True}), ("e", {"sub": True}), (")  /  (1 − ", {}), ("p", {"italic": True}),
-                               ("e", {"sub": True}), (")", {})]], size=27, anchor="m")
-    text(s, x, 2.5, w, 0.9, [[("p", {"italic": True}), ("o", {"sub": True}), (" is observed agreement, ", {"color": MUTED}),
-                              ("p", {"italic": True}), ("e", {"sub": True}), (" the agreement expected by chance.", {"color": MUTED})]],
-         size=17, spacing=1.06)
-    kappa_ruler(s, x, 4.5, w, 0.505)
-    text(s, x, 5.2, w, 0.4, "Landis–Koch bands [27]", size=15, color=MUTED, align="c")
+    s = chrome(prs, "Evaluation: How We Compare Two Labels", num)
+    text(s, 0.6, 1.3, 12.13, 0.45, [[("For each bug we compare its ", {}), ("pre-fix", {"bold": True, "color": PRE}), (" label with its ", {}),
+                                     ("post-fix", {"bold": True, "color": POST}), (" label, from strict to forgiving.", {})]], size=17, anchor="m")
+    cw, gap = (12.13 - 3 * 0.25) / 4, 0.25
+    cards = [("Tier 1", "Strict match", "Same ODC type?", BLUE),
+             ("Tier 2", "Top-2 match", "Is one label the other’s alternative?", PURPLE),
+             ("Tier 3", "Family match", "Same ODC family?", TEAL),
+             ("Tier 4", "Cohen’s κ", "Agreement beyond chance, over all bugs?", GOLD)]
+    y = 1.95
+    for k, (tier, name, q, col) in enumerate(cards):
+        x = 0.6 + k * (cw + gap)
+        box(s, x, y, cw, 3.25, fill=PANEL)
+        box(s, x, y, cw, 0.07, fill=col)
+        text(s, x + 0.2, y + 0.15, cw - 0.3, 0.34, tier.upper(), size=13, bold=True, color=col, anchor="m")
+        text(s, x + 0.2, y + 0.48, cw - 0.3, 0.42, name, size=20, bold=True, color=NAVY, anchor="m")
+        text(s, x + 0.2, y + 0.92, cw - 0.3, 0.7, q, size=16, color=INK, spacing=1.0)
+        ey = y + 1.7
+        if k < 3:
+            ex = [(("Checking", "Checking"), "same type"),
+                  (("Checking", "Algorithm"), "Algorithm was listed as an alternative"),
+                  (("Checking", "Assignment"), "both in Control and Data Flow")][k]
+            (a, b), note_ = ex
+            for r, (lab, v, c2) in enumerate([("pre", a, PRE), ("post", b, POST)]):
+                yy = ey + r * 0.42
+                text(s, x + 0.2, yy, 0.55, 0.36, lab, size=13, bold=True, color=c2, anchor="m")
+                box(s, x + 0.78, yy + 0.02, cw - 1.0, 0.33, fill=WHITE, line=RULE, lw=0.75)
+                text(s, x + 0.78, yy + 0.02, cw - 1.0, 0.33, v, size=14, color=INK, align="c", anchor="m")
+            text(s, x + 0.2, ey + 0.9, cw - 0.3, 0.6, note_, size=14, color=MUTED, italic=True, spacing=1.0)
+        else:
+            bw = cw - 0.4
+            for q_ in range(10):
+                shade = ["EDF0F4", "E3E8EF", "D3DAE4", "BCC8D8", "9FB0C6", "8196B5", "5E789F", "46628E", "2E4A7D", "1D3563"][q_]
+                box(s, x + 0.2 + q_ * bw / 10, ey + 0.2, bw / 10, 0.34, fill=shade)
+            text(s, x + 0.15, ey + 0.58, 1.2, 0.3, "0 = chance", size=13, color=MUTED, anchor="m")
+            text(s, x + cw - 1.35, ey + 0.58, 1.2, 0.3, "1 = perfect", size=13, color=MUTED, anchor="m", align="r")
+            text(s, x + 0.2, ey + 0.9, cw - 0.3, 0.6, "read on the Landis–Koch scale [27]", size=14, color=MUTED, italic=True, spacing=1.0)
+        if k < 2:
+            text(s, x + cw - 0.02, y + 1.0, gap + 0.04, 0.4, "›", size=24, bold=True, color=FAINT, align="c", anchor="m")
+    text(s, 0.6, 5.25, 9.0, 0.36, "Tier 1 and κ are the scores; Tiers 2–3 tell a near miss from an unrelated label.", size=15, color=MUTED, italic=True, anchor="m")
+    label(s, 0.6, 5.72, 12.13, "Comparing scientific with few-shot: every bug falls into one of four outcomes")
+    outs = [("both right", PANEL2, NAVY), ("only scientific right", POST, WHITE), ("only few-shot right", GREY_BAR, WHITE), ("both wrong", PANEL, FAINT)]
+    ow = (12.13 - 3 * 0.15) / 4
+    for k, (t_, fill, fc) in enumerate(outs):
+        ox = 0.6 + k * (ow + 0.15)
+        box(s, ox, 6.1, ow, 0.62, fill=fill)
+        text(s, ox, 6.1, ow, 0.62, t_, size=16, bold=True, color=fc, align="c", anchor="m")
 
 
 def s15_reference(prs, num):
-    s = chrome(prs, "Why the Post-Fix Label Is a Valid Reference", num)
-    label(s, 0.6, 1.4, 7.3, "Human agreement on ODC-style classification rises with evidence")
-    ax, ay, aw, ah = 1.15, 2.4, 5.3, 2.5
-    line(s, ax, ay, ax, ay + ah, color=FAINT, width=1.0)
-    for v in (0.0, 0.5, 1.0):
-        yy = ay + ah * (1 - v)
-        line(s, ax, yy, ax + aw, yy, color=RULE)
-        text(s, 0.6, yy - 0.18, 0.48, 0.36, f"{v:.1f}", size=14, color=FAINT, align="r")
-    text(s, 0.6, ay - 0.42, 1.4, 0.36, "κ", size=15, bold=True, color=FAINT, italic=True)
-    pts = [(0.10, 0.16, "fault descriptions only [22]", PRE),
-           (0.52, 0.70, "full repository context [25]", GOLD),
-           (0.93, 0.93, "full code and change [26]", POST)]
-    prev = None
-    for px, v, lab, col in pts:
-        x, y = ax + aw * px, ay + ah * (1 - v)
-        if prev:
-            line(s, prev[0], prev[1], x, y, color=NAVY, width=2.0)
-        prev = (x, y)
-    for i, (px, v, lab, col) in enumerate(pts):
-        x, y = ax + aw * px, ay + ah * (1 - v)
-        dot(s, x - 0.11, y - 0.11, 0.22, col)
-        text(s, x - 0.9, y - 0.58, 1.8, 0.4, f"{v:.2f}", size=18, bold=True, color=col, align="c")
-        ly = 5.02 + i * 0.38
-        dot(s, ax, ly + 0.09, 0.18, col)
-        text(s, ax + 0.3, ly, 5.4, 0.38, lab, size=15, anchor="m")
-    x = 7.6
-    label(s, x, 1.4, 5.13, "Our data behave the same way")
-    for i, (a, b) in enumerate([("68.0% → 76.3%", "strategy agreement, without → with the fix"),
-                                ("6 of 6", "projects agree more once the fix is visible")]):
-        y = 2.1 + i * 1.5
-        text(s, x, y, 5.13, 0.55, a, size=27, bold=True, color=NAVY)
-        text(s, x, y + 0.55, 5.13, 0.45, b, size=16, color=MUTED)
-        line(s, x, y + 1.05, 12.73, y + 1.05, color=RULE)
-    keyline(s, 6.2, "The run that sees the fix is better informed — but two labels can agree and both be wrong.", h=0.6)
+    s = chrome(prs, "Why the Post-Fix Label Is a Reliable Reference", num)
+    text(s, 0.6, 1.32, 12.13, 0.5, [[("The post-fix run is the same classifier given ", {}), ("one extra piece of evidence: the developer’s fix.", {"bold": True, "color": NAVY}),
+                                     (" Four reasons make it the better-informed rater.", {})]], size=17, anchor="m")
+    reasons = [("It sees what defines the answer.",
+                "In ODC, the Defect Type is the nature of the correction [4, 15]. Pre-fix has to guess the correction from symptoms; post-fix can read it."),
+               ("More evidence makes raters agree.",
+                "Human raters agree far more when they see the code and the change than when they read only a fault description [22–26]."),
+               ("It points at one specific fault.",
+                "A buggy version holds about 9.2 faults [29]. The fix diff shows exactly the one the benchmark bug is about."),
+               ("Nothing else changes.",
+                "Same model, same prompt, same taxonomy, same evidence. Any difference between the two labels comes from the fix alone.")]
+    for i, (a, b) in enumerate(reasons):
+        y = 1.98 + i * 1.22
+        box(s, 0.6, y + 0.05, 0.5, 0.5, fill=NAVY, shape=MSO_SHAPE.OVAL)
+        text(s, 0.6, y + 0.05, 0.5, 0.5, str(i + 1), size=18, bold=True, color=WHITE, align="c", anchor="m")
+        text(s, 1.3, y, 8.6, 0.45, a, size=20, bold=True, color=NAVY, anchor="m")
+        text(s, 1.3, y + 0.46, 8.6, 0.7, b, size=16, color=INK, spacing=1.03)
+        if i < 3:
+            line(s, 0.6, y + 1.15, 12.73, y + 1.15, color=RULE)
+        vx, vy, vw = 10.3, y + 0.08, 2.43
+        if i == 0:
+            box(s, vx, vy, vw, 0.42, fill=PRE_BG)
+            text(s, vx, vy, vw, 0.42, "− buggy line", size=14, font=MONO, color=PRE, align="c", anchor="m")
+            box(s, vx, vy + 0.5, vw, 0.42, fill=POST_BG)
+            text(s, vx, vy + 0.5, vw, 0.42, "+ fixed line", size=14, font=MONO, color=POST, align="c", anchor="m")
+        elif i == 1:
+            for k, (v, col) in enumerate([(0.16, PRE), (0.70, GOLD), (0.93, POST)]):
+                bx = vx + 0.15 + k * 0.8
+                hh = 0.62 * v
+                box(s, bx, vy + 0.95 - hh, 0.55, hh, fill=col)
+                text(s, bx - 0.15, vy + 0.95 - hh - 0.3, 0.85, 0.28, f"κ {v:.2f}", size=13, bold=True, color=col, align="c", anchor="m")
+            line(s, vx, vy + 0.95, vx + vw, vy + 0.95, color=FAINT, width=0.75)
+        elif i == 2:
+            for k in range(9):
+                dot(s, vx + 0.25 + k * 0.23, vy + 0.33, 0.19, POST if k == 4 else GREY_BAR)
+            text(s, vx, vy + 0.58, vw, 0.34, "the fix repairs one", size=14, color=POST, bold=True, align="c", anchor="m")
+        else:
+            for r, (lab, col, extra) in enumerate([("pre-fix", PRE, False), ("post-fix", POST, True)]):
+                yy = vy + r * 0.5
+                text(s, vx, yy, 0.85, 0.42, lab, size=14, bold=True, color=col, anchor="m")
+                for k in range(3):
+                    box(s, vx + 0.9 + k * 0.33, yy + 0.08, 0.26, 0.26, fill=GREY_BAR)
+                if extra:
+                    box(s, vx + 1.89, yy + 0.08, 0.52, 0.26, fill=POST)
+                    text(s, vx + 1.89, yy + 0.08, 0.52, 0.26, "+fix", size=12, bold=True, color=WHITE, align="c", anchor="m")
 
 
 def s16_setup(prs, num):
     s = chrome(prs, "Experimental Setup", num)
-    label(s, 0.6, 1.4, 7.5, "410 bugs  ·  one square per bug")
+    label(s, 0.6, 1.4, 5.2, "410 bugs from 6 projects  ·  one square per bug")
     projects = [("Closure", 153), ("Math", 106), ("Lang", 61), ("Mockito", 38), ("Chart", 26), ("Time", 26)]
     shades = ["12284C", "24406E", "3A5A8C", "5E789F", "8A9EB8", "B3C0D2"]
-    cell, gap, cols = 0.155, 0.045, 30
+    cell, gap, cols = 0.14, 0.04, 28
     i = 0
     for (p_, n), col in zip(projects, shades):
         for _ in range(n):
             box(s, 0.6 + (i % cols) * (cell + gap), 1.85 + (i // cols) * (cell + gap), cell, cell, fill=col)
             i += 1
     for j, ((p_, n), col) in enumerate(zip(projects, shades)):
-        x = 0.6 + (j % 3) * 2.3
-        y = 4.85 + (j // 3) * 0.45
-        box(s, x, y + 0.08, 0.22, 0.22, fill=col)
-        text(s, x + 0.32, y, 1.9, 0.38, f"{p_}  {n}", size=16, anchor="m")
-    x, w = 7.9, 4.83
-    label(s, x, 1.4, w, "Models")
-    for i2, (m, d) in enumerate([("gemini-3.1-flash-lite-preview", "410 bugs"), ("gpt-5-mini", "13 bugs")]):
-        y = 1.8 + i2 * 0.52
-        text(s, x, y, 3.6, 0.48, m, size=15, font=MONO, color=NAVY, anchor="m")
-        text(s, x + 3.6, y, 1.23, 0.48, d, size=15, color=MUTED, anchor="m", align="r")
-        line(s, x, y + 0.5, 12.73, y + 0.5, color=RULE)
-    label(s, x, 3.15, w, "Every bug, four times")
-    for i2, (a, b) in enumerate([("2 conditions", "scientific-open and few-open"),
-                                 ("2 evidence modes", "pre-fix and post-fix"),
-                                 ("1,640", "classifications, plus a zero-free baseline")]):
-        y = 3.6 + i2 * 0.92
-        text(s, x, y, w, 0.42, a, size=21, bold=True, color=NAVY)
-        text(s, x, y + 0.42, w, 0.42, b, size=16, color=MUTED)
-    keyline(s, 6.15, "Reporting follows the guidelines for empirical studies with LLMs [28].", h=0.5)
+        x = 0.6 + (j % 3) * 1.72
+        y = 4.75 + (j // 3) * 0.45
+        box(s, x, y + 0.11, 0.22, 0.22, fill=col)
+        text(s, x + 0.32, y, 1.4, 0.44, f"{p_} {n}", size=15, anchor="m")
+    x = 6.1
+    label(s, x, 1.4, 6.63, "What we ran")
+    eqs = [("Main study  ·  Gemini 3.1 Flash-Lite", ["410 bugs", "scientific + few-shot", "pre + post"], "1,640", NAVY),
+           ("Baseline for RQ4a  ·  Gemini 3.1 Flash-Lite", ["410 bugs", "zero-free", "pre + post"], "820", PANEL2),
+           ("Cross-model check  ·  gpt-5-mini", ["13 bugs", "scientific + few-shot", "pre + post"], "52", PANEL2)]
+    widths = [1.1, 2.0, 1.15]
+    for r, (m, toks, res, fill) in enumerate(eqs):
+        y = 1.85 + r * 1.4
+        text(s, x, y, 6.63, 0.36, m, size=15, color=NAVY, bold=True, anchor="m")
+        cx = x
+        for t_, w in zip(toks, widths):
+            box(s, cx, y + 0.45, w, 0.58, fill=PANEL)
+            text(s, cx, y + 0.45, w, 0.58, t_, size=15, bold=True, color=INK, align="c", anchor="m")
+            cx += w
+            text(s, cx, y + 0.45, 0.32, 0.58, "×" if t_ != toks[-1] else "=", size=18, color=FAINT, align="c", anchor="m")
+            cx += 0.32
+        box(s, cx, y + 0.45, 12.73 - cx, 0.58, fill=fill)
+        text(s, cx, y + 0.45, 12.73 - cx, 0.58, [[(res, {"bold": True}), (" runs", {"size": 14})]], size=19,
+             color=WHITE if fill == NAVY else NAVY, align="c", anchor="m")
+    keyline(s, 6.2, "The 13 cross-model bugs are the ones we also read by hand.  Reporting follows the LLM study guidelines [28].", h=0.55)
 
 
 def s17_rq12(prs, num):
@@ -750,7 +955,7 @@ def s17_rq12(prs, num):
 
 
 def s18_rq3(prs, num):
-    s = chrome(prs, "RQ3: Agreement with the Fix-Informed Reference", num)
+    s = chrome(prs, "RQ3: Agreement with the Post-Fix Reference", num)
     text(s, 0.6, 1.35, 3.0, 1.0, "70.2%", size=54, bold=True, color=NAVY, anchor="m")
     text(s, 3.7, 1.4, 4.4, 0.9, "of pre-fix labels match the post-fix reference exactly", size=19, anchor="m", spacing=1.05)
     text(s, 8.2, 1.35, 4.53, 0.55, "95% CI [65.6, 74.9]", size=16, color=MUTED, anchor="m", align="r")
@@ -815,7 +1020,7 @@ def s19_changes(prs, num):
         text(s, 8.6, y + 0.62, 4.13, 0.6, b, size=16, color=MUTED, spacing=1.03)
         if i < 2:
             line(s, 8.6, y + 1.3, 12.73, y + 1.3, color=RULE)
-    note(s, "Algorithm/Method vs Checking is also the boundary that human raters confuse [22].")
+    note(s, "Algorithm/Method vs Checking is also the boundary human raters confuse [22]; the fix shows one fault of several [29].")
 
 
 def s20_rq4a(prs, num):
@@ -863,104 +1068,222 @@ def s20_rq4a(prs, num):
     text(s, x + 0.25, 6.3, w - 0.3, 0.55, "A fixed taxonomy lets us count anything at all.", size=17, anchor="m")
 
 
-def s21_rq4b(prs, num):
-    s = chrome(prs, "RQ4b: Contribution of the Scientific Loop", num)
-    text(s, 0.6, 1.35, 5.0, 0.8, "Δκ = +0.115", size=38, bold=True, color=NAVY, anchor="m")
-    text(s, 0.6, 2.15, 5.0, 0.5, [[("κ 0.389", {"color": MUTED}), ("  →  ", {}), ("0.505", {"bold": True, "color": NAVY})]], size=20)
-    box(s, 0.6, 2.8, 5.3, 0.95, fill=POST_BG)
-    text(s, 0.8, 2.8, 4.9, 0.95, [[("Statistically significant: ", {"bold": True, "color": POST})],
-                                  [("95% CI [0.026, 0.208],  p ≈ 0.012  (paired bootstrap)", {})]], size=16, anchor="m", after=2)
-    for i, (a, b) in enumerate([("6 of 6", "projects improve; sign test p = 0.016"),
-                                ("p = 0.221", "McNemar on raw agreement: few-shot's 265 Algorithm labels inflate chance agreement"),
-                                ("Closure", "smallest gain (+0.065); its interval still includes 0")]):
-        y = 4.1 + i * 0.95
-        line(s, 0.6, y - 0.05, 5.9, y - 0.05, color=RULE)
-        text(s, 0.6, y, 1.45, 0.88, a, size=18, bold=True, anchor="m")
-        text(s, 2.1, y, 3.8, 0.88, b, size=15, color=MUTED, anchor="m", spacing=1.0)
-    cx, cw = 6.4, 6.33
-    label(s, cx, 1.35, cw, "Per-project κ  ·  every project improves")
-    base, top = 5.75, 2.25
-    for v in (0.0, 0.25, 0.5, 0.75):
-        yy = base - (base - top) * v / 0.75
-        line(s, cx + 0.55, yy, cx + cw, yy, color=FAINT if v == 0 else RULE, width=0.75)
-        text(s, cx, yy - 0.18, 0.48, 0.36, f"{v:.2f}", size=13, color=FAINT, align="r")
-    data = [("Chart", 0.349, 0.672), ("Math", 0.537, 0.603), ("Lang", 0.497, 0.546),
-            ("Mockito", 0.272, 0.499), ("Time", 0.212, 0.480), ("Closure", 0.294, 0.359)]
-    gw = (cw - 0.7) / len(data)
-    for i, (p_, few, sci) in enumerate(data):
-        gx = cx + 0.7 + i * gw
-        bwid = gw * 0.33
-        hs = []
-        for j, (v, col) in enumerate([(few, GREY_BAR), (sci, NAVY)]):
-            h = (base - top) * v / 0.75
-            box(s, gx + 0.12 + j * (bwid + 0.05), base - h, bwid, h, fill=col)
-            hs.append(h)
-        text(s, gx, base - max(hs) - 0.42, gw, 0.38, f"+{sci - few:.2f}", size=14, bold=True, color=POST, align="c")
-        text(s, gx - 0.05, base + 0.06, gw, 0.38, p_, size=15, align="c")
-    dumbbell_key(s, cx + 1.5, 6.25, [(GREY_BAR, "few-shot"), (NAVY, "scientific")])
+def pair_bars(s, x, y, rows, unit, name_w=1.95, row_h=0.46, size=15):
+    """One row per group: a green bar (only the loop right) above a grey bar (only few-shot right),
+    both starting from the same baseline, with the count at the end of each bar."""
+    for r, (name, loop_n, few_n) in enumerate(rows):
+        yy = y + r * row_h
+        text(s, x, yy, name_w, row_h * 0.9, name, size=size, anchor="m")
+        bx = x + name_w + 0.1
+        box(s, bx, yy + 0.04, max(loop_n * unit, 0.03), 0.17, fill=POST)
+        text(s, bx + loop_n * unit + 0.06, yy - 0.04, 0.6, 0.26, str(loop_n), size=14, bold=True, color=POST, anchor="m")
+        box(s, bx, yy + 0.23, max(few_n * unit, 0.03), 0.17, fill=GREY_BAR)
+        text(s, bx + few_n * unit + 0.06, yy + 0.16, 0.6, 0.26, str(few_n), size=14, color=FAINT, anchor="m")
+    line(s, x + name_w + 0.1, y - 0.02, x + name_w + 0.1, y + len(rows) * row_h - 0.06, color=FAINT, width=1.0)
+
+
+def s21_rq4b_bugs(prs, num):
+    s = chrome(prs, "RQ4b: Scientific Beats Few-Shot, Bug by Bug", num)
+    # headline: three numbers, each with a plain-language caption
+    text(s, 0.6, 1.3, 1.45, 1.0, "73", size=54, bold=True, color=POST, anchor="m")
+    text(s, 2.0, 1.36, 2.4, 0.9, [[("bugs ", {}), ("only scientific", {"bold": True})], "gets right"],
+         size=18, color=POST, anchor="m", spacing=0.95)
+    text(s, 4.4, 1.3, 1.1, 1.0, "58", size=40, bold=True, color=FAINT, anchor="m")
+    text(s, 5.4, 1.36, 2.2, 0.9, [[("bugs ", {}), ("only few-shot", {"bold": True})], "gets right"],
+         size=18, color=FAINT, anchor="m", spacing=0.95)
+    box(s, 7.6, 1.45, 0.05, 0.75, fill=RULE)
+    text(s, 7.8, 1.3, 1.5, 1.0, "+15", size=40, bold=True, color=NAVY, anchor="m")
+    text(s, 9.25, 1.36, 3.48, 0.9, [[("more bugs right with scientific", {"bold": True, "color": NAVY})],
+                                    [("than with few-shot (73 − 58)", {"color": MUTED, "size": 15})]],
+         size=17, anchor="m", spacing=1.0)
+    # 410-bug strip
+    label(s, 0.6, 2.42, 7.6, "All 410 bugs  ·  does the pre-fix label match the post-fix label?")
+    text(s, 8.2, 2.38, 4.53, 0.4, [[("κ 0.389 → 0.505", {"bold": True, "color": NAVY}), ("  ·  significant, p ≈ 0.012", {"color": MUTED})]],
+         size=15, align="r", anchor="m")
+    segs = [(215, PANEL2, NAVY, "both right  215"), (73, POST, WHITE, "only scientific  73"),
+            (58, GREY_BAR, WHITE, "only few-shot  58"), (64, PANEL, FAINT, "both wrong  64")]
+    cx, bw = 0.6, 12.13
+    for n, fill, fc, lab in segs:
+        w = bw * n / 410
+        box(s, cx, 2.8, w, 0.62, fill=fill)
+        text(s, cx, 2.8, w, 0.62, lab, size=15, bold=True, color=fc, align="c", anchor="m")
+        cx += w
+    # shared legend for both charts below
+    box(s, 0.6, 3.7, 0.34, 0.2, fill=POST)
+    text(s, 1.02, 3.62, 2.6, 0.36, "only scientific right", size=15, bold=True, color=POST, anchor="m")
+    box(s, 3.55, 3.7, 0.34, 0.2, fill=GREY_BAR)
+    text(s, 3.97, 3.62, 2.8, 0.36, "only few-shot right", size=15, color=FAINT, anchor="m")
+    line(s, 0.6, 4.08, 12.73, 4.08, color=RULE)
+    # left: by evidence requested
+    label(s, 0.6, 4.22, 6.6, "More hidden evidence asked for  →  more scientific wins")
+    pair_bars(s, 0.6, 4.72, [("never asked", 6, 4), ("asked 1–2 times", 42, 41),
+                             ("asked 3+ times", 25, 13), ("got the fixed code", 12, 6)], unit=3.2 / 42)
+    # right: by project
+    x = 7.55
+    label(s, x, 4.22, 5.18, "Scientific wins as often or more, in every project")
+    pair_bars(s, x, 4.72, [("Chart", 8, 2), ("Mockito", 7, 2), ("Time", 7, 4)], unit=1.4 / 27, name_w=1.05)
+    pair_bars(s, x + 2.65, 4.72, [("Math", 15, 14), ("Lang", 9, 9), ("Closure", 27, 27)], unit=1.4 / 27, name_w=0.95)
+
+
+def chip(s, x, y, w, h, runs, fill=PANEL, line_col=None, size=15, color=INK, dash=False, bold=False):
+    b = box(s, x, y, w, h, fill=fill, line=line_col, lw=1.0)
+    if dash:
+        from pptx.enum.dml import MSO_LINE
+        b.line.dash_style = MSO_LINE.DASH
+    text(s, x + 0.1, y, w - 0.2, h, runs, size=size, color=color, anchor="m", bold=bold)
+
+
+def s21b_rq4b_models(prs, num):
+    s = chrome(prs, "RQ4b: Why Scientific Wins — Evidence from the 13 Bugs", num)
+    # headline score
+    text(s, 0.6, 1.28, 2.9, 0.78, [[("5", {"color": POST}), (" : ", {"color": FAINT}), ("1", {"color": FAINT})]],
+         size=46, bold=True, anchor="m")
+    text(s, 0.6, 2.02, 3.1, 0.42, "5 bugs vs 1 bug, all pre-fix", size=14, color=MUTED, anchor="m")
+    # which bugs only one strategy gets right, named
+    tx = 3.75
+    text(s, tx + 1.45, 1.3, 5.0, 0.34, [[("■ ", {"color": POST}), ("only scientific right", {"bold": True, "color": POST})]], size=15, anchor="m")
+    text(s, tx + 6.55, 1.3, 2.43, 0.34, [[("■ ", {"color": GREY_BAR}), ("only few-shot right", {"bold": True, "color": FAINT})]], size=15, anchor="m")
+    rows = [("Gemini", ["Math_17", "Mockito_26", "Chart_7"], ["Math_104"]),
+            ("gpt-5-mini", ["Time_3", "Chart_11"], [])]
+    for r, (m, sci, few) in enumerate(rows):
+        y = 1.72 + r * 0.4
+        text(s, tx, y, 1.4, 0.34, m, size=15, font=MONO, color=NAVY, anchor="m")
+        cx = tx + 1.45
+        for b in sci:
+            w = 0.2 + 0.105 * len(b)
+            box(s, cx, y + 0.02, w, 0.3, fill=POST)
+            text(s, cx, y + 0.02, w, 0.3, b, size=14, font=MONO, bold=True, color=WHITE, align="c", anchor="m")
+            cx += w + 0.1
+        cx = tx + 6.55
+        for b in few:
+            w = 0.2 + 0.105 * len(b)
+            box(s, cx, y + 0.02, w, 0.3, fill=GREY_BAR)
+            text(s, cx, y + 0.02, w, 0.3, b, size=14, font=MONO, bold=True, color=WHITE, align="c", anchor="m")
+        if not few:
+            text(s, cx, y, 1.0, 0.34, "none", size=15, color=FAINT, italic=True, anchor="m")
+    text(s, tx, 1.3, 1.4, 0.34, "model", size=14, color=MUTED, anchor="m")
+    line(s, 0.6, 2.5, 12.73, 2.5, color=RULE)
+    # example cards
+    label(s, 0.6, 2.65, 12.13, "What the transcripts show")
+    cards = [("Time_3", "gpt-5-mini", "Checking", "Algorithm", "kept testing “a zero guard is missing” for six turns", True),
+             ("Chart_11", "gpt-5-mini", "Assignment", "Algorithm", "narrowed its prediction to one wrong assignment", True),
+             ("Math_17", "Gemini", "Checking", "Function", "had to name a concrete cause: a range check", True),
+             ("Math_104", "Gemini", "Algorithm", "Assignment", "named the wrong constant, but chose Algorithm", False)]
+    cw, gap = (12.13 - 3 * 0.25) / 4, 0.25
+    for c, (bug, m, sci, few, why, win) in enumerate(cards):
+        x = 0.6 + c * (cw + gap)
+        y = 3.05
+        col = POST if win else GOLD
+        box(s, x, y, cw, 2.05, fill=POST_BG if win else PANEL)
+        box(s, x, y, cw, 0.07, fill=col)
+        text(s, x + 0.18, y + 0.14, cw - 0.3, 0.4, [[(bug, {"bold": True, "font": MONO, "color": NAVY}), (f"  {m}", {"color": MUTED, "size": 14})]],
+             size=16, anchor="m")
+        text(s, x + 0.18, y + 0.56, cw - 0.3, 0.36, [[("scientific  ", {"color": MUTED, "size": 14}),
+                                                      (sci, {"bold": True, "color": POST if win else FAINT})]], size=17, anchor="m")
+        text(s, x + 0.18, y + 0.9, cw - 0.3, 0.36, [[("few-shot  ", {"color": MUTED, "size": 14}),
+                                                     (few, {"bold": True, "color": FAINT if win else POST})]], size=17, anchor="m")
+        text(s, x + 0.18, y + 1.3, cw - 0.3, 0.7, why, size=15, color=INK, spacing=1.0)
+    text(s, 0.6, 5.13, 12.13, 0.32, [[("green", {"bold": True, "color": POST}), (" = the label that matches our manual reading", {"color": MUTED})]],
+         size=14)
+    # findings: pipeline vs model
+    y0 = 5.62
+    box(s, 0.6, y0, 0.07, 1.2, fill=POST)
+    text(s, 0.85, y0, 5.6, 0.4, "Same with both models  →  the pipeline", size=15, bold=True, color=NAVY, anchor="m")
+    text(s, 0.85, y0 + 0.42, 5.6, 0.78, ["Scientific beats few-shot pre-fix: 6 vs 4 of 13",
+                                         "Misleading clues can stop it too early (Chart_17)"], size=16, spacing=1.05)
+    box(s, 6.85, y0, 0.07, 1.2, fill=NAVY)
+    text(s, 7.1, y0, 5.63, 0.4, "Differs between models  →  the model", size=15, bold=True, color=NAVY, anchor="m")
+    text(s, 7.1, y0 + 0.42, 5.63, 0.78,
+         [[("Evidence requests per bug: Gemini ", {}), ("1.7", {"bold": True}), (", gpt-5-mini ", {}), ("3.0", {"bold": True})],
+          [("Gemini trusts its first summary and stops early", {"color": MUTED})]], size=16, spacing=1.05)
 
 
 def s22_mechanisms(prs, num):
     s = chrome(prs, "Qualitative Analysis of Thirteen Bugs", num)
-    # left: how the pipeline goes wrong
-    label(s, 0.6, 1.4, 5.9, "Failure modes we found")
-    modes = [("Symptom-site bias", "Chart_17", "the label follows where the exception surfaced"),
-             ("Bug-report anchoring", "Math_90", "a fix suggested in the report becomes the label"),
-             ("Surface syntax", "Math_23", "the post-fix label follows the patch shape"),
-             ("Underdetermined", "Lang_20", "two valid fixes imply two ODC types")]
-    for i, (m, b, d) in enumerate(modes):
-        y = 1.88 + i * 1.12
-        box(s, 0.6, y, 0.06, 0.92, fill=PRE)
-        text(s, 0.85, y, 3.6, 0.42, m, size=18, bold=True)
-        text(s, 4.4, y, 1.75, 0.42, b, size=15, font=MONO, color=NAVY, align="r", anchor="m")
-        text(s, 0.85, y + 0.42, 5.3, 0.45, d, size=16, color=MUTED)
-    # right: the developer's repair choice
+    text(s, 0.6, 1.3, 12.13, 0.45, [[("We read every artifact by hand: ", {"bold": True, "color": NAVY}),
+                                     ("evidence, full reasoning transcript and developer’s fix, for both strategies and both models", {"color": MUTED})]],
+         size=16, anchor="m")
+    # left: failure modes as cue -> wrong label chains
+    x, w = 0.6, 5.95
+    box(s, x, 1.9, w, 0.5, fill=PRE_BG)
+    text(s, x + 0.2, 1.9, w - 0.3, 0.5, [[("1  ", {"bold": True, "color": PRE}), ("How the classification goes wrong", {"bold": True, "color": PRE})]],
+         size=17, anchor="m")
+    modes = [("Symptom-site bias", "Chart_17", "the exception site", "CHK", "ALG"),
+             ("Bug-report anchoring", "Math_90", "a fix suggested in the report", "CHK", "INT"),
+             ("Surface syntax", "Math_23", "the shape of the patch", "ASN", "ALG"),
+             ("Underdetermined", "Lang_20", "two equally valid fixes", "CHK", "ASN")]
+    for r, (m, bug, cue, said, right) in enumerate(modes):
+        y = 2.55 + r * 0.95
+        text(s, x, y, 3.6, 0.38, [[(m, {"bold": True}), (f"   {bug}", {"font": MONO, "color": NAVY, "size": 14})]], size=16, anchor="m")
+        chip(s, x, y + 0.42, 2.95, 0.4, [[("cue: ", {"color": FAINT, "size": 14}), (cue, {})]], fill=PANEL, size=14)
+        line(s, x + 3.0, y + 0.62, x + 3.4, y + 0.62, color=FAINT, width=1.25, arrow=True)
+        chip(s, x + 3.45, y + 0.42, 1.2, 0.4, [[("said ", {"color": PRE, "size": 13}), (said, {"bold": True, "color": PRE})]],
+             fill=WHITE, line_col=PRE, size=15)
+        chip(s, x + 4.75, y + 0.42, 1.2, 0.4, [[("fix ", {"color": POST, "size": 13}), (right, {"bold": True, "color": POST})]],
+             fill=WHITE, line_col=POST, size=15)
+    # right: developer choices as forks
     x, w = 6.95, 5.78
-    label(s, x, 1.4, w, "Where the developer had a choice")
-    cards = [("Math_90", "a Comparable check (CHK)", "a typed overload (INT)"),
-             ("Math_17", "a range check (CHK)", "both: check + fallback"),
-             ("Time_3", "better arithmetic (ALG)", "amount != 0 guards (CHK)"),
-             ("Lang_20", "a null check (CHK)", "a new capacity (ASN)")]
-    for i, (bug, avail, chose) in enumerate(cards):
-        y = 1.88 + i * 1.12
-        box(s, x, y, w, 0.92, fill=PANEL)
-        text(s, x + 0.2, y + 0.04, 1.5, 0.4, bug, size=15, font=MONO, bold=True, color=NAVY, anchor="m")
-        text(s, x + 1.75, y + 0.02, w - 1.95, 0.42, [[("could have been  ", {"color": FAINT, "size": 14}), (avail, {"color": MUTED})]], size=15, anchor="m")
-        text(s, x + 1.75, y + 0.46, w - 1.95, 0.42, [[("developer chose  ", {"color": FAINT, "size": 14}), (chose, {"bold": True})]], size=15, anchor="m")
-    keyline(s, 6.4, [[("It records the repair chosen — for ", {}), ("77%", {"bold": True, "color": NAVY}),
-                      (" of changed labels that type is already a recorded alternative.", {})]], h=0.5)
+    box(s, x, 1.9, w, 0.5, fill=PANEL2)
+    text(s, x + 0.2, 1.9, w - 0.3, 0.5, [[("2  ", {"bold": True, "color": NAVY}), ("Where the developer had a choice", {"bold": True, "color": NAVY})]],
+         size=17, anchor="m")
+    forks = [("Math_90", "a Comparable check", "CHK", "a typed overload", "INT"),
+             ("Math_17", "a range check only", "CHK", "check + fallback", "CHK+ALG"),
+             ("Time_3", "better arithmetic", "ALG", "amount != 0 guards", "CHK"),
+             ("Lang_20", "a null check", "CHK", "a new capacity", "ASN")]
+    for r, (bug, could, ct, chose, cht) in enumerate(forks):
+        y = 2.55 + r * 0.95
+        bx = x
+        box(s, bx, y + 0.22, 1.25, 0.46, fill=NAVY)
+        text(s, bx, y + 0.22, 1.25, 0.46, bug, size=15, bold=True, font=MONO, color=WHITE, align="c", anchor="m")
+        jx = bx + 1.25
+        line(s, jx, y + 0.45, jx + 0.2, y + 0.45, color=FAINT, width=1.25)
+        line(s, jx + 0.2, y + 0.2, jx + 0.2, y + 0.7, color=FAINT, width=1.25)
+        line(s, jx + 0.2, y + 0.2, jx + 0.45, y + 0.2, color=FAINT, width=1.25, dash=True)
+        line(s, jx + 0.2, y + 0.7, jx + 0.45, y + 0.7, color=NAVY, width=1.75)
+        cx = jx + 0.5
+        chip(s, cx, y + 0.02, w - (cx - x), 0.36, [[("could  ", {"color": FAINT, "size": 13}), (could, {"color": MUTED}),
+                                                   (f"  {ct}", {"color": FAINT, "bold": True})]], fill=WHITE, line_col=RULE, size=14, dash=True)
+        chip(s, cx, y + 0.52, w - (cx - x), 0.36, [[("chose  ", {"color": NAVY, "size": 13}), (chose, {"bold": True}),
+                                                   (f"  {cht}", {"color": NAVY, "bold": True})]], fill=PANEL2, size=14)
+    keyline(s, 6.42, [[("A fix repairs one of several faults [29] — for ", {}), ("77%", {"bold": True, "color": NAVY}),
+                       (" of changed labels, the other type is already a recorded alternative.", {})]], h=0.48)
 
 
 def s23_threats(prs, num):
     s = chrome(prs, "Threats to Validity", num)
-    rows = [("Internal", "non-deterministic output; evidence sanitized against fix leakage"),
-            ("Construct", "agreement is a proxy; the modified class is absent for 285 of 410 bugs"),
-            ("External", "6 of 17 projects; corpus results from one model; Java only"),
-            ("Conclusion", "one run per condition; resampled values are estimates; a single rater for 13 bugs"),
-            ("Other", "possible pre-training exposure; confidence fields are not a usable signal")]
+    rows = [("Internal", ["The model can give a different answer each time it runs.",
+                          "We removed fix hints from the pre-fix evidence, so it cannot see the answer."]),
+            ("Construct", ["Matching the post-fix label is not the same as being right.",
+                           "The class that was fixed is missing from the evidence for 285 of 410 bugs."]),
+            ("External", ["We studied 6 of the 17 projects, all in Java, with one model on all 410 bugs.",
+                          "Other projects or models may give different numbers; a second model ran on 13 bugs."]),
+            ("Conclusion", ["Each setup ran once, so our intervals are estimates, not repeated measurements.",
+                            "One person did the manual reading of the 13 bugs."]),
+            ("Other", ["These bugs are public, so the model may have seen them during training.",
+                       "The confidence score the model reports does not warn us when it is wrong."])]
     for i, (a, b) in enumerate(rows):
-        y = 1.45 + i * 1.04
-        box(s, 0.6, y + 0.1, 2.45, 0.76, fill=PANEL)
-        text(s, 0.6, y + 0.1, 2.45, 0.76, a, size=20, bold=True, color=NAVY, align="c", anchor="m")
-        text(s, 3.3, y, 9.43, 0.95, b, size=18, anchor="m", spacing=1.05)
-        line(s, 0.6, y + 0.99, 12.73, y + 0.99, color=RULE)
-    note(s, "Each threat is stated in the book together with the mitigation applied.")
+        y = 1.42 + i * 1.1
+        box(s, 0.6, y + 0.12, 2.3, 0.8, fill=PANEL)
+        text(s, 0.6, y + 0.12, 2.3, 0.8, a, size=20, bold=True, color=NAVY, align="c", anchor="m")
+        text(s, 3.15, y, 9.58, 1.04, [b[0], [(b[1], {"color": MUTED})]], size=17, anchor="m", spacing=1.02, after=3)
+        if i < len(rows) - 1:
+            line(s, 0.6, y + 1.05, 12.73, y + 1.05, color=RULE)
 
 
 def s24_conclusion(prs, num):
     s = chrome(prs, "Conclusion and Future Work", num)
     for i, (a, b) in enumerate([("97.8%", "three types (RQ1)"), ("0 of 1,640", "“Other” (RQ2)"),
-                                ("70.2%", "pre-fix match (RQ3)"), ("+0.115", "Δκ from the loop (RQ4)")]):
+                                ("70.2%", "pre-fix match (RQ3)"), ("73 vs 58", "scientific vs few-shot wins (RQ4)")]):
         x = 0.6 + i * 3.1
         box(s, x, 1.4, 2.9, 0.07, fill=NAVY)
         text(s, x, 1.58, 2.9, 0.8, a, size=36, bold=True, color=NAVY, anchor="m")
         text(s, x, 2.38, 2.9, 0.42, b, size=16, color=MUTED)
     label(s, 0.6, 3.02, 5.9, "Contributions", color=NAVY, size=20)
-    bullets(s, 0.6, 3.5, 5.9, 3.0, ["A taxonomy × strategy condition space", "An enforced loop with auditable transcripts",
-                                    "Evaluation without ground truth", "410 bugs, analysed with two LLMs"], size=19, after=20)
+    bullets(s, 0.6, 3.5, 5.9, 3.0, ["A taxonomy × strategy condition space", "Enforced scientific reasoning + transcripts",
+                                    "Where scientific beats few-shot, bug by bug", "Evaluation without ground truth"], size=19, after=20)
     label(s, 6.95, 3.02, 5.78, "Future work", color=NAVY, size=20)
-    bullets(s, 6.95, 3.5, 5.78, 3.0, ["Human reference labels for a sample", "Grade the reasoning, not only the label",
-                                      "Full corpus, more models, consensus", "Impact, Trigger and Age attributes"], size=19, after=20)
+    bullets(s, 6.95, 3.5, 5.78, 3.0, ["Strengthen scientific's weak spots", "Pick scientific or few-shot per bug",
+                                      "Human reference labels for a sample", "More models, Impact, Trigger, Age"], size=19, after=20)
 
 
 REFS = [
@@ -992,6 +1315,7 @@ REFS = [
     "[26] J. Agnelo, N. Laranjeiro, and J. Bernardino, “Using Orthogonal Defect Classification to Characterize NoSQL Database Defects,” Journal of Systems and Software, vol. 159, 2020.",
     "[27] J. R. Landis and G. G. Koch, “The Measurement of Observer Agreement for Categorical Data,” Biometrics, vol. 33, no. 1, 1977.",
     "[28] S. Baltes et al., “Guidelines for Empirical Studies in Software Engineering involving Large Language Models,” Empirical Software Engineering, 2026.",
+    "[29] D. Callaghan and B. Fischer, “Mining Bug Repositories for Multi-Fault Programs,” IEEE/ACM 22nd International Conference on Mining Software Repositories (MSR), Data and Tool Showcase Track, 2025.",
 ]
 
 
@@ -1023,12 +1347,12 @@ def build():
         prs.part.drop_rel(sid.rId)
         ids.remove(sid)
     s01_title(prs)
-    order = [s02_outline, s03_motivation, s04_odc, s05_related, s06_problem, s07_idea, s08_rqs,
+    order = [s03_motivation, s04_odc, s05_related, s06_problem, s07_idea, s08_rqs,
              s09_pipeline, s10_evidence, s11_conditions, s12_prompts, s13_loop, s14_eval, s15_reference, s16_setup,
-             s17_rq12, s18_rq3, s19_changes, s20_rq4a, s21_rq4b, s22_mechanisms, s23_threats, s24_conclusion]
+             s17_rq12, s18_rq3, s19_changes, s20_rq4a, s21_rq4b_bugs, s22_mechanisms, s21b_rq4b_models, s23_threats, s24_conclusion]
     for i, fn in enumerate(order, start=2):
         fn(prs, i)
-    chunks = [REFS[:10], REFS[10:19], REFS[19:]]
+    chunks = [REFS[:10], REFS[10:20], REFS[20:]]
     for i, chunk in enumerate(chunks):
         refs_slide(prs, 25 + i, i + 1, len(chunks), chunk)
     closing_slide(prs, 28)

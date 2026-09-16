@@ -411,7 +411,7 @@ Defect classification turns isolated bug reports into process-level signals that
 
 This thesis presents an automated pipeline that classifies Defects4J bugs into the seven Orthogonal Defect Classification (ODC) Design/Code defect types using Large Language Model (LLM) reasoning. We structure classification as a two-variable experimental design: a \emph{taxonomy} axis, which controls the label space the model may answer in, crossed with a \emph{strategy} axis, which controls how the model reasons toward a label. The strongest strategy is an enforced reasoning loop, inspired by scientific debugging, in which the model commits to a hypothesis and then probes held-back evidence to confirm or refute it. An explicit ``Other'' escape category lets us measure the coverage of the taxonomy instead of assuming it. We classify every bug in two evidence modes, pre-fix (symptoms only) and post-fix (with the buggy-to-fixed diff), which provides an evaluation reference for a benchmark that carries no ODC labels.
 
-We evaluate the pipeline on 410 bugs from six Defects4J projects, giving 1{,}640 classifications. Three ODC types account for 97.8\% of the bugs, and under the default condition the type distribution does not differ significantly across projects. The ``Other'' category was available in every classification and was never selected, which bounds the true escape rate at 0.2\%. A classification made from pre-fix evidence reproduces the fix-informed reference on 70.2\% of bugs (Cohen's $\kappa = 0.505$), and is unrelated to it on only 2.4\%. The enforced loop significantly improves chance-corrected agreement over a strong few-shot prompt and achieves higher agreement in all six projects. Roughly 30\% of labels change once the fix becomes visible, but 80\% of those changes remain within the same three closely related defect types, and the aggregate type distribution remains almost unchanged. Running the pipeline with a second model, gpt-5-mini, on the manually analysed scenario bugs shows that the pre-fix advantage of the loop and the main failure modes arise from the pipeline, while the loop's use of the fix diff depends on the model.
+We evaluate the pipeline on 410 bugs from six Defects4J projects, giving 1{,}640 classifications. Three ODC types account for 97.8\% of the bugs, and under the default condition the type distribution does not differ significantly across projects. The ``Other'' category was available in every classification and was never selected, which bounds the true escape rate at 0.2\%. A classification made from pre-fix evidence reproduces the fix-informed reference on 70.2\% of bugs (Cohen's $\kappa = 0.505$), and is unrelated to it on only 2.4\%. Compared with a strong few-shot prompt, the enforced loop improves the classification of 73 bugs and degrades 58, with significantly higher chance-corrected agreement, and its gain is concentrated where it requests held-back evidence. Roughly 30\% of labels change once the fix becomes visible, but 80\% of those changes remain within the same three closely related defect types, and the aggregate type distribution remains almost unchanged. Running the pipeline with a second model, gpt-5-mini, on the manually analysed scenario bugs shows that the pre-fix advantage of the loop and the main failure modes arise from the pipeline, while how long the loop investigates and how it uses the fix diff depend on the model.
 \end{abstract}
 
 %-------------------------- MAIN BODY --------------------------%
@@ -540,7 +540,7 @@ The main contributions of this thesis are:
     \item We build an enforced scientific reasoning loop, adapted from fault localization to defect-type classification, in which the model has to commit to a hypothesis and probe held-back evidence before it is allowed to conclude, leaving a full, auditable reasoning transcript.
     \item We classify every bug in two evidence modes, pre-fix and post-fix, mirroring ODC's opener/closer split, which lets us evaluate the pipeline without ground-truth labels.
     \item We report a quantitative evaluation over 1{,}640 classifications of 410 bugs from six projects, with confidence intervals, permutation tests, and paired bootstrap comparisons.
-    \item We run the pipeline with two LLMs and separate the behaviours that arise from the pipeline from those that depend on the model.
+    \item We study the enforced loop against a strong few-shot prompt bug by bug, not only in aggregate: we count the bugs the loop improves and degrades, relate the gain to the held-back evidence the loop requests, and read the reasoning transcripts of both strategies under two LLMs to show where the loop helps, where it falls short, and which of these behaviours come from the pipeline rather than from the model.
 \end{itemize}
 
 \section{Report Organization}
@@ -1010,12 +1010,13 @@ Since Defects4J does not provide ground-truth ODC defect-type annotations, we us
 
 \subsection{The Reference Standard}
 
-Because no ODC labels exist for Defects4J, accuracy against ground truth cannot be measured for this dataset. We therefore measure agreement with the best available reference: the post-fix classification, produced by the same model, taxonomy, and prompt on the same bug, with the developer's fix diff added to the evidence. Three considerations support this choice:
+Because no ODC labels exist for Defects4J, accuracy against ground truth cannot be measured for this dataset. We therefore measure agreement with the best available reference: the post-fix classification, produced by the same model, taxonomy, and prompt on the same bug, with the developer's fix diff added to the evidence. Four considerations support this choice:
 
 \begin{enumerate}
     \item \textbf{The reference sees the evidence that defines the answer.} An ODC defect type describes the nature of the corrective change. The post-fix classification sees that change, while the pre-fix classification has to infer it.
     \item \textbf{It follows the standard design when no ground truth exists.} The comparison is a two-rater design in which the second rater has more information, and Section~\ref{sec:human_agreement} shows that agreement on ODC classification depends on the evidence available.
     \item \textbf{Our data indicate that the post-fix classification is the more stable one.} The human-review flag is raised 16 times in the pre-fix classifications and never in the post-fix classifications, and the two strategies agree with each other more often in post-fix than in pre-fix mode, in every project studied.
+    \item \textbf{The fix isolates one fault among several.} A buggy Defects4J version rarely contains only the fault that the benchmark entry records: \textcite{callaghan2024mf} identify on average 9.2 faults in each of the 311 versions of five Defects4J projects. The pre-fix evidence is drawn from code that may contain any of these faults, whereas the fix diff shows the correction of exactly one of them, the fault that the entry is about. The post-fix classification is therefore anchored to the same fault that the benchmark identifies, which the pre-fix evidence alone cannot guarantee (Section~\ref{sec:multifault}).
 \end{enumerate}
 
 Agreement with this reference is not the same as correctness: both classifications can be wrong together, and Section~\ref{sec:manual} gives examples. We therefore interpret agreement as reproduction of a better-informed reference.
@@ -1150,7 +1151,7 @@ Defects4J tooling is invoked through WSL for the collection stage, but because e
         RQ2 & All open-taxonomy runs & Escape rate; escape upper bound \\
         RQ3 & scientific-open, few-open & Four tiers: strict, top-2, family, $\kappa$; drift transitions \\
         RQ4a & zero-free, few-open, scientific-open & Distinct labels; entropy; vocabulary reduction; label reproducibility \\
-        RQ4b & few-open, scientific-open & $\kappa$ difference; per-project $\kappa$; probe transcripts \\
+        RQ4b & few-open, scientific-open & Improved and degraded bugs; probe use; $\kappa$ difference; transcripts of two models \\
         \bottomrule
     \end{tabular}
     \caption{Research questions, the conditions each uses, and the metrics that answer it}
@@ -1206,9 +1207,14 @@ Each of the 410 bugs was classified under two conditions (\textit{scientific-ope
 
 All figures in Chapter~\ref{chapter:results} were recomputed directly from the per-bug classification artifacts using the pipeline's own comparison functions. The analysis was first run on the five projects evaluated before Closure and reproduced the previously reported figures, and was then applied to the full 410-bug corpus. The per-project analysis workbooks were cross-checked against the raw artifacts; for Closure, all 612 labels in the workbook match the artifacts. Every classification artifact retains its full reasoning transcript, so each reported number can be traced back to individual model outputs.
 
-% \section{Multi-Fault Context}
+\section{Multi-Fault Context}
+\label{sec:multifault}
 
-% Defects4J bugs do not exist in isolation. \textcite{callaghan2024mf} show that real program versions contain an average of approximately 9.2 co-existing faults. Our pipeline can query the defects4j-mf dataset to identify how many other faults co-exist with each bug. This context helps explain classification divergence in cases where symptom evidence is affected by multiple overlapping faults.
+Defects4J bugs do not exist in isolation. Each benchmark entry identifies a single fault, but \textcite{callaghan2024mf} show, by transplanting the fault-revealing tests of later entries into earlier versions, that the buggy versions of five Defects4J projects contain on average 9.2 faults each. Their defects4j-mf dataset records, for every covered version, which other faults are still exposed in it. Our pipeline reads this dataset directly, without re-running the transplantation.
+
+Of our 410 bugs, 372 belong to the five projects covered by defects4j-mf; Mockito is not covered. For 288 of these 372 bugs, the dataset records at least one other fault exposed in the same buggy version, with a mean of 8.0 other faults (median 6.0) in those versions. Among the thirteen scenario bugs of Section~\ref{sec:manual}, the buggy versions of Math\_17 and Math\_23 contain eight other faults each, Lang\_20 five, and Math\_90 three.
+
+Co-existing faults do not appear to drive the pre-fix/post-fix drift reported in Chapter~\ref{chapter:results}: among these 288 bugs, those whose \textit{scientific-open} label changes when the fix is visible have 8.2 other faults on average, and those whose label is stable have 8.0 (permutation test, 5{,}000 shuffles, $p = 0.77$).
 
 
 % ================================================================
@@ -1440,6 +1446,8 @@ Although individual labels change, the overall distribution changes very little.
 
 Of the 122 drifts, 98 (80.3\%) occur among these three types, which are the types that human raters also confuse (Section~\ref{sec:human_agreement}). The Algorithm/Method--Checking boundary alone accounts for 75 drifts. For Closure, 43 of its 54 drifts cross this boundary, reflecting the nature of compiler defects, which are frequently described either as an analysis computing the wrong result or as an analysis failing to test a condition.
 
+Part of this drift reflects what the two modes can see. A buggy Defects4J version usually contains several faults \cite{callaghan2024mf}, so the pre-fix evidence may point at code or symptoms of a fault other than the one the benchmark entry records, whereas the post-fix diff shows the repair of that one fault only. The drift is therefore partly a measure of the fix narrowing the evidence to a single fault and a single chosen repair (Section~\ref{sec:repair_choice}), rather than only a measure of classification error. The number of co-existing faults does not, however, predict which bugs drift (Section~\ref{sec:multifault}).
+
 Two further patterns hold across all six projects:
 
 \begin{enumerate}
@@ -1502,63 +1510,64 @@ This result is expected: labels chosen from a fixed set are more consistent than
 \subsection{RQ4b: The Enforced Reasoning Loop}
 \label{sec:rq4b}
 
-The comparison between \textit{few-open} and \textit{scientific-open} uses the same model, taxonomy, evidence, and bugs. The only difference is whether the model must complete the hypothesis--prediction--probe--observation loop before committing to a label. Table~\ref{tab:rq4b} reports the results.
+The comparison between \textit{few-open} and \textit{scientific-open} uses the same model, taxonomy, evidence, and bugs. The only difference is whether the model must complete the hypothesis--prediction--probe--observation loop before committing to a label. Because both strategies classified the same 410 bugs, we report the effect of the loop first as counts of bugs, and then as agreement statistics.
+
+\subsubsection{Bugs Improved and Degraded by the Loop}
+
+Each bug falls into one of four outcomes, depending on which strategy's pre-fix label matches the reference. Table~\ref{tab:rq4b_bugs} counts them, first with each strategy scored against its own post-fix reference, as in RQ3, and then on the 313 bugs for which both post-fix classifications agree, so that both strategies are scored against the same answer.
 
 \begin{table}[!htbp]
     \centering
-    \begin{tabular}{p{6.0cm} r r r}
+    \begin{tabular}{p{7.4cm} c c}
         \toprule
-        \textbf{Metric} & \textbf{few-open} & \textbf{scientific-open} & \textbf{Difference} \\
+        \textbf{Outcome of the pre-fix classification} & \textbf{410 bugs} & \textbf{313 consensus bugs} \\
         \midrule
-        Strict match with the post-fix reference & 66.6\% & 70.2\% & +3.7 pts \\
-        Cohen's $\kappa$ & 0.389 & 0.505 & +0.115 \\
-        Match with the post-fix consensus (313 bugs) & 71.6\% & 74.8\% & +3.2 pts \\
-        Projects with the higher $\kappa$ & 0 of 6 & 6 of 6 & --- \\
-        Lowest per-project $\kappa$ & 0.212 (Time) & 0.359 (Closure) & --- \\
-        Standard deviation of per-project $\kappa$ & 0.130 & 0.108 & --- \\
+        Both strategies match the reference & 215 & 191 \\
+        \textbf{Improved:} the loop matches, few-shot does not & \textbf{73} & \textbf{43} \\
+        \textbf{Degraded:} few-shot matches, the loop does not & 58 & 33 \\
+        Neither strategy matches & 64 & 46 \\
+        \midrule
+        Net bugs gained by the loop & $+15$ & $+10$ \\
+        Strict match (few-shot $\rightarrow$ loop) & 66.6\% $\rightarrow$ 70.2\% & 71.6\% $\rightarrow$ 74.8\% \\
         \bottomrule
     \end{tabular}
-    \caption{RQ4b: the enforced loop compared with the few-shot prompt under the same taxonomy. The post-fix consensus is the set of bugs on which both post-fix classifications agree.}
-    \label{tab:rq4b}
+    \caption{RQ4b: bugs improved and degraded by the enforced loop, relative to the few-shot prompt}
+    \label{tab:rq4b_bugs}
 \end{table}
+
+The loop improves the classification of 73 bugs and degrades 58, a net gain of 15 bugs, and the direction is the same against a shared answer (43 improved, 33 degraded). For 215 bugs both strategies are already right; the loop's effect lies in the harder remainder of the corpus, where it resolves more bugs than it loses. Improvements outnumber or equal degradations in every project: Chart (8 improved, 2 degraded), Mockito (7, 2), Time (7, 4), Math (15, 14), Lang (9, 9), and Closure (27, 27).
+
+Most of the changes lie on the boundary between Algorithm/\allowbreak Method and Checking. The few-shot prompt assigns Algorithm/\allowbreak Method to 265 of 410 bugs in pre-fix mode, the loop to 175. Thirty of the 73 improvements are bugs that few-shot labels Algorithm/\allowbreak Method and the loop correctly labels Checking, while the same move is wrong for 25 of the 58 degradations, so the loop corrects the few-shot prompt's default more often than it overcorrects it.
 
 \subsubsection{Statistical Analysis}
 
-A paired bootstrap over the 410 bugs, with 5{,}000 resamples, gives a difference in $\kappa$ of $\Delta\kappa = 0.115$, with a 95\% confidence interval of $[0.026, 0.208]$ and a two-sided $p \approx 0.012$. The interval excludes zero, so the enforced loop achieves significantly higher chance-corrected agreement with the fix-informed reference than the few-shot prompt. The scientific condition also has the higher $\kappa$ in all six projects, and a sign test on this outcome gives a one-sided $p = 0.016$.
+A paired bootstrap over the 410 bugs, with 5{,}000 resamples, gives a difference in Cohen's $\kappa$ of $\Delta\kappa = 0.115$ (0.389 for few-shot, 0.505 for the loop), with a 95\% confidence interval of $[0.026, 0.208]$ and a two-sided $p \approx 0.012$, so the loop achieves significantly higher chance-corrected agreement with the reference. It has the higher $\kappa$ in all six projects (sign test, one-sided $p = 0.016$), with the largest gains in Chart, Time, and Mockito, where few-shot is weakest; consistent with RQ1, the few-shot type distribution differs by project ($p = 0.010$) while the loop's does not ($p = 0.096$). Three tests on raw counts do not reach significance: McNemar's test on the 73 improved and 58 degraded bugs ($p = 0.221$), where few-shot's concentration on Algorithm/\allowbreak Method raises its chance agreement; the same test on the consensus bugs (43 against 33, $p = 0.302$); and the Closure-only bootstrap ($\Delta\kappa = 0.065$, CI $[-0.108, 0.237]$).
 
-Table~\ref{tab:rq4b_other} reports the tests that do not reach significance.
+\subsubsection{Where the Gain Comes From: Held-Back Evidence}
+\label{sec:rq4b_evidence}
+
+Both strategies start from the same evidence summary, but only the loop can request the evidence that the summary holds back, and only after committing to a prediction (Section~\ref{sec:loop}). If this design is what helps, the gain should appear where the loop requests that evidence. Table~\ref{tab:rq4b_probes} divides the improved and degraded bugs by how the pre-fix loop used its probes.
 
 \begin{table}[!htbp]
     \centering
-    \small
-    \begin{tabular}{p{3.8cm} p{3.0cm} p{6.2cm}}
+    \begin{tabular}{p{6.4cm} c c c}
         \toprule
-        \textbf{Test} & \textbf{Result} & \textbf{Interpretation} \\
+        \textbf{Pre-fix loop} & \textbf{Bugs} & \textbf{Improved} & \textbf{Degraded} \\
         \midrule
-        McNemar, raw per-bug agreement & 73 vs 58, $p = 0.221$ & Counts raw agreement without chance correction. Few-shot assigns Algorithm/Method to 265 of 410 bugs, which raises its chance agreement \\
+        Concluded without a probe & 37 & 6 & 4 \\
+        Issued one or two probes & 263 & 42 & 41 \\
+        Issued three or more probes & 110 & \textbf{25} & 13 \\
         \midrule
-        McNemar, match with post-fix consensus & 43 vs 33, $p = 0.302$ & Restricted to the 313 consensus bugs; raw counts, lower power \\
-        \midrule
-        Paired bootstrap, Closure only & $\Delta\kappa = 0.065$, CI $[-0.108, 0.237]$ & The gain on Closure is not distinguishable from zero; both strategies reach 64.7\% strict match \\
+        Retrieved the class modified by the fix & 64 & \textbf{12} & 6 \\
         \bottomrule
     \end{tabular}
-    \caption{RQ4b: tests that do not reach significance}
-    \label{tab:rq4b_other}
+    \caption{RQ4b: improved and degraded bugs by the pre-fix loop's use of held-back evidence}
+    \label{tab:rq4b_probes}
 \end{table}
 
-We use $\kappa$ as the primary measure because it is Tier 4 of the evaluation framework defined in Section~\ref{sec:eval}, and because it accounts for the concentration of few-shot labels on Algorithm/Method, which inflates raw agreement.
+The loop's advantage is concentrated where it investigates. With three or more probes it improves 25 bugs and degrades 13, and when a probe retrieves the class that the developer later modified, it improves 12 and degrades 6, in both cases about two to one; with one or two probes the strategies are even (42 against 41). Withholding evidence is therefore useful in the way the design intends. Because the model decides how many probes to issue, and harder bugs attract more probes, this association does not prove that the probes cause the gain, but it locates the gain where the held-back evidence is used.
 
-\subsubsection{Per-Project Pattern}
-
-The gain from the loop is not uniform across projects. The difference in $\kappa$ is largest for Chart ($+0.323$), Time ($+0.268$), and Mockito ($+0.227$), which are the projects where few-shot is weakest, and smallest for Math ($+0.066$), Closure ($+0.065$), and Lang ($+0.049$). For Time, the few-shot $\kappa$ interval is $[-0.138, 0.530]$ and includes zero, whereas the scientific condition reaches $\kappa = 0.480$. The loop therefore provides its largest benefit where the single-call prompt is least reliable. It does not, however, improve Closure meaningfully, where both strategies perform at a similar, lower level.
-
-This pattern is consistent with RQ1: the few-shot type distribution differs significantly by project ($p = 0.010$), whereas the scientific distribution does not ($p = 0.096$), suggesting that the enforced loop is less sensitive to project-specific characteristics.
-
-\subsubsection{Use of the Loop}
-
-The reasoning transcripts show that the loop is often not fully exercised. Thirty-seven scientific pre-fix classifications, and 126 post-fix classifications, concluded without issuing any probe. The class modified by the fix is present in the evidence store for only 125 of 410 bugs (30.5\%), and for only 13 of the 153 Closure bugs; a pre-fix probe retrieved it for only 64 bugs. Agreement by number of probes is 86.5\% for zero probes ($n = 37$), 69.1\% for one ($n = 136$), 63.8\% for two ($n = 127$), and 73.6\% for three or more ($n = 110$). Since bugs that require no probes are likely easier, probe count reflects bug difficulty rather than causing better agreement.
-
-Evidence coverage alone does not explain the per-project gains: the modified class is absent from the evidence store for every Mockito bug, yet Mockito shows one of the largest gains, while Lang has it for almost every bug and shows the smallest. The significant improvement was nevertheless measured while the modified class was unavailable for most bugs, so the result should be interpreted as a lower bound on what the loop can contribute with more complete evidence.
+There is room for more. Thirty-seven pre-fix loops, and 126 post-fix loops, concluded without any probe, and the modified class is in the evidence store for only 125 of 410 bugs (13 of 153 for Closure). The measured improvement should therefore be read as a lower bound on what the loop can contribute with more complete evidence and fuller use of its probes. Section~\ref{sec:loopstudy} examines, bug by bug and under two models, how the loop reaches its labels.
 
 \section{Why Types Diverge}
 \label{sec:divergence}
@@ -1569,7 +1578,7 @@ Pre-fix and post-fix classifications are expected to diverge for a minority of b
 
 \textbf{ODC boundary ambiguity.} Some bugs legitimately sit near a type boundary, most often between Checking and Algorithm/Method, where a missing guard and a corrected computation describe the same defect from two perspectives. In our results, 80.3\% of drifts fall within the three Control and Data Flow types, and 61\% cross the Algorithm/Method--Checking boundary.
 
-% \textbf{Multi-fault contamination.} Co-existing faults \cite{callaghan2024mf} can introduce symptoms from a fault other than the one being fixed.
+\textbf{Co-existing faults.} A buggy version usually contains faults other than the one the benchmark entry records \cite{callaghan2024mf}, so the pre-fix code can show symptoms or suspicious constructs that the fix does not address. In our corpus, however, bugs whose label changes do not have more co-existing faults than bugs whose label is stable (Section~\ref{sec:multifault}), so this effect does not account for the drift we measure.
 
 The four-tier framework makes this structure visible: the gap between strict match and family match shows that disagreement is concentrated on boundary-adjacent types rather than distributed across unrelated families. At the level of aggregate statistics, which is the level at which ODC is designed to be used, the effect of the fix is small, with a total variation distance of 0.051 between the pre-fix and post-fix distributions.
 
@@ -1658,25 +1667,7 @@ In \textbf{Chart\_7}, the scientific classification changed from Assignment/\all
 \subsection{Strategies Against the Manual Reading}
 \label{sec:manual_strategies}
 
-Table~\ref{tab:rq4b_manual} compares the two strategies against the manual reading of the thirteen bugs.
-
-\begin{table}[!htbp]
-    \centering
-    \begin{tabular}{l c}
-        \toprule
-        \textbf{Condition} & \textbf{Matches manual reading} \\
-        \midrule
-        Scientific pre-fix  & 6 / 13 \\
-        Few-shot pre-fix    & 4 / 13 \\
-        Scientific post-fix & 6 / 13 \\
-        Few-shot post-fix   & 11 / 13 \\
-        \bottomrule
-    \end{tabular}
-    \caption{Agreement of the two strategies with the manual reading of the thirteen bugs}
-    \label{tab:rq4b_manual}
-\end{table}
-
-In pre-fix mode, the scientific condition matches the manual reading more often than the few-shot condition (6 versus 4 of 13), consistent with the RQ4b result that the loop improves pre-fix classification. In post-fix mode, the few-shot condition matches the manual reading far more often (11 versus 6), consistent with the behaviour observed for Chart\_17 and Math\_90, where the scientific classification retained its own line of reasoning and made little use of the fix diff. Section~\ref{sec:crossmodel} examines whether this behaviour depends on the model. Because these bugs were selected to illustrate specific scenarios, this comparison describes mechanisms rather than measuring accuracy.
+With Gemini, the scientific condition matches the manual reading for 6 of 13 bugs in pre-fix mode and the few-shot condition for 4, consistent with the RQ4b result that the loop improves pre-fix classification. In post-fix mode the order reverses (6 against 11), because the scientific classification kept its own line of reasoning and made little use of the fix diff, as in Chart\_17 and Math\_90. Section~\ref{sec:crossmodel} examines whether this depends on the model (Table~\ref{tab:crossmodel_arms}), and Section~\ref{sec:loopstudy} studies the individual bugs on which the two strategies differ. Because these bugs were selected to illustrate specific scenarios, this comparison describes mechanisms rather than measuring accuracy.
 
 \subsection{When the Developer Had More Than One Option}
 \label{sec:repair_choice}
@@ -1702,7 +1693,9 @@ A further reading of the fixes behind the thirteen bugs shows a limit that is no
 
 Three effects appear in this small set. In Math\_90 and Lang\_20, a Checking repair was available and was not taken: the Math\_90 fix changes the method signature so that the type constraint is expressed by the API rather than by a guard, and the Lang\_20 fix removes the dereference instead of guarding it. In both, the recorded defect type is the one the implemented repair belongs to rather than the one the symptom suggests. In Time\_3, the developer chose the safer of two correct repairs and left the underlying computation untouched, so the recorded type reflects an engineering judgement about risk as much as the defect. Math\_17 is different again: the developers made both a check and an algorithmic change, while our reference assigns one type per bug and can therefore record only one of them.
 
-\paragraph{What the recorded alternatives contribute.} Our classification schema never commits to a single type. Every classification also returns one or two close alternative types, each with a written reason for not being the primary label (Section~\ref{sec:conditions}), and Tier~2 of the evaluation framework is defined over exactly these lists (Section~\ref{sec:eval}). The repair-choice cases show why that design is necessary rather than merely convenient: when a defect admits more than one repair, the type of the repair that was \emph{not} taken is usually the type the classification has already recorded as its alternative. Across the 122 bugs whose label changes once the fix is visible, the post-fix type appears among the pre-fix alternatives for 94 of them (77.0\%), against 36.6\% expected if the post-fix labels were shuffled across the same alternative lists (permutation test, 5,000 shuffles, $p = 0.0002$). Counting these together with the strict matches, the pre-fix classification names the fix-informed type either as its primary label or as a recorded alternative for 382 of 410 bugs (93.2\%).
+The multi-fault view of Defects4J \cite{callaghan2024mf} places these choices in context. A fix in Defects4J repairs one fault in a version that usually contains others: according to defects4j-mf, the buggy versions of Math\_17 and Lang\_20 contain eight and five other exposed faults, and that of Math\_90 three (Section~\ref{sec:multifault}). The developer's commit is therefore one targeted repair among several possible changes to the same code, and the post-fix reference records the type of that repair. This is what a fix-informed reference should record, since it identifies the fault the benchmark is about, but it also means that a pre-fix classification, which reads the whole buggy version, has more than one reasonable answer available.
+
+\paragraph{What the recorded alternatives contribute.} Our classification schema never commits to a single type. Every classification also returns one or two close alternative types, each with a written reason for not being the primary label (Section~\ref{sec:conditions}), and Tier~2 of the evaluation framework is defined over exactly these lists (Section~\ref{sec:eval}). The repair-choice cases show why that design is necessary rather than merely convenient: when a defect admits more than one repair, and the buggy version contains other faults that a pre-fix reading may also pick up \cite{callaghan2024mf}, the type of the repair that was \emph{not} taken is usually the type the classification has already recorded as its alternative. Across the 122 bugs whose label changes once the fix is visible, the post-fix type appears among the pre-fix alternatives for 94 of them (77.0\%), against 36.6\% expected if the post-fix labels were shuffled across the same alternative lists (permutation test, 5,000 shuffles, $p = 0.0002$). Counting these together with the strict matches, the pre-fix classification names the fix-informed type either as its primary label or as a recorded alternative for 382 of 410 bugs (93.2\%).
 
 This does not resolve the ambiguity, and it is not a claim that the pipeline anticipates which repair a developer will choose. The classification reports the type the pre-fix evidence favours and preserves the competing type instead of discarding it, so a reader of the output can see the other repair that was open. The limit is visible in the same set of bugs: the pre-fix alternatives for Math\_90 are Algorithm/Method and Assignment/\allowbreak Initialization, and the interface-level repair the developers made is not among them. Where several repairs are viable, a recorded alternative with a stated reason is more useful for triage than a single label, and it is the form in which our results should be read.
 
@@ -1719,7 +1712,7 @@ Reading the reasoning transcripts, rather than only the labels, yields the follo
     \item \textbf{Confidence is not a reliable signal.} Chart\_11 issued four unsuccessful probes and reported confidence 1.0.
     \item \textbf{Some pre-fix labels are underdetermined.} Lang\_20 has two reasonable fixes corresponding to two different ODC types.
     \item \textbf{The loop is not always exercised.} Chart\_17 and Math\_90 concluded at the first turn without probes; in Math\_90, a single probe of the failing test would have contradicted the hypothesis.
-    \item \textbf{The reference records the repair, not the defect alone.} In four bugs (Section~\ref{sec:repair_choice}) another repair of a different ODC type was available, and in one of them the developers made two repairs at once, so the post-fix label reflects the developer's choice as much as the defect.
+    \item \textbf{The reference records the repair, not the defect alone.} In four bugs (Section~\ref{sec:repair_choice}) another repair of a different ODC type was available, and in one of them the developers made two repairs at once, so the post-fix label reflects the developer's choice as much as the defect. Each of these fixes repairs one fault in a version that also contains others \cite{callaghan2024mf}.
 \end{enumerate}
 
 This analysis is a qualitative study of mechanisms and not an accuracy measurement. The thirteen bugs were selected to populate specific scenarios, none of them is from Closure, and the reference reading is the judgement of a single rater applying the pipeline's ODC definitions. Three of the bugs, Time\_27, Lang\_20, and Math\_17, remain open to reasonable disagreement.
@@ -1786,7 +1779,7 @@ Table~\ref{tab:crossmodel_labels} lists the labels produced by both models in al
 Looking at the classifications of the thirteen scenario bugs from both models, several behaviours appear regardless of the model, which indicates that they arise from the pipeline, the evidence, or the classification task.
 
 \begin{enumerate}
-    \item \textbf{The enforced loop outperforms the few-shot prompt in pre-fix mode.} For both models, the scientific condition matches the manual reading for 6 of 13 bugs and the few-shot condition for 4. This is consistent with the RQ4b result that the loop improves pre-fix classification.
+    \item \textbf{The enforced loop outperforms the few-shot prompt in pre-fix mode.} For both models, the scientific condition matches the manual reading for 6 of 13 bugs and the few-shot condition for 4.
     \item \textbf{The fix diff resolves most ambiguity.} With the fix visible, the few-shot condition matches the manual reading for 11 of 13 bugs with Gemini and 12 of 13 with gpt-5-mini, which supports the use of the post-fix classification as the evaluation reference.
     \item \textbf{Symptom-site bias and bug-report anchoring come from the evidence.} Both models assign Checking to Chart\_17 and Math\_90 in pre-fix mode, concluding at the first turn without a probe. The misleading cues, an exception raised by an unchanged guard and a fix suggested in the bug report, are part of the pre-fix evidence, so both models follow them.
     \item \textbf{Some pre-fix labels are underdetermined by the task.} Neither model's scientific classification recovers the developer's Assignment/\allowbreak Initialization fix for Lang\_20, whose symptom is equally consistent with a missing null check.
@@ -1798,7 +1791,7 @@ Other behaviours differ between the two models, and therefore depend on the mode
 
 \begin{enumerate}
     \item \textbf{Use of the fix diff within the loop.} Gemini's scientific post-fix classification matches the manual reading for 6 of 13 bugs, while gpt-5-mini's matches 11. The limited use of the fix diff by the scientific condition, observed in Section~\ref{sec:manual_strategies}, is therefore a property of the main model rather than of the loop.
-    \item \textbf{Depth of investigation.} gpt-5-mini issues almost twice as many probes per scientific run and reaches the six-turn limit on four pre-fix runs, whereas Gemini more often concludes early. gpt-5-mini also changes its scientific label less often between the two evidence modes (5 drifts compared with 8).
+    \item \textbf{Depth of investigation.} gpt-5-mini issues almost twice as many probes per scientific run (3.0 against 1.7), reaches the six-turn limit on four pre-fix runs, and changes its scientific label less often between the two evidence modes (5 drifts against 8); Section~\ref{sec:loopstudy} examines why.
     \item \textbf{Which bugs are classified correctly.} Although the two models reach the same pre-fix totals, they share only 3 of their 6 correct scientific pre-fix labels. The model therefore determines which ambiguous bugs are resolved, even when the overall rate is unchanged.
     \item \textbf{Sensitivity of each strategy to the model.} The two models assign the same label in 10 of 13 bugs under the few-shot condition in each evidence mode, but in only 7 of 13 under the scientific condition. Because the loop lets each model choose which evidence to request, its outcome depends more on the model than the outcome of a single static prompt does.
     \item \textbf{Output-format compliance.} gpt-5-mini omitted the confidence field in 18 of its 52 classifications, because the OpenAI-compatible interface does not enforce the output schema as Gemini's structured output does. Model-reported confidence is therefore not comparable across models.
@@ -1807,6 +1800,70 @@ Other behaviours differ between the two models, and therefore depend on the mode
 We also examined the effect of gpt-5-mini's reasoning effort setting. On four scenario bugs in the few-shot pre-fix configuration, the default setting matched the manual reading for three bugs and the high setting for two, so increasing reasoning effort did not improve classification.
 
 Taken together, the comparison shows that the main conclusions about the pipeline, the advantage of the loop in pre-fix mode, the value of the fix as a reference, and the evidence-driven failure modes, hold across both models, while the loop's use of the fix diff and its depth of investigation depend on the model.
+
+\section{A Closer Study of the Scientific Loop}
+\label{sec:loopstudy}
+
+The central design choice of this thesis is the enforced loop, and RQ4b shows that it improves pre-fix classification over a strong few-shot prompt. This section studies how it does so. For each of the thirteen scenario bugs, we compare the loop with the few-shot prompt on identical evidence under both models, and read the transcripts to identify where the loop leads to a better label, where it leads to a worse one, and which of these behaviours come from the pipeline rather than from the model. The findings are learning points for the design of the loop, and they motivate the future work in Section~\ref{sec:future}.
+
+\subsection{Where the Loop and the Few-Shot Prompt Differ}
+
+Table~\ref{tab:loop_wins} lists every bug for which exactly one of the two strategies matches the manual reading.
+
+\begin{table}[!htbp]
+    \centering
+    \small
+    \begin{tabular}{l l p{4.6cm} p{4.6cm}}
+        \toprule
+        \textbf{Mode} & \textbf{Model} & \textbf{Only the loop is right} & \textbf{Only few-shot is right} \\
+        \midrule
+        Pre-fix  & Gemini     & Math\_17, Mockito\_26, Chart\_7 (3) & Math\_104 (1) \\
+        Pre-fix  & gpt-5-mini & Time\_3, Chart\_11 (2) & none (0) \\
+        \midrule
+        Post-fix & Gemini     & none (0) & Chart\_17, Math\_90, Math\_23, Time\_27, Chart\_7 (5) \\
+        Post-fix & gpt-5-mini & Chart\_7 (1) & Math\_90, Lang\_20 (2) \\
+        \bottomrule
+    \end{tabular}
+    \caption{Scenario bugs on which exactly one strategy matches the manual reading, on identical evidence}
+    \label{tab:loop_wins}
+\end{table}
+
+In pre-fix mode, which is the setting the pipeline is designed for, the loop is the better strategy under both models: it alone is right for five bug classifications and the few-shot prompt alone for one. In post-fix mode, the few-shot prompt is the better strategy, particularly with Gemini. The two modes therefore call for different strategies, a point we return to below.
+
+\subsection{Where the Loop Does Better}
+
+\textbf{Time\_3 (gpt-5-mini).} Every classification of this bug describes the same mechanism: the \texttt{add} methods do not return early when the amount is zero. The few-shot classification nevertheless assigns Algorithm/\allowbreak Method, and Gemini's few-shot reasoning explicitly states that the defect is ``not a missing guard''. The gpt-5-mini loop restated the hypothesis as a testable claim on each of its six turns, ending with a missing zero-amount short-circuit or guard as the mechanism, and concluded Checking, which is the type of the developer's fix.
+
+\textbf{Chart\_11 (gpt-5-mini).} The class under test is not in the evidence store, so no probe could return its source. Across four turns, the loop's prediction narrowed from a general claim that one path iterator serves both paths to a specific one: an incorrect assignment in which the second iterator is obtained by calling \texttt{getPathIterator} on the first path. It concluded Assignment/\allowbreak Initialization. The fix changes exactly this assignment, \texttt{iterator2 = p1.\allowbreak getPathIterator(null)} becomes \texttt{iterator2 = p2.\allowbreak getPathIterator(null)}. The few-shot classification described the same symptom as ``wrong iterator usage'' and assigned Algorithm/\allowbreak Method.
+
+\textbf{Math\_17 (Gemini).} The bug report says that \texttt{multiply(int)} supports only a limited range while the interface requires any integer. The few-shot classification followed this wording and assigned Function/\allowbreak Class/\allowbreak Object, a design-level gap. The loop's hypothesis had to name a concrete mechanism, a range check that rejects values of 10{,}000 or more, and its prediction located that check in the method, which led to Checking.
+
+These cases share one pattern. The loop does not win only by retrieving hidden code; it also wins because it must state a specific, falsifiable mechanism and predict what the code should contain. Writing that prediction moves the model from a general description of the symptom (``wrong iterator usage'', ``limited range'') to the concrete change a developer would make (a wrong assignment, a missing check), and the ODC type follows from the change. It does not guarantee sound reasoning: in Chart\_7 the loop's label is right but its stated mechanism is not (Section~\ref{sec:manual}).
+
+\subsection{Where the Few-Shot Prompt Does Better}
+
+\textbf{Math\_104 (Gemini, pre-fix).} The loop's prediction named both the constant and its value, \texttt{10e-9}, but its hypothesis was phrased around the convergence algorithm, and it concluded Algorithm/\allowbreak Method. The few-shot prompt includes contrastive guidance that separates a wrong threshold value from wrong logic, and it assigned Assignment/\allowbreak Initialization. The loop found the right mechanism and chose the wrong label.
+
+\textbf{Post-fix mode.} With the fix diff visible, the few-shot prompt is the better strategy for Gemini (11 against 6 of 13): its loop kept a symptom-based conclusion for Chart\_17 and Math\_90 without probing, and followed the surface of the patch in Math\_23. gpt-5-mini's loop used the diff far better (11 of 13), losing to few-shot only on Math\_90 and Lang\_20, the two bugs whose fix was one of several possible repairs (Section~\ref{sec:repair_choice}).
+
+\subsection{Why Gemini Stops Early and gpt-5-mini Keeps Investigating}
+
+On the thirteen pre-fix loops, Gemini issued 22 probes over 35 turns and gpt-5-mini 39 probes over 52 turns, reaching the six-turn limit four times; a loop took 7 seconds per bug with Gemini and 92 with gpt-5-mini.
+
+Gemini's early stops follow a consistent pattern. The loop instructions ask the model to conclude as soon as the evidence supports one type, and Gemini often treats the initial summary as enough: across the corpus, 31 of its 37 pre-fix loops without a probe concluded with confidence 1.0, and 19 of them justify stopping by describing the evidence in the summary as clear. In post-fix mode, where the diff is part of the summary, 122 of the 126 loops without a probe concluded with confidence 1.0. gpt-5-mini, a reasoning model, keeps its hypothesis open and continues testing even when the probes return little.
+
+What gpt-5-mini gains from the extra turns is not mainly more code. Thirty-five of its 39 pre-fix probes requested the evidence inventory, 16 were refused as repeats, and it retrieved the modified class for one bug, against two for Gemini, whose probes were targeted (20 of 22 requested a snippet). Its benefit comes from more rounds of hypothesis and prediction, each forcing a more specific mechanism, as in Time\_3 and Chart\_11. The loop thus contributes through the evidence it retrieves (Section~\ref{sec:rq4b_evidence}) and through the discipline of stating and revising a prediction, and the model decides how much of each a run obtains.
+
+\subsection{Lessons for the Scientific Loop}
+
+The study yields four learning points for the next version of the loop.
+
+\begin{enumerate}
+    \item \textbf{The loop pays off when it is used.} Its gain is concentrated in runs that probe several times or retrieve the modified code (Table~\ref{tab:rq4b_probes}). Requiring at least one probe before a pre-fix conclusion, instead of asking the model to conclude as soon as possible, would move more runs into this regime.
+    \item \textbf{A right mechanism can still receive the wrong type.} In Math\_104, and in Time\_3 under Gemini, the conclusion step lacked the contrastive guidance between neighbouring types that the few-shot prompt provides; adding it would combine the strengths of both strategies.
+    \item \textbf{In post-fix mode the hypothesis should be tested against the fix.} A required comparison with the changed lines would stop the loop from keeping a symptom-based conclusion that the diff contradicts.
+    \item \textbf{Neither strategy is best everywhere.} The loop is better from symptoms, the few-shot prompt when the fix is visible, and the two are even when the loop does not investigate, so a pipeline that chooses its strategy from the evidence available could take the better result in each case.
+\end{enumerate}
 
 \section{Summary}
 
@@ -1826,9 +1883,9 @@ Table~\ref{tab:summary} summarizes the findings for each research question.
         \midrule
         RQ4a & Without a taxonomy, the model produces 366 distinct labels for 410 bugs and reproduces its own label in both modes for only 15.1\% of bugs; taxonomy grounding is a precondition for aggregate analysis \\
         \midrule
-        RQ4b & The enforced loop significantly improves chance-corrected agreement ($\Delta\kappa = 0.115$, 95\% CI $[0.026, 0.208]$) and has the higher $\kappa$ in all six projects, with the largest gains where few-shot is weakest; its gain on Closure alone is not significant \\
+        RQ4b & The enforced loop improves the classification of 73 bugs and degrades 58, a net gain of 15, and significantly improves chance-corrected agreement ($\Delta\kappa = 0.115$, 95\% CI $[0.026, 0.208]$), with the higher $\kappa$ in all six projects. The gain is concentrated where the loop uses held-back evidence: 25 improved against 13 degraded when it issues three or more probes. Its gain on Closure alone is not significant \\
         \midrule
-        Cross-model & On the scenario bugs, both Gemini and gpt-5-mini show the pre-fix advantage of the scientific loop (6 versus 4 of 13) and the same evidence-driven failure modes, while the use of the fix diff within the loop depends on the model (6 versus 11 of 13) \\
+        Cross-model & On the scenario bugs, both Gemini and gpt-5-mini show the pre-fix advantage of the scientific loop (6 versus 4 of 13; the loop alone is right five times, few-shot alone once) and the same evidence-driven failure modes. How long the loop is kept open depends on the model (1.7 versus 3.0 probes per run), and so does its use of the fix diff (6 versus 11 of 13) \\
         \bottomrule
     \end{tabular}
     \caption{Summary of findings for the four research questions}
@@ -1854,7 +1911,7 @@ Table~\ref{tab:summary} summarizes the findings for each research question.
 
 \paragraph{Agreement as a proxy for correctness.} Pre-fix/post-fix agreement is a proxy for correctness, not a direct measure of it, since Defects4J provides no ODC labels. The manual analysis includes bugs that receive the same incorrect label in both modes. This strategy is justified by ODC's two-phase model and by the evidence dependence of human agreement (Section~\ref{sec:human_agreement}), but it cannot substitute for expert-labelled validation.
 
-\paragraph{The reference records one chosen repair.} Because an ODC defect type describes the correction, the post-fix reference captures the repair the developer implemented. Section~\ref{sec:repair_choice} documents four bugs in which a repair of a different ODC type was equally available, and one in which the developers made two repairs of different types while the reference records a single label. For such bugs the pre-fix label cannot be expected to reproduce the reference, and the disagreement measures the space of valid repairs rather than a classification error. This is the reason every classification also records close alternative types with a written justification: for 77.0\% of the bugs whose label changes, the fix-informed type is already present in the pre-fix alternatives, so the competing repair remains visible in the output even when the primary label does not match.
+\paragraph{The reference records one chosen repair.} Because an ODC defect type describes the correction, the post-fix reference captures the repair the developer implemented, for one of the several faults that a buggy Defects4J version typically contains \cite{callaghan2024mf}. Section~\ref{sec:repair_choice} documents four bugs in which a repair of a different ODC type was equally available, and one in which the developers made two repairs of different types while the reference records a single label. For such bugs the pre-fix label cannot be expected to reproduce the reference, and the disagreement measures the space of valid repairs rather than a classification error. This is the reason every classification also records close alternative types with a written justification: for 77.0\% of the bugs whose label changes, the fix-informed type is already present in the pre-fix alternatives, so the competing repair remains visible in the output even when the primary label does not match.
 
 \paragraph{Intended use of ODC.} ODC was designed to provide process feedback from distributions of defect types, not to route individual bugs to developers. Our aggregate-level results support the former use; we make no claim about the latter.
 
@@ -1866,7 +1923,7 @@ Table~\ref{tab:summary} summarizes the findings for each research question.
 
 \paragraph{Language and dataset.} The pipeline is designed for Java and Defects4J. Porting it to other datasets such as Bears or BugSwarm, or to other languages, would require new source resolution and trace extraction, although the classification logic itself is language-independent.
 
-% \paragraph{Multi-fault programs.} \textcite{callaghan2024mf} report that real program versions contain an average of about 9.2 co-existing faults. In pre-fix mode, the model may see symptoms from several faults, while the post-fix diff concerns only one. Part of the measured drift may therefore reflect different faults rather than different interpretations of the same fault, and we cannot currently separate these effects.
+\paragraph{Multi-fault programs.} \textcite{callaghan2024mf} identify on average 9.2 faults in each buggy version of five Defects4J projects, and defects4j-mf records at least one other exposed fault for 288 of our 372 bugs from those projects. In pre-fix mode the model may therefore read code affected by several faults, while the post-fix diff concerns only one. We checked whether this explains the drift and found no association (8.2 against 8.0 other faults for bugs with and without a label change, $p = 0.77$), but defects4j-mf does not cover Mockito, and the effect of co-existing faults on individual classifications cannot be excluded.
 
 \section{Other Threats}
 
@@ -1891,11 +1948,12 @@ This thesis presents an automated, evidence-grounded pipeline that classifies De
     \item An open-set ODC formulation with a justified escape category, which turns taxonomy coverage into a measured quantity.
     \item An enforced scientific reasoning loop in which the model must commit to a hypothesis and probe held-back evidence before concluding, leaving an auditable transcript.
     \item A dual-mode pre-fix/post-fix evaluation with a four-tier framework, which provides an evaluation reference for a benchmark without ODC labels.
+    \item A bug-level study of the scientific loop against a few-shot prompt under two LLMs, which identifies where the loop helps, where it falls short, and which behaviours belong to the pipeline rather than to the model.
 \end{enumerate}
 
 Together, these address the five limitations of prior work set out in Section~\ref{sec:problem}: coverage through scalable automation, semantic defect-type labels rather than structural or patch-level ones, classification from pre-fix evidence, controlled oracle leakage, and an evaluation framework that does not require ground-truth labels.
 
-Across 410 bugs from six projects and 1{,}640 classifications, three ODC types account for 97.8\% of the bugs, with no significant variation across projects under the default condition. The ``Other'' category was never selected, bounding the true escape rate at 0.2\%. A classification made before the fix exists reproduces the fix-informed reference for 70.2\% of bugs, and is unrelated to it for only 2.4\%. The enforced loop significantly improves chance-corrected agreement over a strong few-shot prompt ($\Delta\kappa = 0.115$) and has the higher agreement in all six projects, although its gain on Closure is not significant. About 30\% of labels change when the fix becomes visible, with 80\% of those changes confined to three closely related types. Running the pipeline with a second model, \texttt{gpt-5-mini}, showed that the pre-fix advantage of the loop and the evidence-driven failure modes are properties of the pipeline, while the loop's use of the fix diff depends on the model.
+Across 410 bugs from six projects and 1{,}640 classifications, three ODC types account for 97.8\% of the bugs, with no significant variation across projects under the default condition. The ``Other'' category was never selected, bounding the true escape rate at 0.2\%. A classification made before the fix exists reproduces the fix-informed reference for 70.2\% of bugs, and is unrelated to it for only 2.4\%. The enforced loop improves the classification of 73 bugs and degrades 58 compared with a strong few-shot prompt, significantly improves chance-corrected agreement ($\Delta\kappa = 0.115$), and has the higher agreement in all six projects, although its gain on Closure is not significant. Its advantage is concentrated in the runs that request held-back evidence, and a bug-by-bug study of the transcripts shows that it wins both by retrieving evidence and by forcing the model to state a specific, testable mechanism. About 30\% of labels change when the fix becomes visible, with 80\% of those changes confined to three closely related types. Running the pipeline with a second model, \texttt{gpt-5-mini}, showed that the pre-fix advantage of the loop and the evidence-driven failure modes are properties of the pipeline, while the depth of investigation and the loop's use of the fix diff depend on the model: gpt-5-mini keeps the loop open longer and matches the manual reading for 11 of 13 bugs in post-fix mode, against 6 for Gemini.
 
 \section{Limitations}
 
@@ -1913,6 +1971,8 @@ In addition to the threats discussed in Chapter~\ref{chapter:threats}, the curre
 Several research directions could extend and improve this work:
 
 \begin{enumerate}
+    \item \textbf{Strengthening the scientific loop:} Address the weaknesses identified in Section~\ref{sec:loopstudy}: require the loop to investigate before a pre-fix conclusion instead of concluding as early as possible, add the few-shot prompt's contrastive type guidance to the conclusion step so that a correctly identified mechanism receives the correct label, and require post-fix runs to test the hypothesis against the fix diff.
+    \item \textbf{Adaptive strategy selection:} Make the pipeline choose between the scientific loop and the few-shot prompt for each bug, according to the amount and kind of evidence available, since the loop is the better strategy from symptoms and the few-shot prompt when the fix is visible or the evidence leaves nothing to investigate.
     \item \textbf{Human reference labels:} Have at least two raters independently label a random sample of bugs from the fix diff, without seeing model output, and use the adjudicated labels to evaluate both evidence modes.
     \item \textbf{Evaluation of reasoning:} Grade the reasoning trace separately from the label, since the manual analysis shows that the two can diverge.
     \item \textbf{Multi-model evaluation and consensus:} Apply the cross-model analysis to the full corpus and to additional LLMs, and aggregate classifications from several models to reduce single-model variance \cite{colavito2024llm}.
