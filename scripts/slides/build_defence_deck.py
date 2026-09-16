@@ -1,7 +1,7 @@
 """Build the thesis defence slide deck.
 
 Writes ONLY to the Defence copy:
-  iut_submissions/presentation/Defence/SWE_..._Defence_Presentation.pptx
+  iut_submissions/presentation/Defence/SWE_..._presentation.pptx
 The pre-defence files are never touched.
 
 All content comes from the finalized defence book (latex/defence book/main.tex);
@@ -37,7 +37,7 @@ from pptx.util import Inches, Pt
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFENCE = ROOT / "iut_submissions/presentation/Defence"
-DECK = DEFENCE / "SWE_Orthogonal Defect Classification on Defects4JUsing an LLM-Driven Scientific Approach_Defence_Presentation.pptx"
+DECK = DEFENCE / "SWE_Orthogonal Defect Classification on Defects4J Using an LLM-Driven Scientific Approach_presentation.pptx"
 LOGO = DEFENCE / "iut_logo.png"  # 141 x 232 px
 LOGO_RATIO = 141 / 232
 CONTENT_TOTAL = 24
@@ -148,8 +148,8 @@ def bullets(s, x, y, w, h, items, size=17, after=10):
     return text(s, x, y, w, h, paras, size=size, after=after, spacing=1.05)
 
 
-def label(s, x, y, w, txt, color=MUTED, align="l"):
-    return text(s, x, y, w, 0.36, txt.upper(), size=14, color=color, bold=True, align=align)
+def label(s, x, y, w, txt, color=MUTED, align="l", size=14):
+    return text(s, x, y, w, 0.36, txt.upper(), size=size, color=color, bold=True, align=align)
 
 
 def stat(s, x, y, w, big, small, size=34, color=NAVY):
@@ -304,31 +304,22 @@ def s01_title(prs):
     logo(s, 0.8, 0.55, 1.35)
     text(s, 1.8, 0.72, 7.0, 0.42, "Islamic University of Technology", size=20, bold=True, color=NAVY)
     text(s, 1.8, 1.12, 7.0, 0.4, "Department of Computer Science and Engineering", size=16, color=MUTED)
-    text(s, 0.8, 2.3, 7.4, 1.6, "Orthogonal Defect Classification on Defects4J", size=38, bold=True, color=NAVY, spacing=0.95)
-    text(s, 0.8, 3.9, 7.4, 0.55, "Using an LLM-Driven Scientific Approach", size=24)
-    line(s, 0.8, 4.65, 3.4, 4.65, color=NAVY, width=1.5)
-    text(s, 0.8, 4.75, 7.4, 0.4, "Thesis Defence  ·  B.Sc. in Computer Science and Engineering", size=16, color=MUTED)
-    text(s, 0.8, 5.35, 3.9, 1.6, [
+    text(s, 0.8, 2.25, 10.6, 1.7, ["Orthogonal Defect Classification", "on Defects4J"], size=44, bold=True, color=NAVY, spacing=0.95)
+    text(s, 0.8, 3.95, 10.6, 0.6, "Using an LLM-Driven Scientific Approach", size=27)
+    line(s, 0.8, 4.75, 3.4, 4.75, color=NAVY, width=1.5)
+    text(s, 0.8, 4.87, 8.4, 0.42, "Thesis Defence  ·  B.Sc. in Computer Science and Engineering", size=17, color=MUTED)
+    text(s, 0.8, 5.55, 4.6, 1.6, [
         [("Presented by", {"bold": True, "color": NAVY, "size": 15})],
         "Md. Sakib Hossain  (210042133)",
         "Mohammad Nahiyan Kabir  (210042168)",
         "Hasin Mahtab Alvee  (210042174)",
     ], size=16, after=2)
-    text(s, 4.85, 5.35, 3.6, 1.6, [
+    text(s, 5.85, 5.55, 4.6, 1.6, [
         [("Supervisor", {"bold": True, "color": NAVY, "size": 15})],
         "Lutfun Nahar Lota, Assistant Professor",
         [("Co-supervisor", {"bold": True, "color": NAVY, "size": 15})],
         "Ishmam Tashdeed, Lecturer",
     ], size=16, after=2)
-    x, w = 8.7, 4.05
-    label(s, x, 2.3, w, "Defects4J  ·  Chart_9")
-    rows = [("-", "if (endIndex < 0)"), ("+", "if ((endIndex < 0)"), ("+", "  || (endIndex < startIndex))")]
-    end = diff_block(s, x, 2.7, w, "TimeSeries.java", rows, size=14, row_h=0.42)
-    for i, (mode, col) in enumerate([("pre-fix label", PRE), ("post-fix label", POST)]):
-        y = end + 0.25 + i * 0.5
-        text(s, x, y, 1.9, 0.44, mode, size=16, color=col, bold=True, anchor="m")
-        text(s, x + 1.9, y, 2.1, 0.44, "Checking", size=16, bold=True, anchor="m")
-        line(s, x, y + 0.47, x + w, y + 0.47, color=RULE)
     box(s, 0, 7.38, SW, 0.12, fill=NAVY)
 
 
@@ -964,10 +955,10 @@ def s24_conclusion(prs, num):
         box(s, x, 1.4, 2.9, 0.07, fill=NAVY)
         text(s, x, 1.58, 2.9, 0.8, a, size=36, bold=True, color=NAVY, anchor="m")
         text(s, x, 2.38, 2.9, 0.42, b, size=16, color=MUTED)
-    label(s, 0.6, 3.1, 5.9, "Contributions")
+    label(s, 0.6, 3.02, 5.9, "Contributions", color=NAVY, size=20)
     bullets(s, 0.6, 3.5, 5.9, 3.0, ["A taxonomy × strategy condition space", "An enforced loop with auditable transcripts",
                                     "Evaluation without ground truth", "410 bugs, analysed with two LLMs"], size=19, after=20)
-    label(s, 6.95, 3.1, 5.78, "Future work")
+    label(s, 6.95, 3.02, 5.78, "Future work", color=NAVY, size=20)
     bullets(s, 6.95, 3.5, 5.78, 3.0, ["Human reference labels for a sample", "Grade the reasoning, not only the label",
                                       "Full corpus, more models, consensus", "Impact, Trigger and Age attributes"], size=19, after=20)
 
