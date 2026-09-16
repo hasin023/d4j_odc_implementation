@@ -992,14 +992,13 @@ def s18_rq3(prs, num):
         text(s, x + 0.2 + bw - 1.5, yy, 1.5, 0.34, f"{n} of 410", size=15, bold=True, color=tc, align="r", anchor="m")
     text(s, x + 0.2, y + 2.08, cw - 0.3, 0.6, "Scientific also agrees more once lucky matches are discounted.", size=15, color=MUTED, spacing=1.0)
     x = 0.6 + cw + gap
-    text(s, x + 0.2, y + 0.1, cw - 0.3, 0.4, [[("76.3%", {"color": NAVY}), ("  the realistic ceiling", {"size": 16})]], size=22, bold=True, anchor="m")
-    text(s, x + 0.2, y + 0.58, cw - 0.3, 1.0,
-         [[("With the fix visible, the two strategies agree on ", {}), ("313 of 410 bugs", {"bold": True}), (".", {})],
-          [("Informed runs still differ on 1 in 4.", {"color": MUTED})]], size=15, spacing=1.03)
-    for r, (lab, v, col) in enumerate([("two post-fix runs agree", 76.3, NAVY), ("pre-fix matches post-fix", 70.2, POST)]):
-        yy = y + 1.68 + r * 0.5
-        text(s, x + 0.2, yy, cw - 0.4, 0.26, [[(lab, {}), (f"  {v}%", {"bold": True, "color": col})]], size=14, color=MUTED, anchor="m")
-        box(s, x + 0.2, yy + 0.28, (cw - 0.4) * v / 100, 0.18, fill=col)
+    text(s, x + 0.2, y + 0.1, cw - 0.3, 0.4, [[("83.4%", {"color": NAVY}), ("  the realistic ceiling", {"size": 16})]], size=22, bold=True, anchor="m")
+    text(s, x + 0.2, y + 0.6, cw - 0.35, 2.0,
+         [[("Where it comes from: ", {"bold": True, "color": NAVY}),
+           ("two scientific post-fix runs match on ", {}), ("342 of 410 bugs", {"bold": True}), (".", {})],
+          [("What it means: ", {"bold": True, "color": NAVY}),
+           ("the reference itself shifts on 1 bug in 6, so 100% is out of reach.", {})]],
+         size=15, spacing=1.05, after=10)
     x = 0.6 + 2 * (cw + gap)
     text(s, x + 0.2, y + 0.1, cw - 0.3, 0.4, [[("93.2%", {"color": NAVY}), ("  answer is in the output", {"size": 16})]], size=22, bold=True, anchor="m")
     text(s, x + 0.2, y + 0.58, cw - 0.3, 1.0,
@@ -1281,21 +1280,19 @@ def s23_threats(prs, num):
     s = chrome(prs, "Threats to Validity", num)
     rows = [("Internal", ["The model can give a different answer each time it runs.",
                           "We removed fix hints from the pre-fix evidence, so it cannot see the answer."]),
-            ("Construct", ["Matching the post-fix label is not the same as being right.",
-                           "The class that was fixed is missing from the evidence for 285 of 410 bugs."]),
             ("External", ["We studied 6 of the 17 projects, all in Java, with one model on all 410 bugs.",
                           "Other projects or models may give different numbers; a second model ran on 13 bugs."]),
-            ("Conclusion", ["Each setup ran once, so our intervals are estimates, not repeated measurements.",
+            ("Conclusion", ["Answers vary between runs: two scientific runs agree on 342 of 410 post-fix labels.",
                             "One person did the manual reading of the 13 bugs."]),
             ("Other", ["These bugs are public, so the model may have seen them during training.",
                        "The confidence score the model reports does not warn us when it is wrong."])]
     for i, (a, b) in enumerate(rows):
-        y = 1.42 + i * 1.1
+        y = 1.55 + i * 1.32
         box(s, 0.6, y + 0.12, 2.3, 0.8, fill=PANEL)
         text(s, 0.6, y + 0.12, 2.3, 0.8, a, size=20, bold=True, color=NAVY, align="c", anchor="m")
         text(s, 3.15, y, 9.58, 1.04, [b[0], [(b[1], {"color": MUTED})]], size=17, anchor="m", spacing=1.02, after=3)
         if i < len(rows) - 1:
-            line(s, 0.6, y + 1.05, 12.73, y + 1.05, color=RULE)
+            line(s, 0.6, y + 1.18, 12.73, y + 1.18, color=RULE)
 
 
 def s24_conclusion(prs, num):
