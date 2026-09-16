@@ -6,10 +6,40 @@ import os
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Callable, Iterator
 
 
 _USER_AGENT = "d4j-odc-pipeline/1.0"
+
+# Local, gitignored running log of real (non-Gemini) API usage — lets a user
+# on a borrowed/shared key track actual token consumption to reconcile with
+# whoever's account it's billing against. Every real (non-dry-run) call
+# through _complete_openai_compatible appends one line here, using whatever
+# `usage` the provider's response reports (OpenAI-compatible APIs return
+# prompt_tokens/completion_tokens/total_tokens). Best-effort: a write failure
+# here must never break an actual classification call.
+_TOKEN_USAGE_LOG = Path(".dist/study/token_usage_log.jsonl")
+
+
+def _log_token_usage(provider: str, model: str, usage: dict) -> None:
+    if not usage:
+        return
+    try:
+        _TOKEN_USAGE_LOG.parent.mkdir(parents=True, exist_ok=True)
+        entry = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "provider": provider,
+            "model": model,
+            "prompt_tokens": usage.get("prompt_tokens"),
+            "completion_tokens": usage.get("completion_tokens"),
+            "total_tokens": usage.get("total_tokens"),
+        }
+        with _TOKEN_USAGE_LOG.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(entry) + "\n")
+    except OSError:
+        pass
 
 
 class LLMError(RuntimeError):
@@ -26,6 +56,14 @@ class LLMSettings:
     base_url: str
     default_headers: dict[str, str]
     temperature: float = 0.0
+    # Chat Completions `reasoning_effort` — openai-compatible providers only
+    # (gemini has its own separate "thinking budget" mechanism and never
+    # reaches _complete_openai_compatible). None = don't send the field at
+    # all, i.e. the provider's own default. Supported values are
+    # model-dependent (typically a subset of none/minimal/low/medium/high/
+    # xhigh/max) — not validated here, the provider rejects an unsupported
+    # value with a clear 400.
+    reasoning_effort: str | None = None
 
 
 # Key rotation is resolved fresh per HTTP request (not baked into LLMSettings at
@@ -138,6 +176,7 @@ class LLMClient:
         api_key_env: str | None = None,
         base_url: str | None = None,
         temperature: float = 0.0,
+        reasoning_effort: str | None = None,
     ) -> "LLMClient":
         provider = provider.strip().lower()
         cache_key, keys = _resolve_api_keys(provider, api_key_env)
@@ -177,6 +216,7 @@ class LLMClient:
                 base_url=resolved_base_url.rstrip("/"),
                 default_headers=default_headers,
                 temperature=temperature,
+                reasoning_effort=reasoning_effort,
             ),
             key_cycle=_get_key_cycle(cache_key, keys),
             key_pool_size=len(keys),
@@ -193,11 +233,13 @@ class LLMClient:
         return self._complete_openai_compatible(messages)
 
     def _complete_openai_compatible(self, messages: list[dict[str, str]]) -> str:
-        payload = {
+        payload: dict[str, object] = {
             "model": self.settings.model,
             "messages": messages,
             "temperature": self.settings.temperature,
         }
+        if self.settings.reasoning_effort:
+            payload["reasoning_effort"] = self.settings.reasoning_effort
 
         def build_request(api_key: str) -> urllib.request.Request:
             return urllib.request.Request(
@@ -212,8 +254,21 @@ class LLMClient:
                 method="POST",
             )
 
-        raw = self._request_with_key_failover(build_request)
+        try:
+            raw = self._request_with_key_failover(build_request)
+        except LLMError as exc:
+            # Some newer reasoning-tuned models (e.g. OpenAI's gpt-5 family)
+            # only support the default temperature and reject any explicit
+            # value with a 400 "unsupported_value" error. Retry once with
+            # temperature omitted entirely (provider default) rather than
+            # hardcoding a model-name allowlist that will go stale.
+            if exc.status_code == 400 and "temperature" in str(exc).lower():
+                payload.pop("temperature", None)
+                raw = self._request_with_key_failover(build_request)
+            else:
+                raise
         data = json.loads(raw)
+        _log_token_usage(self.settings.provider, self.settings.model, data.get("usage") or {})
         try:
             return data["choices"][0]["message"]["content"]
         except (KeyError, IndexError, TypeError) as exc:

@@ -34,8 +34,9 @@
 
 *In short: at triage time nobody has written the fix yet. Does the label we assign then still hold once the fix exists?*
 
-The "how far apart" part is graded on four levels: same type, same type after correcting for chance
-(Cohen's κ), the other label was already shortlisted, and same ODC family.
+The "how far apart" part is graded on four tiers, in the order the supervisor-approved JSS draft and
+pre-defence book use: same type (strict), the other label was already shortlisted (top-2), same ODC
+family, and Cohen's κ (strict agreement corrected for chance).
 
 ---
 

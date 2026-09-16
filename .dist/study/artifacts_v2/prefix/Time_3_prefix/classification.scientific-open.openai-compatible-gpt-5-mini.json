@@ -1,0 +1,150 @@
+{
+  "project_id": "Time",
+  "bug_id": 3,
+  "version_id": "3b",
+  "prompt_style": "scientific",
+  "model": "gpt-5-mini",
+  "provider": "openai-compatible",
+  "created_at": "2026-09-15T12:17:07+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 0.0,
+  "needs_human_review": true,
+  "observation_summary": "",
+  "hypothesis": "",
+  "prediction": "",
+  "experiment_rationale": "",
+  "reasoning_summary": "",
+  "evidence_used": [],
+  "evidence_gaps": [],
+  "alternative_types": [],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "hypothesis": "Date-based add methods (addYears/addMonths/addDays and the DurationFieldType-based add) do not short-circuit for a zero amount. They call the chronology/DateTimeField add/set logic which recomputes the instant using local field values and re-resolves the time zone offset for the ambiguous DST overlap. That re-resolution picks the summer offset (+02:00) instead of preserving the already-chosen winter offset (+01:00), causing the underlying instant to shift by one hour when adding 0 units. In short: a missing/incorrect zero-amount guard in date-field add paths causes unnecessary field-based normalization that changes the offset during DST overlaps.",
+      "prediction": "In the MutableDateTime source I will find addYears/addMonths/addDays (and the DurationFieldType add dispatch) implemented by delegating to the chronology's DateTimeField add methods (e.g. getChronology().days().add(...) or setMillis(getChronology().days().add(getMillis(), amount))) and there will be no early-return/guard checking amount == 0 to avoid invoking the field-based adjustment.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "list_evidence",
+        "argument": "MutableDateTime"
+      },
+      "observation_summary": [
+        "bug_report_available",
+        "coverage_classes",
+        "failing_tests",
+        "production_snippet_classes",
+        "test_snippet_classes"
+      ],
+      "observation": "{\n  \"failing_tests\": [\n    \"org.joda.time.TestMutableDateTime_Adds::testAddYears_int_dstOverlapWinter_addZero\",\n    \"org.joda.time.TestMutableDateTime_Adds::testAddDays_int_dstOverlapWinter_addZero\",\n    \"org.joda.time.TestMutableDateTime_Adds::testAddWeeks_int_dstOverlapWinter_addZero\",\n    \"org.joda.time.TestMutableDateTime_Adds::testAdd_DurationFieldType_int_dstOverlapWinter_addZero\",\n    \"org.joda.time.TestMutableDateTime_Adds::testAddMonths_int_dstOverlapWinter_addZero\"\n  ],\n  \"production_snippet_classes\": [\n    \"org.joda.time.Chronology\",\n    \"org.joda.time.DateTimeField\",\n    \"org.joda.time.ReadWritableDateTime\",\n    \"org.joda.time.ReadWritableInstant\",\n    \"org.joda.time.ReadWritableInterval\",\n    \"org.joda.time.ReadWritablePeriod\",\n    \"org.joda.time.ReadableDateTime\",\n    \"org.joda.time.TestMutableDateTime_Adds\"\n  ],\n  \"test_snippet_classes\": [],\n  \"coverage_classes\": [\n    \"org.joda.time.Chronology\",\n    \"org.joda.time.DateMidnight\",\n    \"org.joda.time.DateTime\",\n    \"org.joda.time.DateTimeComparator\",\n    \"org.joda.time.DateTimeConstants\",\n    \"org.joda.time.DateTimeField\",\n    \"org.joda.time.DateTimeFieldType\",\n    \"org.joda.time.DateTimeUtils\",\n    \"org.joda.time.DateTimeZone\",\n    \"org.joda.time.Days\",\n    \"org.joda.time.Duration\",\n    \"org.joda.time.DurationField\",\n    \"org.joda.time.DurationFieldType\",\n    \"org.joda.time.Hours\",\n    \"org.joda.time.IllegalFieldValueException\",\n    \"org.joda.time.IllegalInstantException\",\n    \"org.joda.time.Instant\",\n    \"org.joda.time.Interval\",\n    \"org.joda.time.JodaTimePermission\",\n    \"org.joda.time.LocalDate\",\n    \"org.joda.time.LocalDateTime\",\n    \"org.joda.time.LocalTime\",\n    \"org.joda.time.Minutes\",\n    \"org.joda.time.MonthDay\",\n    \"org.joda.time.Months\",\n    \"org.joda.time.MutableDateTime\",\n    \"org.joda.time.MutableInterval\",\n    \"org.joda.time.MutablePeriod\",\n    \"org.joda.time.Partial\",\n    \"org.joda.time.Period\",\n    \"org.joda.time.PeriodType\",\n    \"org.joda.time.ReadWritableDateTime\",\n    \"org.joda.ti",
+      "observation_truncated": true,
+      "observation_chars": 7668,
+      "duration_seconds": 32.7
+    },
+    {
+      "turn": 2,
+      "hypothesis": "The date-based add methods on MutableDateTime (addYears, addMonths, addWeeks, addDays and the DurationFieldType-based add) lack a zero-amount short-circuit and instead delegate to chronology/DateTimeField logic which recomputes fields and re-resolves the zone offset. During the DST overlap this re-resolution chooses the other offset (+02:00) and so the underlying instant changes by one hour even when adding 0.",
+      "prediction": "If this hypothesis is true, the MutableDateTime source will show addYears/addMonths/addWeeks/addDays (and the DurationFieldType add dispatcher) delegating to chronology/DateTimeField add/set methods (e.g., getChronology().days().add(...) or similar) without an early return when amount == 0. There will be no guard like `if (amount == 0) return this;` or `if (amount == 0) return;` in those methods.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "list_evidence",
+        "argument": "MutableDateTime"
+      },
+      "observation_summary": "probe already served this exact request \u2014 use a different probe or conclude",
+      "observation": "{\n  \"error\": \"probe already served this exact request \\u2014 use a different probe or conclude\"\n}",
+      "observation_truncated": false,
+      "observation_chars": 97,
+      "duration_seconds": 15.272
+    },
+    {
+      "turn": 3,
+      "hypothesis": "MutableDateTime's date-based add methods lack a zero-amount short-circuit and delegate to chronology/DateTimeField add logic which recomputes fields and re-resolves the timezone offset; during the DST overlap this re-resolution picks the other offset (+02:00) causing the instant to shift by one hour even when adding 0.",
+      "prediction": "In the BaseDateTime/MutableDateTime source (or a closely related base class) the implementations of addYears/addMonths/addWeeks/addDays (and the DurationFieldType-based add dispatcher) will call into the chronology's DateTimeField add methods (e.g., getChronology().days().add(getMillis(), amount) or chronology.add(...) ) without an early-return guard for amount == 0. There will be no `if (amount == 0) return;` or similar check preventing field-based normalization when amount is zero.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "list_evidence",
+        "argument": "BaseDateTime"
+      },
+      "observation_summary": [
+        "bug_report_available",
+        "coverage_classes",
+        "failing_tests",
+        "production_snippet_classes",
+        "test_snippet_classes"
+      ],
+      "observation": "{\n  \"failing_tests\": [\n    \"org.joda.time.TestMutableDateTime_Adds::testAddYears_int_dstOverlapWinter_addZero\",\n    \"org.joda.time.TestMutableDateTime_Adds::testAddDays_int_dstOverlapWinter_addZero\",\n    \"org.joda.time.TestMutableDateTime_Adds::testAddWeeks_int_dstOverlapWinter_addZero\",\n    \"org.joda.time.TestMutableDateTime_Adds::testAdd_DurationFieldType_int_dstOverlapWinter_addZero\",\n    \"org.joda.time.TestMutableDateTime_Adds::testAddMonths_int_dstOverlapWinter_addZero\"\n  ],\n  \"production_snippet_classes\": [\n    \"org.joda.time.Chronology\",\n    \"org.joda.time.DateTimeField\",\n    \"org.joda.time.ReadWritableDateTime\",\n    \"org.joda.time.ReadWritableInstant\",\n    \"org.joda.time.ReadWritableInterval\",\n    \"org.joda.time.ReadWritablePeriod\",\n    \"org.joda.time.ReadableDateTime\",\n    \"org.joda.time.TestMutableDateTime_Adds\"\n  ],\n  \"test_snippet_classes\": [],\n  \"coverage_classes\": [\n    \"org.joda.time.Chronology\",\n    \"org.joda.time.DateMidnight\",\n    \"org.joda.time.DateTime\",\n    \"org.joda.time.DateTimeComparator\",\n    \"org.joda.time.DateTimeConstants\",\n    \"org.joda.time.DateTimeField\",\n    \"org.joda.time.DateTimeFieldType\",\n    \"org.joda.time.DateTimeUtils\",\n    \"org.joda.time.DateTimeZone\",\n    \"org.joda.time.Days\",\n    \"org.joda.time.Duration\",\n    \"org.joda.time.DurationField\",\n    \"org.joda.time.DurationFieldType\",\n    \"org.joda.time.Hours\",\n    \"org.joda.time.IllegalFieldValueException\",\n    \"org.joda.time.IllegalInstantException\",\n    \"org.joda.time.Instant\",\n    \"org.joda.time.Interval\",\n    \"org.joda.time.JodaTimePermission\",\n    \"org.joda.time.LocalDate\",\n    \"org.joda.time.LocalDateTime\",\n    \"org.joda.time.LocalTime\",\n    \"org.joda.time.Minutes\",\n    \"org.joda.time.MonthDay\",\n    \"org.joda.time.Months\",\n    \"org.joda.time.MutableDateTime\",\n    \"org.joda.time.MutableInterval\",\n    \"org.joda.time.MutablePeriod\",\n    \"org.joda.time.Partial\",\n    \"org.joda.time.Period\",\n    \"org.joda.time.PeriodType\",\n    \"org.joda.time.ReadWritableDateTime\",\n    \"org.joda.ti",
+      "observation_truncated": true,
+      "observation_chars": 7668,
+      "duration_seconds": 19.144
+    },
+    {
+      "turn": 4,
+      "hypothesis": "MutableDateTime's date-based add methods (addYears/addMonths/addWeeks/addDays and the DurationFieldType-based add) do not short-circuit when the amount is zero. They delegate to chronology/DateTimeField add logic which reconstructs/resolves local fields and re-resolves the time zone offset; during the DST overlap this re-resolution selects the other offset (+02:00) and shifts the underlying instant by one hour even for a 0 add.",
+      "prediction": "If true, the failing-test stack traces will show calls from the test into MutableDateTime.addXxx (or a BaseDateTime method) and then into chronology/DateTimeField add/set methods (not an immediate return). The stack trace will include frames in MutableDateTime or BaseDateTime where the add call delegates into chronology/field logic rather than returning early for amount == 0.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "list_evidence",
+        "argument": "testAddYears_int_dstOverlapWinter_addZero"
+      },
+      "observation_summary": [
+        "bug_report_available",
+        "coverage_classes",
+        "failing_tests",
+        "production_snippet_classes",
+        "test_snippet_classes"
+      ],
+      "observation": "{\n  \"failing_tests\": [\n    \"org.joda.time.TestMutableDateTime_Adds::testAddYears_int_dstOverlapWinter_addZero\",\n    \"org.joda.time.TestMutableDateTime_Adds::testAddDays_int_dstOverlapWinter_addZero\",\n    \"org.joda.time.TestMutableDateTime_Adds::testAddWeeks_int_dstOverlapWinter_addZero\",\n    \"org.joda.time.TestMutableDateTime_Adds::testAdd_DurationFieldType_int_dstOverlapWinter_addZero\",\n    \"org.joda.time.TestMutableDateTime_Adds::testAddMonths_int_dstOverlapWinter_addZero\"\n  ],\n  \"production_snippet_classes\": [\n    \"org.joda.time.Chronology\",\n    \"org.joda.time.DateTimeField\",\n    \"org.joda.time.ReadWritableDateTime\",\n    \"org.joda.time.ReadWritableInstant\",\n    \"org.joda.time.ReadWritableInterval\",\n    \"org.joda.time.ReadWritablePeriod\",\n    \"org.joda.time.ReadableDateTime\",\n    \"org.joda.time.TestMutableDateTime_Adds\"\n  ],\n  \"test_snippet_classes\": [],\n  \"coverage_classes\": [\n    \"org.joda.time.Chronology\",\n    \"org.joda.time.DateMidnight\",\n    \"org.joda.time.DateTime\",\n    \"org.joda.time.DateTimeComparator\",\n    \"org.joda.time.DateTimeConstants\",\n    \"org.joda.time.DateTimeField\",\n    \"org.joda.time.DateTimeFieldType\",\n    \"org.joda.time.DateTimeUtils\",\n    \"org.joda.time.DateTimeZone\",\n    \"org.joda.time.Days\",\n    \"org.joda.time.Duration\",\n    \"org.joda.time.DurationField\",\n    \"org.joda.time.DurationFieldType\",\n    \"org.joda.time.Hours\",\n    \"org.joda.time.IllegalFieldValueException\",\n    \"org.joda.time.IllegalInstantException\",\n    \"org.joda.time.Instant\",\n    \"org.joda.time.Interval\",\n    \"org.joda.time.JodaTimePermission\",\n    \"org.joda.time.LocalDate\",\n    \"org.joda.time.LocalDateTime\",\n    \"org.joda.time.LocalTime\",\n    \"org.joda.time.Minutes\",\n    \"org.joda.time.MonthDay\",\n    \"org.joda.time.Months\",\n    \"org.joda.time.MutableDateTime\",\n    \"org.joda.time.MutableInterval\",\n    \"org.joda.time.MutablePeriod\",\n    \"org.joda.time.Partial\",\n    \"org.joda.time.Period\",\n    \"org.joda.time.PeriodType\",\n    \"org.joda.time.ReadWritableDateTime\",\n    \"org.joda.ti",
+      "observation_truncated": true,
+      "observation_chars": 7668,
+      "duration_seconds": 25.151
+    },
+    {
+      "turn": 5,
+      "hypothesis": "MutableDateTime's date-based add methods (addYears/addMonths/addWeeks/addDays and the DurationFieldType-based add) do not short-circuit for a zero amount; they delegate to chronology/DateTimeField add logic which recomputes local fields and re-resolves the timezone offset. During the DST overlap this re-resolution selects the summer offset (+02:00) instead of preserving the already-chosen winter offset (+01:00), causing the instant to shift by one hour even when adding 0.",
+      "prediction": "If true, the MutableDateTime source will show implementations of addYears/addMonths/addWeeks/addDays (and the DurationFieldType add dispatcher) that call into chronology or DateTimeField add methods (e.g., getChronology().days().add(getMillis(), amount) or chronology.add(this, fieldType, amount)) without an early-return guard for amount == 0 (no `if (amount == 0) return;` or equivalent).",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "list_evidence",
+        "argument": "MutableDateTime"
+      },
+      "observation_summary": "probe already served this exact request \u2014 use a different probe or conclude",
+      "observation": "{\n  \"error\": \"probe already served this exact request \\u2014 use a different probe or conclude\"\n}",
+      "observation_truncated": false,
+      "observation_chars": 97,
+      "duration_seconds": 24.708
+    },
+    {
+      "turn": 6,
+      "hypothesis": "Date-based add methods on MutableDateTime (addYears/addMonths/addWeeks/addDays and the DurationFieldType add) are missing a zero-amount short-circuit/guard. Instead they route through field/chronology logic which recomputes local fields and re-resolves the timezone offset; on DST overlap this re-resolution selects the other offset and shifts the instant by one hour even when adding 0.",
+      "prediction": "If this is correct, the failing tests and bug report will consistently show date-based adds with amount==0 changing the instant (while time-based adds do not), and the code paths for date-based adds will lack an early-return for amount==0 (i.e. they delegate to chronology/DateTimeField add logic rather than returning immediately).",
+      "action": "conclude",
+      "forced": true,
+      "conclusion_odc_type": "Checking",
+      "duration_seconds": 23.914
+    }
+  ],
+  "llm_calls_used": 6,
+  "termination_reason": "forced_max_turns",
+  "loop_duration_seconds": 140.89,
+  "probe_misses": 2,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Checking\", \"rationale\": \"The observable root cause is a missing/incorrect conditional guard for the zero-amount case in date-field add paths. The failing tests and the bug report show that addDays/addMonths/addYears/addWeeks/add(DurationFieldType,0) mutate the instant during a DST overlap while addHours/addMinutes/addSeconds do not \\u2014 exactly the symptom of a code path that performs field-based normalization (re-resolving offsets) instead of treating amount==0 as a no-op. This matches the ODC 'Checking' definition: an error caused by a missing/incorrect validation/guard (the zero check) even if the fix requires an early return branch.\", \"evidence_summary\": [\"Multiple failing tests from TestMutableDateTime_Adds show expected offset +01:00 but observed +02:00 after addX(0) for date-based adds.\", \"Bug report reproducer shows addHours(0) leaves instant unchanged while addDays(0) shifts instant by one hour at DST transition.\", \"Coverage / suspicious frames include DateTimeField and Chronology, consistent with date-field/chronology-based recomputation being involved.\"], \"needs_human_review\": false}"
+}

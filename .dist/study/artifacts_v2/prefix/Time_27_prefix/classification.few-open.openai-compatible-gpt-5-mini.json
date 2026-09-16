@@ -1,0 +1,77 @@
+{
+  "project_id": "Time",
+  "bug_id": 27,
+  "version_id": "27b",
+  "prompt_style": "scientific",
+  "model": "gpt-5-mini",
+  "provider": "openai-compatible",
+  "created_at": "2026-09-15T12:41:08+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 0.65,
+  "needs_human_review": true,
+  "observation_summary": "A test calling PeriodFormatter.parsePeriod(\"PT1003199059S\") throws IllegalArgumentException: \"...is malformed at '1003199059S'\". parseMutablePeriod delegates to getParser().parseInto(...), receives a position that does not cover the whole input, and then throws an error at that position.",
+  "hypothesis": "",
+  "prediction": "",
+  "experiment_rationale": "",
+  "reasoning_summary": "The failure is caused by the parser not consuming/accepting the input string (parseInto returns a non-terminal position), which indicates incorrect parsing logic rather than a missing guard or a single wrong assignment. The code around the thrown exception is a simple delegation and post-check; the real defect is in the parsing algorithm/logic that should accept this numeric seconds value but does not. Therefore Algorithm/Method (incorrect procedure/algorithm-level logic) best matches the root-cause mechanism.",
+  "evidence_used": [
+    "failing_tests[0].headline: java.lang.IllegalArgumentException: Invalid format: \"PT1003199059S\" is malformed at \"1003199059S\"",
+    "stack_trace: PeriodFormatter.parseMutablePeriod -> PeriodFormatter.parsePeriod (frames cited in suspicious_frames)",
+    "production_code_snippets: org.joda.time.format.PeriodFormatter.parseMutablePeriod (lines 314-326) showing parseInto call and subsequent error throw",
+    "production_code_snippets: org.joda.time.format.PeriodFormatter.parsePeriod (lines 294-304) delegating to parseMutablePeriod",
+    "test_code_snippets: org.joda.time.format.TestPeriodFormatterBuilder.testBug2495455 (lines 846-869) invoking pfmt1.parsePeriod(\"PT1003199059S\") and pfmt2.parsePeriod(...)"
+  ],
+  "evidence_gaps": [
+    "No pre-fix source for the parser implementation used by getParser().parseInto(...) \u2014 actual parsing algorithm and handling of large numeric seconds not visible",
+    "No information on FormatUtils.createErrorMessage or the exact newPos value returned by parseInto in this failure",
+    "No diff or fix to confirm whether root cause was numeric parsing, overflow, digit-limit validation, or formatting rule handling"
+  ],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "The code contains the expected check that parsing consumed the whole input and correctly throws an exception when it did not. The problem is that the parser failed to parse valid input rather than a missing/incorrect guard."
+    },
+    {
+      "type": "Assignment/Initialization",
+      "why_not_primary": "There is no evidence of an incorrect constant or initialization; the failure stems from parsing/consumption of input, not a wrong assigned value."
+    },
+    {
+      "type": "Interface/O-O Messages",
+      "why_not_primary": "This is not a boundary/contract mismatch between components; the parser and caller agree on the contract (parseInto returns a position) but the parser's algorithm produced an incorrect position."
+    },
+    {
+      "type": "Timing/Serialization",
+      "why_not_primary": "No concurrency, ordering, or serialization concerns are indicated by the stack or code \u2014 this is a deterministic parsing failure."
+    },
+    {
+      "type": "Relationship",
+      "why_not_primary": "No evidence that consistency among related data structures or procedures is broken; the issue appears local to parsing algorithm behavior."
+    },
+    {
+      "type": "Function/Class/Object",
+      "why_not_primary": "The parsing capability exists and is invoked; the failure is incorrect behaviour of the implementation rather than a missing or wrongly designed class/interface."
+    }
+  ],
+  "target": "Code",
+  "qualifier": "Incorrect",
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "few",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [],
+  "llm_calls_used": 1,
+  "termination_reason": null,
+  "loop_duration_seconds": null,
+  "probe_misses": 0,
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\n  \"odc_type\": \"Algorithm/Method\",\n  \"family\": \"Control and Data Flow\",\n  \"target\": \"Code\",\n  \"qualifier\": \"Incorrect\",\n  \"confidence\": 0.65,\n  \"needs_human_review\": true,\n  \"observation_summary\": \"A test calling PeriodFormatter.parsePeriod(\\\"PT1003199059S\\\") throws IllegalArgumentException: \\\"...is malformed at '1003199059S'\\\". parseMutablePeriod delegates to getParser().parseInto(...), receives a position that does not cover the whole input, and then throws an error at that position.\",\n  \"reasoning_summary\": \"The failure is caused by the parser not consuming/accepting the input string (parseInto returns a non-terminal position), which indicates incorrect parsing logic rather than a missing guard or a single wrong assignment. The code around the thrown exception is a simple delegation and post-check; the real defect is in the parsing algorithm/logic that should accept this numeric seconds value but does not. Therefore Algorithm/Method (incorrect procedure/algorithm-level logic) best matches the root-cause mechanism.\",\n  \"evidence_used\": [\n    \"failing_tests[0].headline: java.lang.IllegalArgumentException: Invalid format: \\\"PT1003199059S\\\" is malformed at \\\"1003199059S\\\"\",\n    \"stack_trace: PeriodFormatter.parseMutablePeriod -> PeriodFormatter.parsePeriod (frames cited in suspicious_frames)\",\n    \"production_code_snippets: org.joda.time.format.PeriodFormatter.parseMutablePeriod (lines 314-326) showing parseInto call and subsequent error throw\",\n    \"production_code_snippets: org.joda.time.format.PeriodFormatter.parsePeriod (lines 294-304) delegating to parseMutablePeriod\",\n    \"test_code_snippets: org.joda.time.format.TestPeriodFormatterBuilder.testBug2495455 (lines 846-869) invoking pfmt1.parsePeriod(\\\"PT1003199059S\\\") and pfmt2.parsePeriod(...)\"\n  ],\n  \"evidence_gaps\": [\n    \"No pre-fix source for the parser implementation used by getParser().parseInto(...) \u2014 actual parsing algorithm and handling of large numeric seconds not visible\",\n    \"No information on FormatUtils.createErrorMessage or the exact newPos value returned by parseInto in this failure\",\n    \"No diff or fix to confirm whether root cause was numeric parsing, overflow, digit-limit validation, or formatting rule handling\"\n  ],\n  \"alternative_types\": [\n    {\n      \"type\": \"Checking\",\n      \"why_not_primary\": \"The code contains the expected check that parsing consumed the whole input and correctly throws an exception when it did not. The problem is that the parser failed to parse valid input rather than a missing/incorrect guard.\"\n    },\n    {\n      \"type\": \"Assignment/Initialization\",\n      \"why_not_primary\": \"There is no evidence of an incorrect constant or initialization; the failure stems from parsing/consumption of input, not a wrong assigned value.\"\n    },\n    {\n      \"type\": \"Interface/O-O Messages\",\n      \"why_not_primary\": \"This is not a boundary/contract mismatch between components; the parser and caller agree on the contract (parseInto returns a position) but the parser's algorithm produced an incorrect position.\"\n    },\n    {\n      \"type\": \"Timing/Serialization\",\n      \"why_not_primary\": \"No concurrency, ordering, or serialization concerns are indicated by the stack or code \u2014 this is a deterministic parsing failure.\"\n    },\n    {\n      \"type\": \"Relationship\",\n      \"why_not_primary\": \"No evidence that consistency among related data structures or procedures is broken; the issue appears local to parsing algorithm behavior.\"\n    },\n    {\n      \"type\": \"Function/Class/Object\",\n      \"why_not_primary\": \"The parsing capability exists and is invoked; the failure is incorrect behaviour of the implementation rather than a missing or wrongly designed class/interface.\"\n    }\n  ]\n}"
+}

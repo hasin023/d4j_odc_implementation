@@ -268,6 +268,7 @@ def classify_bug_context(
     strategy: str = DEFAULT_STRATEGY,
     self_consistency: int = 1,
     sampling_temperature: float = 0.7,
+    reasoning_effort: str | None = None,
 ) -> ClassificationResult | None:
     validate_condition(taxonomy, strategy)
     if self_consistency < 1:
@@ -319,6 +320,7 @@ def classify_bug_context(
         api_key_env=api_key_env,
         base_url=base_url,
         temperature=sampling_temperature if k > 1 else 0.0,
+        reasoning_effort=reasoning_effort,
     )
 
     def _validate(payload: dict, raw: str = "") -> ClassificationResult:

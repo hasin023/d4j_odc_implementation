@@ -369,6 +369,11 @@ def _add_llm_args(parser: argparse.ArgumentParser, default_provider: str, defaul
     parser.add_argument("--model", default=None, help=f"Model name for the selected provider (default: {default_model}, or the provider-specific env var if set).")
     parser.add_argument("--api-key-env", default=None)
     parser.add_argument("--base-url")
+    parser.add_argument(
+        "--reasoning-effort", default=None,
+        choices=["none", "minimal", "low", "medium", "high", "xhigh", "max"],
+        help="Chat Completions reasoning_effort for openai-compatible providers (e.g. gpt-5 family). Omit to use the provider's own default. Ignored by gemini (its own separate mechanism). Actually-supported values are model-dependent — an unsupported value gets a clear 400 from the provider.",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Render the prompt but skip the LLM call.")
 
 
@@ -571,17 +576,28 @@ def _cmd_collect(args: argparse.Namespace) -> int:
 
 
 def _cmd_classify(args: argparse.Namespace) -> int:
-    from .odc import condition_tag
+    from .odc import condition_tag, resolve_effective_tag_from_root
 
     context = load_context(args.context)
     tag = condition_tag(args.taxonomy, args.strategy)
     # Default output/report to same directory as the context file, tagged by
-    # condition so no two conditions can ever overwrite each other.
+    # condition so no two conditions can ever overwrite each other. Also
+    # resolve the model axis the same way study-run does (odc.py's
+    # resolve_effective_tag_from_root): a second (provider, model) against
+    # the same study corpus gets a model-suffixed tag instead of colliding
+    # with the first model's files. context.json's standard layout is
+    # <artifacts_root>/<prefix|postfix>/<Project>_<bug>_<mode>/context.json,
+    # so the artifacts root is three levels up. For a standalone (non-study)
+    # context — e.g. .dist/runs/... — that path has no checkpoint.pairs.*
+    # file to find, so this is a no-op and the bare tag is used, unchanged
+    # from before.
     context_dir = args.context.parent
+    artifacts_root = context_dir.parent.parent
+    effective_tag = resolve_effective_tag_from_root(artifacts_root, tag, args.provider, args.model)
     if args.output is None:
-        args.output = context_dir / f"classification.{tag}.json"
+        args.output = context_dir / f"classification.{effective_tag}.json"
     if args.report is None:
-        args.report = context_dir / f"report.{tag}.md"
+        args.report = context_dir / f"report.{effective_tag}.md"
     classification = classify_bug_context(
         context=context,
         output_path=args.output,
@@ -594,6 +610,7 @@ def _cmd_classify(args: argparse.Namespace) -> int:
         taxonomy=args.taxonomy,
         strategy=args.strategy,
         self_consistency=args.self_consistency,
+        reasoning_effort=args.reasoning_effort,
     )
     if args.report:
         write_markdown_report(context=context, classification=classification, output_path=args.report)
@@ -645,6 +662,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
         taxonomy=args.taxonomy,
         strategy=args.strategy,
         self_consistency=args.self_consistency,
+        reasoning_effort=args.reasoning_effort,
     )
     write_markdown_report(context=context, classification=classification, output_path=args.report)
     return 0
@@ -969,6 +987,7 @@ def _cmd_study_run(args: argparse.Namespace) -> int:
         prompt_output=args.prompt_output,
         daily_call_budget=args.daily_call_budget,
         self_consistency=args.self_consistency,
+        reasoning_effort=args.reasoning_effort,
         keep_work=args.keep_work,
     )
 
