@@ -12,7 +12,7 @@ Every classification is a coordinate `(taxonomy, strategy)`:
 | Variable | Levels | Default |
 |---|---|---|
 | `--taxonomy` | `free` — no taxonomy; the model answers in its own words · `closed` — the 7 ODC types, forced choice (closed-set) · `open` — 7 + "Other" escape category (open-set) | **`open`** |
-| `--strategy` | `zero` — zero-shot: no taxonomy, no worked examples (the unstructured baseline) · `few` — few-shot single call: taxonomy + diagnostic decision tree + 5 worked classification examples (the strong static prompt) · `scientific` — the enforced scientific loop (`agent.py`): hypothesis → prediction → probe → observation turns over held-back `context.json` evidence, max 6 turns, full transcript persisted | **`scientific`** |
+| `--strategy` | `zero` — zero-shot: no taxonomy, no worked examples (the unstructured baseline) · `few` — few-shot single call: taxonomy + diagnostic decision tree + 5 worked classification examples (the strong static prompt) · `scientific` — `few`'s ODC guidance + the enforced scientific loop (`agent.py`): verdict → hypothesis → prediction → probe → observation turns over held-back `context.json` evidence and a buggy-version `source` probe, max 8 turns, conclusions admitted only by the evidence gate (2026-09-26), full transcript persisted | **`scientific`** |
 
 **The default pipeline — for BOTH prefix and postfix evidence — is
 `scientific-open`.**

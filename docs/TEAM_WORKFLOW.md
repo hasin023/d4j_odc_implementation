@@ -289,6 +289,11 @@ It exits non-zero if anything is missing or was collected with the old evidence 
 context is missing, that bug falls through to collection inside `study-run` and fails on a machine
 without Defects4J — which is exactly the confusing failure this gate exists to prevent.
 
+> ⛔ **2026-09-27: the next classification run targets `.dist/study/artifacts_v3`, not `artifacts_v2`,**
+> and a `scientific` run now needs Defects4J on the classify machine (the `source` probe checks out the
+> buggy version). The commands below show the v2-era pattern. Follow the binding rules in
+> `docs/study_execution_log.md` → "DECISION (2026-09-27)".
+
 Then classify — a genuinely different command from the Collector's `study-collect`, not the same one
 with a flag dropped:
 

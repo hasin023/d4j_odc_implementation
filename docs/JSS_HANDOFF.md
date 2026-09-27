@@ -152,7 +152,7 @@ before describing the experimental design in the paper):
 - `--strategy zero|few|scientific` — zero = zero-shot, no taxonomy, no
   examples; few = few-shot single call (taxonomy + diagnostic tree + worked
   examples); scientific = the enforced hypothesis→prediction→probe→
-  observation loop (AutoSD-inspired), up to 6 turns. **Default: scientific.**
+  observation loop (AutoSD-inspired), up to 8 turns with a harness-enforced evidence gate (2026-09-26; `artifacts_v2` scientific results predate it). **Default: scientific.**
 
 Only 5 combinations are valid (CLI-enforced):
 `zero-free`, `few-closed`, `few-open`, `scientific-closed`, `scientific-open`.

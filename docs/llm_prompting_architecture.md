@@ -37,7 +37,7 @@ in this order, each capped as shown (`prompting.py:412-572`):
 | `suspicious_frames` | `context.suspicious_frames` | first **10** | class_name, method_name, file_name, line_number, `origin` (`"stack_trace"` or `"coverage"` — tells the model whether this class crashed or was merely touched by the trigger test) |
 | `production_code_snippets` | `context.code_snippets` where `reason` doesn't start with `"Test source:"` | first **8** | class_name, reason, file_path, start_line, end_line, focus_line, content (line-numbered text, `>>` marks the focus line) |
 | `test_code_snippets` | `context.code_snippets` where `reason` starts with `"Test source:"` | first **3** | same shape as above |
-| `coverage_summary` | `context.coverage` | first **6** classes, each capped at top **10** covered lines | class_name, line_rate, branch_rate, top_covered_lines (line_number + hits) |
+| `coverage_summary` | `context.coverage` | the **6** most-executed classes (by executed-line count; never-executed classes dropped — was "first 6 in file order" before 2026-09-27), each capped at top **10** covered lines | class_name, line_rate, branch_rate, top_covered_lines (line_number + hits) |
 | `fix_diff_oracle` | `context.fix_diff` | **only present in the post-fix arm** | note explaining it's oracle information + the unified diff (capped at collection time to 8000 chars) |
 
 **Deliberately excluded from every strategy's payload:**
@@ -77,7 +77,9 @@ in this order, each capped as shown (`prompting.py:412-572`):
 
 ### 1.4 `scientific` strategy — the multi-turn agentic loop
 
-Unlike `zero`/`few` (one system + one user message, one API call), `scientific` (`agent.py::run_agentic_classification`) is a **conversation that grows every turn**, up to `AGENT_MAX_TURNS = 6`.
+Unlike `zero`/`few` (one system + one user message, one API call), `scientific` (`agent.py::run_agentic_classification`) is a **conversation that grows every turn**, up to `AGENT_MAX_TURNS = 8`.
+
+> ⚠️ **Updated 2026-09-26** — the loop now (a) shares `few`'s ODC guidance verbatim (decision process, worked examples, post-fix diff guidance) so the two strategies differ only by the loop, (b) has a sixth probe, `source`, and (c) admits a conclusion only through the harness-enforced evidence gate (`agent.py::_evidence_gate`). The per-message description below predates this; `agent.py`'s module docstring is current.
 
 **System message** (`_agent_system_prompt`, `agent.py:176-220`, ≈1,565-1,746 words — sent **once**, not repeated per turn):
 - Role line + loop-protocol explanation: every turn the model must emit `hypothesis`, `prediction`, then either `action: "request_evidence"` (with a `probe`) or `action: "conclude"` (with the full classification).

@@ -527,3 +527,22 @@ class NotesExcludedFromPayloadTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_coverage_summary_lists_most_executed_classes_first():
+    """context.coverage lists every instrumented class in report order; the
+    seed must show the classes the failing tests actually executed."""
+    from d4j_odc_pipeline.models import BugContext, CoverageClass, CoverageLine, utc_now_iso
+    from d4j_odc_pipeline.prompting import _context_payload
+
+    cold = [CoverageClass(class_name=f"org.a.Cold{i}", filename="", line_rate=0.0,
+                          branch_rate=1.0, covered_lines=[]) for i in range(6)]
+    warm = CoverageClass(class_name="org.z.Warm", filename="", line_rate=0.1, branch_rate=0.0,
+                         covered_lines=[CoverageLine(5, 1)])
+    hot = CoverageClass(class_name="org.z.Hot", filename="", line_rate=0.5, branch_rate=0.0,
+                        covered_lines=[CoverageLine(n, 2) for n in range(1, 4)])
+    ctx = BugContext(project_id="Lang", bug_id=1, version_id="1b", work_dir="/x",
+                     created_at=utc_now_iso(), defects4j_command=["d"],
+                     coverage=cold + [warm, hot])
+    names = [c["class_name"] for c in _context_payload(ctx)["coverage_summary"]]
+    assert names == ["org.z.Hot", "org.z.Warm"]

@@ -20,6 +20,7 @@ from .models import ensure_parent, utc_now_iso
 from .odc import (
     DEFAULT_STRATEGY,
     DEFAULT_TAXONOMY,
+    STRATEGY_SCIENTIFIC,
     condition_tag,
     resolve_effective_tag_from_root,
     validate_condition,
@@ -27,6 +28,7 @@ from .odc import (
 from .pipeline import (
     classify_bug_context,
     collect_bug_context,
+    prepare_source_dirs,
     write_json,
     write_markdown_report,
 )
@@ -443,6 +445,11 @@ def run_batch_from_manifest(
                 "postfix_status": "pending",
             }
 
+            # Scientific loop's `source` probe: one buggy-version checkout
+            # serves both evidence modes (both classify version <bug>b).
+            source_work_dir = work_root / "source" / f"{project_id}_{bug_id}b"
+            source_dirs: list[Path] | None = None
+
             for evidence_mode in ("prefix", "postfix"):
                 # Check shutdown between evidence modes too
                 if is_shutdown_requested():
@@ -520,6 +527,12 @@ def run_batch_from_manifest(
                         interrupted = True
                         break
 
+                    if strategy == STRATEGY_SCIENTIFIC and source_dirs is None:
+                        source_dirs = prepare_source_dirs(
+                            context, defects4j=defects4j, work_dir=source_work_dir
+                        )
+                        record["source_probe"] = bool(source_dirs)
+
                     llm_calls_made += self_consistency
                     classification = classify_bug_context(
                         context=context,
@@ -534,6 +547,7 @@ def run_batch_from_manifest(
                         strategy=strategy,
                         self_consistency=self_consistency,
                         reasoning_effort=reasoning_effort,
+                        source_dirs=source_dirs,
                     )
 
                     if classification is None:
@@ -550,6 +564,9 @@ def run_batch_from_manifest(
                 except Exception as exc:  # noqa: BLE001
                     record[status_key] = "failed"
                     record[f"{evidence_mode}_error"] = str(exc)
+
+            if not keep_work and source_work_dir.exists():
+                _discard_work_dir(source_work_dir, work_root)
 
             # If we broke out of the evidence_mode loop due to shutdown/budget
             if interrupted:

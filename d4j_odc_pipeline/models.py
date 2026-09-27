@@ -194,6 +194,13 @@ class ClassificationResult:
     # at run time.
     loop_duration_seconds: float | None = None
     probe_misses: int = 0
+    # Evidence gate (scientific, 2026-09-26+): how many conclusions the
+    # harness rejected as not yet justified, whether the accepted one passed
+    # the gate (None on older artifacts and single-shot strategies), and the
+    # concrete fix the model says the defect needs — the thing ODC types.
+    gate_rejections: int = 0
+    evidence_gate_passed: bool | None = None
+    predicted_fix: str | None = None
     other_justification: str | None = None
     nearest_type: str | None = None
     other_confidence: float | None = None

@@ -754,6 +754,10 @@ reading model output; present as qualitative mechanism study; grade label and re
 1. **A real bug in our probe implementation.** `execute_probe` matches class names by substring
    (`argument in s.class_name`, `d4j_odc_pipeline/agent.py`). `snippet(...Dfp)` returns **DfpTest**;
    `snippet(Gamma)` returns **GammaTest**. **Fix before any rerun.** Weakens RQ4b.
+   ✅ **Fixed 2026-09-26** (`agent._match_classes`: exact → simple name → substring, never a test
+   class for a production argument), together with the evidence-store gap (tier-2 `source` probe)
+   and the missing stopping criterion (evidence gate). The numbers in this document are all from the
+   pre-fix loop; they need a rerun, see `docs/study_execution_log.md` 2026-09-26.
 2. **Evidence coverage is poor, and worst on Closure.** The modified class is missing from
    `context.json` for **285 of 410 bugs** (69.5%) — **140 of 153 on Closure** (91.5%), and every
    Mockito bug. Caps what the loop can contribute.

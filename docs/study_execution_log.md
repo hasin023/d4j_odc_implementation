@@ -1044,3 +1044,123 @@ postfix percentage and its downstream characterization.
 
 Remaining gap unchanged in kind, off by one bug: 21 active Closure bugs
 (`49`-`69` except `63`) still uncollected; `143` still quarantined.
+
+## 2026-09-26 — Scientific loop audit (artifacts_v2) and loop v2: probe fixes + evidence gate (code only, NOT yet run)
+
+**Why.** Reading the `scientific-open` transcripts in `artifacts_v2` showed the loop repeating the
+same probe and then concluding "out of nowhere". Replaying every pre-fix probe of all 410 bugs
+through the real `execute_probe` against each bug's `context.json` gave:
+
+| Pre-fix probe behaviour (410 bugs, 764 probes) | Count |
+| --- | --- |
+| Distinct `snippet` probes | 463 |
+| … returned exactly the production class asked for | **36** |
+| … asked for a production class, got **only its test class** (substring bug: `Dfp`→`DfpTest`) | **232** |
+| … got a production + test mix | 65 |
+| … errored "no snippet matches" | 130 (115 of them: class was executed per coverage but has no source in the store; 68 were the actually-modified class) |
+| Duplicate probe requests (same probe + argument again) | **198 in 185 bugs (45%)** — 171 re-asked after a *successful* serve (the test class came back, the model wanted production code) |
+| … followed immediately by a conclusion | **147** |
+| Runs that concluded on the turn right after an error/duplicate observation | **178 / 410** |
+| Runs concluding with zero probes | 37 (post-fix: 126) |
+
+The modified class is covered (executed by the failing test) in 429/431 contexts, but its source
+is in the snippet store for only ~30%: snippets are ±12-line windows around stack frames, and for
+assertion failures the buggy method is never on the stack. So the loop was **starved** (it could
+not read the code its hypotheses were about), **mis-served** (test classes in place of production
+code), and had **no stopping criterion** ("conclude as soon as the evidence supports one type" —
+the model decided, typically right after a failed probe).
+
+Three more asymmetries against `scientific`, found in the code, not the data:
+1. The `scientific` system prompt had the taxonomy only — **not** `few`'s diagnostic decision process,
+   worked examples, or post-fix "the diff is the ground truth" guidance. That explains the manual
+   analysis's "scientific ignored the diff" (Chart_17, Math_90) and few post-fix 11/13 vs scientific
+   6/13. "Only the loop differs" was not true.
+2. Nothing asked the model for the *fix*, while ODC types the nature of the fix — hence "right
+   mechanism, wrong label" (Time_3, Math_104).
+3. (Shared by both arms, **not changed**) the seed's `coverage_summary` is `context.coverage[:6]`
+   in file order: for 294/431 contexts all six are zero-hit classes and it contains the modified class
+   in only 6. ✅ **Fixed 2026-09-27** (team decision): the seed now lists the 6 classes with the most
+   executed lines, dropping never-executed ones. On the v2 contexts: 0 empty summaries, and the
+   modified class appears in the summary for 265/431 (was 6). This is recorded failing-test coverage
+   (spectrum-style evidence), not the `classes.modified` oracle, so it is legitimate pre-fix evidence.
+   It changes the `few` and `zero` prompts too, so v2 `few-open` results no longer match the current
+   prompt; `zero-free` would also need a rerun if it is compared again.
+
+**What changed (loop v2 — `agent.py`, `prompting.py`, `pipeline.py`, `batch.py`, `models.py`):**
+- **Class matching:** exact FQCN → simple name → substring; a production-class argument never
+  receives a test class (`_match_classes`, used by `snippet`, `coverage`, `source`).
+- **Tier-2 `source` probe** (RepairAgent's read tools): `Class` (whole file, or an outline with per-method
+  executed-line counts when > 150 lines), `Class#method`, `Class:START-END`; lines the failing tests
+  executed are marked `*` from recorded coverage. Reads a checkout of the **buggy** version only, so no
+  fix leakage. `study-run` checks out `<work_root>/source/<P>_<bug>b` once per bug (shared by both
+  modes, discarded unless `--keep-work`); `record["source_probe"]` in the checkpoint says whether it
+  was available. Outline parser validated on real commons-lang 3.1 `StringUtils` and Closure
+  `NodeUtil` (328 declarations, 0 missed, 0 false positives).
+- `list_evidence` now names the production classes the failing tests executed (by executed-line count).
+- **Duplicate probes** get an explanation pointing to where the result is and what to ask instead.
+- **Shared ODC guidance:** the scientific system prompt now contains `few`'s decision process, worked
+  examples and post-fix diff guidance *verbatim* (helpers `_fix_diff_guidance` / `_critical_rules` /
+  `_decision_process` in prompting.py). `few`/`zero` prompts verified **byte-identical** before/after
+  on 18 prompt variants, so existing `few-open` results stay valid.
+- **Evidence gate — when the evidence is enough** (`_evidence_gate`, harness-enforced). Each turn now
+  opens with a verdict on the previous experiment (AutoSD's Conclusion step: supported / refuted /
+  inconclusive) plus a verbatim `evidence_quote`, and names `leading_type` vs `rival_type` (the
+  prediction must discriminate them). A conclusion is accepted only if: (a) the previous probe
+  returned evidence, (b) verdict = supported, (c) the quote is found verbatim in that observation,
+  (d) `predicted_fix` states the concrete change, (e) the concluded type is the leading or rival type
+  of that experiment. Otherwise it is rejected (`conclude_rejected` in the transcript), costing a turn.
+  Budget raised 6 → 8 turns; if it runs out the forced conclusion is flagged `needs_human_review` and
+  `evidence_gate_passed=false`. Grounding: AutoSD emits `<DONE>` only after a supported hypothesis that
+  "leads to a concrete program fix", and its `<DONE>` runs were measurably more precise; RepairAgent's
+  ablation found that without a state machine forcing information collection the agent jumps to a fix
+  without collecting any, and without memory it repeats the same commands.
+  The loop-iteration ordering is still AutoSD's (H → P → E → O → C); the verdict emitted at the start of
+  turn k+1 is iteration k's Conclusion.
+- New result fields: `gate_rejections`, `evidence_gate_passed`, `predicted_fix`; per-turn
+  `verdict`, `evidence_quote`, `quote_verified` (exogenous confirm/refute record), `leading_type`,
+  `rival_type`, `gate_failure`.
+
+**Tests:** 235 pass (+21 new in `tests/test_agent.py`); the 2 known Windows-only WSL-path tests fail
+on this macOS host as expected.
+
+**Not done:** no classification has been run with loop v2 yet (this macOS host has no Defects4J and
+no API key). The next run follows the decision below.
+
+### ⛔ DECISION (2026-09-27, binding for the next classification run): classify into `artifacts_v3`
+
+1. **`artifacts_v2` is frozen.** Never run `study-run` against `.dist/study/artifacts_v2` again. It stays
+   as the record of the pre-gate (v1) loop behind every number in `RQ_standing_assessment.md`. Rerunning
+   into it would skip every bug (skip-existing), and a partial rerun would mix v1 and v2 scientific
+   results under the same `classification.scientific-open.json` filename.
+2. **All new classification goes into `.dist/study/artifacts_v3`**, with `--work-root .dist/study/work_v3`.
+3. **Contexts are copied, not re-collected.** Copy ONLY the `context.json` files, keeping the folder tree
+   (PowerShell or cmd; robocopy exit code 1 means "files copied" and is success):
+   `robocopy .dist\study\artifacts_v2 .dist\study\artifacts_v3 context.json /S`
+   Do not copy any `classification.*`, `report.*`, `prompt.*` or `checkpoint.*` file into v3.
+4. **Run BOTH conditions, `few-open` and `scientific-open`, fresh in v3**, with the same provider and
+   model, at the same time. Do not reuse the v2 `few-open` results as the baseline: the model is a
+   rolling `-preview` alias, so a baseline months older than the treatment is confounded by model drift.
+5. **The classify machine must have Defects4J working** (`/doctor` in the REPL). The v2 loop checks
+   out each bug's buggy version for the `source` probe. Without Defects4J the run does not fail; it
+   silently runs without `source`. After every scientific run, check the checkpoint: every record
+   must have `"source_probe": true`. Rerun any bug that has `false`.
+6. **Pilot first on the 13 manual-analysis bugs** (`manifest_alvee13.json` is exactly that set), both
+   conditions:
+   `python -m d4j_odc_pipeline study-run --manifest .dist/study/manifest_alvee13.json --artifacts-root .dist/study/artifacts_v3 --work-root .dist/study/work_v3 --taxonomy open --strategy scientific --daily-call-budget 2000 --prompt-output --summary-output .dist/study/v3_alvee13_summary.scientific-open.json`
+   `python -m d4j_odc_pipeline study-run --manifest .dist/study/manifest_alvee13.json --artifacts-root .dist/study/artifacts_v3 --work-root .dist/study/work_v3 --taxonomy open --strategy few --daily-call-budget 2000 --prompt-output --summary-output .dist/study/v3_alvee13_summary.few-open.json`
+   Before scaling up, read the pilot transcripts and record in this log: gate rejections per bug, the
+   share of forced conclusions, `source_probe` per bug, calls per bug, and the labels against the
+   manual ground truth in `analysis_v2/manual_analysis/shortlist.csv`.
+7. **Then the full 410 bugs**, the same two commands per project manifest: `manifest_chart26.json`,
+   `manifest_closure153_v2.json`, `manifest_lang61.json`, `manifest_math106.json`,
+   `manifest_mockito38.json`, `manifest_time26.json`. Always pass `--summary-output` with a
+   project-and-condition name (`summary.json` is not condition-tagged and would be overwritten).
+   Budget: scientific now uses up to 8 calls per bug per mode.
+8. **The seed coverage-summary fix IS part of v3** (adopted 2026-09-27, in `prompting._context_payload`).
+   It needs no re-collection: the full coverage is already in every `context.json`; only the prompt
+   changes. Both v3 conditions run with it, which is one more reason rule 4 reruns `few-open`.
+9. Every v3 run gets its own section in this log (commands, model, result matrix).
+
+**Confound to disclose.** `source` gives the loop evidence `few` never sees. That is the treatment
+(an agent that can go and read the code, against a single call that cannot), but a reviewer will
+ask; the control is a `few` arm given the source of the executed methods.

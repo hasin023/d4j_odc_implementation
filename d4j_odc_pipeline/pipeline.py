@@ -269,7 +269,10 @@ def classify_bug_context(
     self_consistency: int = 1,
     sampling_temperature: float = 0.7,
     reasoning_effort: str | None = None,
+    source_dirs: list[Path] | None = None,
 ) -> ClassificationResult | None:
+    """``source_dirs`` (scientific only) are a buggy-version checkout's source
+    roots, enabling the loop's tier-2 `source` probe — see prepare_source_dirs."""
     validate_condition(taxonomy, strategy)
     if self_consistency < 1:
         raise ValueError("self_consistency must be >= 1")
@@ -286,7 +289,7 @@ def classify_bug_context(
             from .prompting import _context_payload
 
             messages = [
-                {"role": "system", "content": _agent_system_prompt(taxonomy)},
+                {"role": "system", "content": _agent_system_prompt(taxonomy, bool(context.fix_diff))},
                 {"role": "user", "content": json.dumps(_context_payload(context), indent=2)},
             ]
         else:
@@ -341,12 +344,18 @@ def classify_bug_context(
         if strategy == STRATEGY_SCIENTIFIC:
             from .agent import run_agentic_classification
 
+            if source_dirs is None:
+                # Callers without a Defects4J client (classify, REPL) still get
+                # `source` when the collection checkout is on disk.
+                source_dirs = prepare_source_dirs(context)
+
             with console.spinner_step(f"Agentic loop via {provider} ({model}){suffix}"):
                 sample = run_agentic_classification(
                     context=context,
                     client=client,
                     taxonomy=taxonomy,
                     validate_conclusion=lambda p: _validate(p, json.dumps(p)),
+                    source_dirs=source_dirs,
                 )
             total_calls += max(1, len(sample.turns))
             samples.append(sample)
@@ -402,6 +411,37 @@ def classify_bug_context(
     console.result_panel("Classification complete", summary_rows)
 
     return result
+
+
+def prepare_source_dirs(
+    context: BugContext,
+    *,
+    defects4j: Defects4JClient | None = None,
+    work_dir: Path | None = None,
+) -> list[Path]:
+    """Source roots of a checkout of ``context``'s buggy version, for the
+    scientific loop's `source` probe.
+
+    Reuses the collection checkout when it still exists; otherwise, given a
+    Defects4J client and a ``work_dir``, checks the buggy version out there
+    (seconds — the week-long cost of collection was test+coverage, which this
+    never reruns). Returns [] when neither is possible; the probe then answers
+    "source unavailable" and the loop falls back to tier-1 probes. Only the
+    BUGGY version is ever checked out, so the pre-fix arm gains no fix
+    knowledge. Never raises: a missing checkout degrades a run, never fails it."""
+    try:
+        for candidate in (Path(context.work_dir) if context.work_dir else None, work_dir):
+            if candidate and candidate.exists():
+                dirs = _discover_source_dirs(candidate, context.exports)
+                if dirs:
+                    return dirs
+        if defects4j is None or work_dir is None:
+            return []
+        defects4j.checkout(context.project_id, context.version_id, work_dir)
+        return _discover_source_dirs(work_dir, context.exports)
+    except Exception as exc:  # noqa: BLE001
+        console.warn(f"No source checkout ({exc}); `source` probe disabled for this bug")
+        return []
 
 
 def write_markdown_report(
@@ -530,6 +570,11 @@ def _scientific_loop_lines(classification: ClassificationResult) -> list[str]:
     if classification.loop_duration_seconds is not None:
         lines.append(f"- Loop duration: `{classification.loop_duration_seconds}s`")
     lines.append(f"- Probe misses: `{misses}`")
+    if classification.evidence_gate_passed is not None:
+        gate = "passed" if classification.evidence_gate_passed else "NOT passed (flagged for review)"
+        lines.append(f"- Evidence gate: `{gate}`; conclusions rejected: `{classification.gate_rejections}`")
+    if classification.predicted_fix:
+        lines.append(f"- Predicted fix: {classification.predicted_fix}")
 
     for turn in turns:
         probe = turn.get("probe") or {}
@@ -539,11 +584,24 @@ def _scientific_loop_lines(classification: ClassificationResult) -> list[str]:
         lines.extend(["", header, ""])
         if turn.get("hypothesis"):
             lines.extend([f"**Hypothesis.** {turn['hypothesis']}", ""])
+        if turn.get("verdict") and turn["verdict"] != "none":
+            checked = " (quote verified)" if turn.get("quote_verified") else ""
+            lines.append(f"**Verdict on previous experiment.** `{turn['verdict']}`{checked}")
+            if turn.get("evidence_quote"):
+                lines.append(f"> {turn['evidence_quote']}")
+            lines.append("")
         if turn.get("prediction"):
+            if turn.get("leading_type"):
+                lines.append(f"**Testing.** `{turn['leading_type']}` vs `{turn.get('rival_type')}`")
             lines.extend([f"**Prediction.** {turn['prediction']}", ""])
 
         if turn.get("action") == "conclude":
             lines.append(f"**Concluded**: `{turn.get('conclusion_odc_type')}`")
+        elif turn.get("action") == "conclude_rejected":
+            lines.append(
+                f"**Conclusion `{turn.get('conclusion_odc_type')}` rejected by the evidence gate**: "
+                f"{turn.get('gate_failure')}"
+            )
         elif probe:
             argument = probe.get("argument")
             target = f" `{argument}`" if argument else ""

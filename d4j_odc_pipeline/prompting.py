@@ -63,58 +63,74 @@ def _build_system_prompt(
     ]
 
     if has_fix_diff:
-        base.extend([
-            "You are classifying a bug using BOTH pre-fix evidence AND the actual buggy-to-fixed diff.",
-            "The diff shows exactly what was changed to fix the bug. Use it to determine the nature of the fix:",
-            "  - If the diff ADDS a missing null/bounds check → Checking",
-            "  - If the diff CHANGES a value, constant, or initialization → Assignment/Initialization",
-            "  - If the diff REWRITES a computation or local procedure → Algorithm/Method",
-            "  - If the diff CHANGES method signatures or API contracts → Interface/O-O Messages",
-            "  - If the diff ADDS synchronization or reorders operations → Timing/Serialization",
-            "  - If the diff FIXES associations among procedures/data structures/objects → Relationship",
-            "  - If the diff REQUIRES a design-level capability correction → Function/Class/Object",
-            "",
-            "IMPORTANT: The diff is the GROUND TRUTH of what was fixed. Your classification should be",
-            "consistent with the nature of the change shown in the diff.",
-        ])
+        base.extend(_fix_diff_guidance())
     else:
         base.extend([
             "Your job is to classify one bug into exactly one ODC defect type using ONLY the provided pre-fix evidence.",
         ])
 
     base.extend([
-        "",
-        "CRITICAL RULES:",
-        "- Do NOT default to 'Function/Class/Object' — it requires evidence of a design-level capability gap, not merely wrong behaviour in existing code. Choose the type whose root-cause mechanism the evidence best supports.",
-        "- Read the code snippets carefully. The type of fix needed determines the ODC type.",
-        "- Do not use benchmark familiarity, project reputation, or hidden fix knowledge.",
+        *_critical_rules(),
         "",
         taxonomy_markdown(taxonomy_mode),
         "",
         "Return only valid JSON matching this schema:",
         _json_contract(taxonomy_mode),
     ])
-    base.extend(
-        [
-            "",
-            "## Classification Decision Process",
-            "",
-            "Before classifying, work through these diagnostic questions against the evidence, in order:",
-            "",
-            "1. **Missing/wrong condition or guard?** (null checks, if-conditions, bounds checks, exception handling) → **Checking**",
-            "2. **Wrong value, constant, or initialization?** (default values, wrong constant, wrong variable in an assignment) → **Assignment/Initialization**",
-            "3. **Wrong computational logic or procedure?** (formula, loop logic, sort order, data-structure operation) → **Algorithm/Method**",
-            "4. **Wrong component boundary or API interaction?** (parameter order, caller/callee type mismatch, contract violation) → **Interface/O-O Messages**",
-            "5. **Depends on execution order or timing?** (race conditions, lifecycle ordering, serialization order) → **Timing/Serialization**",
-            "6. **Broken association among procedures/data structures/objects that must stay aligned?** → **Relationship**",
-            "7. **Requires a formal design-level capability correction?** (significant capability/class/object/interface structure correction) → **Function/Class/Object**",
-            "",
-            "Choose the BEST matching type from the first question that fits.",
-        ]
-    )
+    base.extend(_decision_process())
     # Worked classification examples — the "shots" that make this the few-shot strategy.
     base.extend(["", _few_shot_examples()])
     return "\n".join(base)
+
+
+# The ODC guidance blocks below are shared verbatim by `few` (this module) and
+# `scientific` (agent.py), so the two strategies differ ONLY by the loop.
+
+
+def _fix_diff_guidance() -> list[str]:
+    return [
+        "You are classifying a bug using BOTH pre-fix evidence AND the actual buggy-to-fixed diff.",
+        "The diff shows exactly what was changed to fix the bug. Use it to determine the nature of the fix:",
+        "  - If the diff ADDS a missing null/bounds check → Checking",
+        "  - If the diff CHANGES a value, constant, or initialization → Assignment/Initialization",
+        "  - If the diff REWRITES a computation or local procedure → Algorithm/Method",
+        "  - If the diff CHANGES method signatures or API contracts → Interface/O-O Messages",
+        "  - If the diff ADDS synchronization or reorders operations → Timing/Serialization",
+        "  - If the diff FIXES associations among procedures/data structures/objects → Relationship",
+        "  - If the diff REQUIRES a design-level capability correction → Function/Class/Object",
+        "",
+        "IMPORTANT: The diff is the GROUND TRUTH of what was fixed. Your classification should be",
+        "consistent with the nature of the change shown in the diff.",
+    ]
+
+
+def _critical_rules() -> list[str]:
+    return [
+        "",
+        "CRITICAL RULES:",
+        "- Do NOT default to 'Function/Class/Object' — it requires evidence of a design-level capability gap, not merely wrong behaviour in existing code. Choose the type whose root-cause mechanism the evidence best supports.",
+        "- Read the code snippets carefully. The type of fix needed determines the ODC type.",
+        "- Do not use benchmark familiarity, project reputation, or hidden fix knowledge.",
+    ]
+
+
+def _decision_process() -> list[str]:
+    return [
+        "",
+        "## Classification Decision Process",
+        "",
+        "Before classifying, work through these diagnostic questions against the evidence, in order:",
+        "",
+        "1. **Missing/wrong condition or guard?** (null checks, if-conditions, bounds checks, exception handling) → **Checking**",
+        "2. **Wrong value, constant, or initialization?** (default values, wrong constant, wrong variable in an assignment) → **Assignment/Initialization**",
+        "3. **Wrong computational logic or procedure?** (formula, loop logic, sort order, data-structure operation) → **Algorithm/Method**",
+        "4. **Wrong component boundary or API interaction?** (parameter order, caller/callee type mismatch, contract violation) → **Interface/O-O Messages**",
+        "5. **Depends on execution order or timing?** (race conditions, lifecycle ordering, serialization order) → **Timing/Serialization**",
+        "6. **Broken association among procedures/data structures/objects that must stay aligned?** → **Relationship**",
+        "7. **Requires a formal design-level capability correction?** (significant capability/class/object/interface structure correction) → **Function/Class/Object**",
+        "",
+        "Choose the BEST matching type from the first question that fits.",
+    ]
 
 
 def _few_shot_examples() -> str:
@@ -528,7 +544,12 @@ def _context_payload(context: BugContext) -> dict:
             prod_count += 1
 
     # ── Coverage ──────────────────────────────────────────────────────
-    for coverage in context.coverage[:6]:
+    # The 6 classes the failing tests executed most. context.coverage is in
+    # report (≈alphabetical) order and lists every instrumented class, so the
+    # old `[:6]` showed only never-executed classes for 294/431 v2 contexts.
+    executed = [c for c in context.coverage if any(line.hits for line in c.covered_lines)]
+    executed.sort(key=lambda c: -sum(1 for line in c.covered_lines if line.hits))
+    for coverage in executed[:6]:
         payload["coverage_summary"].append(
             {
                 "class_name": coverage.class_name,

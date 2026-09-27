@@ -22,7 +22,7 @@ from d4j_odc_pipeline.pipeline import classify_bug_context
 
 def _rich_context() -> BugContext:
     return BugContext(
-        project_id="Lang", bug_id=1, version_id="1b", work_dir="/tmp",
+        project_id="Lang", bug_id=1, version_id="1b", work_dir="/nonexistent/Lang_1b",
         created_at=utc_now_iso(), defects4j_command=["d"],
         failures=[
             Failure(
@@ -35,7 +35,7 @@ def _rich_context() -> BugContext:
         code_snippets=[
             CodeSnippet(class_name="org.example.Foo", file_path="Foo.java",
                         start_line=1, end_line=9, focus_line=5,
-                        reason="Suspicious frame", content="int x = -1;"),
+                        reason="Suspicious frame", content="int x = -1; // initial value"),
             CodeSnippet(class_name="org.example.FooTest", file_path="FooTest.java",
                         start_line=1, end_line=5, focus_line=3,
                         reason="Test source: testOne", content="assertEquals(0, x);"),
@@ -47,12 +47,25 @@ def _rich_context() -> BugContext:
     )
 
 
-def _turn(action: str, probe=None, conclusion=None) -> str:
+QUOTE = "int x = -1; // initial"
+
+
+def _turn(action: str, probe=None, conclusion=None, *, verdict=None, quote=None,
+          fix="change the initializer of x from -1 to 0",
+          leading="Assignment/Initialization", rival="Algorithm/Method") -> str:
+    """One model turn. A conclude defaults to a gate-passing one: verdict
+    supported, a quote from the Foo snippet, a concrete fix."""
+    concluding = action == "conclude"
     return json.dumps({
+        "verdict": verdict or ("supported" if concluding else "none"),
+        "evidence_quote": quote if quote is not None else (QUOTE if concluding else None),
         "hypothesis": "wrong initial value",
+        "leading_type": leading,
+        "rival_type": rival,
         "prediction": "x initialized to -1 instead of 0",
         "action": action,
         "probe": probe,
+        "predicted_fix": fix if concluding else None,
         "conclusion": conclusion,
     })
 
@@ -245,12 +258,17 @@ class LoopObservabilityTests(unittest.TestCase):
 
     def test_voluntary_conclusion_is_recorded_as_concluded(self) -> None:
         fake = MagicMock()
-        fake.complete.side_effect = [_turn("conclude", conclusion=_conclusion_payload())]
+        fake.complete.side_effect = [
+            _turn("request_evidence", probe={"name": "snippet", "argument": "Foo"}),
+            _turn("conclude", conclusion=_conclusion_payload()),
+        ]
         result = run_agentic_classification(
             context=_rich_context(), client=fake, taxonomy="closed",
             validate_conclusion=self._validate)
         self.assertEqual("concluded", result.termination_reason)
         self.assertEqual(0, result.probe_misses)
+        self.assertTrue(result.evidence_gate_passed)
+        self.assertEqual(0, result.gate_rejections)
         self.assertFalse(result.needs_human_review)
 
     def test_forced_conclusion_is_recorded_as_forced(self) -> None:
@@ -285,6 +303,7 @@ class LoopObservabilityTests(unittest.TestCase):
         fake = MagicMock()
         fake.complete.side_effect = [
             _turn("request_evidence", probe={"name": "snippet", "argument": "NoSuchClass"}),
+            _turn("request_evidence", probe={"name": "snippet", "argument": "Foo"}),
             _turn("conclude", conclusion=_conclusion_payload()),
         ]
         result = run_agentic_classification(
@@ -295,7 +314,7 @@ class LoopObservabilityTests(unittest.TestCase):
     def test_durations_are_recorded(self) -> None:
         fake = MagicMock()
         fake.complete.side_effect = [
-            _turn("request_evidence", probe={"name": "list_evidence"}),
+            _turn("request_evidence", probe={"name": "snippet", "argument": "Foo"}),
             _turn("conclude", conclusion=_conclusion_payload()),
         ]
         result = run_agentic_classification(
@@ -430,3 +449,179 @@ class LegacyTranscriptRenderingTests(unittest.TestCase):
         result.probe_misses = 0
         markdown = "\n".join(_scientific_loop_lines(result))
         self.assertIn("- Probe misses: `0`", markdown)
+
+
+class ProbeMatchingTests(unittest.TestCase):
+    """The artifacts_v2 audit: 232 of 463 pre-fix snippet probes asked for a
+    production class and got only its test class (`Dfp` → `DfpTest`)."""
+
+    NAMES = ["org.math.dfp.Dfp", "org.math.dfp.DfpTest", "org.math.dfp.DfpDec",
+             "org.chart.util.junit.ShapeUtilitiesTests"]
+
+    def test_simple_name_beats_substring(self) -> None:
+        from d4j_odc_pipeline.agent import _match_classes
+        self.assertEqual(["org.math.dfp.Dfp"], _match_classes(self.NAMES, "Dfp"))
+        self.assertEqual(["org.math.dfp.Dfp"], _match_classes(self.NAMES, "org.math.dfp.Dfp"))
+
+    def test_production_argument_never_serves_a_test_class(self) -> None:
+        from d4j_odc_pipeline.agent import _match_classes
+        self.assertEqual([], _match_classes(self.NAMES, "ShapeUtilities"))
+        self.assertEqual(["org.chart.util.junit.ShapeUtilitiesTests"],
+                         _match_classes(self.NAMES, "ShapeUtilitiesTests"))
+
+    def test_class_dot_method_falls_back_to_class(self) -> None:
+        from d4j_odc_pipeline.agent import _match_classes
+        self.assertEqual(["org.math.dfp.Dfp"], _match_classes(self.NAMES, "Dfp.multiply"))
+
+    def test_snippet_probe_reports_miss_instead_of_test_class(self) -> None:
+        ctx = _rich_context()
+        ctx.code_snippets[1].class_name = "org.example.BarTest"
+        obs = execute_probe(ctx, "snippet", "Bar")
+        self.assertIn("error", obs)
+
+
+class SourceProbeTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        root = Path(self.tmp.name) / "src"
+        (root / "org" / "example").mkdir(parents=True)
+        body = ["package org.example;", "", "public class Foo {",
+                "    private int x;", "", "    public int run(int a) {",
+                "        int x = -1;", "        return a + x;", "    }", ""]
+        body += [f"    public void filler{i}() {{ }}" for i in range(200)]
+        body += ["}"]
+        (root / "org" / "example" / "Foo.java").write_text("\n".join(body))
+        (root / "org" / "example" / "Small.java").write_text(
+            "package org.example;\nclass Small {\n    int y = 2;\n}\n")
+        self.dirs = [root]
+        self.ctx = _rich_context()
+        self.ctx.coverage = [CoverageClass(class_name="org.example.Foo", filename="Foo.java",
+                                           line_rate=0.1, branch_rate=0.0,
+                                           covered_lines=[CoverageLine(7, 1), CoverageLine(8, 1)])]
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def test_unavailable_without_checkout(self) -> None:
+        self.assertIn("error", execute_probe(self.ctx, "source", "Foo"))
+
+    def test_small_file_returned_whole(self) -> None:
+        obs = execute_probe(self.ctx, "source", "Small", self.dirs)
+        self.assertIn("int y = 2;", obs["content"])
+
+    def test_long_file_returns_outline_with_executed_counts(self) -> None:
+        obs = execute_probe(self.ctx, "source", "Foo", self.dirs)
+        run = [entry for entry in obs["outline"] if "run(" in entry["signature"]][0]
+        self.assertEqual((6, 9, 2), (run["line"], run["end_line"], run["executed_lines"]))
+
+    def test_method_body_marks_executed_lines(self) -> None:
+        content = execute_probe(self.ctx, "source", "org.example.Foo#run", self.dirs)["content"]
+        self.assertIn("*     7:         int x = -1;", content)
+        self.assertIn("      6:     public int run(int a) {", content)
+        self.assertNotIn("filler", content)
+
+    def test_line_range_is_capped(self) -> None:
+        from d4j_odc_pipeline.agent import SOURCE_MAX_LINES
+        content = execute_probe(self.ctx, "source", "Foo:1-999", self.dirs)["content"]
+        self.assertEqual(SOURCE_MAX_LINES, len(content.splitlines()))
+
+    def test_unknown_method_lists_methods(self) -> None:
+        obs = execute_probe(self.ctx, "source", "Foo#nope", self.dirs)
+        self.assertIn("run", obs["methods"])
+
+    def test_list_evidence_ranks_executed_classes(self) -> None:
+        obs = execute_probe(self.ctx, "list_evidence", None, self.dirs)
+        self.assertEqual("org.example.Foo", obs["executed_production_classes"][0]["class_name"])
+        self.assertTrue(obs["source_probe_available"])
+
+
+class EvidenceGateTests(unittest.TestCase):
+    """A conclusion is accepted only after an experiment SUPPORTS the
+    hypothesis with a verbatim quote, names a fix, and concludes a type that
+    experiment was testing."""
+
+    def _run(self, *turns):
+        fake = MagicMock()
+        fake.complete.side_effect = list(turns)
+        return run_agentic_classification(
+            context=_rich_context(), client=fake, taxonomy="closed",
+            validate_conclusion=LoopObservabilityTests._validate)
+
+    PROBE = _turn("request_evidence", probe={"name": "snippet", "argument": "Foo"})
+    GOOD = _turn("conclude", conclusion=_conclusion_payload())
+
+    def _rejected(self, bad, reason_fragment):
+        result = self._run(self.PROBE, bad, self.GOOD)
+        self.assertEqual("conclude_rejected", result.turns[1]["action"])
+        self.assertIn(reason_fragment, result.turns[1]["gate_failure"])
+        self.assertEqual(1, result.gate_rejections)
+        self.assertTrue(result.evidence_gate_passed)
+        return result
+
+    def test_zero_probe_conclusion_is_rejected(self) -> None:
+        result = self._run(self.GOOD, self.PROBE, self.GOOD)
+        self.assertIn("no experiment", result.turns[0]["gate_failure"])
+        self.assertEqual("concluded", result.termination_reason)
+
+    def test_fabricated_quote_is_rejected(self) -> None:
+        self._rejected(_turn("conclude", conclusion=_conclusion_payload(),
+                             quote="int x = 42; // made up"), "not found verbatim")
+
+    def test_refuted_verdict_is_rejected(self) -> None:
+        self._rejected(_turn("conclude", conclusion=_conclusion_payload(), verdict="refuted"),
+                       "SUPPORTS")
+
+    def test_missing_fix_is_rejected(self) -> None:
+        self._rejected(_turn("conclude", conclusion=_conclusion_payload(), fix=""), "predicted_fix")
+
+    def test_type_not_under_test_is_rejected(self) -> None:
+        self._rejected(_turn("conclude", conclusion=_conclusion_payload("Checking")), "not under test")
+
+    def test_quote_is_verified_on_the_transcript(self) -> None:
+        result = self._run(self.PROBE, self.GOOD)
+        self.assertTrue(result.turns[1]["quote_verified"])
+        self.assertEqual("change the initializer of x from -1 to 0", result.predicted_fix)
+
+    def test_gate_never_passed_is_forced_and_flagged(self) -> None:
+        bad = _turn("conclude", conclusion=_conclusion_payload(), verdict="inconclusive")
+        result = self._run(self.PROBE, *[bad] * (AGENT_MAX_TURNS - 1))
+        self.assertEqual("forced_max_turns", result.termination_reason)
+        self.assertFalse(result.evidence_gate_passed)
+        self.assertTrue(result.needs_human_review)
+        self.assertEqual(AGENT_MAX_TURNS - 2, result.gate_rejections)
+
+
+class SharedGuidanceTests(unittest.TestCase):
+    """scientific = few + the loop: the ODC guidance must be the same text."""
+
+    def test_scientific_prompt_carries_few_guidance(self) -> None:
+        from d4j_odc_pipeline.prompting import _decision_process, _few_shot_examples
+        prompt = _agent_system_prompt("open")
+        self.assertIn("\n".join(_decision_process()), prompt)
+        self.assertIn(_few_shot_examples(), prompt)
+        self.assertNotIn("GROUND TRUTH", prompt)
+
+    def test_postfix_prompt_carries_diff_guidance(self) -> None:
+        self.assertIn("GROUND TRUTH", _agent_system_prompt("open", has_fix_diff=True))
+
+
+class PrepareSourceDirsTests(unittest.TestCase):
+    def test_reuses_existing_checkout_then_checks_out(self) -> None:
+        from d4j_odc_pipeline.pipeline import prepare_source_dirs
+        with tempfile.TemporaryDirectory() as tmp:
+            ctx = _rich_context()
+            ctx.exports = {"dir.src.classes": "source"}
+            self.assertEqual([], prepare_source_dirs(ctx))
+
+            existing = Path(tmp) / "existing"
+            (existing / "source").mkdir(parents=True)
+            ctx.work_dir = str(existing)
+            self.assertEqual([(existing / "source").resolve()], prepare_source_dirs(ctx))
+
+            ctx.work_dir = "/nonexistent"
+            target = Path(tmp) / "fresh"
+            d4j = MagicMock()
+            d4j.checkout.side_effect = lambda p, v, w: (w / "source").mkdir(parents=True)
+            self.assertEqual([(target / "source").resolve()],
+                             prepare_source_dirs(ctx, defects4j=d4j, work_dir=target))
+            d4j.checkout.assert_called_once_with("Lang", "1b", target)
