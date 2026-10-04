@@ -8,6 +8,8 @@ To answer that empirically, you need a release valve — a category that catches
 
 The design in your document is specifically well-constructed because it doesn't just add "Other" as a lazy option. It requires three mandatory fields when "Other" is chosen: `other_justification`, `nearest_type`, and `other_confidence`. This is methodologically important for two reasons. First, it prevents the LLM from selecting "Other" as a shortcut — which is a real concern with any LLM classification system, since the model may default to the uncertain option rather than committing to a type. Second, the `nearest_type` field means that even bugs labeled "Other" can be partially placed in the distribution, which preserves the analytical value of every bug in the corpus.
 
+> ⚠️ 2026-10-04: this 32% figure is Silva & Vieira (SAFECOMP 2016) as reported by Agnelo et al. (JSS 2020); the original is paywalled and unread, so whether those bugs were code fixes is unknown. See `docs/other_category.md` §2, §8.
+
 One study applying ODC to space-critical systems found difficulties classifying about 32% of bugs due to context specificities, and proposed an adaptation of the taxonomy. This is one of the strongest arguments _for_ your design: even in that case, the researchers needed some mechanism to detect and quantify the gap before they could propose fixes. Your "Other" type with structured justification is exactly that mechanism.
 
 For the JSS audience, the "Other" design also addresses a key reviewer concern: that you are testing a hypothesis (seven types are sufficient) rather than assuming it. A closed seven-type run alone would be accused of circular reasoning — you can't prove sufficiency by measuring within a closed schema. The eighth "Other" type is what makes the study falsifiable, which is the hallmark of a rigorous empirical claim.
@@ -35,6 +37,8 @@ Consider: it's possible the escape rate is low (e.g., 3%) but the taxonomy shift
 Conversely, if both the escape rate and the taxonomy shift rate are low, you have strong evidence that the seven-type schema is both exhaustive and stable. That dual result is far more convincing to a JSS reviewer than a single-pass coverage count alone.
 
 ### Reason C: Avoiding reference class contamination in the baseline
+
+> ⚠️ **Wrong for this study (flagged 2026-10-04).** The list below is not IBM ODC v5.2. In v5.2 the 7 Design/Code defect types are Assignment/Initialization, Checking, Algorithm/Method, Function/Class/Object, Timing/Serialization, Interface/O-O Messages and Relationship; Build/Package and Documentation ("Information Development") are *Targets*, not defect types (`docs/odc_doc.md` §4.1). So "Other" can never mean a documentation or build bug. See `docs/other_category.md` §1.
 
 ODC's seven categories for code-target defects are: Interface, Function, Build/Package/Merge, Assignment, Documentation, Checking, Algorithm, and Timing/Serialization. Note that this full list includes "Documentation" — which your closed schema excludes when operating on Defects4J, because the corpus is filtered to functional code defects. Your seven-type closed schema already makes a deliberate choice about which types to include. Introducing "Other" in the same run would blur the boundary between "not a functional code defect" and "genuinely unclassifiable" — you wouldn't know which interpretation the LLM intended. Separating the runs keeps those concerns cleanly separated.
 

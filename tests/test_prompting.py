@@ -62,17 +62,18 @@ class PromptingTests(unittest.TestCase):
 
 
     def test_few_includes_protocol(self) -> None:
-        """few's system prompt is exactly taxonomy + decision tree + worked
-        examples (docs/condition_model.md §4.3) — the "Scientific Debugging
-        Protocol" block was a vestige of the retired narrated-single-shot
-        condition (pilot-proven to change 0/6 labels) and was removed; it
-        must not resurface."""
+        """few's system prompt is task + taxonomy (IBM text) + output format +
+        worked examples (docs/prompt_review_v3.md). The "Scientific Debugging
+        Protocol" block (retired narrated-single-shot condition, 0/6 labels
+        changed) and the Classification Decision Process (removed 2026-10-05,
+        block 6) must not resurface."""
         context = _make_context()
         messages = build_messages(context, "closed", "few")
         system = messages[0]["content"]
         self.assertNotIn("Scientific Debugging Protocol", system)
-        self.assertIn("Classification Decision Process", system)
-        self.assertIn("Classification Examples", system)
+        self.assertNotIn("Classification Decision Process", system)
+        self.assertIn("## Worked examples", system)
+        self.assertIn("<worked_examples>", system)
 
     # ── Evidence parity between styles (RQ2.2 confound control) ──────
 
@@ -119,6 +120,8 @@ class PromptingTests(unittest.TestCase):
         self.assertNotIn("Scientific Debugging Protocol", system)
         self.assertNotIn("Classification Decision Process", system)
         self.assertNotIn("Classification Examples", system)
+        self.assertNotIn("Worked example", system)
+        self.assertNotIn("<worked_examples>", system)
 
     def test_naive_excludes_odc_json_contract(self) -> None:
         """Naive prompt uses a simplified JSON schema without ODC fields."""
@@ -474,10 +477,21 @@ class MetadataTestsRelevantCappingTests(unittest.TestCase):
 
 class FewContentCoverageRegressionTests(unittest.TestCase):
     """docs/condition_model.md §4.3: few must remain "the strongest static
-    prompt" — the loop (scientific) has to outperform taxonomy + decision
-    tree + worked examples, not a handicapped version of it. This guards
-    that invariant against future conciseness edits: wording may shrink,
-    but none of the 7 type definitions or 5 worked examples may disappear."""
+    prompt" — the loop (scientific) has to outperform IBM's taxonomy + the
+    worked examples, not a handicapped version of it. None of the 7 type
+    definitions or the 7 approved worked examples may disappear, and the
+    guidance removed on 2026-10-05 (docs/prompt_review_v3.md) must not come
+    back."""
+
+    WORKED_EXAMPLE_ORDER = (
+        "Checking",
+        "Assignment/Initialization",
+        "Algorithm/Method",
+        "Interface/O-O Messages",
+        "Function/Class/Object",
+        "Relationship",
+        "Timing/Serialization",
+    )
 
     def test_all_seven_odc_types_present(self) -> None:
         context = _make_context()
@@ -493,19 +507,96 @@ class FewContentCoverageRegressionTests(unittest.TestCase):
         ):
             self.assertIn(name, system)
 
-    def test_all_five_worked_examples_present(self) -> None:
-        context = _make_context()
-        system = build_messages(context, "closed", "few")[0]["content"]
-        for i in range(1, 6):
-            self.assertIn(f"### Example {i}:", system)
+    def test_seven_worked_examples_in_decided_order(self) -> None:
+        """One per ODC type, in the order of research doc Q6.1 decision 6,
+        each wrapped in <example> tags; none for Other (docs/other_category.md)."""
+        from d4j_odc_pipeline.prompting import _WORKED_EXAMPLES, _few_shot_examples
+        self.assertEqual(7, len(_WORKED_EXAMPLES))
+        for i, (example, odc_type) in enumerate(zip(_WORKED_EXAMPLES, self.WORKED_EXAMPLE_ORDER), 1):
+            self.assertTrue(example.startswith(f"### Worked example {i}: {odc_type}\n"))
+            self.assertIn(f"**Type**: **{odc_type}**", example)
+        block = _few_shot_examples()
+        self.assertEqual(7, block.count("<example>"))
+        self.assertEqual(7, block.count("</example>"))
+        self.assertNotIn("Worked example 8", block)
+        self.assertNotIn(": Other", block)
 
-    def test_decision_tree_still_covers_all_seven_boundaries(self) -> None:
-        context = _make_context()
-        system = build_messages(context, "closed", "few")[0]["content"]
-        self.assertIn("Classification Decision Process", system)
-        # 7 numbered diagnostic questions, one per type.
-        for i in range(1, 8):
-            self.assertIn(f"{i}. **", system)
+    def test_same_worked_examples_in_both_evidence_modes(self) -> None:
+        from d4j_odc_pipeline.prompting import _few_shot_examples
+        block = _few_shot_examples()
+        pre = build_messages(_make_context(), "open", "few")[0]["content"]
+        post = build_messages(_make_context(fix_diff="--- a\n+++ b"), "open", "few")[0]["content"]
+        self.assertTrue(pre.endswith(block))
+        self.assertTrue(post.endswith(block))
+
+    def test_nothing_outside_the_block_refers_to_worked_examples(self) -> None:
+        """Modularity: an IBM-taxonomy-only variant must be able to drop the
+        block without leaving references behind."""
+        from d4j_odc_pipeline.agent import _agent_system_prompt
+        from d4j_odc_pipeline.prompting import _few_shot_examples
+        block = _few_shot_examples()
+        for prompt in (
+            build_messages(_make_context(), "open", "few")[0]["content"],
+            build_messages(_make_context(fix_diff="--- a\n+++ b"), "open", "few")[0]["content"],
+            _agent_system_prompt("open"),
+            _agent_system_prompt("open", has_fix_diff=True),
+        ):
+            self.assertIn(block, prompt)
+            self.assertNotIn("worked example", prompt.replace(block, "").lower())
+
+    def test_taxonomy_shows_ibm_text_only(self) -> None:
+        """Each type renders IBM's Definition and Examples; our April 2026
+        indicators/distinguish_from guidance is no longer shown (block 4b)."""
+        system = build_messages(_make_context(), "closed", "few")[0]["content"]
+        self.assertIn("<odc_taxonomy>", system)
+        self.assertIn("</odc_taxonomy>", system)
+        self.assertEqual(7, system.count("**Definition**:"))
+        self.assertNotIn("When to choose this type", system)
+        self.assertNotIn("When NOT to choose this type", system)
+
+    def test_removed_guidance_does_not_return(self) -> None:
+        from d4j_odc_pipeline.agent import _agent_system_prompt
+        for prompt in (
+            build_messages(_make_context(), "open", "few")[0]["content"],
+            build_messages(_make_context(), "open", "few")[1]["content"],
+            build_messages(_make_context(fix_diff="--- a\n+++ b"), "open", "few")[0]["content"],
+            _agent_system_prompt("open"),
+            _agent_system_prompt("open", has_fix_diff=True),
+        ):
+            for removed in (
+                "Classification Decision Process",
+                "first question that fits",
+                "diagnostic questions",
+                "If the diff ADDS",
+                "If the diff CHANGES method signatures",
+                "Do NOT default to",
+                "usually NOT 'Function/Class/Object'",
+            ):
+                self.assertNotIn(removed, prompt)
+
+    def test_task_line_states_ibm_correction_rule_in_both_modes(self) -> None:
+        pre = build_messages(_make_context(), "open", "few")[0]["content"]
+        post = build_messages(_make_context(fix_diff="--- a\n+++ b"), "open", "few")[0]["content"]
+        rule = '"the actual correction that was made" (IBM ODC v5.2)'
+        self.assertIn(rule, pre)
+        self.assertIn(rule, post)
+        self.assertIn("exactly one type from the taxonomy below, using ONLY the provided pre-fix evidence", pre)
+        self.assertNotIn("pre-fix evidence.", post.split("\n")[1])
+
+    def test_prompt_version_recorded(self) -> None:
+        from d4j_odc_pipeline.pipeline import _validate_classification_payload
+        from d4j_odc_pipeline.prompting import PROMPT_VERSION
+        payload = {"odc_type": "Checking", "confidence": 0.9}
+        result = _validate_classification_payload(
+            payload=payload, context=_make_context(), model="m", provider="p",
+            raw_response="{}", taxonomy="closed", strategy="few",
+        )
+        self.assertEqual(PROMPT_VERSION, result.prompt_version)
+        free = _validate_classification_payload(
+            payload={"defect_type": "x", "confidence": 50}, context=_make_context(),
+            model="m", provider="p", raw_response="{}", taxonomy="free", strategy="zero",
+        )
+        self.assertIsNone(free.prompt_version)  # the zero prompt did not change
 
 
 class NotesExcludedFromPayloadTests(unittest.TestCase):

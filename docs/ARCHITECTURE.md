@@ -265,9 +265,7 @@ The pipeline classifies into 7 ODC **Defect Type** categories:
 13. **Optionally collects fix diff** (`--include-fix-diff`) — checks out `<bug>f`, diffs modified classes, stores as post-fix oracle.
 14. **Writes `context.json`** — serialised `BugContext` with all of the above.
 15. **Classifies using LLM** — sends the shared evidence payload (§ above) to the configured provider (Gemini/Groq/OpenRouter/openai-compatible). The `few` strategy's system prompt contains:
-    - Contrastive ODC taxonomy (7 types with indicators, boundaries, and examples)
-    - 5 canonical few-shot examples with explicit `NOT X` reasoning
-    - 7-question diagnostic decision tree
+    - (STALE list, superseded 2026-10-05 by prompt v3: IBM taxonomy + 7 real worked examples, no decision tree — see `docs/prompt_review_v3.md` and `docs/llm_prompting_architecture.md` §1.3)
     `scientific` shares the taxonomy but replaces the tree/examples with the enforced hypothesis→prediction→probe→observation loop (`agent.py`); `zero` gets none of this. See `docs/llm_prompting_architecture.md` for the exact per-strategy breakdown.
     - Anti-bias rules preventing default-to-Function behavior
 16. **Adds ODC mapping hints** (optional) — Includes heuristic opener/closer-aligned metadata in prompt evidence (`odc_opener_hints`, `odc_closer_hints`) to improve traceability to ODC concepts.

@@ -15,6 +15,14 @@ from .odc import (
     validate_condition,
 )
 
+# Version of the few/scientific prompt text, written into every classification
+# artifact (ClassificationResult.prompt_version). Bump it whenever the shared
+# guidance, the taxonomy rendering or the worked examples change, and log the
+# change in docs/study_execution_log.md. "v3-2026-10-05": real worked examples,
+# IBM-only taxonomy, pre-July guidance removed — rationale in
+# docs/prompt_review_v3.md. Artifacts without the field predate it.
+PROMPT_VERSION = "v3-2026-10-05"
+
 
 def build_messages(
     context: BugContext,
@@ -62,13 +70,7 @@ def _build_system_prompt(
         "You are an expert software defect analyst specializing in Orthogonal Defect Classification (ODC).",
     ]
 
-    if has_fix_diff:
-        base.extend(_fix_diff_guidance())
-    else:
-        base.extend([
-            "Your job is to classify one bug into exactly one ODC defect type using ONLY the provided pre-fix evidence.",
-        ])
-
+    base.extend(_evidence_mode_guidance(has_fix_diff))
     base.extend([
         *_critical_rules(),
         "",
@@ -77,8 +79,9 @@ def _build_system_prompt(
         "Return only valid JSON matching this schema:",
         _json_contract(taxonomy_mode),
     ])
-    base.extend(_decision_process())
-    # Worked classification examples — the "shots" that make this the few-shot strategy.
+    # Worked examples — the "shots" that make this the few-shot strategy. Kept
+    # last (nearest the input): the order decision rests on recency bias, see
+    # docs/few_shot_worked_examples_research.md Q6.1 decision 6.
     base.extend(["", _few_shot_examples()])
     return "\n".join(base)
 
@@ -87,17 +90,33 @@ def _build_system_prompt(
 # `scientific` (agent.py), so the two strategies differ ONLY by the loop.
 
 
+# IBM ODC v5.2 §4.2: "Defect Type: Represents the actual correction that was made."
+_IBM_CORRECTION_RULE = 'In ODC, a defect type describes "the actual correction that was made" (IBM ODC v5.2)'
+
+
+def _evidence_mode_guidance(has_fix_diff: bool) -> list[str]:
+    """The task statement for the evidence mode, shared by `few` and `scientific`.
+
+    Pre-fix: classify from pre-fix evidence, judging the correction the bug needs.
+    Post-fix: the diff shows the correction, so classify its nature.
+    """
+    if has_fix_diff:
+        return _fix_diff_guidance()
+    return [
+        "Your job is to classify one bug into exactly one type from the taxonomy below, using ONLY the provided pre-fix evidence.",
+        f"{_IBM_CORRECTION_RULE}, so judge what kind of correction the evidence shows the bug needs.",
+    ]
+
+
 def _fix_diff_guidance() -> list[str]:
+    # The seven "If the diff ... -> type" lines that used to follow were removed
+    # 2026-10-05 (docs/prompt_review_v3.md, block 2): one contradicted IBM's
+    # Algorithm illustration (3) and worked example 5, and as surface rules they
+    # match the post-fix failure in the manual analysis (finding 7).
     return [
         "You are classifying a bug using BOTH pre-fix evidence AND the actual buggy-to-fixed diff.",
-        "The diff shows exactly what was changed to fix the bug. Use it to determine the nature of the fix:",
-        "  - If the diff ADDS a missing null/bounds check → Checking",
-        "  - If the diff CHANGES a value, constant, or initialization → Assignment/Initialization",
-        "  - If the diff REWRITES a computation or local procedure → Algorithm/Method",
-        "  - If the diff CHANGES method signatures or API contracts → Interface/O-O Messages",
-        "  - If the diff ADDS synchronization or reorders operations → Timing/Serialization",
-        "  - If the diff FIXES associations among procedures/data structures/objects → Relationship",
-        "  - If the diff REQUIRES a design-level capability correction → Function/Class/Object",
+        "The diff shows exactly what was changed to fix the bug.",
+        f"{_IBM_CORRECTION_RULE}, so classify the nature of this change.",
         "",
         "IMPORTANT: The diff is the GROUND TRUTH of what was fixed. Your classification should be",
         "consistent with the nature of the change shown in the diff.",
@@ -105,71 +124,253 @@ def _fix_diff_guidance() -> list[str]:
 
 
 def _critical_rules() -> list[str]:
+    # Reduced 2026-10-05 (docs/prompt_review_v3.md, block 3): the "Do NOT default
+    # to Function/Class/Object" rule is now covered by IBM's FCO definition and
+    # worked example 5; "the type of fix needed determines the ODC type" moved
+    # into _evidence_mode_guidance in IBM's words. The classification decision
+    # process (7 ranked diagnostic questions) was removed too (block 6).
     return [
         "",
         "CRITICAL RULES:",
-        "- Do NOT default to 'Function/Class/Object' — it requires evidence of a design-level capability gap, not merely wrong behaviour in existing code. Choose the type whose root-cause mechanism the evidence best supports.",
-        "- Read the code snippets carefully. The type of fix needed determines the ODC type.",
         "- Do not use benchmark familiarity, project reputation, or hidden fix knowledge.",
     ]
 
 
-def _decision_process() -> list[str]:
-    return [
-        "",
-        "## Classification Decision Process",
-        "",
-        "Before classifying, work through these diagnostic questions against the evidence, in order:",
-        "",
-        "1. **Missing/wrong condition or guard?** (null checks, if-conditions, bounds checks, exception handling) → **Checking**",
-        "2. **Wrong value, constant, or initialization?** (default values, wrong constant, wrong variable in an assignment) → **Assignment/Initialization**",
-        "3. **Wrong computational logic or procedure?** (formula, loop logic, sort order, data-structure operation) → **Algorithm/Method**",
-        "4. **Wrong component boundary or API interaction?** (parameter order, caller/callee type mismatch, contract violation) → **Interface/O-O Messages**",
-        "5. **Depends on execution order or timing?** (race conditions, lifecycle ordering, serialization order) → **Timing/Serialization**",
-        "6. **Broken association among procedures/data structures/objects that must stay aligned?** → **Relationship**",
-        "7. **Requires a formal design-level capability correction?** (significant capability/class/object/interface structure correction) → **Function/Class/Object**",
-        "",
-        "Choose the BEST matching type from the first question that fits.",
-    ]
+# The 7 worked examples: real bugs from the Coimbra NoSQL ODC dataset (Agnelo,
+# Laranjeiro, Bernardino, JSS 159, 2020), one per ODC type, in the decided order
+# (Checking ... Timing/Serialization; recency bias, Zhao et al. 2021). Report and
+# code lines are copied word for word from the public JIRA issues and fix commits;
+# [...] marks every cut; the `//` file labels are ours. The same set goes into both
+# evidence modes. Approved one by one by the user on 2026-10-04/05: text,
+# provenance and rationale in docs/worked_examples_draft.md. No worked example for
+# "Other", by decision (docs/other_category.md §4). No other block may refer to
+# this one, so an IBM-taxonomy-only variant can leave it out.
+_WORKED_EXAMPLES_INTRO = (
+    "The short examples inside each definition above are IBM's. The worked examples below are real bugs "
+    "from other projects (Apache Cassandra and HBase), each labeled by ODC researchers, with the evidence, "
+    "the real fix, the type the fix points to, and, for most, why a close type does not fit. They show how "
+    "to reason; they are not related to the bug you are classifying."
+)
+
+# Each item is wrapped in newlines so it may end with a quote mark; strip them.
+_WORKED_EXAMPLES: tuple[str, ...] = tuple(example.strip("\n") for example in (
+    r"""
+### Worked example 1: Checking
+**Bug report**: "Deprecated repair methods cause NPE" — "The deprecated repair methods cause an NPE if you aren't doing local repairs."
+**Buggy code**:
+```java
+// StorageService.java, deprecated forceRepairRangeAsync(..., boolean isLocal, ...)
+Set<String> dataCenters = null;
+if (isLocal)
+{
+    dataCenters = Sets.newHashSet(DatabaseDescriptor.getLocalDataCenter());
+}
+return forceRepairRangeAsync(beginToken, endToken, keyspaceName, isSequential, dataCenters, null, fullRepair, tableNames);
+[…]
+// StorageService.java, the forceRepairRangeAsync(...) it calls
+options.getDataCenters().addAll(dataCenters);
+if (hosts != null)
+{
+    options.getHosts().addAll(hosts);
+```
+**Fix**:
+```diff
+-        options.getDataCenters().addAll(dataCenters);
++        if (dataCenters != null)
++        {
++            options.getDataCenters().addAll(dataCenters);
++        }
+```
+**Type**: **Checking** — "missing or incorrect validation of parameters or data in conditional statements". The fix adds the missing null check; nothing else changes.
+**Why not Algorithm/Method**: the fix adds a branch, but it only wraps an existing statement in a null check; no computation is implemented or changed. IBM: "It might be expected that a consequence of checking for a value would require additional code such as a do while loop or branch. If the missing or incorrect check is the critical error, checking would still be the type chosen."
+""",
+    r"""
+### Worked example 2: Assignment/Initialization
+**Bug report**: "Set default value for hbase.client.scanner.max.result.size" — "Setting scanner caching is somewhat of a black art. It's hard to estimate ahead of time how large the result set will be. I propose we hbase.client.scanner.max.result.size to 2mb. That is good compromise between performance and buffer usage on typical networks (avoiding OOMs when the caching was chosen too high)." A comment: "avoided full GCs due to many handlers allocating too many big chunks for responses".
+**Buggy code**:
+```java
+// HConstants.java
+   * The default value is unlimited.
+   */
+  public static final long DEFAULT_HBASE_CLIENT_SCANNER_MAX_RESULT_SIZE = Long.MAX_VALUE;
+```
+**Fix**:
+```diff
+-  public static final long DEFAULT_HBASE_CLIENT_SCANNER_MAX_RESULT_SIZE = Long.MAX_VALUE;
++  public static final long DEFAULT_HBASE_CLIENT_SCANNER_MAX_RESULT_SIZE = 2 * 1024 * 1024;
+```
+**Type**: **Assignment/Initialization** — "Value(s) assigned incorrectly"; IBM's illustration "Initialization of parameters". One constant gets a new value.
+**Why not Algorithm/Method**: IBM: "a fix involving multiple assignment corrections may be of type Algorithm." Here the fix corrects a single value, and no other code changes.
+""",
+    r"""
+### Worked example 3: Algorithm/Method
+**Bug report**: "nodetool prints error if dirs don't exist." — "./nodetool ring […] ERROR 21:59:30 Fatal configuration error org.apache.cassandra.exceptions.ConfigurationException: commitlog_directory is missing and -Dcassandra.storagedir is not set at org.apache.cassandra.config.DatabaseDescriptor.applyConfig(DatabaseDescriptor.java:461) […] at org.apache.cassandra.config.DatabaseDescriptor.<clinit>(DatabaseDescriptor.java:129) […] at org.apache.cassandra.tools.NodeTool$Ring.execute(NodeTool.java:464)"
+**Buggy code**:
+```java
+// NodeTool.java, Ring.execute()
+for (Map.Entry<String, String> entry : tokensToEndpoints.entrySet())
+    endpointsToTokens.put(entry.getValue(), entry.getKey());
+[…]
+if (DatabaseDescriptor.getNumTokens() > 1)
+{
+    System.out.println("  Warning: \"nodetool ring\" is used to output all the tokens of a node.");
+```
+**Fix**:
+```diff
++            boolean haveVnodes = false;
+             for (Map.Entry<String, String> entry : tokensToEndpoints.entrySet())
++            {
++                haveVnodes |= endpointsToTokens.containsKey(entry.getValue());
+                 endpointsToTokens.put(entry.getValue(), entry.getKey());
++            }
+[…]
+-            if (DatabaseDescriptor.getNumTokens() > 1)
++            if (haveVnodes)
+```
+**Type**: **Algorithm/Method** — "can be fixed by (re)implementing an algorithm or local data structure without the need for requesting a design change". The way the tool decides "are vnodes in use?" was reimplemented: instead of reading the local configuration, it checks whether any node owns more than one token in the token map it already has.
+**Why not Checking**: the fix edits an `if`, but that condition validates no parameter or data; it only decides whether to print a warning. What changed is how its value is computed.
+**Why not Assignment/Initialization**: `haveVnodes` is a new variable, but no existing value was wrong; its value comes from a new loop over the token map.
+**Why not Interface/O-O Messages**: the fix does not correct the call to `DatabaseDescriptor`; it removes the call and computes the answer with a new loop over the token map the tool already had.
+""",
+    r"""
+### Worked example 4: Interface/O-O Messages
+**Bug report**: "dtest failure upgrade_tests.upgrade_supercolumns_test.TestSCUpgrade.upgrade_super_columns_through_all_versions_test" — "The test complains about unreadable sstables version ka and lb during upgrade which is 2.1 and 2.2. These tables look like system tables not user tables. […] nodetool defaults to only upgrading user tables and doesn't have a flag to upgrade all tables."
+**Buggy code**:
+```java
+// UpgradeSSTable.java, execute()
+List<String> keyspaces = parseOptionalKeyspace(args, probe);
+```
+```java
+// NodeTool.java
+protected List<String> parseOptionalKeyspace(List<String> cmdArgs, NodeProbe nodeProbe)
+{
+    return parseOptionalKeyspace(cmdArgs, nodeProbe, false);
+}
+
+protected List<String> parseOptionalKeyspace(List<String> cmdArgs, NodeProbe nodeProbe, boolean includeSystemKS)
+{
+    […]
+        keyspaces.addAll(includeSystemKS ? nodeProbe.getKeyspaces() : nodeProbe.getNonSystemKeyspaces());
+```
+**Fix**:
+```diff
+-        List<String> keyspaces = parseOptionalKeyspace(args, probe);
++        List<String> keyspaces = parseOptionalKeyspace(args, probe, true);
+```
+**Type**: **Interface/O-O Messages** — "Communication problems between […] functions via […] call statements, […] parameter lists". The capability already existed. The caller used the 2-parameter version, so the system keyspaces were never requested; the fix passes the third parameter.
+**Why not Function/Class/Object**: the report asks for a flag, but nothing new was built; the 3-parameter version already existed. The fix changes only the call.
+**Why not Assignment/Initialization**: no variable or field is given a new value. The fix changes the call's parameter list, from 2 arguments to 3.
+""",
+    r"""
+### Worked example 5: Function/Class/Object
+**Bug report**: "sstableloader does not support client encryption on Cassandra 2.0" — "When client_enc_enable: true, the exception below is generated. However, when client_enc_enable is set to false, the sstableloader is able to get to the point where it is discovers endpoints, connects to stream data, etc. […] Exception in thread "main" java.lang.RuntimeException: Could not retrieve endpoint ranges: at org.apache.cassandra.tools.BulkLoader$ExternalClient.init(BulkLoader.java:226) […] Caused by: org.apache.thrift.transport.TTransportException: Frame size (352518400) larger than max length (16384000)! at org.apache.thrift.transport.TFramedTransport.readFrame(TFramedTransport.java:137)"
+**Buggy code**:
+```java
+// BulkLoader.java, ExternalClient.createThriftClient()
+private static Cassandra.Client createThriftClient(String host, int port, String user, String passwd) throws Exception
+{
+    TSocket socket = new TSocket(host, port);
+    TTransport trans = new TFramedTransport(socket);
+    trans.open();
+```
+**Fix**:
+```diff
+// SSLTransportFactory.java (new file)
++public class SSLTransportFactory implements ITransportFactory
+[…]
++    public TTransport openTransport(String host, int port) throws Exception
++    {
++        TSSLTransportFactory.TSSLTransportParameters params = new TSSLTransportFactory.TSSLTransportParameters(protocol, cipherSuites);
++        params.setTrustStore(truststore, truststorePassword);
+[…]
+```
+```diff
+// BulkLoader.java
+-        private static Cassandra.Client createThriftClient(String host, int port, String user, String passwd) throws Exception
++        private static Cassandra.Client createThriftClient(String host, int port, String user, String passwd, ITransportFactory transportFactory) throws Exception
+         {
+-            TSocket socket = new TSocket(host, port);
+-            TTransport trans = new TFramedTransport(socket);
+-            trans.open();
++            TTransport trans = transportFactory.openTransport(host, port);
+[…]
++            options.addOption("ts", SSL_TRUSTSTORE, "TRUSTSTORE", "SSL: full path to truststore");
++            options.addOption("tspw", SSL_TRUSTSTORE_PW, "TRUSTSTORE-PASSWORD", "SSL: password of the truststore");
++            options.addOption("ks", SSL_KEYSTORE, "KEYSTORE", "SSL: full path to keystore");
+[…]
+```
+**Type**: **Function/Class/Object** — "The error should require a formal design change, as it affects significant capability, end-user interfaces, product interfaces, interface with hardware architecture, or global data structure(s)". The loader could open only a plain connection, so it could not work when client encryption was enabled. The fix adds that capability: a new class that opens encrypted connections, and new command-line options for users to configure it.
+**Why not Algorithm/Method**: IBM's Algorithm fixes come "without the need for requesting a design change". This fix adds a new class and new options for users.
+**Why not Interface/O-O Messages**: the fix adds a parameter to `createThriftClient`, but no existing call was wrong; the new parameter carries the new capability to where the connection is opened.
+""",
+    r"""
+### Worked example 6: Relationship
+**Bug report**: "FunctionExecutionException results in error log about unexpected error" — "Because FunctionExecutionException doesn't extend RequestExecutionException, a failure during the execution of a UDF will result in a error log in QueryMessage about "Unexpected error during query"."
+**Buggy code**:
+```java
+// QueryMessage.java, execute()
+catch (Exception e)
+{
+    JVMStabilityInspector.inspectThrowable(e);
+    if (!((e instanceof RequestValidationException) || (e instanceof RequestExecutionException)))
+        logger.error("Unexpected error during query", e);
+```
+```java
+// FunctionExecutionException.java
+public class FunctionExecutionException extends CassandraException
+```
+**Fix**:
+```diff
+-public class FunctionExecutionException extends CassandraException
++public class FunctionExecutionException extends RequestExecutionException
+```
+**Type**: **Relationship** — IBM's illustrations "The inheritance relationship between two classes is missing or incorrectly specified" and "The structure of code/data in one place assumes a certain structure of code/data in another." `QueryMessage` treats an error as expected only if it is a `RequestValidationException` or a `RequestExecutionException`; `FunctionExecutionException` had neither parent. The fix gives it the right parent class and leaves the `catch` block unchanged.
+""",
+    r"""
+### Worked example 7: Timing/Serialization
+**Bug report**: "concurrent modif ex when repair is run on LCS" — "[…] the problem is the sstable list in the manifest is changing as the repair is triggered:
+Exception in thread "main" java.util.ConcurrentModificationException
+ at java.util.AbstractList$Itr.checkForComodification(Unknown Source)
+ at java.util.AbstractList$Itr.next(Unknown Source)
+ at org.apache.cassandra.io.sstable.SSTable.getTotalBytes(SSTable.java:250)
+ at org.apache.cassandra.db.compaction.LeveledManifest.getEstimatedTasks(LeveledManifest.java:435)
+ at org.apache.cassandra.db.compaction.LeveledCompactionStrategy.getEstimatedRemainingTasks(LeveledCompactionStrategy.java:128)
+[…]
+maybe we could change the list to a copyOnArrayList?"
+**Buggy code**:
+```java
+// LeveledManifest.java
+public synchronized void add(SSTableReader reader)
+[…]
+public synchronized void promote(Iterable<SSTableReader> removed, Iterable<SSTableReader> added)
+[…]
+public synchronized void replace(Iterable<SSTableReader> removed, Iterable<SSTableReader> added)
+[…]
+public int getEstimatedTasks()
+{
+    long tasks = 0;
+    for (int i = generations.length - 1; i >= 0; i--)
+    {
+        List<SSTableReader> sstables = generations[i];
+        long n = Math.max(0L, SSTableReader.getTotalBytes(sstables) - maxBytesForLevel(i)) / (maxSSTableSizeInMB * 1024 * 1024);
+```
+**Fix**:
+```diff
+-    public int getEstimatedTasks()
++    public synchronized int getEstimatedTasks()
+```
+**Type**: **Timing/Serialization** — "Necessary serialization of shared resource was missing". The methods that change the level lists are `synchronized`; `getEstimatedTasks()` reads the same lists without the lock, so it can iterate a list while another thread changes it. The fix adds the missing lock.
+**Why not Algorithm/Method**: the reporter suggested switching to a different list type (CopyOnWriteArrayList), and IBM's Algorithm covers "(re)implementing an algorithm or local data structure". But the actual correction keeps the list and the computation as they are, and only adds the lock the other methods already hold.
+""",
+))
 
 
 def _few_shot_examples() -> str:
-    return """## Classification Examples
-
-These examples show how to distinguish between ODC types using pre-fix evidence:
-
-### Example 1: Checking
-**Symptom**: NullPointerException in `StringUtils.isEmpty()` when called with a null locale parameter.
-**Code snippet**: `return input.length() == 0;` (no null check before `.length()`)
-**Classification**: **Checking** — The logic is correct for non-null inputs, but a null guard is MISSING. The fix is adding `if (input == null) return true;`.
-**NOT Function/Class/Object**: The method exists and works — it just lacks a validation check.
-**NOT Algorithm/Method**: The computation (checking length) is correct — only the guard is missing.
-
-### Example 2: Assignment/Initialization
-**Symptom**: `assertEquals(expected, actual)` fails because a method returns -1 instead of 0.
-**Code snippet**: `int result = -1;` (wrong initial value; should be `0`)
-**Classification**: **Assignment/Initialization** — The control flow and algorithm are correct, but a single value is initialized wrong. The fix is changing `-1` to `0`.
-**NOT Checking**: No condition or guard is missing — the value itself is wrong.
-**NOT Algorithm/Method**: The procedure is correct — only the assigned constant is wrong.
-
-### Example 3: Algorithm/Method
-**Symptom**: `testMultiply` fails with wrong numerical result.
-**Code snippet**: `total += values[i] * weights[i+1];` (should be `weights[i]`, not `weights[i+1]`)
-**Classification**: **Algorithm/Method** — The computation procedure uses the wrong index in its formula. The fix changes the array indexing logic in the computation.
-**NOT Assignment/Initialization**: The issue isn't a wrong constant — it's wrong indexing logic in the computation.
-**NOT Checking**: No guard or condition is missing — the computation steps are wrong.
-
-### Example 4: Interface/O-O Messages
-**Symptom**: `testSerialize` fails because the deserialized object has swapped fields.
-**Code snippet**: `writer.write(name, value);` but reader does `reader.read(value, name);` — parameter order mismatch.
-**Classification**: **Interface/O-O Messages** — Two components disagree on the parameter contract at their boundary.
-**NOT Algorithm/Method**: Each component's logic is correct internally — the mismatch is at the boundary.
-
-### Example 5: Function/Class/Object
-**Symptom**: `testHandleSpecialCharacters` fails with UnsupportedOperationException.
-**Code snippet**: The method has `throw new UnsupportedOperationException("not yet implemented");`
-**Classification**: **Function/Class/Object** — The capability was never implemented at all. The fix requires writing new design-level behavior.
-**NOT Algorithm/Method**: There's no wrong computation — there is no computation for this capability."""
+    lines = ["## Worked examples", "", _WORKED_EXAMPLES_INTRO, "", "<worked_examples>"]
+    for example in _WORKED_EXAMPLES:
+        lines.extend(["<example>", example, "</example>"])
+    lines.append("</worked_examples>")
+    return "\n".join(lines)
 
 
 def _build_user_prompt(
@@ -199,13 +400,12 @@ def _build_user_prompt(
         return "\n".join(rules) + "\n\nEvidence:\n" + json.dumps(payload, indent=2)
 
     rules = [
-        "Classify this bug into one ODC defect type.",
+        "Classify this bug into exactly one type from the taxonomy.",
         f"Evidence mode: {evidence_mode}",
         "",
         "IMPORTANT ANALYSIS RULES:",
         "- Use ONLY the evidence in this prompt.",
-        "- Examine code snippets line-by-line to determine the root cause mechanism, working through the system prompt's Classification Decision Process.",
-        "- If code snippets show existing logic producing wrong results, this is usually NOT 'Function/Class/Object'.",
+        "- Examine code snippets line-by-line to determine the root cause mechanism.",
         "- If evidence is incomplete, lower confidence and set needs_human_review=true.",
         "- The output odc_type must be one of: " + ", ".join(allowed_type_names(taxonomy_mode)),
     ]

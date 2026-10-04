@@ -54,9 +54,8 @@ from .odc import (
 from .parsing import extract_json_object
 from .prompting import (
     _critical_rules,
-    _decision_process,
+    _evidence_mode_guidance,
     _few_shot_examples,
-    _fix_diff_guidance,
     sanitize_bug_report,
 )
 
@@ -512,9 +511,11 @@ def _agent_system_prompt(taxonomy: str, has_fix_diff: bool = False) -> str:
         "Classification (ODC), working as a scientific-debugging agent.",
         "",
     ]
-    if has_fix_diff:
-        parts.extend(_fix_diff_guidance())
-        parts.append("")
+    # Same task statement as `few` in both evidence modes (the pre-fix line used
+    # to exist only in `few`, although the strategies should differ only by the
+    # loop — docs/prompt_review_v3.md, block 1b).
+    parts.extend(_evidence_mode_guidance(has_fix_diff))
+    parts.append("")
     parts.extend([
         "You classify ONE bug through an iterative scientific loop. The failure has "
         "already been OBSERVED — its evidence summary is in the first user message. "
@@ -561,7 +562,6 @@ def _agent_system_prompt(taxonomy: str, has_fix_diff: bool = False) -> str:
     ])
     parts.extend(_critical_rules())
     parts.extend(["", taxonomy_markdown(taxonomy)])
-    parts.extend(_decision_process())
     parts.extend(["", _few_shot_examples(), ""])
     parts.append(
         "Every response must be a single JSON object matching the turn schema (verdict, "

@@ -12,7 +12,7 @@ Every classification is a coordinate `(taxonomy, strategy)`:
 | Variable | Levels | Default |
 |---|---|---|
 | `--taxonomy` | `free` — no taxonomy; the model answers in its own words · `closed` — the 7 ODC types, forced choice (closed-set) · `open` — 7 + "Other" escape category (open-set) | **`open`** |
-| `--strategy` | `zero` — zero-shot: no taxonomy, no worked examples (the unstructured baseline) · `few` — few-shot single call: taxonomy + diagnostic decision tree + 5 worked classification examples (the strong static prompt) · `scientific` — `few`'s ODC guidance + the enforced scientific loop (`agent.py`): verdict → hypothesis → prediction → probe → observation turns over held-back `context.json` evidence and a buggy-version `source` probe, max 8 turns, conclusions admitted only by the evidence gate (2026-09-26), full transcript persisted | **`scientific`** |
+| `--strategy` | `zero` — zero-shot: no taxonomy, no worked examples (the unstructured baseline) · `few` — few-shot single call: IBM ODC v5.2 taxonomy (definitions + IBM's examples) + 7 real worked examples, one per type (the strong static prompt; prompt `v3-2026-10-05`, see `docs/prompt_review_v3.md` — the diagnostic decision tree, the post-fix diff→type rules and our "When to choose" guidance were removed then) · `scientific` — `few`'s ODC guidance + the enforced scientific loop (`agent.py`): verdict → hypothesis → prediction → probe → observation turns over held-back `context.json` evidence and a buggy-version `source` probe, max 8 turns, conclusions admitted only by the evidence gate (2026-09-26), full transcript persisted | **`scientific`** |
 
 **The default pipeline — for BOTH prefix and postfix evidence — is
 `scientific-open`.**
@@ -22,6 +22,13 @@ Every classification is a coordinate `(taxonomy, strategy)`:
 `zero` is taxonomy-free **by definition** (a zero-shot prompt contains no label
 space), and `few`/`scientific` need a label space to classify into. The CLI
 enforces this (`odc.validate_condition`):
+
+> ⚠️ **Contested 2026-10-04 — decision pending with the team and supervisor; the 5 conditions below
+> stay operative until then.** The "by definition" claim is not what the source says: Brown et al.
+> (NeurIPS 2020) define zero-shot as "a natural language description of the task instead of any
+> examples", i.e. no worked examples, with the task (and its categories) still described. So
+> `zero-free` removes worked examples *and* the taxonomy at once. Sources, quotes and the
+> terminology (IBM illustration vs worked example): `docs/few_shot_terminology.md`.
 
 ```
 zero-free            the unstructured baseline (retired name: "naive")
@@ -56,6 +63,9 @@ Invalid and rejected: `closed-zero`, `open-zero`, `free-few`, `free-scientific`.
    ODC study that found ~32% unclassifiable and proposed adaptations).
    The closed taxonomy remains available for the RQ2 comparison pass and for
    comparability with prior 7-type ODC literature.
+   What "Other" means (a code fix none of the 7 types describes, never a
+   non-code bug), why it has no worked example, and how to check the model
+   actually uses it: `docs/other_category.md` (2026-10-04).
 2. **Scientific = the loop (pilot evidence, 2026-07-06):** the narrated
    protocol changed 0/6 labels vs zero-structure prompting, while the enforced
    loop changed 2/6 — both times agreeing with the oracle-informed postfix

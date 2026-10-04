@@ -277,7 +277,16 @@ this up after collecting, the key was sent to you directly (Slack/email/etc.), n
 it in your local `.env` (copy `.env.example`) and never commit that file, gitignored or not.
 
 That is a real guarantee, not a hope: `classify` has no `--defects4j-cmd` at all, and `study-run`
-skips collection entirely when `context.json` already exists, so it never calls Defects4J.
+skips collection entirely when `context.json` already exists, so it never re-collects.
+
+> **One nuance since 2026-09-27, and it does NOT change the guarantee above.** Under
+> `--strategy scientific`, `study-run` attempts one `defects4j checkout` of the buggy version per bug
+> (`batch.py` → `pipeline.prepare_source_dirs`) so the tier-2 `source` probe can read production code.
+> That is the *only* Defects4J call anywhere in classification, and it is **optional**: with no
+> Defects4J the checkout is skipped, `source` answers `"source unavailable"`, the loop falls back to
+> the tier-1 probes, and the run completes normally. It is a plain source checkout — **no compile, no
+> test run, no coverage**; those exist only in `collect_bug_context`, which classification never calls.
+> Classification still needs nothing but an API key.
 
 **Always run the readiness gate first:**
 
@@ -289,10 +298,16 @@ It exits non-zero if anything is missing or was collected with the old evidence 
 context is missing, that bug falls through to collection inside `study-run` and fails on a machine
 without Defects4J — which is exactly the confusing failure this gate exists to prevent.
 
-> ⛔ **2026-09-27: the next classification run targets `.dist/study/artifacts_v3`, not `artifacts_v2`,**
-> and a `scientific` run now needs Defects4J on the classify machine (the `source` probe checks out the
-> buggy version). The commands below show the v2-era pattern. Follow the binding rules in
-> `docs/study_execution_log.md` → "DECISION (2026-09-27)".
+> ⛔ **2026-09-27: the next classification run targets `.dist/study/artifacts_v3`, not `artifacts_v2`.**
+> A `scientific` run *benefits from* Defects4J on the classify machine (the `source` probe checks out
+> the buggy version) but does **not** require it — see the nuance box above. The commands below show
+> the v2-era pattern. Follow the binding rules in `docs/study_execution_log.md` → "DECISION (2026-09-27)".
+>
+> **Contexts do not need re-collecting.** `deb9f29` changed no collection code — every hunk lands in
+> `classify_bug_context` or later; `collect_bug_context`, `defects4j.py` and `parsing.py` are untouched.
+> v3 is made by copying `context.json` from v2, nothing more. (Corrected 2026-09-29: an earlier reading
+> of this page took "needs Defects4J" to mean classification runs Defects4J live and that contexts were
+> stale. Both are wrong.)
 
 Then classify — a genuinely different command from the Collector's `study-collect`, not the same one
 with a flag dropped:

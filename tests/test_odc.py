@@ -1,6 +1,10 @@
+import re
 import unittest
+from pathlib import Path
 
-from d4j_odc_pipeline.odc import model_slug, resolve_effective_tag
+from d4j_odc_pipeline.odc import ODC_TYPES, model_slug, resolve_effective_tag
+
+IBM_DOC = Path(__file__).resolve().parent.parent / "docs" / "odc_doc.md"
 
 
 class ModelSlugTests(unittest.TestCase):
@@ -50,3 +54,42 @@ class ResolveEffectiveTagTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class IbmDefinitionTests(unittest.TestCase):
+    """Definitions and examples in ODC_TYPES must be IBM ODC v5.2 §4.2.1 word for word
+    (docs/odc_doc.md). They drifted once: a paraphrase written before the doc was in the repo
+    dropped 4 examples and 3 definition clauses. Our own guidance lives in `indicators` and
+    `distinguish_from`, which this test does not check."""
+
+    def _ibm_sections(self) -> dict[str, tuple[str, str]]:
+        doc = IBM_DOC.read_text(encoding="utf-8")
+        section = doc[doc.index("##### 4.2.1.1"):doc.index("#### 4.2.2")]
+        parts = re.split(r"^##### 4\.2\.1\.\d (.+)$", section, flags=re.M)[1:]
+        sections = {}
+        for name, body in zip(parts[::2], parts[1::2]):
+            definition, _, examples = body.partition("Examples:")
+            items = re.findall(r"^\d+\. (.+)$", examples, flags=re.M)
+            if name.strip() == "Interface/O-O Messages":
+                # IBM writes this definition as two numbered lists; ODC_TYPES joins them.
+                between, _, via = definition.partition("via")
+                join = lambda t: ", ".join(re.findall(r"^\d+\. (.+)$", t, flags=re.M))
+                definition = f"Communication problems between: {join(between)} via: {join(via)}."
+            sections[name.strip()] = (
+                " ".join(definition.split()),
+                " ".join(f"({i}) {item.strip()}" for i, item in enumerate(items, 1)),
+            )
+        return sections
+
+    def test_same_seven_types(self) -> None:
+        self.assertEqual(set(self._ibm_sections()), set(ODC_TYPES))
+
+    def test_definitions_are_ibm_verbatim(self) -> None:
+        for name, (definition, _) in self._ibm_sections().items():
+            with self.subTest(odc_type=name):
+                self.assertEqual(ODC_TYPES[name]["summary"], definition)
+
+    def test_examples_are_ibm_verbatim(self) -> None:
+        for name, (_, examples) in self._ibm_sections().items():
+            with self.subTest(odc_type=name):
+                self.assertEqual(ODC_TYPES[name]["examples"], examples)

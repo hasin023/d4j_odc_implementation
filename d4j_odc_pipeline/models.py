@@ -205,6 +205,10 @@ class ClassificationResult:
     nearest_type: str | None = None
     other_confidence: float | None = None
     raw_response: str | None = None
+    # Version of the prompt text that produced this result (prompting.PROMPT_VERSION).
+    # None on artifacts written before 2026-10-05, which used the old prompt
+    # (invented worked examples, decision process, "When to choose" guidance).
+    prompt_version: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

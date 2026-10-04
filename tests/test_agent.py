@@ -595,14 +595,24 @@ class SharedGuidanceTests(unittest.TestCase):
     """scientific = few + the loop: the ODC guidance must be the same text."""
 
     def test_scientific_prompt_carries_few_guidance(self) -> None:
-        from d4j_odc_pipeline.prompting import _decision_process, _few_shot_examples
+        from d4j_odc_pipeline.prompting import (
+            _critical_rules,
+            _evidence_mode_guidance,
+            _few_shot_examples,
+        )
         prompt = _agent_system_prompt("open")
-        self.assertIn("\n".join(_decision_process()), prompt)
+        # The pre-fix task line is shared with few (it used to exist only in few).
+        self.assertIn("\n".join(_evidence_mode_guidance(False)), prompt)
+        self.assertIn("\n".join(_critical_rules()), prompt)
         self.assertIn(_few_shot_examples(), prompt)
         self.assertNotIn("GROUND TRUTH", prompt)
 
     def test_postfix_prompt_carries_diff_guidance(self) -> None:
-        self.assertIn("GROUND TRUTH", _agent_system_prompt("open", has_fix_diff=True))
+        from d4j_odc_pipeline.prompting import _evidence_mode_guidance
+        prompt = _agent_system_prompt("open", has_fix_diff=True)
+        self.assertIn("GROUND TRUTH", prompt)
+        self.assertIn("\n".join(_evidence_mode_guidance(True)), prompt)
+        self.assertNotIn("using ONLY the provided pre-fix evidence", prompt)
 
 
 class PrepareSourceDirsTests(unittest.TestCase):

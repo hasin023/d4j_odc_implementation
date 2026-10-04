@@ -1133,17 +1133,29 @@ no API key). The next run follows the decision below.
    into it would skip every bug (skip-existing), and a partial rerun would mix v1 and v2 scientific
    results under the same `classification.scientific-open.json` filename.
 2. **All new classification goes into `.dist/study/artifacts_v3`**, with `--work-root .dist/study/work_v3`.
-3. **Contexts are copied, not re-collected.** Copy ONLY the `context.json` files, keeping the folder tree
-   (PowerShell or cmd; robocopy exit code 1 means "files copied" and is success):
+3. **Contexts are copied, not re-collected.** Nothing in `deb9f29` touched collection: every hunk of
+   the `pipeline.py` diff lands in `classify_bug_context` (line 257+) or the new `prepare_source_dirs`,
+   and `collect_bug_context` (lines 28-256), `defects4j.py` and `parsing.py` are untouched across all
+   14 commits. The v2 `context.json` files are current and complete — the prompt changed, the evidence
+   did not. Copy ONLY the `context.json` files, keeping the folder tree.
+   Windows (PowerShell or cmd; robocopy exit code 1 means "files copied" and is success):
    `robocopy .dist\study\artifacts_v2 .dist\study\artifacts_v3 context.json /S`
+   Linux/macOS:
+   `rsync -a --include='*/' --include='context.json' --exclude='*' .dist/study/artifacts_v2/ .dist/study/artifacts_v3/`
    Do not copy any `classification.*`, `report.*`, `prompt.*` or `checkpoint.*` file into v3.
 4. **Run BOTH conditions, `few-open` and `scientific-open`, fresh in v3**, with the same provider and
    model, at the same time. Do not reuse the v2 `few-open` results as the baseline: the model is a
    rolling `-preview` alias, so a baseline months older than the treatment is confounded by model drift.
-5. **The classify machine must have Defects4J working** (`/doctor` in the REPL). The v2 loop checks
-   out each bug's buggy version for the `source` probe. Without Defects4J the run does not fail; it
-   silently runs without `source`. After every scientific run, check the checkpoint: every record
-   must have `"source_probe": true`. Rerun any bug that has `false`.
+5. **The classify machine SHOULD have Defects4J working** (`/doctor` in the REPL) — it is not a
+   requirement, and classification is still an API-key-only role. The loop checks out each bug's
+   buggy version for the `source` probe; that `defects4j checkout` is the only Defects4J call in the
+   whole classification path (**no compile, no test run, no coverage** — those live only in
+   `collect_bug_context`, which classification never calls). Without Defects4J nothing fails: the
+   checkout is skipped, `source` answers `"source unavailable"`, and the loop falls back to the tier-1
+   probes exactly as the v1 loop did. After every scientific run, check the checkpoint for
+   `"source_probe"`. `false` means **that bug ran without the new evidence source**, not that it
+   failed — rerunning it is a quality decision (you want the treatment the v3 design is testing),
+   not error recovery.
 6. **Pilot first on the 13 manual-analysis bugs** (`manifest_alvee13.json` is exactly that set), both
    conditions:
    `python -m d4j_odc_pipeline study-run --manifest .dist/study/manifest_alvee13.json --artifacts-root .dist/study/artifacts_v3 --work-root .dist/study/work_v3 --taxonomy open --strategy scientific --daily-call-budget 2000 --prompt-output --summary-output .dist/study/v3_alvee13_summary.scientific-open.json`
@@ -1164,3 +1176,142 @@ no API key). The next run follows the decision below.
 **Confound to disclose.** `source` gives the loop evidence `few` never sees. That is the treatment
 (an agent that can go and read the code, against a single call that cannot), but a reviewer will
 ask; the control is a `few` arm given the source of the executed methods.
+
+## 2026-10-04 — Taxonomy definitions and examples are now IBM ODC v5.2 verbatim (code only, no run)
+
+**Why.** `taxonomy_markdown` prints each type's `summary` (as "Definition") and `examples` from
+`odc.py::ODC_TYPES` into every `few` and `scientific` prompt. Those two fields were a paraphrase,
+written 2026-04-13 (`c1f24c0`, with Codex) and rewritten 2026-04-21 (`f79c7b2`, "as per odc v5.2"),
+before the IBM text was added to the repo as `docs/odc_doc.md` (2026-04-23, `a4dfa28`). Nothing ever
+compared them. Against IBM ODC v5.2 §4.2.1 the paraphrase had:
+- 4 examples missing: Assignment/Initialization #3 (resetting a variable's value), Algorithm/Method #4
+  (method not made public in a class specification), Relationship #2 (inheritance relationship between
+  two classes missing or wrong) and Relationship #3 (wrong limit on objects instantiated from a class).
+- 1 invented example: Relationship's "A fix corrected the association constraints ..." is not IBM.
+- Definition drift: Algorithm/Method and Function/Class/Object each lost their second sentence;
+  Interface/O-O Messages dropped "macros" and "call statements" and added "messages"; Relationship
+  added "cross-cutting".
+
+**What changed.**
+- `odc.py`: `summary` and `examples` for all 7 types are now IBM's text word for word, examples
+  numbered `(1) ... (2) ...`. Interface/O-O Messages is written by IBM as two numbered lists; it is
+  joined into one sentence with IBM's words unchanged. `indicators` and `distinguish_from` (rendered as
+  "When to choose" / "When NOT to choose") are our own guidance and were not changed.
+- `tests/test_odc.py::IbmDefinitionTests` parses `docs/odc_doc.md` §4.2.1 and fails if any definition
+  or example in `ODC_TYPES` differs from it. Checked by deliberately changing one definition and one
+  example: each made the test fail and named the type.
+
+**Effect.** One more prompt change in v3 that v2 does not have, for `few` and `scientific` (not
+`zero`). Like the seed `coverage_summary` fix, it is a reason v3 reruns `few-open` instead of reusing
+v2. Tests: 239 pass (the 2 known Windows-only WSL tests fail on Linux).
+
+## 2026-10-05 — Prompt `v3-2026-10-05`: real worked examples, IBM-only taxonomy, pre-July guidance removed (code only; pilot pending)
+
+**Decided by the user on 2026-10-05**, decisions 1–10 in `docs/prompt_review_v3.md` (the full
+rationale, every line's source, and the conflict test against the worked examples). The worked
+examples themselves were approved one by one: `docs/worked_examples_draft.md`.
+
+**What changed** (`few` and `scientific`, both evidence modes; `zero` untouched):
+1. The 5 invented worked examples were replaced by 7 real Coimbra bugs, one per type
+   (`prompting._WORKED_EXAMPLES`), in `<worked_examples>` / `<example>` tags, still the last block.
+2. The taxonomy shows IBM ODC v5.2's Definition and Examples only, in `<odc_taxonomy>` tags. Our April
+   2026 `indicators` / `distinguish_from` ("When to choose / When NOT to choose") are no longer
+   rendered (the fields stay in `odc.py`).
+3. The Classification Decision Process (7 ranked diagnostic questions) was removed.
+4. Post-fix guidance: the 7 "If the diff … → type" lines were removed; IBM §4.2's rule ("the actual
+   correction that was made") was added; the "GROUND TRUTH" line stays.
+5. CRITICAL RULES keeps one bullet: no benchmark familiarity / project reputation / hidden fix knowledge.
+6. The pre-fix task line is now shared by `few` and `scientific` (it used to exist only in `few`) and
+   reads "exactly one type from the taxonomy below" (correct in open mode) plus the IBM rule.
+7. User message (`few`): the FCO line and the decision-process reference were removed. The first line
+   "Classify this bug into one ODC defect type." became "… exactly one type from the taxonomy." — applied
+   by Claude for the same reason as 6 (open mode allows Other), not a separately approved decision.
+8. Other: only the dangling reference to "the 7 diagnostic questions" was removed; "LAST RESORT" stays.
+9. Every `few` / `scientific` classification now records `prompt_version: "v3-2026-10-05"`
+   (`prompting.PROMPT_VERSION`). `zero` results and all older artifacts have none.
+
+**Tests.** 244 pass; the 2 known Windows-only WSL tests fail on Linux. New tests: 7 worked examples in
+the decided order, one per type, none for Other; the same block in both modes; no reference to the
+worked examples outside their block; IBM-only taxonomy; removed guidance cannot return; the shared task
+line; `prompt_version`. Checked by sabotage (swapping an example's type, re-adding "Do NOT default to"):
+each made a test fail.
+
+**Rollback.** `git apply -R docs/patches/prompt_v3-2026-10-05.patch` reverts the code and tests of this
+change only (verified on a copy: restores the pre-v3 code, 239 pass; yesterday's IBM-verbatim taxonomy
+text stays). The docs stay as the record.
+
+**Effects to watch.** FCO may be chosen more often (the "Do NOT default" rule is gone; v2's low FCO rate
+cannot show the rule was unnecessary). The system prompt is about 3,300 tokens longer. v3 differs from
+v2 in several prompt changes at once (plus loop v2), so differences are not attributable change by change.
+
+### Runbook: the v3 pilot (13 bugs) — written for the session that runs it
+
+Run from the repo root on this Linux machine. Do not change code or prompts; if something fails, stop
+and report.
+
+1. **Setup.**
+   - `source .venv/bin/activate && pip install -e .` (the package was not installed; without it, prefix
+     commands with `PYTHONPATH=.`).
+   - Optional, for the scientific `source` probe: `export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64 && export PATH=$JAVA_HOME/bin:$PATH`
+     (`.env` already has `DEFECTS4J_CMD=perl /home/ay4n/Thesis/defects4j/framework/bin/defects4j`).
+   - `.env`: `DEFAULT_LLM_PROVIDER=gemini`, `GEMINI_MODEL=gemini-3.1-flash-lite-preview` (the v2 model).
+     Use the same provider and model for both conditions and record them in the run section.
+2. **Pre-flight checks** (all must hold):
+   - `python -c "from d4j_odc_pipeline.prompting import PROMPT_VERSION; print(PROMPT_VERSION)"` prints `v3-2026-10-05`.
+   - `python -m pytest -q` → 244 passed, 2 failed (the two `test_defects4j.py` WSL tests).
+   - `find .dist/study/artifacts_v3 -type f ! -name context.json | head` prints nothing (no old results in v3).
+2b. **One-call smoke test** (every unit test mocks the LLM; this checks a real reply parses with the
+   longer prompt). Writes outside `artifacts_v3`:
+   `python -m d4j_odc_pipeline classify --context .dist/study/artifacts_v3/prefix/Chart_9_prefix/context.json --output .dist/smoke_v3/classification.json --report .dist/smoke_v3/report.md --prompt-output .dist/smoke_v3/prompt.json --taxonomy open --strategy few`
+   Then `python -c "import json; d=json.load(open('.dist/smoke_v3/classification.json')); print(d['odc_type'], d['prompt_version'])"`
+   must print a type and `v3-2026-10-05`. Open `.dist/smoke_v3/prompt.json` once and confirm the system
+   prompt ends with the `<worked_examples>` block. Then delete `.dist/smoke_v3/`. If it fails, stop and report.
+3. **Run** (budgets sized to this run: scientific ≤ 13 bugs × 2 modes × 8 calls = 208; few = 26):
+   `python -m d4j_odc_pipeline study-run --manifest .dist/study/manifest_alvee13.json --artifacts-root .dist/study/artifacts_v3 --work-root .dist/study/work_v3 --taxonomy open --strategy scientific --daily-call-budget 250 --prompt-output --summary-output .dist/study/v3_alvee13_summary.scientific-open.json`
+   `python -m d4j_odc_pipeline study-run --manifest .dist/study/manifest_alvee13.json --artifacts-root .dist/study/artifacts_v3 --work-root .dist/study/work_v3 --taxonomy open --strategy few --daily-call-budget 40 --prompt-output --summary-output .dist/study/v3_alvee13_summary.few-open.json`
+   Keep each command on one line. If a run stops on the budget or a rate limit, rerun the same command:
+   it resumes and skips finished bugs.
+4. **Collect the results** against the manual ground truth and the v2 labels (both are columns of
+   `analysis_v2/manual_analysis/shortlist.csv`: `manual_ground_truth`, and v2's `sci_prefix`,
+   `sci_postfix`, `few_prefix`, `few_postfix`):
+   ```python
+   import csv, json, pathlib
+   root = pathlib.Path(".dist/study/artifacts_v3")
+   rows = list(csv.DictReader(open("analysis_v2/manual_analysis/shortlist.csv")))
+   cols = [("sci", "scientific-open"), ("few", "few-open")]
+   score = {f"{s}_{m}": [0, 0] for s, _ in cols for m in ("prefix", "postfix")}
+   for r in rows:
+       out = [r["bug_id"], "truth=" + r["manual_ground_truth"]]
+       for s, tag in cols:
+           for m in ("prefix", "postfix"):
+               f = root / m / f"{r['bug_id']}_{m}" / f"classification.{tag}.json"
+               d = json.loads(f.read_text()) if f.exists() else {}
+               v3, v2 = d.get("odc_type", "MISSING"), r[f"{s}_{m}"]
+               score[f"{s}_{m}"][0] += v3 == r["manual_ground_truth"]
+               score[f"{s}_{m}"][1] += v2 == r["manual_ground_truth"]
+               extra = f" gate={d.get('evidence_gate_passed')} rej={d.get('gate_rejections')} end={d.get('termination_reason')} calls={d.get('llm_calls_used')}" if s == "sci" else ""
+               out.append(f"{s}_{m}: v3={v3} v2={v2} pv={d.get('prompt_version')}{extra}")
+       print(" | ".join(out))
+   print({k: f"v3 {a}/13 vs v2 {b}/13" for k, (a, b) in score.items()})
+   ```
+   Every new file must show `pv=v3-2026-10-05`. Also check `"source_probe"` per bug in
+   `.dist/study/artifacts_v3/checkpoint.pairs.scientific-open.json` (`false` = ran without the source probe).
+5. **Record** a new section in this log: date, commands, provider/model, the per-bug table, the four
+   scores against the manual ground truth, forced conclusions, gate rejections, calls per bug,
+   `source_probe`, and any Other. The v2 scores on these 13 (scientific pre-fix 6/13, few pre-fix 4/13,
+   scientific post-fix 6/13, few post-fix 11/13) are context only, NOT a test of the prompt: between v2
+   and v3 the loop (gate, `source` probe), the taxonomy text, the seed coverage fix and possibly the
+   rolling `-preview` model changed too, and rolling back the prompt restores none of them. n = 13, one
+   rater, bugs chosen to show failure modes: report it as a signal, not accuracy.
+5b. **Optional control run (only if the user asked for it):** the same 13 bugs with the pre-v3 prompt,
+   same day, same model, so the prompt's own effect is visible.
+   `git apply -R docs/patches/prompt_v3-2026-10-05.patch`, then copy the 13 bugs' folders (context.json
+   only) from `artifacts_v3/{prefix,postfix}/` into `.dist/study/artifacts_v3_ctrl/` (same tree), run the
+   two step-3 commands with `--artifacts-root .dist/study/artifacts_v3_ctrl --work-root .dist/study/work_v3_ctrl`
+   and summary names `v3ctrl_alvee13_summary.<tag>.json`, then `git apply docs/patches/prompt_v3-2026-10-05.patch`
+   and confirm `PROMPT_VERSION` prints `v3-2026-10-05` again and `python -m pytest -q` gives 244 passed.
+   Control files have no `prompt_version` field, which marks them. Point the step-4 snippet at
+   `artifacts_v3_ctrl` to score them.
+6. **Stop there.** Whether to run the full 410 bugs or roll back is the user's decision, made on the
+   pilot together with the types those 13 bugs cover. The order check (2–3 worked-example orders,
+   research doc Q6.1 decision 7) is not part of this pilot and needs its own setup.

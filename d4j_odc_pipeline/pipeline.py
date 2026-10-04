@@ -20,7 +20,7 @@ from .odc import (
     validate_condition,
 )
 from .parsing import extract_json_object
-from .prompting import build_messages
+from .prompting import PROMPT_VERSION, build_messages
 from .web_fetch import fetch_bug_report
 from . import console
 
@@ -1214,6 +1214,7 @@ def _validate_classification_payload(
             strategy=strategy,
             taxonomy_mode=taxonomy,
             raw_response=raw_response,
+            # No prompt_version: the zero prompt did not change in v3-2026-10-05.
         )
 
     if odc_type not in allowed_type_names(taxonomy):
@@ -1286,4 +1287,5 @@ def _validate_classification_payload(
         nearest_type=nearest_type,
         other_confidence=other_confidence,
         raw_response=raw_response,
+        prompt_version=PROMPT_VERSION,
     )

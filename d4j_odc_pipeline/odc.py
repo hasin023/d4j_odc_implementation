@@ -5,9 +5,10 @@ import re
 ODC_TYPES: dict[str, dict[str, str]] = {
     "Algorithm/Method": {
         "summary": (
-            "Efficiency or correctness problems that affect the task and can be fixed by "
-            "(re)implementing an algorithm or local data structure without requesting a formal "
-            "design change."
+            'Efficiency or correctness problems that affect the task and can be fixed by '
+            '(re)implementing an algorithm or local data structure without the need for requesting a '
+            'design change. Problem in the procedure, template, or overloaded function that describes a '
+            'service offered by an object.'
         ),
         "indicators": (
             "The defect is in the procedure itself: wrong iteration strategy, wrong search logic, "
@@ -19,17 +20,20 @@ ODC_TYPES: dict[str, dict[str, str]] = {
             "If a formal design capability is missing, use Function/Class/Object."
         ),
         "examples": (
-            "The low-level design required delaying transmission of some messages, but implementation "
-            "transmitted all messages immediately. The delay algorithm was missing. "
-            "A chain search algorithm was corrected from circular-linked list traversal to linear-linked list traversal. "
-            "A method operation had incorrect parameter specification and required method-level correction."
+            '(1) The low-level design called for the use of an algorithm that improves throughput over '
+            'the link by delaying transmission of some messages, but the implementation transmitted all '
+            'messages as soon as they arrived. The algorithm that delayed transmission was missing. (2) '
+            'The algorithm for searching a chain of control blocks was corrected to use a linear-linked '
+            'list instead of a circular-linked list. (3) The number and/or types of parameters of a '
+            'method or an operation are incorrectly specified. (4) A method or an operation is not made '
+            'public in the specification of a class.'
         ),
         "family": "Control and Data Flow",
     },
     "Assignment/Initialization": {
         "summary": (
-            "Value(s) assigned incorrectly or not assigned at all, including incorrect initialization "
-            "of variables or object state."
+            'Value(s) assigned incorrectly or not assigned at all; but note that a fix involving '
+            'multiple assignment corrections may be of type Algorithm.'
         ),
         "indicators": (
             "The correction is about setting or initializing a value correctly rather than "
@@ -42,18 +46,20 @@ ODC_TYPES: dict[str, dict[str, str]] = {
             "Algorithm/Method."
         ),
         "examples": (
-            "An internal variable or control-block field had an incorrect value or no value. "
-            "Parameter initialization was incorrect and required correction. "
-            "An instance variable capturing object state was omitted or initialized incorrectly."
+            '(1) Internal variable or variable within a control block did not have correct value, or '
+            "did not have any value at all. (2) Initialization of parameters (3) Resetting a variable's "
+            'value. (4) The instance variable capturing a characteristic of an object (e.g., the color '
+            'of a car) is omitted. (5) The instance variables that capture the state of an object are '
+            'not correctly initialized.'
         ),
         "family": "Control and Data Flow",
     },
     "Checking": {
         "summary": (
-            "Errors caused by missing or incorrect validation of parameters or data in conditional "
-            "statements. If the missing or incorrect check is the critical error, the type stays "
-            "Checking even when the fix must also add consequence code such as a loop, branch, or "
-            "early return."
+            'Errors caused by missing or incorrect validation of parameters or data in conditional '
+            'statements. It might be expected that a consequence of checking for a value would require '
+            'additional code such as a do while loop or branch. If the missing or incorrect check is '
+            'the critical error, checking would still be the type chosen.'
         ),
         "indicators": (
             "The main issue is in predicate logic, boundary checks, loop stop conditions, or "
@@ -64,15 +70,16 @@ ODC_TYPES: dict[str, dict[str, str]] = {
             "If the procedure itself is wrong, use Algorithm/Method."
         ),
         "examples": (
-            "A value greater than 100 was invalid, but the check ensuring value < 100 was missing. "
-            "A loop should have stopped at iteration 9 but continued because of an incorrect condition."
+            '(1) Value greater than 100 is not valid, but the check to make sure that the value was '
+            'less than 100 was missing. (2) The conditional loop should have stopped on the ninth '
+            'iteration. But it kept looping while the counter was <= 10.'
         ),
         "family": "Control and Data Flow",
     },
     "Timing/Serialization": {
         "summary": (
-            "Necessary serialization of a shared resource was missing, the wrong resource was "
-            "serialized, or the wrong serialization technique was employed."
+            'Necessary serialization of shared resource was missing, the wrong resource was serialized, '
+            'or the wrong serialization technique was employed.'
         ),
         "indicators": (
             "The bug depends on operation order, lock/serialization strategy, or concurrency-aware "
@@ -83,16 +90,18 @@ ODC_TYPES: dict[str, dict[str, str]] = {
             "If the issue is guard validation rather than ordering/serialization, use Checking."
         ),
         "examples": (
-            "Serialization was missing while updating a shared control block. "
-            "A hierarchical locking scheme existed, but locks were acquired in the wrong sequence."
+            '(1) Serialization is missing when making updates to a shared control block. (2) A '
+            'hierarchical locking scheme is in use, but the defective code failed to acquire the locks '
+            'in the prescribed sequence.'
         ),
         "family": "Control and Data Flow",
     },
     "Function/Class/Object": {
         "summary": (
-            "The error requires a formal design-level correction because it affects significant "
-            "capability, end-user interfaces, product interfaces, hardware interface, or global "
-            "data structures."
+            'The error should require a formal design change, as it affects significant capability, '
+            'end-user interfaces, product interfaces, interface with hardware architecture, or global '
+            'data structure(s); The error occurred when implementing the state and capabilities of a '
+            'real or an abstract entity.'
         ),
         "indicators": (
             "A major function/class/object capability is absent or incorrectly designed in a way "
@@ -103,16 +112,17 @@ ODC_TYPES: dict[str, dict[str, str]] = {
             "If it is an API contract mismatch between components, use Interface/O-O Messages."
         ),
         "examples": (
-            "A database design omitted a required street-address field specified in requirements. "
-            "A postal code field existed but was too small for international codes. "
-            "A required class in the system design was omitted."
+            '(1) A database did not include a field for street address, although the requirements '
+            'specified it. (2) A database included a field for postal zip code, but it was too small to '
+            'contain international postal codes as specified in the requirements. (3) A C++ or '
+            'SmallTalk class was omitted during system design.'
         ),
         "family": "Structural",
     },
     "Interface/O-O Messages": {
         "summary": (
-            "Communication problems between modules, components, device drivers, objects, or "
-            "functions via call signatures, parameter lists, control blocks, or messages."
+            'Communication problems between: modules, components, device drivers, objects, functions '
+            'via: macros, call statements, control blocks, parameter lists.'
         ),
         "indicators": (
             "The defect is at a boundary where one party expects a different contract, type, "
@@ -123,16 +133,18 @@ ODC_TYPES: dict[str, dict[str, str]] = {
             "If it is a design-level capability omission, use Function/Class/Object."
         ),
         "examples": (
-            "A deletion interface existed but was not made callable from the external boundary. "
-            "An interface specified pointer-to-number while implementation expected pointer-to-character. "
-            "An OO message used the wrong service name or non-conforming parameter signature."
+            '(1) A database implements both insertion and deletion functions, but the deletion '
+            'interface was not made callable. (2) The interface specifies a pointer to a number, but '
+            'the implementation is expecting a pointer to a character. (3) The OO-message incorrectly '
+            'specifies the name of a service. (4) The number and/or types of parameters of the '
+            'OO-message do not conform with the signature of the requested service.'
         ),
         "family": "Structural",
     },
     "Relationship": {
         "summary": (
-            "Problems related to associations among procedures, data structures, and objects. "
-            "These associations can be conditional and cross-cutting."
+            'Problems related to associations among procedures, data structures and objects. Such '
+            'associations may be conditional.'
         ),
         "indicators": (
             "Correctness depends on consistency between related structures or procedures in different "
@@ -143,9 +155,12 @@ ODC_TYPES: dict[str, dict[str, str]] = {
             "If the issue is local procedural logic with no cross-entity relationship issue, use Algorithm/Method."
         ),
         "examples": (
-            "Code/data in one location assumed a specific structure in another location; "
-            "without honoring that association, execution failed or produced incorrect behavior. "
-            "A fix corrected the association constraints among related procedures, structures, or objects."
+            '(1) The structure of code/data in one place assumes a certain structure of code/data in '
+            'another. Without appropriate consideration of their relationship, program will not execute '
+            'or it executes incorrectly. (2) The inheritance relationship between two classes is '
+            'missing or incorrectly specified. (3) The limit on the number of objects that may be '
+            'instantiated from a given class is incorrect and causes performance degradation of the '
+            'system.'
         ),
         "family": "Structural",
     },
@@ -313,18 +328,21 @@ def allowed_type_names(taxonomy_mode: str = TAXONOMY_CLOSED) -> list[str]:
 def taxonomy_markdown(taxonomy_mode: str = TAXONOMY_CLOSED) -> str:
     open_mode = taxonomy_mode == TAXONOMY_OPEN
     type_count = "8 types (7 ODC types + Other)" if open_mode else "7 types"
+    # Each type shows IBM ODC v5.2's Definition and Examples only. Our own
+    # `indicators` / `distinguish_from` guidance (written April 2026, no recorded
+    # source) is no longer rendered: it paraphrased IBM with drift and conflicted
+    # with the approved worked examples — docs/prompt_review_v3.md, block 4b.
     lines = [
         "## ODC Defect Type Taxonomy",
         "",
+        "<odc_taxonomy>",
         f"You MUST classify the bug into exactly ONE of these {type_count}.",
-        "Read the definitions carefully — each type has specific indicators and boundaries.",
+        "Read the definitions carefully.",
         "",
     ]
     for name, meta in ODC_TYPES.items():
         lines.append(f"### {name} (Family: {meta['family']})")
         lines.append(f"**Definition**: {meta['summary']}")
-        lines.append(f"**When to choose this type**: {meta['indicators']}")
-        lines.append(f"**When NOT to choose this type**: {meta['distinguish_from']}")
         lines.append(f"**Examples**: {meta['examples']}")
         lines.append("")
     if open_mode:
@@ -333,9 +351,9 @@ def taxonomy_markdown(taxonomy_mode: str = TAXONOMY_CLOSED) -> str:
                 f"### {OTHER_TYPE_NAME} (escape category — LAST RESORT ONLY)",
                 "**Definition**: The defect's root-cause mechanism genuinely does not fit ANY of the "
                 "7 ODC types above, even approximately.",
-                "**When to choose this type**: ONLY after you have explicitly worked through all 7 "
-                "diagnostic questions and can state, for EACH of the 7 types, a concrete evidence-based "
-                "reason why it does not apply. Choosing Other is a strong claim that the taxonomy has a gap.",
+                "**When to choose this type**: ONLY after you can state, for EACH of the 7 types, a "
+                "concrete evidence-based reason why it does not apply. Choosing Other is a strong claim "
+                "that the taxonomy has a gap.",
                 "**When NOT to choose this type**: Do NOT use Other because evidence is incomplete, "
                 "because you are uncertain between two types (pick the better one and lower confidence), "
                 "or because the bug is complex or spans multiple types (pick the dominant mechanism). "
@@ -346,6 +364,7 @@ def taxonomy_markdown(taxonomy_mode: str = TAXONOMY_CLOSED) -> str:
                 "",
             ]
         )
+    lines.append("</odc_taxonomy>")
     return "\n".join(lines)
 
 

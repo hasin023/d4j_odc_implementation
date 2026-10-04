@@ -109,6 +109,24 @@ dropped opaque tracker-comment ids), and the full list of what
 prompt. Read it before describing evidence-selection methodology in the
 paper.
 
+**`docs/prompt_review_v3.md` (new, 2026-10-05)** — the current `few`/`scientific` prompt (version
+`v3-2026-10-05`, recorded per artifact as `prompt_version`): what was kept, changed or removed and why,
+each line traced to IBM ODC v5.2, a paper, our manual analysis, or an approved decision. The 7 worked
+examples and their provenance: `docs/worked_examples_draft.md`. Read before describing the prompt in
+the paper; v2 results used the older prompt.
+
+**`docs/few_shot_terminology.md` (new, 2026-10-04)** — read before writing about the `zero`/`few`
+strategies. Separates *IBM illustrations* (part of each type's definition) from *worked examples*
+(the few-shot demonstrations), with the sources and exact quotes (Brown et al. NeurIPS 2020,
+Super-NaturalInstructions EMNLP 2022, Min et al. EMNLP 2022) and links to the official, PDF, DOI and
+arXiv versions. Also records that `condition_model.md`'s "zero is taxonomy-free by definition" is
+contested (decision pending).
+
+**`docs/other_category.md` (new, 2026-10-04)** — read before writing RQ2 or answering "what is an
+example of Other?". "Other" = a code fix none of the 7 types describes (never a non-code bug); no
+worked example for it (Zhao et al. majority label bias); "0 of 410" must be reported as "the model
+never chose Other" until the leave-one-type-out check is run (Tam et al. 2025).
+
 **`docs/llm_prompting_architecture.md` (new, 2026-08-10)** is the exact,
 field-by-field inventory of what's sent to the LLM per strategy
 (`zero`/`few`/`scientific`, including the agentic loop's 5 probes) plus the
@@ -150,8 +168,8 @@ before describing the experimental design in the paper):
   7 canonical ODC types forced; open = 7 + an "Other" escape category with
   mandatory justification. **Default: open.**
 - `--strategy zero|few|scientific` — zero = zero-shot, no taxonomy, no
-  examples; few = few-shot single call (taxonomy + diagnostic tree + worked
-  examples); scientific = the enforced hypothesis→prediction→probe→
+  examples; few = few-shot single call (IBM taxonomy + 7 real worked
+  examples; prompt v3-2026-10-05, `docs/prompt_review_v3.md`); scientific = the enforced hypothesis→prediction→probe→
   observation loop (AutoSD-inspired), up to 8 turns with a harness-enforced evidence gate (2026-09-26; `artifacts_v2` scientific results predate it). **Default: scientific.**
 
 Only 5 combinations are valid (CLI-enforced):

@@ -61,25 +61,43 @@ in this order, each capped as shown (`prompting.py:412-572`):
 
 ### 1.3 `few` strategy
 
-**System message** (`_build_system_prompt`, `prompting.py:51-121`, ≈2,000-2,220 words as of the 2026-08-10 conciseness pass):
-1. Role line + fix-diff-aware preamble (if post-fix: a 7-line mapping from diff-shape to ODC type).
-2. CRITICAL RULES (2 bullets: don't default to Function/Class/Object; don't use benchmark familiarity/hidden fix knowledge).
-3. `taxonomy_markdown(taxonomy_mode)` (`odc.py:350-386`) — full definitions of all 7 ODC types (or 7+Other in open mode): summary, when-to-choose, when-NOT-to-choose (`distinguish_from`), worked mini-examples, per type.
-4. `impact_markdown()` (`odc.py:236-266`) — all 13 v5.2 Impact categories + Unknown, with guidance.
-5. The full JSON response contract (`_json_contract`, `prompting.py:575-602`): `odc_type`, `family`, `impact`, `target`, `qualifier`, `confidence`, `needs_human_review`, `observation_summary`, `reasoning_summary`, `evidence_used`, `evidence_gaps`, `alternative_types` (+ `other_*` fields in open mode). `hypothesis`/`prediction`/`experiment_rationale` are NOT part of `few`'s contract — `classification_response_schema(strategy=...)` in `llm.py` only requires them for `scientific`, where the turn loop earns them through real commit-before-observe ordering.
-6. **Classification Decision Process** — 7 diagnostic questions, one per ODC type, each a one-line "signal → type" mapping (tightened 2026-08-10; previously verbose, same 7 questions/type coverage).
-7. **Classification Examples** — 5 fully worked examples (`_few_shot_examples`, `prompting.py:150-186`), each with a symptom, a code snippet, the classification, and explicit "NOT type X because Y" reasoning for 1-2 alternative types.
+> Terminology: what makes this few-shot is the worked examples (item 7 below), not the IBM
+> illustrations inside the taxonomy definitions. See `docs/few_shot_terminology.md`.
 
-**User message** (`_build_user_prompt`, few branch, `prompting.py:238-260`):
-- Evidence mode line (pre-fix vs post-fix).
-- IMPORTANT ANALYSIS RULES: 6-7 bullets pointing back at the decision process, the allowed type list, the Impact instruction, and (open mode only) the "Other is a last resort" rule.
+> ⚠️ **Rewritten 2026-10-05 for prompt `v3-2026-10-05`** (`prompting.PROMPT_VERSION`, recorded in every
+> few/scientific artifact as `prompt_version`). Full rationale, sources and the conflict test against
+> the worked examples: `docs/prompt_review_v3.md`. Artifacts without `prompt_version` used the old
+> prompt (diagnostic decision tree, 5 invented worked examples, post-fix diff→type rules, rendered
+> `indicators`/`distinguish_from`).
+
+**System message** (`_build_system_prompt`), in order:
+1. Role line ("You are an expert software defect analyst specializing in ODC").
+2. Evidence-mode task (`_evidence_mode_guidance`, shared with `scientific`). Pre-fix: "classify one bug
+   into exactly one type from the taxonomy below, using ONLY the provided pre-fix evidence" plus IBM
+   §4.2's rule ("the actual correction that was made"). Post-fix (`_fix_diff_guidance`): the diff shows
+   the correction, the same IBM rule, and "The diff is the GROUND TRUTH of what was fixed".
+3. CRITICAL RULES: one bullet, no benchmark familiarity / project reputation / hidden fix knowledge.
+4. `taxonomy_markdown(taxonomy_mode)` in `<odc_taxonomy>` tags: per type IBM ODC v5.2's Definition and
+   IBM's "Examples" verbatim (guarded by `tests/test_odc.py::IbmDefinitionTests`); Other in open mode.
+5. The JSON response contract (`_json_contract`), unchanged.
+6. **Worked examples** (`_few_shot_examples`, `_WORKED_EXAMPLES`), last, in `<worked_examples>` /
+   `<example>` tags: 7 real Coimbra bugs, one per type, in the order Checking, Assignment, Algorithm,
+   Interface, FCO, Relationship, Timing; each is Bug report → Buggy code → Fix → Type → Why not.
+   Text and provenance: `docs/worked_examples_draft.md`. No other block refers to this one, so an
+   IBM-taxonomy-only variant can drop it.
+
+**User message** (`_build_user_prompt`, few branch):
+- "Classify this bug into exactly one type from the taxonomy." + evidence mode line.
+- IMPORTANT ANALYSIS RULES: evidence only; examine snippets for the root-cause mechanism; incomplete
+  evidence → lower confidence + needs_human_review; allowed types; (open) Other rule; (post-fix) examine
+  the fix diff.
 - `"\n\nEvidence:\n" + json.dumps(_context_payload(context), indent=2)`.
 
 ### 1.4 `scientific` strategy — the multi-turn agentic loop
 
 Unlike `zero`/`few` (one system + one user message, one API call), `scientific` (`agent.py::run_agentic_classification`) is a **conversation that grows every turn**, up to `AGENT_MAX_TURNS = 8`.
 
-> ⚠️ **Updated 2026-09-26** — the loop now (a) shares `few`'s ODC guidance verbatim (decision process, worked examples, post-fix diff guidance) so the two strategies differ only by the loop, (b) has a sixth probe, `source`, and (c) admits a conclusion only through the harness-enforced evidence gate (`agent.py::_evidence_gate`). The per-message description below predates this; `agent.py`'s module docstring is current.
+> ⚠️ **Updated 2026-09-26** — the loop now (a) shares `few`'s ODC guidance verbatim (since 2026-10-05: evidence-mode task line, critical rule, taxonomy, worked examples) so the two strategies differ only by the loop, (b) has a sixth probe, `source`, and (c) admits a conclusion only through the harness-enforced evidence gate (`agent.py::_evidence_gate`). The per-message description below predates this; `agent.py`'s module docstring is current.
 
 **System message** (`_agent_system_prompt`, `agent.py:176-220`, ≈1,565-1,746 words — sent **once**, not repeated per turn):
 - Role line + loop-protocol explanation: every turn the model must emit `hypothesis`, `prediction`, then either `action: "request_evidence"` (with a `probe`) or `action: "conclude"` (with the full classification).
