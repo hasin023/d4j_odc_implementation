@@ -305,7 +305,9 @@ without Defects4J — which is exactly the confusing failure this gate exists to
 >
 > **Contexts do not need re-collecting.** `deb9f29` changed no collection code — every hunk lands in
 > `classify_bug_context` or later; `collect_bug_context`, `defects4j.py` and `parsing.py` are untouched.
-> v3 is made by copying `context.json` from v2, nothing more. (Corrected 2026-09-29: an earlier reading
+> v3 is made by copying `context.json` from v2, nothing more. **2026-10-07:** the model is `gemini-3.1-flash-lite`
+> (stable, not `-preview`) and the prompt is `v3.1-2026-10-07`; for the `source` probe Java 11 must be first on
+> `PATH`, not only in `JAVA_HOME` (see the troubleshooting note above). (Corrected 2026-09-29: an earlier reading
 > of this page took "needs Defects4J" to mean classification runs Defects4J live and that contexts were
 > stale. Both are wrong.)
 
@@ -490,7 +492,11 @@ untagged). Anything current carries a condition tag, e.g. `classification.scient
 
 | Path | Status | What it is |
 |---|---|---|
-| `artifacts_v2/` | **ACTIVE** | The new corpus. Everything current goes here. |
+| `artifacts_v3/` | **ACTIVE** | The current classification target (since 2026-09-27). Model `gemini-3.1-flash-lite`, prompt `v3.1-2026-10-07`. |
+| `artifacts_v3_preview/` | ARCHIVE | v3 results from the `-preview` model (13-bug pilot + a partial Chart run whose 15 files had the `source` probe off). Not comparable. |
+| `artifacts_v3_gatefix0/` | ARCHIVE | 13-bug scientific pilot on the stable model with the pre-v3.1 gate. Baseline for the v3.1 comparison. |
+| `artifacts_v3_repeat1/` | ARCHIVE | Repeat of the v3.1 scientific pilot; identical to `artifacts_v3`'s (determinism check, 2026-10-07). |
+| `artifacts_v2/` | FROZEN | The pre-gate (v1 loop) corpus behind every v2 number. Never run into it again (2026-09-27). |
 | `artifacts_pilot_v2/` | **ACTIVE** | 6-bug pilot, 2026-09-10, validating the current code |
 | `artifacts_full/` | REFERENCE | 854 bugs collected Jun–Jul with the **old** evidence code. 458 classified. Do not add new results here. |
 | `lang61_snapshot_pre_fewshot_simplify_2026-08-04/` | ARCHIVE | The pre-change copy of 61 Lang `few-open` results. Tracked since `6aa80ac` (2026-09-11). |

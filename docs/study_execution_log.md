@@ -1315,3 +1315,166 @@ and report.
 6. **Stop there.** Whether to run the full 410 bugs or roll back is the user's decision, made on the
    pilot together with the types those 13 bugs cover. The order check (2–3 worked-example orders,
    research doc Q6.1 decision 7) is not part of this pilot and needs its own setup.
+
+
+## 2026-10-05 — v3 pilot (13 bugs, `manifest_alvee13.json`), prompt `v3-2026-10-05`
+
+Run by a Sonnet session following "Runbook: the v3 pilot". No code or prompt changes. Not committed.
+
+**Environment.** Linux, git `9c985ab`, provider `gemini`, model `gemini-3.1-flash-lite-preview` (same for both conditions), 31 `GEMINI_API_KEYS`, `JAVA_HOME=java-11` so the `source` probe could check out the buggy version. Pre-flight: `PROMPT_VERSION` = `v3-2026-10-05`; tests 244 passed + the 2 known WSL failures; `artifacts_v3` held only `context.json`. One-call smoke test (Chart_9, few-open) parsed (`Algorithm/Method`, `v3-2026-10-05`) and the system prompt ends with `<worked_examples>`; `.dist/smoke_v3/` deleted.
+
+**Commands** (one line each, run one after the other in a single `sh -c 'A; B'`, never in parallel):
+```
+python -m d4j_odc_pipeline study-run --manifest .dist/study/manifest_alvee13.json --artifacts-root .dist/study/artifacts_v3 --work-root .dist/study/work_v3 --taxonomy open --strategy scientific --daily-call-budget 250 --prompt-output --summary-output .dist/study/v3_alvee13_summary.scientific-open.json
+python -m d4j_odc_pipeline study-run --manifest .dist/study/manifest_alvee13.json --artifacts-root .dist/study/artifacts_v3 --work-root .dist/study/work_v3 --taxonomy open --strategy few --daily-call-budget 40 --prompt-output --summary-output .dist/study/v3_alvee13_summary.few-open.json
+```
+Scientific ran 21:05–21:14 UTC (86 LLM calls), few-open started 21:14:25. Math_23 post-fix failed in the first scientific pass: HTTP 429 on all 31 keys, then 5 same-key backoff retries (2.5 s to 32.6 s) also 429, so the entry was skipped. After few-open finished I reran the identical scientific command alone; it resumed, skipped the 25 finished files, and Math_23 post-fix completed with no 429. That rerun overwrote `v3_alvee13_summary.scientific-open.json` (it now describes only the retry: "Paired compare 1"). The 26 classification files are intact. Total 429 responses in the first pass: ~119 log lines. The 429 response body is not logged, so which limit was hit (per-minute tokens, per-minute requests, per-day, or preview-model load) is **unknown**. A tiny test request to two keys returned 200, so those keys were not out of daily quota.
+
+**Results against manual ground truth** (every file shows `prompt_version = v3-2026-10-05`; all 4 conditions complete, 13/13):
+
+| bug | truth | sci pre | sci post | few pre | few post | sci calls pre/post | gate |
+|---|---|---|---|---|---|---|---|
+| Chart_9 | Checking | Algorithm/Method | Checking | Algorithm/Method | Checking | 2 / 8 | post forced |
+| Lang_40 | Algorithm/Method | Algorithm/Method | Algorithm/Method | Algorithm/Method | Algorithm/Method | 2 / 2 | ok |
+| Chart_17 | Algorithm/Method | Checking | Algorithm/Method | Checking | Algorithm/Method | 2 / 2 | ok |
+| Math_90 | Interface/O-O Messages | Checking | Interface/O-O Messages | Checking | Interface/O-O Messages | 2 / 2 | ok |
+| Math_23 | Algorithm/Method | Algorithm/Method | Algorithm/Method | Algorithm/Method | Algorithm/Method | 3 / 3 | ok |
+| Math_17 | Checking | Algorithm/Method | Algorithm/Method | Algorithm/Method | Algorithm/Method | 3 / 2 | ok |
+| Time_3 | Checking | Checking | Checking | Algorithm/Method | Checking | 3 / 8 | post forced |
+| Chart_11 | Assignment/Initialization | Algorithm/Method | Assignment/Initialization | Algorithm/Method | Assignment/Initialization | 3 / 3 | ok |
+| Time_27 | Checking | Algorithm/Method | Algorithm/Method | Algorithm/Method | Algorithm/Method | 4 / 8 | post forced |
+| Lang_20 | Assignment/Initialization | Checking | Algorithm/Method | Checking | Algorithm/Method | 2 / 2 | ok |
+| Math_104 | Assignment/Initialization | Assignment/Initialization | Assignment/Initialization | Algorithm/Method | Assignment/Initialization | 3 / 8 | post forced |
+| Mockito_26 | Assignment/Initialization | Assignment/Initialization | Assignment/Initialization | Assignment/Initialization | Assignment/Initialization | 2 / 2 | ok |
+| Chart_7 | Assignment/Initialization | Algorithm/Method | Algorithm/Method | Algorithm/Method | Assignment/Initialization | 4 / 3 | pre: 1 rejection |
+
+**Scores (v3 vs v2, out of 13):** scientific pre-fix 5 vs 6; scientific post-fix 9 vs 6; few pre-fix 3 vs 4; few post-fix 10 vs 11.
+
+**Loop facts.**
+- Forced conclusions (`forced_max_turns`, 8 calls, 6 gate rejections, `evidence_gate_passed=False`): 4, all scientific post-fix: Chart_9, Time_3, Time_27, Math_104. Three of the four (Chart_9, Time_3, Math_104) were still correct on the forced answer; Time_27 was wrong.
+- Other gate rejections: Chart_7 pre-fix, 1. Every other scientific run concluded in 2–4 calls with 0 rejections.
+- `source` probe: used 35 times across the 26 scientific runs, never answered "unavailable" (one `full_stack_trace`, one `list_evidence`). The checkpoint has no `source_probe` key; the evidence is each artifact's `turns[].probe`.
+- No "Other" label anywhere in the 52 results.
+
+**Reading.** n = 13, one rater, bugs picked to show failure modes: a signal, not accuracy. v2 vs v3 is NOT a test of the prompt (loop gate, `source` probe, taxonomy text, seed coverage fix and the rolling `-preview` model all changed too). Pre-fix is flat to slightly lower (5 vs 6, 3 vs 4), post-fix scientific is up (9 vs 6), post-fix few is flat (10 vs 11). The pre-fix misses cluster on Checking→Algorithm/Method (Chart_9, Math_17, Time_27 and Time_3 few) and Assignment/Initialization→Algorithm/Method or Checking (Chart_11, Lang_20, Chart_7 sci pre). The decision on running the 410 bugs or rolling back is the user's. The optional control run (5b) was not requested and was not done.
+
+## 2026-10-06/07 — Full v3 run started (Chart, scientific-open), stopped at 23/52; 15 new files invalid; 429 logging added
+
+**Plan (user, 2026-10-06).** Full v3 run one project at a time, smallest first (Chart 26, Time 26, Mockito 38, Lang 61, Math 106, Closure 174), scientific-open first. Chart first.
+
+**Command.** `study-run --manifest .dist/study/manifest_chart26.json --artifacts-root .dist/study/artifacts_v3 --work-root .dist/study/work_v3 --taxonomy open --strategy scientific --daily-call-budget 450 --prompt-output --summary-output .dist/study/v3_chart26_summary.scientific-open.json`, log `.dist/study/v3_chart26_scientific-open.log`. Ran 17:20–17:36 UTC, stopped by the user with Ctrl+C (graceful) after 12/26 entries.
+
+**The 15 Chart files written on 2026-10-06 are invalid and must be redone.** Only `JAVA_HOME` was set to java-11; `java` on PATH was still 21, and Defects4J checks PATH ("Java 11 is required!", exit 255). So every `source` probe in those 15 runs answered "unavailable"; the 8 pilot files (2026-10-04) are fine. Fix: also `export PATH=$JAVA_HOME/bin:$PATH` (checked 2026-10-07: `defects4j checkout -p Chart -v 1b` then succeeds). To redo them: remove the 15 files (`classification`/`report`/`prompt.scientific-open.*` with `created_at` 2026-10-06: Chart_1, 2, 4, 5, 6, 10 both modes, Chart_3, 8 postfix, Chart_12 prefix) AND `checkpoint.pairs.scientific-open.json` — the checkpoint lists Chart_1, 2, 4, 5, 6, 10 as complete and skips them even when their files are gone; the file-existence skip still protects the valid files. `work_v3/source/` is empty, so no stale checkout blocks a new one.
+
+**429s.** 14 bursts in 16 minutes. 11 recovered on a later key (after 1 to 16 failed keys); 3 failed on all 31 keys plus 5 backoff retries, and the entry was skipped. The 429 body was not logged, so the exceeded limit is unknown. On 2026-10-07 07:20 UTC all 31 keys returned 200 to a tiny request, but that was after the Pacific-midnight daily reset, so it says nothing about the day of the run. The pattern (1 to 16 keys failing, then one working) fits both a per-minute limit and some keys being out of daily quota. Open question: on 429 the failover sends the same ~15k-token request to the next key at once, up to 31 times in a few seconds; if the keys share one quota pool, that burst feeds the limit.
+
+**Token measurement** (Gemini `countTokens`, model `gemini-3.1-flash-lite-preview`; countTokens gave the same number with and without the response schema, but it may ignore `generationConfig` — the first real `usageMetadata` line will show):
+- scientific first call, Chart_1 prefix: 14,033 tokens = system 5,515 + evidence 8,520. few-open, Chart_9 prefix: 13,706.
+- Chars per token: ~4.2 for the English system prompt, ~3.1 for the JSON/Java evidence.
+- Whole scientific run, rebuilt from the 26 valid pilot artifacts (the 15 invalid Chart runs left out; every call resends the whole conversation; observation sizes from `turns[].observation_chars`, assistant turns estimated): calls mean 3.3, p50 3, p90 8; first call mean 12.9k; largest call mean 15.3k, max 24k; input tokens per run mean 51k, p50 40k, p90 130k, max 176k.
+- Rate during the run: 5.8 calls/min, so about 80k–90k input tokens/min in total. Spread over 31 keys that is ~0.2 calls/min and ~3k tokens/min per key. These are usage numbers; the limits themselves are not measured (AI Studio's rate-limit page or a real 429 body would give them).
+- Full v3 (431 bugs × prefix/postfix = 862 runs per condition): scientific-open ~2,850 calls / ~44M input tokens; few-open ~860 calls / ~12M.
+
+**Code change (not committed).** `llm.py` now writes every HTTP error, with its full body, to `.dist/study/llm_http_errors.jsonl` (gitignored), and prints the quota id, quota value and `retryDelay` in the console warning. Gemini `usageMetadata` is now written to `.dist/study/token_usage_log.jsonl` per call. Keys appear only as an 8-character sha256 prefix. `tests/conftest.py` keeps tests out of both logs. Tests: 246 passed + the 2 known WSL failures. Retry behaviour is unchanged; Gemini sends its wait in the body (`RetryInfo.retryDelay`), not in a `Retry-After` header, so the current 2–32 s backoff ignores it.
+
+## 2026-10-07 — v3 pilot rerun on `gemini-3.1-flash-lite` (stable, not preview)
+
+**Decisions (user, 2026-10-07).** Keep the `source` probe on. Switch the model to `gemini-3.1-flash-lite`; `.env` `DEFAULT_LLM_MODEL` and `GEMINI_MODEL` changed from the `-preview` name. Rate limits from the user's AI Studio page, per key (31 keys, separate projects and accounts): 15 RPM, 250K TPM, 500 RPD.
+
+**Preview-model results moved, not deleted.** Every non-`context.json` file in `artifacts_v3` (41 scientific + 26 few classifications with their prompts and reports, both checkpoints, `runs.jsonl`; 207 files) moved to `.dist/study/artifacts_v3_preview/`, same layout. This includes the 15 invalid Chart files from 2026-10-06. `artifacts_v3` now holds only the new model, under plain filenames.
+
+**Commands.** As in the 2026-10-05 pilot, with `--summary-output .dist/study/v3ga_alvee13_summary.<tag>.json`, budgets 220 (scientific) and 30 (few), `JAVA_HOME` java-11 AND `PATH=$JAVA_HOME/bin:$PATH`. Two scientific entries failed on all keys (Math_104 prefix, Math_23 postfix); two reruns of the same command finished them (`…summary.scientific-open.retry.json`, `…retry2.json`). Git `9c985ab` + the uncommitted logging change.
+
+**Results** (manual ground truth from the 2026-10-05 table; * = correct):
+
+| bug | truth | sci pre | sci post | few pre | few post | sci calls pre/post |
+|---|---|---|---|---|---|---|
+| Chart_9 | Checking | Checking* | Checking* | Checking* | Checking* | 2 / 8 |
+| Lang_40 | Algorithm/Method | Alg* | Alg* | Alg* | Alg* | 2 / 2 |
+| Chart_17 | Algorithm/Method | Checking | Alg* | Checking | Alg* | 2 / 2 |
+| Math_90 | Interface/O-O Messages | Checking | Alg | Checking | Alg | 2 / 2 |
+| Math_23 | Algorithm/Method | Alg* | Alg* | Alg* | Alg* | 3 / 8 |
+| Math_17 | Checking | Alg | Alg | Alg | Alg | 7 / 2 |
+| Time_3 | Checking | Alg | Checking* | Alg | Checking* | 8 / 3 |
+| Chart_11 | Assignment/Initialization | Alg | Alg | Alg | Asg* | 3 / 3 |
+| Time_27 | Checking | Checking* | Alg | Alg | Alg | 4 / 8 |
+| Lang_20 | Assignment/Initialization | Checking | Alg | Checking | Alg | 2 / 2 |
+| Math_104 | Assignment/Initialization | Asg* | Asg* | Alg | Asg* | 3 / 6 |
+| Mockito_26 | Assignment/Initialization | Asg* | Asg* | Asg* | Asg* | 2 / 2 |
+| Chart_7 | Assignment/Initialization | Alg | Asg* | Alg | Asg* | 4 / 5 |
+
+**Scores out of 13 (stable / preview / v2):** scientific pre-fix 6 / 5 / 6; scientific post-fix 8 / 9 / 6; few pre-fix 4 / 3 / 4; few post-fix 9 / 10 / 11. Same picture as the preview pilot; n = 13, one rater, a signal not accuracy.
+
+**Loop.** 4 forced conclusions (Chart_9 post, Math_23 post, Time_3 pre, Time_27 post); 33 gate rejections in total; `source` probe used 38 times, never "unavailable"; no "Other" label in 52 results.
+
+**Tokens (real `usageMetadata`, 127 calls incl. retries).** Prompt tokens per call mean 15.5k, p90 22.4k, max 29.4k; output mean 486; 1.96M prompt tokens in total. Peak rate ~19 calls/min and ~280K tokens/min across 31 keys, i.e. ~0.6 RPM and ~9K TPM per key — about 4% of each key's limit.
+
+**429/503 bodies (first ones ever captured).** 111 × 429 with body `{"code": 429, "message": "Resource has been exhausted (e.g. check quota).", "status": "RESOURCE_EXHAUSTED"}` — no `QuotaFailure` details, no `RetryInfo`, no `Retry-After` header — and 7 × 503 "This model is currently experiencing high demand". A project-quota 429 names the quota; this one does not. With per-key use at ~4% of every limit, the reading is server-side load on Google's side, not our quota. Shortening the prompt would not fix it. Not changed: the 2–32 s backoff when all keys fail.
+
+## 2026-10-07 — Evidence gate, Fix 1: quote matching ignores layout (code only, not yet run)
+
+**Finding** (the 26 scientific pilot runs of the stable-model rerun). All 37 gate rejections were rule (c), "quote not found verbatim"; they changed 0 final labels (in all 9 runs with rejections the first rejected type equals the final type) and cost 37 calls. Causes: 26 are post-fix runs quoting the fix diff from the first message, while the gate searches only the last probe's output; the rest are pre-fix, where some are layout (a statement the source splits over two lines, quoted as one line, e.g. Chart_7 pre: `...getStart()` / `*   287: .getTime();` quoted as `...getStart().getTime();`), and Time_3 pre quoted an earlier probe after the last probe returned only an outline. Separately: the model never answered `refuted` (70 `supported`, 27 `none`).
+
+**Change (user decision, 2026-10-07).** `agent.py::_quote_found` now removes the `_render_lines` prefixes (`*   286: `) and all whitespace from both the quote and the observation before matching. The characters must still match exactly. Nothing else in the gate changed. Tests: 4 new in `tests/test_agent.py::QuoteMatchingTests`; 250 passed + the 2 known WSL failures.
+
+**Replay** on the 37 rejected pilot quotes (against the stored observations, which are cut at 2000 chars, so this is a lower bound): 8 would now be accepted (Chart_7 pre and post, Math_17 pre, Time_27 pre).
+
+**Still open:** Fix 2 (post-fix: accept quotes from the fix diff) and the "quote from an earlier probe" case. The scientific pilot is rerun after these decisions.
+
+## 2026-10-07 — Prompt `v3.1-2026-10-07`: evidence gate reads outlines as their class, observations numbered, backtracking (`evidence_from`)
+
+**Why** (the 37 rejections of the stable-model pilot, checked against fresh checkouts of the 7 affected bugs): every rejected quote was real code. 15 were in the code lines the last probe returned and failed only on layout (Fix 1, logged above); 17 were in the class whose **outline** the last probe returned — the probe examined the whole class but sent only method signatures, and the gate compared the quote with the outline text; 5 (Time_3 pre, turns 4–8) quoted the class of an EARLIER probe after the model moved its hypothesis to `BasicChronology`, got only an outline, and then fell back to the earlier `MutableDateTime` evidence while calling the new probe "supported" — the loop had no way to go back. 0 quotes were invented. The earlier explanations in this log of post-fix rejections as "quoting the diff" were incomplete: the quoted text is also in the buggy class; the outline was the cause.
+
+**Change (user decision, 2026-10-07).** `agent.py`:
+- An outline observation counts as its whole class: when the quote is not in what was sent, the gate searches the full buggy source file of the outlined class. Each turn records `quote_matched` = `observation` / `class_file` / null.
+- Observations are numbered in the message to the model: `Observation #2 (probe 'source', argument 'MutableDateTime:763-765'):`; the transcript records `observation_number`.
+- New turn-schema field `evidence_from` (integer or null): the observation a conclusion rests on; null = the latest that returned evidence (today's rule). An EARLIER observation k is accepted only if it returned evidence, the model's first verdict on it was `supported`, the quote is in it, the concluded type was under test in it, and the verdict on the latest observation is `refuted` or `inconclusive`. Recorded per conclusion turn as `evidence_from`.
+- Rejection messages name the observation (`observation #3 (source org.Foo, an outline)`) and the way back (`set evidence_from ... give observation #3 a verdict of refuted or inconclusive`).
+- Scientific system prompt, gate block a–d → a–e (approved wording): a. rest on one experiment, default the latest, `evidence_from` for an earlier one; b. supported + verbatim quote, "if it returned an outline of a class, you may quote any line of that class"; c./d. unchanged; e. backtracking requires the latest judged refuted or inconclusive. Schema list in the prompt gains `evidence_from?`.
+
+`PROMPT_VERSION` → `v3.1-2026-10-07`. The few/zero prompts are byte-identical (66 prompt variants fingerprinted before and after). Tests: 6 new in `tests/test_agent.py::OutlineAndBacktrackingGateTests`; 256 passed + the 2 known WSL failures. Rollback: `git apply -R docs/patches/prompt_v3.1-2026-10-07.patch` (also reverts Fix 1, which is in the same uncommitted diff).
+
+## 2026-10-07 — v3.1 scientific pilot rerun (13 bugs, `gemini-3.1-flash-lite`)
+
+**Command.** As the 2026-10-07 stable-model rerun, scientific only, budget 220, `--summary-output .dist/study/v31_alvee13_summary.scientific-open.json`, log `v31_alvee13_scientific-open.log`; Java 11 on PATH. Math_104 post failed on all keys (87 × 429/503 log lines in the run) and was finished by one rerun (`…summary.scientific-open.retry.json`). All 26 files carry `prompt_version = v3.1-2026-10-07`. Baseline = the v3 stable-model results moved to `.dist/study/artifacts_v3_gatefix0/` (same model, same few-open, gate before Fix 1 / v3.1).
+
+| | v3 (gatefix0) | v3.1 |
+|---|---|---|
+| LLM calls, pre-fix / post-fix | 44 / 53 | 35 / 33 |
+| gate rejections | 33 | 4 |
+| forced conclusions | 4 | 0 |
+| correct vs manual labels, pre-fix / post-fix (of 13) | 6 / 8 | 4 / 8 |
+| probes in total / runs with exactly 1 probe | 38 / 15 | 38 / 16 |
+| final quote matched in the class file (outline expansion) | — | 1 (Math_104 post) |
+| backtracking (`evidence_from` earlier than the latest) | — | 0 |
+| verdict `refuted` | 0 | 0 |
+
+- The 4 remaining rejections are substantive: Lang_20 post (concluded before any probe; then no `predicted_fix`), Mockito_26 post (no `predicted_fix`), Time_3 post (quote not in the outlined `MutableDateTime`; passed on the next turn).
+- Previously forced runs: Chart_9 post 8→2 calls, Math_23 post 8→3, Time_27 post 8→2, Time_3 pre 8→3; labels unchanged.
+- Label changes: Chart_9 pre Checking→Algorithm/Method and Time_27 pre Checking→Algorithm/Method (both now differ from the manual label), Math_90 post Algorithm/Method→Checking (manual: Interface). Neither pre-fix change involves the gate: Chart_9 pre had 0 rejections in both runs and ran the same single probe (`TimeSeries#createCopy`) but wrote a different fix; Time_27 pre took a different probe path. Whether this is the prompt wording or run-to-run variation cannot be told from one run each; no same-model repeat exists yet.
+
+## 2026-10-07 — v3.1 scientific pilot repeated (run-to-run variation check)
+
+**Command.** The same v3.1 scientific pilot again into a separate root, `.dist/study/artifacts_v3_repeat1/` (only the 13 bugs' `context.json` copied in), `--summary-output .dist/study/v31_repeat1_summary.scientific-open.json`, log `v31_repeat1_scientific-open.log`; one entry failed on all keys (77 × 429/503 lines) and was finished by one rerun (`…retry.json`). Real API calls were made (token log grew).
+
+**Result: the two runs are identical.** All 26 runs: same label, same number of calls, and the same text in every turn (hypothesis, prediction, quote) and in the final raw response. At `temperature = 0` this model (`gemini-3.1-flash-lite`) answered deterministically here: run-to-run variation 0/26.
+
+**Consequences.**
+- The v3 → v3.1 label changes (Chart_9 pre and Time_27 pre Checking → Algorithm/Method; Math_90 post Algorithm/Method → Checking) are NOT noise. The only input difference is the v3.1 scientific prompt text (gate block a–e, schema list) and the numbered observation headers, so these flips are caused by that wording. 3 of 26 labels moved on a wording change that did not touch the ODC guidance.
+- A same-strategy run-to-run agreement measured at temperature 0 on this model would be ~100% and says nothing about stability. The RQ3 ceiling defined in `69c4371` ("same-strategy run-to-run agreement") needs revisiting before it is reported for v3.
+
+**Fix vs label (2026-10-07).** Reading each v3.1 `predicted_fix` against the real patch: pre-fix, 8/13 fixes are right in substance, but 5 of those 8 carry a label different from the manual one; post-fix, all 13 fixes are right and 5 labels still differ. 9 of the 10 right-fix-wrong-label cases are labelled Algorithm/Method. Table, judgment rules and caveats: `docs/fix_vs_label_v31_pilot.md`.
+
+## 2026-10-07 — Full v3.1 run, project 1: Chart (26 bugs), scientific-open + few-open
+
+**Commands** (`JAVA_HOME` java-11 and `PATH=$JAVA_HOME/bin:$PATH`, model `gemini-3.1-flash-lite`, git `9c985ab` + uncommitted v3.1 changes): `study-run --manifest .dist/study/manifest_chart26.json --artifacts-root .dist/study/artifacts_v3 --work-root .dist/study/work_v3 --taxonomy open --strategy scientific --daily-call-budget 360 --prompt-output --summary-output .dist/study/v31_chart26_summary.scientific-open.json`, then the same with `--strategy few --daily-call-budget 50` and `…few-open.json`. Scientific 13:30–13:59 UTC (139 calls), few 13:59–14:10 UTC (44 calls). 3 entries failed on all keys during 429 bursts (scientific Chart_1 pre and Chart_13 pre, few Chart_22 post) and were finished by one rerun of each command (`…retry.json` summaries). The 4 pilot bugs (Chart_7, 9, 11, 17) were skipped as existing; their few-open files carry `prompt_version v3-2026-10-05` (few text identical to v3.1).
+
+**Result: 52/52 scientific-open, 52/52 few-open.** Scientific: 161 calls (3.1 per run), 21 gate rejections, 0 forced, `source` never unavailable, 5 conclusions quoted from an outline's class file, 0 backtracking. Labels — scientific: Algorithm/Method 26, Checking 19, Assignment/Initialization 7; few: Checking 24, Algorithm/Method 18, Assignment/Initialization 6, Interface/O-O Messages 3, Relationship 1. Scientific and few agree on 41/52.
+
+**429 bursts and speed** (`llm_http_errors.jsonl`, first 17 min of the scientific pass): 3 bursts of 1.7–2.5 min (8, 18, 54 errors) across all 31 keys, bodies bare `RESOURCE_EXHAUSTED` plus 503 "high demand"; per-key use ~1% of each limit. The retry gives up after ~62 s (31 keys, then 2+4+8+16+32 s), shorter than a burst, so the run in flight is skipped. Between bursts, turn time rose from 2–6 s to 10–31 s without errors. Not changed: the retry timing.
+
+**Why scientific turns are slower than in September** (median 9.0 s per turn vs 3.0 s in `artifacts_v2`). A timing test, 9 calls on Chart_9 pre, same model, same minute (run while the few pass was running, ~0.06% of the daily quota): few call (13.7k input, 376 output tokens) 3.1–4.2 s; scientific turn 1 (14.1k input, 208 output) 6.2–35.2 s; scientific turn 2 (14.9k input, 748 output) 17.1–43.6 s. Input and output size do not explain the gap, and few calls are as fast as in September. Leading hypothesis (not yet tested): the scientific turn's response schema — large, nested (the whole classification schema inside `conclusion`), many nullable fields, most added in `deb9f29` (2026-09-27) after the fast September runs. Test: the same scientific prompt with the few schema vs the turn schema.
+
+**Schema hypothesis tested and rejected (2026-10-07, 14:1x UTC, no run active).** 2×2 on Chart_9 pre, 3 rounds, interleaved: few prompt + few schema 2.9–3.8 s; few prompt + turn schema 4.0–4.9 s; scientific prompt + few schema 3.1–5.2 s; scientific prompt + turn schema 2.7–4.0 s. The scientific turn-2 call that took 17.1–43.6 s at ~13:55 UTC took 3.8–3.9 s (×3) at 14:19 UTC. The schema is not the cause; the slow turns during the Chart run were Google-side load at that time (the same window had the 429/503 bursts). Outputs were identical across rounds (deterministic). Remaining real differences from September: 3.1 vs 2.3 calls per scientific run, and one Defects4J checkout per bug.
+
+**Retry change (user decision, 2026-10-07; code only).** `llm.py::_request_with_key_failover`: when every key fails with 429 or 503 (model-wide overload), it now waits 30 s, 60 s, then 120 s and tries the whole key rotation again before giving up (`_OVERLOAD_WAITS`); the per-key failover and the last key's own 2–32 s backoff are unchanged. Worst case per request ≈ 7.5 min instead of ≈ 1 min, longer than the 2–2.5 min bursts measured on Chart. 401/403 still fail at once. Tests: 3 new in `tests/test_llm.py::OverloadRoundsTests`; 259 passed + the 2 known WSL failures. Classification is unaffected.

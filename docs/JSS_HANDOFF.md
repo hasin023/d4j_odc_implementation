@@ -26,6 +26,28 @@ paper, memorization-advantage rebuttal, agentic-loop analogues, etc.) from a
 two-agent literature survey. Not yet acted on — read before resuming work on
 `latex/jss/sections/03_related_work.tex`.
 
+**2026-10-07 — state of the v3 run (read before quoting any v3 number or describing the loop).**
+All in `docs/study_execution_log.md`, entries dated 2026-10-06 and 2026-10-07:
+- **Model:** `gemini-3.1-flash-lite` (stable), not the `-preview` alias; `.env` default changed. The v3
+  preview-model results are kept in `.dist/study/artifacts_v3_preview/` and are not comparable.
+- **Prompt `v3.1-2026-10-07`:** only the scientific loop's evidence gate changed (an outline counts as
+  its whole class, numbered observations, `evidence_from` backtracking, specific rejection messages);
+  few/zero text is byte-identical to v3. On the 13-bug pilot: calls 97 → 68, gate rejections 33 → 4,
+  forced conclusions 4 → 0; pre-fix correct labels 6 → 4 (Chart_9, Time_27 flipped — a wording effect,
+  not noise). Pre-v3.1 results: `.dist/study/artifacts_v3_gatefix0/`.
+- **Determinism:** a repeat of the v3.1 pilot (`artifacts_v3_repeat1/`) gave identical output for all 26
+  runs — at temperature 0 this model does not vary run to run. **The RQ3 "same-strategy run-to-run
+  agreement" ceiling (83.4% scientific-open, 86.6% few-open; defence book §RQ3, commit `69c4371`) came from
+  two `-preview`-model runs whose evidence also differed (contexts collected before a snippet-selection
+  change — the book says the estimate "combines model variability with that change"). On the v3 model a
+  same-input repeat gives 100%, so this ceiling cannot be re-measured the same way; it needs a new
+  definition before v3 RQ3 numbers are reported.**
+- **Fix vs label:** `docs/fix_vs_label_v31_pilot.md` — pre-fix, the model found the right fix for 8/13
+  bugs but 5 of those carry a different label; 9 of 10 such misses are labelled Algorithm/Method. Read
+  before writing the RQ3 discussion or answering "how does the model decide".
+- **429s** are Google-side load (bare `RESOURCE_EXHAUSTED`, no quota id, plus 503 "high demand"),
+  not our quota; full error bodies now go to `.dist/study/llm_http_errors.jsonl`.
+
 ## Status flag (read before citing any number below)
 
 **Uncommitted.** All code and doc changes described here exist only in the
@@ -129,7 +151,7 @@ never chose Other" until the leave-one-type-out check is run (Tam et al. 2025).
 
 **`docs/llm_prompting_architecture.md` (new, 2026-08-10)** is the exact,
 field-by-field inventory of what's sent to the LLM per strategy
-(`zero`/`few`/`scientific`, including the agentic loop's 5 probes) plus the
+(`zero`/`few`/`scientific`, including the agentic loop's probes — 6 since `source` was added) plus the
 literature-and-code-grounded justification for the system/user message
 split (Instruction Hierarchy paper, ChatML, prompt caching, and how our own
 Gemini/Groq/OpenRouter integrations structurally enforce it). Read it before
@@ -170,7 +192,7 @@ before describing the experimental design in the paper):
 - `--strategy zero|few|scientific` — zero = zero-shot, no taxonomy, no
   examples; few = few-shot single call (IBM taxonomy + 7 real worked
   examples; prompt v3-2026-10-05, `docs/prompt_review_v3.md`); scientific = the enforced hypothesis→prediction→probe→
-  observation loop (AutoSD-inspired), up to 8 turns with a harness-enforced evidence gate (2026-09-26; `artifacts_v2` scientific results predate it). **Default: scientific.**
+  observation loop (AutoSD-inspired), up to 8 turns with a harness-enforced evidence gate (2026-09-26; `artifacts_v2` scientific results predate it; revised in prompt `v3.1-2026-10-07`, see the 2026-10-07 block at the top). **Default: scientific.**
 
 Only 5 combinations are valid (CLI-enforced):
 `zero-free`, `few-closed`, `few-open`, `scientific-closed`, `scientific-open`.

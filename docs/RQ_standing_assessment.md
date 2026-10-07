@@ -3,6 +3,10 @@
 **Date:** 2026-09-15, evening revision — **now includes Closure (153 bugs)**. Supersedes the
 morning version of the same day, which covered only the five smaller projects (257 bugs).
 
+> ⚠️ **2026-10-07: v2-era document** (pre-gate loop, `-preview` model). Its numbers do not carry over to v3. In particular,
+> any run-to-run agreement ceiling assumes the model varies between identical runs; the v3 model (`gemini-3.1-flash-lite`,
+> temperature 0) gave identical output on a repeated pilot. See `docs/JSS_HANDOFF.md`, 2026-10-07 block.
+
 This document answers one question: **for each of our five research questions, do we have enough
 data to defend it in front of faculty and reviewers, and what exactly should we say?**
 

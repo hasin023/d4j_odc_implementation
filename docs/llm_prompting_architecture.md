@@ -98,6 +98,8 @@ in this order, each capped as shown (`prompting.py:412-572`):
 Unlike `zero`/`few` (one system + one user message, one API call), `scientific` (`agent.py::run_agentic_classification`) is a **conversation that grows every turn**, up to `AGENT_MAX_TURNS = 8`.
 
 > ⚠️ **Updated 2026-09-26** — the loop now (a) shares `few`'s ODC guidance verbatim (since 2026-10-05: evidence-mode task line, critical rule, taxonomy, worked examples) so the two strategies differ only by the loop, (b) has a sixth probe, `source`, and (c) admits a conclusion only through the harness-enforced evidence gate (`agent.py::_evidence_gate`). The per-message description below predates this; `agent.py`'s module docstring is current.
+>
+> ⚠️ **Updated 2026-10-07 (prompt `v3.1-2026-10-07`)** — observation messages are numbered (`Observation #k (probe …, argument …):`), the turn schema gained `evidence_from` (backtracking to an earlier supported observation), and the gate reads an outline as its whole class. Details: `docs/study_execution_log.md`, 2026-10-07.
 
 **System message** (`_agent_system_prompt`, `agent.py:176-220`, ≈1,565-1,746 words — sent **once**, not repeated per turn):
 - Role line + loop-protocol explanation: every turn the model must emit `hypothesis`, `prediction`, then either `action: "request_evidence"` (with a `probe`) or `action: "conclude"` (with the full classification).
