@@ -1,0 +1,129 @@
+{
+  "project_id": "Time",
+  "bug_id": 3,
+  "version_id": "3b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite",
+  "provider": "gemini",
+  "created_at": "2026-10-07T12:20:58+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The `addDays(0)` method in `MutableDateTime` unconditionally calls `setMillis` with the result of `getChronology().days().add(getMillis(), days)`, which triggers a recalculation of the time zone offset even when the amount added is zero. This causes an incorrect shift during DST transitions.",
+  "hypothesis": "The `addDays(0)` method (and similar methods like `addMonths`, `addYears`) incorrectly triggers a recalculation of the time zone offset even when the duration added is zero, causing an incorrect shift during DST transitions. This suggests an issue in the `add` implementation within `MutableDateTime` or its underlying `Chronology` where the offset is re-applied or re-calculated unnecessarily.",
+  "prediction": "The `add` methods in `MutableDateTime` or the underlying `DateTimeField` implementation will show that they perform a time zone offset calculation even when the amount to add is zero, whereas `addHours` or `addMinutes` likely have a short-circuit or different path that avoids this.",
+  "experiment_rationale": "The source code confirms that `addDays(0)` unconditionally calls `setMillis` with the result of `getChronology().days().add(getMillis(), days)`. This confirms the hypothesis that the method does not check if the amount is zero before performing the calculation, which is the root cause of the incorrect time shift.",
+  "reasoning_summary": "The bug is caused by an unnecessary calculation when the input amount is zero. The fix is to add a check to skip the calculation if the amount is zero. This is a classic Algorithm/Method defect as it involves correcting the procedure of the `add` method.",
+  "evidence_used": [
+    "The source code of `MutableDateTime` shows that `addDays(0)` unconditionally calls `setMillis` with the result of `getChronology().days().add(getMillis(), days)`."
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "While the fix involves adding a check, the root cause is the incorrect implementation of the `add` method which performs unnecessary calculations, making Algorithm/Method a better fit."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "verdict": "none",
+      "evidence_quote": null,
+      "quote_verified": false,
+      "quote_matched": null,
+      "hypothesis": "The `addDays(0)` method (and similar methods like `addMonths`, `addYears`) incorrectly triggers a recalculation of the time zone offset even when the duration added is zero, causing an incorrect shift during DST transitions. This suggests an issue in the `add` implementation within `MutableDateTime` or its underlying `Chronology` where the offset is re-applied or re-calculated unnecessarily.",
+      "leading_type": "Algorithm/Method",
+      "rival_type": "Checking",
+      "prediction": "The `add` methods in `MutableDateTime` or the underlying `DateTimeField` implementation will show that they perform a time zone offset calculation even when the amount to add is zero, whereas `addHours` or `addMinutes` likely have a short-circuit or different path that avoids this.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "source",
+        "argument": "org.joda.time.MutableDateTime"
+      },
+      "observation_number": 1,
+      "observation_summary": [
+        "class_name",
+        "hint",
+        "legend",
+        "outline",
+        "total_lines"
+      ],
+      "observation": "{\n  \"class_name\": \"org.joda.time.MutableDateTime\",\n  \"total_lines\": 1466,\n  \"legend\": \"'*' = line executed by the failing test(s) per recorded coverage\",\n  \"outline\": [\n    {\n      \"line\": 105,\n      \"end_line\": 107,\n      \"signature\": \"public static MutableDateTime now() {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 117,\n      \"end_line\": 122,\n      \"signature\": \"public static MutableDateTime now(DateTimeZone zone) {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 132,\n      \"end_line\": 137,\n      \"signature\": \"public static MutableDateTime now(Chronology chronology) {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 149,\n      \"end_line\": 151,\n      \"signature\": \"public static MutableDateTime parse(String str) {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 160,\n      \"end_line\": 162,\n      \"signature\": \"public static MutableDateTime parse(String str, DateTimeFormatter formatter) {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 171,\n      \"end_line\": 173,\n      \"signature\": \"public MutableDateTime() {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 184,\n      \"end_line\": 186,\n      \"signature\": \"public MutableDateTime(DateTimeZone zone) {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 198,\n      \"end_line\": 200,\n      \"signature\": \"public MutableDateTime(Chronology chronology) {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 209,\n      \"end_line\": 211,\n      \"signature\": \"public MutableDateTime(long instant) {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 222,\n      \"end_line\": 224,\n      \"signature\": \"public MutableDateTime(long instant, DateTimeZone zone) {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 236,\n      \"end_line\": 238,\n      \"signature\": \"public MutableDateTime(long instant, Chronology chronology) {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 256,\n      \"end_line\": 258,\n      \"signature\": \"public MutableDateTime(Object instant) {\",\n      \"executed_lines\": 0\n  ",
+      "observation_truncated": true,
+      "observation_chars": 15230,
+      "duration_seconds": 2.653
+    },
+    {
+      "turn": 2,
+      "verdict": "none",
+      "evidence_quote": null,
+      "quote_verified": false,
+      "quote_matched": null,
+      "hypothesis": "The `addDays(0)` method (and similar methods like `addMonths`, `addYears`) incorrectly triggers a recalculation of the time zone offset even when the duration added is zero, causing an incorrect shift during DST transitions. This suggests an issue in the `add` implementation within `MutableDateTime` or its underlying `Chronology` where the offset is re-applied or re-calculated unnecessarily.",
+      "leading_type": "Algorithm/Method",
+      "rival_type": "Checking",
+      "prediction": "The `add` methods in `MutableDateTime` or the underlying `DateTimeField` implementation will show that they perform a time zone offset calculation even when the amount to add is zero, whereas `addHours` or `addMinutes` likely have a short-circuit or different path that avoids this.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "source",
+        "argument": "org.joda.time.MutableDateTime:635-786"
+      },
+      "observation_number": 2,
+      "observation_summary": [
+        "class_name",
+        "content",
+        "legend",
+        "total_lines"
+      ],
+      "observation": "{\n  \"class_name\": \"org.joda.time.MutableDateTime\",\n  \"total_lines\": 1466,\n  \"legend\": \"'*' = line executed by the failing test(s) per recorded coverage\",\n  \"content\": \"    635:     public void add(DurationFieldType type, int amount) {\\n*   636:         if (type == null) {\\n    637:             throw new IllegalArgumentException(\\\"Field must not be null\\\");\\n    638:         }\\n*   639:             setMillis(type.getField(getChronology()).add(getMillis(), amount));\\n*   640:     }\\n    641: \\n    642:     //-----------------------------------------------------------------------\\n    643:     /**\\n    644:      * Set the year to the specified value.\\n    645:      *\\n    646:      * @param year  the year\\n    647:      * @throws IllegalArgumentException if the value is invalid\\n    648:      */\\n    649:     public void setYear(final int year) {\\n    650:         setMillis(getChronology().year().set(getMillis(), year));\\n    651:     }\\n    652: \\n    653:     /**\\n    654:      * Add a number of years to the date.\\n    655:      *\\n    656:      * @param years  the years to add\\n    657:      * @throws IllegalArgumentException if the value is invalid\\n    658:      */\\n    659:     public void addYears(final int years) {\\n*   660:             setMillis(getChronology().years().add(getMillis(), years));\\n*   661:     }\\n    662: \\n    663:     //-----------------------------------------------------------------------\\n    664:     /**\\n    665:      * Set the weekyear to the specified value.\\n    666:      *\\n    667:      * @param weekyear  the weekyear\\n    668:      * @throws IllegalArgumentException if the value is invalid\\n    669:      */\\n    670:     public void setWeekyear(final int weekyear) {\\n    671:         setMillis(getChronology().weekyear().set(getMillis(), weekyear));\\n    672:     }\\n    673: \\n    674:     /**\\n    675:      * Add a number of weekyears to the date.\\n    676:      *\\n    677:      * @param weekyears  the weekyears to add\\n    678:    ",
+      "observation_truncated": true,
+      "observation_chars": 6633,
+      "duration_seconds": 2.624
+    },
+    {
+      "turn": 3,
+      "verdict": "supported",
+      "evidence_quote": "setMillis(getChronology().days().add(getMillis(), days));",
+      "quote_verified": true,
+      "quote_matched": "observation",
+      "hypothesis": "The `addDays(0)` method (and similar methods like `addMonths`, `addYears`) incorrectly triggers a recalculation of the time zone offset even when the duration added is zero, causing an incorrect shift during DST transitions. This suggests an issue in the `add` implementation within `MutableDateTime` or its underlying `Chronology` where the offset is re-applied or re-calculated unnecessarily.",
+      "leading_type": "Algorithm/Method",
+      "rival_type": "Checking",
+      "prediction": "The `add` methods in `MutableDateTime` or the underlying `DateTimeField` implementation will show that they perform a time zone offset calculation even when the amount to add is zero, whereas `addHours` or `addMinutes` likely have a short-circuit or different path that avoids this.",
+      "action": "conclude",
+      "forced": false,
+      "predicted_fix": "if (amount != 0) { setMillis(getChronology().days().add(getMillis(), days)); }",
+      "conclusion_odc_type": "Algorithm/Method",
+      "evidence_from": 2,
+      "gate_failure": null,
+      "duration_seconds": 4.061
+    }
+  ],
+  "llm_calls_used": 3,
+  "termination_reason": "concluded",
+  "loop_duration_seconds": 9.339,
+  "probe_misses": 0,
+  "gate_rejections": 0,
+  "evidence_gate_passed": true,
+  "predicted_fix": "if (amount != 0) { setMillis(getChronology().days().add(getMillis(), days)); }",
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The `addDays(0)` method in `MutableDateTime` unconditionally calls `setMillis` with the result of `getChronology().days().add(getMillis(), days)`, which triggers a recalculation of the time zone offset even when the amount added is zero. This causes an incorrect shift during DST transitions.\", \"hypothesis\": \"The `addDays(0)` method (and similar methods like `addMonths`, `addYears`) incorrectly triggers a recalculation of the time zone offset even when the duration added is zero, causing an incorrect shift during DST transitions. This suggests an issue in the `add` implementation within `MutableDateTime` or its underlying `Chronology` where the offset is re-applied or re-calculated unnecessarily.\", \"prediction\": \"The `add` methods in `MutableDateTime` or the underlying `DateTimeField` implementation will show that they perform a time zone offset calculation even when the amount to add is zero, whereas `addHours` or `addMinutes` likely have a short-circuit or different path that avoids this.\", \"experiment_rationale\": \"The source code confirms that `addDays(0)` unconditionally calls `setMillis` with the result of `getChronology().days().add(getMillis(), days)`. This confirms the hypothesis that the method does not check if the amount is zero before performing the calculation, which is the root cause of the incorrect time shift.\", \"reasoning_summary\": \"The bug is caused by an unnecessary calculation when the input amount is zero. The fix is to add a check to skip the calculation if the amount is zero. This is a classic Algorithm/Method defect as it involves correcting the procedure of the `add` method.\", \"evidence_used\": [\"The source code of `MutableDateTime` shows that `addDays(0)` unconditionally calls `setMillis` with the result of `getChronology().days().add(getMillis(), days)`.\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Checking\", \"why_not_primary\": \"While the fix involves adding a check, the root cause is the incorrect implementation of the `add` method which performs unnecessary calculations, making Algorithm/Method a better fit.\"}]}",
+  "prompt_version": "v3.1-2026-10-07"
+}

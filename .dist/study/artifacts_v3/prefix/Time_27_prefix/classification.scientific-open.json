@@ -1,0 +1,183 @@
+{
+  "project_id": "Time",
+  "bug_id": 27,
+  "version_id": "27b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite",
+  "provider": "gemini",
+  "created_at": "2026-10-07T12:11:42+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The `parseInt` method in `PeriodFormatterBuilder` uses a custom loop for strings shorter than 10 characters, but delegates to `Integer.parseInt` for strings of length 10 or more. The input \"1003199059\" is 10 characters long and exceeds `Integer.MAX_VALUE` (2,147,483,647), causing `Integer.parseInt` to throw a `NumberFormatException` which is not handled, resulting in the observed `IllegalArgumentException`.",
+  "hypothesis": "The `parseInt` method incorrectly assumes that 10-digit strings will always fit into a 32-bit signed integer, failing when they exceed `Integer.MAX_VALUE`.",
+  "prediction": "The fix will involve using `Long.parseLong` or a more robust parsing mechanism to handle larger numeric values.",
+  "experiment_rationale": "The source code analysis of `parseInt` revealed a clear boundary condition (length >= 10) that triggers a call to `Integer.parseInt` for a 10-digit string that exceeds the maximum integer value.",
+  "reasoning_summary": "The bug is a classic integer overflow/parsing limitation. The code attempts to parse a 10-digit number using `Integer.parseInt`, which fails for values > 2,147,483,647. This is an algorithmic flaw in how the parser handles numeric input ranges.",
+  "evidence_used": [
+    "The stack trace confirms the failure occurs during parsing.",
+    "The source code of `parseInt` shows the problematic delegation to `Integer.parseInt` for strings of length 10."
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "While the code lacks a check for the integer range, the root cause is the choice of an inappropriate parsing method (`Integer.parseInt`) for the expected input range, which is an algorithmic/method implementation issue."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "verdict": "none",
+      "evidence_quote": null,
+      "quote_verified": false,
+      "quote_matched": null,
+      "hypothesis": "The PeriodFormatter is failing to parse the string \"PT1003199059S\" because the internal parser logic for seconds (or the overall period format) is incorrectly handling large numeric values, possibly due to an integer overflow or an incorrect parsing algorithm that expects a smaller range.",
+      "leading_type": "Algorithm/Method",
+      "rival_type": "Checking",
+      "prediction": "The parser will fail at a specific point in the string processing logic where it attempts to convert the numeric substring \"1003199059\" into a numeric type, and this conversion will either overflow or trigger an incorrect validation check.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "full_stack_trace",
+        "argument": "org.joda.time.format.TestPeriodFormatterBuilder::testBug2495455"
+      },
+      "observation_number": 1,
+      "observation_summary": [
+        "traces"
+      ],
+      "observation": "{\n  \"traces\": [\n    {\n      \"test_name\": \"org.joda.time.format.TestPeriodFormatterBuilder::testBug2495455\",\n      \"headline\": \"java.lang.IllegalArgumentException: Invalid format: \\\"PT1003199059S\\\" is malformed at \\\"1003199059S\\\"\",\n      \"stack_trace\": [\n        \"java.lang.IllegalArgumentException: Invalid format: \\\"PT1003199059S\\\" is malformed at \\\"1003199059S\\\"\",\n        \"\\tat org.joda.time.format.PeriodFormatter.parseMutablePeriod(PeriodFormatter.java:326)\",\n        \"\\tat org.joda.time.format.PeriodFormatter.parsePeriod(PeriodFormatter.java:304)\",\n        \"\\tat org.joda.time.format.TestPeriodFormatterBuilder.testBug2495455(TestPeriodFormatterBuilder.java:869)\",\n        \"\\tat java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)\",\n        \"\\tat java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)\",\n        \"\\tat java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)\",\n        \"\\tat java.base/java.lang.reflect.Method.invoke(Method.java:566)\",\n        \"\\tat junit.framework.TestCase.runTest(TestCase.java:176)\",\n        \"\\tat junit.framework.TestCase.runBare(TestCase.java:141)\",\n        \"\\tat junit.framework.TestResult$1.protect(TestResult.java:122)\",\n        \"\\tat junit.framework.TestResult.runProtected(TestResult.java:142)\",\n        \"\\tat junit.framework.TestResult.run(TestResult.java:125)\",\n        \"\\tat junit.framework.TestCase.run(TestCase.java:129)\",\n        \"\\tat junit.framework.TestSuite.runTest(TestSuite.java:252)\",\n        \"\\tat junit.framework.TestSuite.run(TestSuite.java:247)\",\n        \"\\tat org.apache.tools.ant.taskdefs.optional.junit.JUnitTestRunner.run(JUnitTestRunner.java:520)\",\n        \"\\tat org.apache.tools.ant.taskdefs.optional.junit.JUnitTask.executeInVM(JUnitTask.java:1492)\",\n        \"\\tat org.apache.tools.ant.taskdefs.optional.junit.JUnitTask.executeTests(JUnitTask.java:878)\",\n        \"\\tat org.apache.tools.ant.taskdefs.optional.j",
+      "observation_truncated": true,
+      "observation_chars": 3568,
+      "duration_seconds": 2.873
+    },
+    {
+      "turn": 2,
+      "verdict": "supported",
+      "evidence_quote": "java.lang.IllegalArgumentException: Invalid format: \"PT1003199059S\" is malformed at \"1003199059S\"",
+      "quote_verified": true,
+      "quote_matched": "observation",
+      "hypothesis": "The PeriodFormatter is failing to parse the string \"PT1003199059S\" because the internal parser logic for seconds (or the overall period format) is incorrectly handling large numeric values, possibly due to an integer overflow or an incorrect parsing algorithm that expects a smaller range.",
+      "leading_type": "Algorithm/Method",
+      "rival_type": "Checking",
+      "prediction": "The parser will fail at a specific point in the string processing logic where it attempts to convert the numeric substring \"1003199059\" into a numeric type, and this conversion will either overflow or trigger an incorrect validation check.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "source",
+        "argument": "org.joda.time.format.PeriodFormatterBuilder"
+      },
+      "observation_number": 2,
+      "observation_summary": [
+        "class_name",
+        "hint",
+        "legend",
+        "outline",
+        "total_lines"
+      ],
+      "observation": "{\n  \"class_name\": \"org.joda.time.format.PeriodFormatterBuilder\",\n  \"total_lines\": 1866,\n  \"legend\": \"'*' = line executed by the failing test(s) per recorded coverage\",\n  \"outline\": [\n    {\n      \"line\": 101,\n      \"end_line\": 103,\n      \"signature\": \"public PeriodFormatterBuilder() {\",\n      \"executed_lines\": 3\n    },\n    {\n      \"line\": 122,\n      \"end_line\": 126,\n      \"signature\": \"public PeriodFormatter toFormatter() {\",\n      \"executed_lines\": 3\n    },\n    {\n      \"line\": 140,\n      \"end_line\": 145,\n      \"signature\": \"public PeriodPrinter toPrinter() {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 159,\n      \"end_line\": 164,\n      \"signature\": \"public PeriodParser toParser() {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 170,\n      \"end_line\": 184,\n      \"signature\": \"public void clear() {\",\n      \"executed_lines\": 11\n    },\n    {\n      \"line\": 191,\n      \"end_line\": 198,\n      \"signature\": \"public PeriodFormatterBuilder append(PeriodFormatter formatter) {\",\n      \"executed_lines\": 4\n    },\n    {\n      \"line\": 211,\n      \"end_line\": 218,\n      \"signature\": \"public PeriodFormatterBuilder append(PeriodPrinter printer, PeriodParser parser) {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 227,\n      \"end_line\": 235,\n      \"signature\": \"public PeriodFormatterBuilder appendLiteral(String text) {\",\n      \"executed_lines\": 5\n    },\n    {\n      \"line\": 244,\n      \"end_line\": 247,\n      \"signature\": \"public PeriodFormatterBuilder minimumPrintedDigits(int minDigits) {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 255,\n      \"end_line\": 258,\n      \"signature\": \"public PeriodFormatterBuilder maximumParsedDigits(int maxDigits) {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 265,\n      \"end_line\": 268,\n      \"signature\": \"public PeriodFormatterBuilder rejectSignedValues(boolean v) {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 279,\n      \"end_line\": 282,\n      \"signature\": \"public PeriodFormatterBuilder printZeroRarelyLa",
+      "observation_truncated": true,
+      "observation_chars": 15605,
+      "duration_seconds": 2.691
+    },
+    {
+      "turn": 3,
+      "verdict": "supported",
+      "evidence_quote": "java.lang.IllegalArgumentException: Invalid format: \"PT1003199059S\" is malformed at \"1003199059S\"",
+      "quote_verified": true,
+      "quote_matched": "observation",
+      "hypothesis": "The PeriodFormatter is failing to parse the string \"PT1003199059S\" because the internal parser logic for seconds (or the overall period format) is incorrectly handling large numeric values, possibly due to an integer overflow or an incorrect parsing algorithm that expects a smaller range.",
+      "leading_type": "Algorithm/Method",
+      "rival_type": "Checking",
+      "prediction": "The parser will fail at a specific point in the string processing logic where it attempts to convert the numeric substring \"1003199059\" into a numeric type, and this conversion will either overflow or trigger an incorrect validation check.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "source",
+        "argument": "org.joda.time.format.PeriodFormatterBuilder:1180-1373"
+      },
+      "observation_number": 3,
+      "observation_summary": [
+        "class_name",
+        "content",
+        "legend",
+        "total_lines"
+      ],
+      "observation": "{\n  \"class_name\": \"org.joda.time.format.PeriodFormatterBuilder\",\n  \"total_lines\": 1866,\n  \"legend\": \"'*' = line executed by the failing test(s) per recorded coverage\",\n  \"content\": \"   1180:         public int parseInto(\\n   1181:                 ReadWritablePeriod period, String text, \\n   1182:                 int position, Locale locale) {\\n   1183: \\n   1184:             boolean mustParse = (iPrintZeroSetting == PRINT_ZERO_ALWAYS);\\n   1185: \\n   1186:             // Shortcut test.\\n   1187:             if (position >= text.length()) {\\n   1188:                 return mustParse ? ~position : position;\\n   1189:             }\\n   1190: \\n   1191:             if (iPrefix != null) {\\n   1192:                 position = iPrefix.parse(text, position);\\n   1193:                 if (position >= 0) {\\n   1194:                     // If prefix is found, then the parse must finish.\\n   1195:                     mustParse = true;\\n   1196:                 } else {\\n   1197:                     // Prefix not found, so bail.\\n   1198:                     if (!mustParse) {\\n   1199:                         // It's okay because parsing of this field is not\\n   1200:                         // required. Don't return an error. Fields down the\\n   1201:                         // chain can continue on, trying to parse.\\n   1202:                         return ~position;\\n   1203:                     }\\n   1204:                     return position;\\n   1205:                 }\\n   1206:             }\\n   1207: \\n   1208:             int suffixPos = -1;\\n   1209:             if (iSuffix != null && !mustParse) {\\n   1210:                 // Pre-scan the suffix, to help determine if this field must be\\n   1211:                 // parsed.\\n   1212:                 suffixPos = iSuffix.scan(text, position);\\n   1213:                 if (suffixPos >= 0) {\\n   1214:                     // If suffix is found, then parse must finish.\\n   1215:                     mustParse = true;\\n   1216: ",
+      "observation_truncated": true,
+      "observation_chars": 7787,
+      "duration_seconds": 2.732
+    },
+    {
+      "turn": 4,
+      "verdict": "supported",
+      "evidence_quote": "setFieldValue(period, iFieldType, parseInt(text, position, length));",
+      "quote_verified": true,
+      "quote_matched": "observation",
+      "hypothesis": "The parser uses `parseInt` to convert the numeric string to an integer. The input \"1003199059\" exceeds `Integer.MAX_VALUE` (2,147,483,647), but it is close enough that it might be a parsing logic error where the code assumes the value will always fit in an `int`. However, the error message \"malformed at\" suggests the parser is failing to recognize the number as a valid integer, likely because `parseInt` is throwing an exception or returning an error code that the `PeriodFormatter` interprets as a malformed string.",
+      "leading_type": "Algorithm/Method",
+      "rival_type": "Checking",
+      "prediction": "The `parseInt` method (which is likely a simple wrapper around `Integer.parseInt`) will throw a `NumberFormatException` or return a value that causes the `PeriodFormatter` to fail when the input string represents a number larger than `Integer.MAX_VALUE`.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "source",
+        "argument": "org.joda.time.format.PeriodFormatterBuilder:1348-1373"
+      },
+      "observation_number": 4,
+      "observation_summary": [
+        "class_name",
+        "content",
+        "legend",
+        "total_lines"
+      ],
+      "observation": "{\n  \"class_name\": \"org.joda.time.format.PeriodFormatterBuilder\",\n  \"total_lines\": 1866,\n  \"legend\": \"'*' = line executed by the failing test(s) per recorded coverage\",\n  \"content\": \"   1348:         private int parseInt(String text, int position, int length) {\\n   1349:             if (length >= 10) {\\n   1350:                 // Since value may exceed max, use stock parser which checks for this.\\n   1351:                 return Integer.parseInt(text.substring(position, position + length));\\n   1352:             }\\n   1353:             if (length <= 0) {\\n   1354:                 return 0;\\n   1355:             }\\n   1356:             int value = text.charAt(position++);\\n   1357:             length--;\\n   1358:             boolean negative;\\n   1359:             if (value == '-') {\\n   1360:                 if (--length < 0) {\\n   1361:                     return 0;\\n   1362:                 }\\n   1363:                 negative = true;\\n   1364:                 value = text.charAt(position++);\\n   1365:             } else {\\n   1366:                 negative = false;\\n   1367:             }\\n   1368:             value -= '0';\\n   1369:             while (length-- > 0) {\\n   1370:                 value = ((value << 3) + (value << 1)) + text.charAt(position++) - '0';\\n   1371:             }\\n   1372:             return negative ? -value : value;\\n   1373:         }\"\n}",
+      "observation_truncated": false,
+      "observation_chars": 1389,
+      "duration_seconds": 3.322
+    },
+    {
+      "turn": 5,
+      "verdict": "supported",
+      "evidence_quote": "if (length >= 10) {\n                // Since value may exceed max, use stock parser which checks for this.\n                return Integer.parseInt(text.substring(position, position + length));\n            }",
+      "quote_verified": true,
+      "quote_matched": "observation",
+      "hypothesis": "The `parseInt` method uses a custom loop for lengths < 10, but for lengths >= 10, it delegates to `Integer.parseInt`. The input \"1003199059\" has length 10. `Integer.parseInt` throws a `NumberFormatException` if the string represents a value outside the range of a 32-bit signed integer. The `PeriodFormatter` catches this exception (or the `parseInt` call fails) and returns a negative value (via `~position`), which the `PeriodFormatter` interprets as a parsing failure, leading to the `IllegalArgumentException` observed.",
+      "leading_type": "Algorithm/Method",
+      "rival_type": "Checking",
+      "prediction": "The fix will involve changing the parsing logic to handle values that exceed `Integer.MAX_VALUE` by using `Long.parseLong` or by adjusting the logic to handle larger numbers, as the current implementation incorrectly assumes that a 10-digit number will always fit in an `int` or that `Integer.parseInt` is sufficient.",
+      "action": "conclude",
+      "forced": false,
+      "predicted_fix": "Change the `parseInt` method to use `Long.parseLong` for strings that might exceed `Integer.MAX_VALUE`, or update the logic to handle larger numeric values correctly.",
+      "conclusion_odc_type": "Algorithm/Method",
+      "evidence_from": 4,
+      "gate_failure": null,
+      "duration_seconds": 4.819
+    }
+  ],
+  "llm_calls_used": 5,
+  "termination_reason": "concluded",
+  "loop_duration_seconds": 16.437,
+  "probe_misses": 0,
+  "gate_rejections": 0,
+  "evidence_gate_passed": true,
+  "predicted_fix": "Change the `parseInt` method to use `Long.parseLong` for strings that might exceed `Integer.MAX_VALUE`, or update the logic to handle larger numeric values correctly.",
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The `parseInt` method in `PeriodFormatterBuilder` uses a custom loop for strings shorter than 10 characters, but delegates to `Integer.parseInt` for strings of length 10 or more. The input \\\"1003199059\\\" is 10 characters long and exceeds `Integer.MAX_VALUE` (2,147,483,647), causing `Integer.parseInt` to throw a `NumberFormatException` which is not handled, resulting in the observed `IllegalArgumentException`.\", \"hypothesis\": \"The `parseInt` method incorrectly assumes that 10-digit strings will always fit into a 32-bit signed integer, failing when they exceed `Integer.MAX_VALUE`.\", \"prediction\": \"The fix will involve using `Long.parseLong` or a more robust parsing mechanism to handle larger numeric values.\", \"experiment_rationale\": \"The source code analysis of `parseInt` revealed a clear boundary condition (length >= 10) that triggers a call to `Integer.parseInt` for a 10-digit string that exceeds the maximum integer value.\", \"reasoning_summary\": \"The bug is a classic integer overflow/parsing limitation. The code attempts to parse a 10-digit number using `Integer.parseInt`, which fails for values > 2,147,483,647. This is an algorithmic flaw in how the parser handles numeric input ranges.\", \"evidence_used\": [\"The stack trace confirms the failure occurs during parsing.\", \"The source code of `parseInt` shows the problematic delegation to `Integer.parseInt` for strings of length 10.\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Checking\", \"why_not_primary\": \"While the code lacks a check for the integer range, the root cause is the choice of an inappropriate parsing method (`Integer.parseInt`) for the expected input range, which is an algorithmic/method implementation issue.\"}]}",
+  "prompt_version": "v3.1-2026-10-07"
+}

@@ -1,0 +1,124 @@
+{
+  "project_id": "Time",
+  "bug_id": 3,
+  "version_id": "3b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite",
+  "provider": "gemini",
+  "created_at": "2026-10-07T07:49:00+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The `addDays(0)` method in `MutableDateTime` unconditionally calls `setMillis` with a recalculated value, which causes an incorrect DST adjustment when the input is zero. The fix is to add a conditional check to skip the calculation if the input is zero.",
+  "hypothesis": "The `addDays(0)` (and similar methods) in `MutableDateTime` incorrectly recalculates the time even when the amount to add is zero, which triggers a DST-related adjustment that changes the time zone offset unexpectedly. Adding a check to skip the calculation when the amount is zero will prevent this unnecessary and incorrect adjustment.",
+  "prediction": "The `MutableDateTime` methods like `addDays` will be found to perform a `setMillis` call unconditionally, even when the input `days` is 0, and the fix will be to wrap this call in a conditional check `if (days != 0)`.",
+  "experiment_rationale": "The source code probe confirmed that `addDays` performs the calculation unconditionally. This confirms the hypothesis that a missing check is the root cause.",
+  "reasoning_summary": "The bug is a classic 'missing check' scenario where an operation is performed even when it is logically unnecessary (adding zero), and this unnecessary operation triggers a side effect (DST adjustment) that is incorrect. This fits the ODC definition of 'Checking' perfectly.",
+  "evidence_used": [
+    "The failing test shows that `addDays(0)` changes the time.",
+    "The source code shows `addDays` calls `setMillis` unconditionally."
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The fix is not changing the algorithm itself, but rather adding a guard to prevent the algorithm from running when it shouldn't."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "post-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "verdict": "none",
+      "evidence_quote": null,
+      "quote_verified": false,
+      "hypothesis": "The `addDays(0)` (and similar methods) in `MutableDateTime` incorrectly recalculates the time even when the amount to add is zero, which triggers a DST-related adjustment that changes the time zone offset unexpectedly. Adding a check to skip the calculation when the amount is zero will prevent this unnecessary and incorrect adjustment.",
+      "leading_type": "Checking",
+      "rival_type": "Algorithm/Method",
+      "prediction": "The `MutableDateTime` methods like `addDays` will be found to perform a `setMillis` call unconditionally, even when the input `days` is 0, and the fix will be to wrap this call in a conditional check `if (days != 0)`.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "source",
+        "argument": "org.joda.time.MutableDateTime"
+      },
+      "observation_summary": [
+        "class_name",
+        "hint",
+        "legend",
+        "outline",
+        "total_lines"
+      ],
+      "observation": "{\n  \"class_name\": \"org.joda.time.MutableDateTime\",\n  \"total_lines\": 1466,\n  \"legend\": \"'*' = line executed by the failing test(s) per recorded coverage\",\n  \"outline\": [\n    {\n      \"line\": 105,\n      \"end_line\": 107,\n      \"signature\": \"public static MutableDateTime now() {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 117,\n      \"end_line\": 122,\n      \"signature\": \"public static MutableDateTime now(DateTimeZone zone) {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 132,\n      \"end_line\": 137,\n      \"signature\": \"public static MutableDateTime now(Chronology chronology) {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 149,\n      \"end_line\": 151,\n      \"signature\": \"public static MutableDateTime parse(String str) {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 160,\n      \"end_line\": 162,\n      \"signature\": \"public static MutableDateTime parse(String str, DateTimeFormatter formatter) {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 171,\n      \"end_line\": 173,\n      \"signature\": \"public MutableDateTime() {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 184,\n      \"end_line\": 186,\n      \"signature\": \"public MutableDateTime(DateTimeZone zone) {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 198,\n      \"end_line\": 200,\n      \"signature\": \"public MutableDateTime(Chronology chronology) {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 209,\n      \"end_line\": 211,\n      \"signature\": \"public MutableDateTime(long instant) {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 222,\n      \"end_line\": 224,\n      \"signature\": \"public MutableDateTime(long instant, DateTimeZone zone) {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 236,\n      \"end_line\": 238,\n      \"signature\": \"public MutableDateTime(long instant, Chronology chronology) {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 256,\n      \"end_line\": 258,\n      \"signature\": \"public MutableDateTime(Object instant) {\",\n      \"executed_lines\": 0\n  ",
+      "observation_truncated": true,
+      "observation_chars": 15230,
+      "duration_seconds": 2.495
+    },
+    {
+      "turn": 2,
+      "verdict": "supported",
+      "evidence_quote": "test.addDays(0);",
+      "quote_verified": false,
+      "hypothesis": "The `addDays(0)` (and similar methods) in `MutableDateTime` incorrectly recalculates the time even when the amount to add is zero, which triggers a DST-related adjustment that changes the time zone offset unexpectedly. Adding a check to skip the calculation when the amount is zero will prevent this unnecessary and incorrect adjustment.",
+      "leading_type": "Checking",
+      "rival_type": "Algorithm/Method",
+      "prediction": "The `MutableDateTime` methods like `addDays` will be found to perform a `setMillis` call unconditionally, even when the input `days` is 0, and the fix will be to wrap this call in a conditional check `if (days != 0)`.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "source",
+        "argument": "org.joda.time.MutableDateTime:763-765"
+      },
+      "observation_summary": [
+        "class_name",
+        "content",
+        "legend",
+        "total_lines"
+      ],
+      "observation": "{\n  \"class_name\": \"org.joda.time.MutableDateTime\",\n  \"total_lines\": 1466,\n  \"legend\": \"'*' = line executed by the failing test(s) per recorded coverage\",\n  \"content\": \"    763:     public void addDays(final int days) {\\n*   764:             setMillis(getChronology().days().add(getMillis(), days));\\n*   765:     }\"\n}",
+      "observation_truncated": false,
+      "observation_chars": 317,
+      "duration_seconds": 5.716
+    },
+    {
+      "turn": 3,
+      "verdict": "supported",
+      "evidence_quote": "setMillis(getChronology().days().add(getMillis(), days));",
+      "quote_verified": true,
+      "hypothesis": "The `addDays(0)` (and similar methods) in `MutableDateTime` incorrectly recalculates the time even when the amount to add is zero, which triggers a DST-related adjustment that changes the time zone offset unexpectedly. Adding a check to skip the calculation when the amount is zero will prevent this unnecessary and incorrect adjustment.",
+      "leading_type": "Checking",
+      "rival_type": "Algorithm/Method",
+      "prediction": "The `MutableDateTime` methods like `addDays` will be found to perform a `setMillis` call unconditionally, even when the input `days` is 0, and the fix will be to wrap this call in a conditional check `if (days != 0)`.",
+      "action": "conclude",
+      "forced": false,
+      "predicted_fix": "if (days != 0) { setMillis(getChronology().days().add(getMillis(), days)); }",
+      "conclusion_odc_type": "Checking",
+      "gate_failure": null,
+      "duration_seconds": 15.968
+    }
+  ],
+  "llm_calls_used": 3,
+  "termination_reason": "concluded",
+  "loop_duration_seconds": 24.179,
+  "probe_misses": 0,
+  "gate_rejections": 0,
+  "evidence_gate_passed": true,
+  "predicted_fix": "if (days != 0) { setMillis(getChronology().days().add(getMillis(), days)); }",
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The `addDays(0)` method in `MutableDateTime` unconditionally calls `setMillis` with a recalculated value, which causes an incorrect DST adjustment when the input is zero. The fix is to add a conditional check to skip the calculation if the input is zero.\", \"hypothesis\": \"The `addDays(0)` (and similar methods) in `MutableDateTime` incorrectly recalculates the time even when the amount to add is zero, which triggers a DST-related adjustment that changes the time zone offset unexpectedly. Adding a check to skip the calculation when the amount is zero will prevent this unnecessary and incorrect adjustment.\", \"prediction\": \"The `MutableDateTime` methods like `addDays` will be found to perform a `setMillis` call unconditionally, even when the input `days` is 0, and the fix will be to wrap this call in a conditional check `if (days != 0)`.\", \"experiment_rationale\": \"The source code probe confirmed that `addDays` performs the calculation unconditionally. This confirms the hypothesis that a missing check is the root cause.\", \"reasoning_summary\": \"The bug is a classic 'missing check' scenario where an operation is performed even when it is logically unnecessary (adding zero), and this unnecessary operation triggers a side effect (DST adjustment) that is incorrect. This fits the ODC definition of 'Checking' perfectly.\", \"evidence_used\": [\"The failing test shows that `addDays(0)` changes the time.\", \"The source code shows `addDays` calls `setMillis` unconditionally.\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"The fix is not changing the algorithm itself, but rather adding a guard to prevent the algorithm from running when it shouldn't.\"}]}",
+  "prompt_version": "v3-2026-10-05"
+}

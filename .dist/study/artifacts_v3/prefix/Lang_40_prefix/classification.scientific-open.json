@@ -1,0 +1,100 @@
+{
+  "project_id": "Lang",
+  "bug_id": 40,
+  "version_id": "40b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite",
+  "provider": "gemini",
+  "created_at": "2026-10-07T12:06:47+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The method StringUtils.containsIgnoreCase uses locale-sensitive String.toUpperCase() without specifying a Locale, leading to incorrect results for specific characters in different locales.",
+  "hypothesis": "The method StringUtils.containsIgnoreCase uses String.toUpperCase() without a Locale, which is locale-sensitive and causes incorrect behavior for certain characters (like the German sharp S '\u00df' which converts to 'SS' in some locales but not others). The fix is to use String.toUpperCase(Locale.ENGLISH) or a similar locale-independent approach.",
+  "prediction": "Changing the implementation to use String.toUpperCase(Locale.ENGLISH) will resolve the failing test case.",
+  "experiment_rationale": "The source code confirmed the use of locale-sensitive toUpperCase() without arguments, which directly explains the locale-dependent failure observed in the test.",
+  "reasoning_summary": "The bug is a classic case of locale-sensitive string manipulation causing incorrect results. The fix involves changing the algorithm to use a locale-independent case conversion, which fits the 'Algorithm/Method' ODC type as it corrects the procedure used for comparison.",
+  "evidence_used": [
+    "return contains(str.toUpperCase(), searchStr.toUpperCase());"
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "The error is not in the validation of parameters (the inputs are valid strings), but in the algorithm used to perform the case-insensitive comparison."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "verdict": "none",
+      "evidence_quote": null,
+      "quote_verified": false,
+      "quote_matched": null,
+      "hypothesis": "The method StringUtils.containsIgnoreCase uses String.toUpperCase() or String.toLowerCase() without specifying a Locale, making it locale-sensitive. In some locales (like Turkish or when dealing with special characters like the German sharp S '\u00df'), the case conversion behaves unexpectedly, causing the assertion failure.",
+      "leading_type": "Algorithm/Method",
+      "rival_type": "Checking",
+      "prediction": "The source code of StringUtils.containsIgnoreCase will show a call to toUpperCase() or toLowerCase() without a Locale argument.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "source",
+        "argument": "org.apache.commons.lang.StringUtils#containsIgnoreCase"
+      },
+      "observation_number": 1,
+      "observation_summary": [
+        "class_name",
+        "content",
+        "legend",
+        "total_lines"
+      ],
+      "observation": "{\n  \"class_name\": \"org.apache.commons.lang.StringUtils\",\n  \"total_lines\": 5767,\n  \"legend\": \"'*' = line executed by the failing test(s) per recorded coverage\",\n  \"content\": \"   1044:     public static boolean containsIgnoreCase(String str, String searchStr) {\\n*  1045:         if (str == null || searchStr == null) {\\n   1046:             return false;\\n   1047:         }\\n*  1048:         return contains(str.toUpperCase(), searchStr.toUpperCase());\\n   1049:     }\"\n}",
+      "observation_truncated": false,
+      "observation_chars": 471,
+      "duration_seconds": 6.616
+    },
+    {
+      "turn": 2,
+      "verdict": "supported",
+      "evidence_quote": "return contains(str.toUpperCase(), searchStr.toUpperCase());",
+      "quote_verified": true,
+      "quote_matched": "observation",
+      "hypothesis": "The method StringUtils.containsIgnoreCase uses String.toUpperCase() without a Locale, which is locale-sensitive and causes incorrect behavior for certain characters (like the German sharp S '\u00df' which converts to 'SS' in some locales but not others). The fix is to use String.toUpperCase(Locale.ENGLISH) or a similar locale-independent approach.",
+      "leading_type": "Algorithm/Method",
+      "rival_type": "Checking",
+      "prediction": "Changing the implementation to use String.toUpperCase(Locale.ENGLISH) will resolve the failing test case.",
+      "action": "conclude",
+      "forced": false,
+      "predicted_fix": "return contains(str.toUpperCase(Locale.ENGLISH), searchStr.toUpperCase(Locale.ENGLISH));",
+      "conclusion_odc_type": "Algorithm/Method",
+      "evidence_from": 1,
+      "gate_failure": null,
+      "duration_seconds": 14.974
+    }
+  ],
+  "llm_calls_used": 2,
+  "termination_reason": "concluded",
+  "loop_duration_seconds": 21.59,
+  "probe_misses": 0,
+  "gate_rejections": 0,
+  "evidence_gate_passed": true,
+  "predicted_fix": "return contains(str.toUpperCase(Locale.ENGLISH), searchStr.toUpperCase(Locale.ENGLISH));",
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The method StringUtils.containsIgnoreCase uses locale-sensitive String.toUpperCase() without specifying a Locale, leading to incorrect results for specific characters in different locales.\", \"hypothesis\": \"The method StringUtils.containsIgnoreCase uses String.toUpperCase() without a Locale, which is locale-sensitive and causes incorrect behavior for certain characters (like the German sharp S '\\u00df' which converts to 'SS' in some locales but not others). The fix is to use String.toUpperCase(Locale.ENGLISH) or a similar locale-independent approach.\", \"prediction\": \"Changing the implementation to use String.toUpperCase(Locale.ENGLISH) will resolve the failing test case.\", \"experiment_rationale\": \"The source code confirmed the use of locale-sensitive toUpperCase() without arguments, which directly explains the locale-dependent failure observed in the test.\", \"reasoning_summary\": \"The bug is a classic case of locale-sensitive string manipulation causing incorrect results. The fix involves changing the algorithm to use a locale-independent case conversion, which fits the 'Algorithm/Method' ODC type as it corrects the procedure used for comparison.\", \"evidence_used\": [\"return contains(str.toUpperCase(), searchStr.toUpperCase());\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Checking\", \"why_not_primary\": \"The error is not in the validation of parameters (the inputs are valid strings), but in the algorithm used to perform the case-insensitive comparison.\"}]}",
+  "prompt_version": "v3.1-2026-10-07"
+}

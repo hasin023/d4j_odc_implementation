@@ -1,0 +1,129 @@
+{
+  "project_id": "Chart",
+  "bug_id": 18,
+  "version_id": "18b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite",
+  "provider": "gemini",
+  "created_at": "2026-10-07T13:49:36+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The removeValue(int) method conditionally calls rebuildIndex() only if the removed index is less than the new size of the keys list. When the last element is removed, the indexMap is not updated, leading to stale entries that cause subsequent operations to fail.",
+  "hypothesis": "The conditional check in removeValue(int) prevents the indexMap from being updated when the last element is removed, causing data structure inconsistency.",
+  "prediction": "Always calling rebuildIndex() will ensure the indexMap remains consistent with the keys and values lists.",
+  "experiment_rationale": "The source code inspection of removeValue(int) revealed the flawed conditional logic that skips index rebuilding when the last element is removed.",
+  "reasoning_summary": "The bug is a classic data structure maintenance error where the internal index map becomes desynchronized from the actual data lists. This is an algorithmic flaw in the maintenance procedure of the class.",
+  "evidence_used": [
+    "The source code of removeValue(int) shows the conditional skip of rebuildIndex()."
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Assignment/Initialization",
+      "why_not_primary": "The issue is not about an incorrect value assignment, but about the failure to execute the necessary maintenance algorithm (rebuildIndex) to keep the data structure consistent."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "verdict": "none",
+      "evidence_quote": null,
+      "quote_verified": false,
+      "quote_matched": null,
+      "hypothesis": "The IndexOutOfBoundsException in DefaultKeyedValues.setValue occurs because the method assumes that if getIndex(key) returns -1, the key is not present and it should add a new entry, but the internal state (keys/values lists and indexMap) might be inconsistent after a removal operation, leading to an incorrect index or size calculation.",
+      "leading_type": "Algorithm/Method",
+      "rival_type": "Assignment/Initialization",
+      "prediction": "The source code for DefaultKeyedValues.removeValue will show that it removes the key from the keys/values lists but fails to update or clear the indexMap, causing subsequent lookups or additions to use stale index information.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "source",
+        "argument": "org.jfree.data.DefaultKeyedValues"
+      },
+      "observation_number": 1,
+      "observation_summary": [
+        "class_name",
+        "hint",
+        "legend",
+        "outline",
+        "total_lines"
+      ],
+      "observation": "{\n  \"class_name\": \"org.jfree.data.DefaultKeyedValues\",\n  \"total_lines\": 471,\n  \"legend\": \"'*' = line executed by the failing test(s) per recorded coverage\",\n  \"outline\": [\n    {\n      \"line\": 98,\n      \"end_line\": 102,\n      \"signature\": \"public DefaultKeyedValues() {\",\n      \"executed_lines\": 5\n    },\n    {\n      \"line\": 109,\n      \"end_line\": 111,\n      \"signature\": \"public int getItemCount() {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 122,\n      \"end_line\": 124,\n      \"signature\": \"public Number getValue(int item) {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 135,\n      \"end_line\": 137,\n      \"signature\": \"public Comparable getKey(int index) {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 149,\n      \"end_line\": 158,\n      \"signature\": \"public int getIndex(Comparable key) {\",\n      \"executed_lines\": 5\n    },\n    {\n      \"line\": 165,\n      \"end_line\": 167,\n      \"signature\": \"public List getKeys() {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 180,\n      \"end_line\": 186,\n      \"signature\": \"public Number getValue(Comparable key) {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 196,\n      \"end_line\": 198,\n      \"signature\": \"public void addValue(Comparable key, double value) {\",\n      \"executed_lines\": 2\n    },\n    {\n      \"line\": 208,\n      \"end_line\": 210,\n      \"signature\": \"public void addValue(Comparable key, Number value) {\",\n      \"executed_lines\": 2\n    },\n    {\n      \"line\": 218,\n      \"end_line\": 220,\n      \"signature\": \"public void setValue(Comparable key, double value) {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 228,\n      \"end_line\": 242,\n      \"signature\": \"public void setValue(Comparable key, Number value) {\",\n      \"executed_lines\": 8\n    },\n    {\n      \"line\": 255,\n      \"end_line\": 257,\n      \"signature\": \"public void insertValue(int position, Comparable key, double value) {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 270,\n      \"end_line\": 292,\n      \"signature\": \"public vo",
+      "observation_truncated": true,
+      "observation_chars": 3459,
+      "duration_seconds": 28.453
+    },
+    {
+      "turn": 2,
+      "verdict": "supported",
+      "evidence_quote": "public void removeValue(Comparable key) { int index = getIndex(key); if (index < 0) { throw new UnknownKeyException(\"Key not found: \" + key); } removeValue(index); }",
+      "quote_verified": false,
+      "quote_matched": null,
+      "hypothesis": "The removeValue(Comparable) method removes the key from the internal lists but fails to update the indexMap, leaving stale entries. When a new value is added with the same key, the indexMap still points to the old index, which is now invalid or points to a different element, causing the IndexOutOfBoundsException in setValue.",
+      "leading_type": "Algorithm/Method",
+      "rival_type": "Assignment/Initialization",
+      "prediction": "The removeValue(int) method will show that it removes the element from the lists but does not call rebuildIndex() or update the indexMap, confirming the inconsistency.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "source",
+        "argument": "org.jfree.data.DefaultKeyedValues:315-340"
+      },
+      "observation_number": 2,
+      "observation_summary": [
+        "class_name",
+        "content",
+        "legend",
+        "total_lines"
+      ],
+      "observation": "{\n  \"class_name\": \"org.jfree.data.DefaultKeyedValues\",\n  \"total_lines\": 471,\n  \"legend\": \"'*' = line executed by the failing test(s) per recorded coverage\",\n  \"content\": \"    315:     public void removeValue(int index) {\\n*   316:         this.keys.remove(index);\\n*   317:         this.values.remove(index);\\n*   318:         if (index < this.keys.size()) {\\n*   319:         rebuildIndex();\\n    320:         }\\n*   321:     }\\n    322: \\n    323:     /**\\n    324:      * Removes a value from the collection.\\n    325:      *\\n    326:      * @param key  the item key (<code>null</code> not permitted).\\n    327:      * \\n    328:      * @throws IllegalArgumentException if <code>key</code> is \\n    329:      *     <code>null</code>.\\n    330:      * @throws UnknownKeyException if <code>key</code> is not recognised.\\n    331:      */\\n    332:     public void removeValue(Comparable key) {\\n*   333:         int index = getIndex(key);\\n*   334:         if (index < 0) {\\n*   335: \\t\\t\\treturn;\\n    336:         }\\n*   337:         removeValue(index);\\n*   338:     }\\n    339:     \\n    340:     /**\"\n}",
+      "observation_truncated": false,
+      "observation_chars": 1109,
+      "duration_seconds": 17.936
+    },
+    {
+      "turn": 3,
+      "verdict": "supported",
+      "evidence_quote": "if (index < this.keys.size()) { rebuildIndex(); }",
+      "quote_verified": true,
+      "quote_matched": "observation",
+      "hypothesis": "The removeValue(int) method only calls rebuildIndex() if the removed index is less than the new size of the keys list. If the last element is removed, the condition (index < this.keys.size()) is false, so rebuildIndex() is skipped. This leaves the indexMap containing a stale entry for the removed key, which causes subsequent operations (like setValue) to find an incorrect index or fail.",
+      "leading_type": "Algorithm/Method",
+      "rival_type": "Assignment/Initialization",
+      "prediction": "Removing the condition 'if (index < this.keys.size())' and always calling rebuildIndex() will fix the inconsistency and the IndexOutOfBoundsException.",
+      "action": "conclude",
+      "forced": false,
+      "predicted_fix": "Remove the 'if (index < this.keys.size())' check in removeValue(int) so that rebuildIndex() is always called.",
+      "conclusion_odc_type": "Algorithm/Method",
+      "evidence_from": 2,
+      "gate_failure": null,
+      "duration_seconds": 37.103
+    }
+  ],
+  "llm_calls_used": 3,
+  "termination_reason": "concluded",
+  "loop_duration_seconds": 83.492,
+  "probe_misses": 0,
+  "gate_rejections": 0,
+  "evidence_gate_passed": true,
+  "predicted_fix": "Remove the 'if (index < this.keys.size())' check in removeValue(int) so that rebuildIndex() is always called.",
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The removeValue(int) method conditionally calls rebuildIndex() only if the removed index is less than the new size of the keys list. When the last element is removed, the indexMap is not updated, leading to stale entries that cause subsequent operations to fail.\", \"hypothesis\": \"The conditional check in removeValue(int) prevents the indexMap from being updated when the last element is removed, causing data structure inconsistency.\", \"prediction\": \"Always calling rebuildIndex() will ensure the indexMap remains consistent with the keys and values lists.\", \"experiment_rationale\": \"The source code inspection of removeValue(int) revealed the flawed conditional logic that skips index rebuilding when the last element is removed.\", \"reasoning_summary\": \"The bug is a classic data structure maintenance error where the internal index map becomes desynchronized from the actual data lists. This is an algorithmic flaw in the maintenance procedure of the class.\", \"evidence_used\": [\"The source code of removeValue(int) shows the conditional skip of rebuildIndex().\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Assignment/Initialization\", \"why_not_primary\": \"The issue is not about an incorrect value assignment, but about the failure to execute the necessary maintenance algorithm (rebuildIndex) to keep the data structure consistent.\"}]}",
+  "prompt_version": "v3.1-2026-10-07"
+}

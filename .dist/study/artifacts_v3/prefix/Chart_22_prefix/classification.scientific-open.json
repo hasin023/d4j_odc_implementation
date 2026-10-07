@@ -1,0 +1,101 @@
+{
+  "project_id": "Chart",
+  "bug_id": 22,
+  "version_id": "22b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite",
+  "provider": "gemini",
+  "created_at": "2026-10-07T13:52:18+00:00",
+  "odc_type": "Algorithm/Method",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The removeColumn method iterates through all rows and calls removeValue on each. The removeValue method in KeyedObjects throws an UnknownKeyException if the key is not found. If any row is missing the column key, the entire operation fails, even if other rows have it.",
+  "hypothesis": "The method KeyedObjects2D.removeColumn(Comparable) iterates through all rows and calls rowData.removeValue(columnKey). However, if a row does not contain the columnKey, KeyedObjects.removeValue(Comparable) throws an UnknownKeyException, which causes the entire removeColumn operation to fail prematurely. The fix is to check if the row contains the key before attempting to remove it, or to handle the exception.",
+  "prediction": "The source code for KeyedObjects.removeValue(Comparable) will show that it calls getIndex(key) and throws UnknownKeyException if the index is less than 0, confirming that it does not check for existence before attempting removal.",
+  "experiment_rationale": "The source code of KeyedObjects2D.removeColumn confirms it blindly calls removeValue on every row. The stack trace confirms that this call is the source of the UnknownKeyException. This is a procedural error in the algorithm for removing a column.",
+  "reasoning_summary": "The bug is an algorithmic flaw where the removal process assumes all rows contain the column being removed. When a row is missing the column, the process crashes. This is a classic Algorithm/Method defect.",
+  "evidence_used": [
+    "The stack trace shows UnknownKeyException at KeyedObjects.removeValue(KeyedObjects.java:268), which is called by KeyedObjects2D.removeColumn(KeyedObjects2D.java:378).",
+    "The source code of KeyedObjects2D.removeColumn shows it iterates through all rows and calls rowData.removeValue(columnKey) without checking if the row contains the key."
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Checking",
+      "why_not_primary": "While the fix involves adding a check, the root cause is the incorrect implementation of the removal algorithm, which fails to account for the possibility that a row might not contain the column key."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "pre-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "verdict": "none",
+      "evidence_quote": null,
+      "quote_verified": false,
+      "quote_matched": null,
+      "hypothesis": "The KeyedObjects2D.removeColumn(Comparable) method incorrectly attempts to remove the column key from the internal row data before updating the columnKeys list, or it fails to correctly identify the column index, leading to an UnknownKeyException when it tries to remove the key from the rows.",
+      "leading_type": "Algorithm/Method",
+      "rival_type": "Checking",
+      "prediction": "The source code for KeyedObjects2D.removeColumn(Comparable) will show that it calls getColumnIndex(columnKey) and then iterates through rows to remove the value, but the logic for removing the column key itself or the order of operations is flawed.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "source",
+        "argument": "KeyedObjects2D#removeColumn"
+      },
+      "observation_number": 1,
+      "observation_summary": [
+        "class_name",
+        "content",
+        "legend",
+        "total_lines"
+      ],
+      "observation": "{\n  \"class_name\": \"org.jfree.data.KeyedObjects2D\",\n  \"total_lines\": 466,\n  \"legend\": \"'*' = line executed by the failing test(s) per recorded coverage\",\n  \"content\": \"    355:     public void removeColumn(int columnIndex) {\\n*   356:         Comparable columnKey = getColumnKey(columnIndex);\\n*   357:         removeColumn(columnKey);\\n    358:     }\\n\\n    369:     public void removeColumn(Comparable columnKey) {\\n*   370:         int index = getColumnIndex(columnKey);\\n*   371:         if (index < 0) {\\n    372:             throw new UnknownKeyException(\\\"Column key (\\\" + columnKey \\n    373:                     + \\\") not recognised.\\\");\\n    374:         }\\n*   375:         Iterator iterator = this.rows.iterator();\\n*   376:         while (iterator.hasNext()) {\\n*   377:             KeyedObjects rowData = (KeyedObjects) iterator.next();\\n*   378:                 rowData.removeValue(columnKey);\\n*   379:         }\\n    380:         this.columnKeys.remove(columnKey);\\n    381:     }\"\n}",
+      "observation_truncated": false,
+      "observation_chars": 999,
+      "duration_seconds": 2.11
+    },
+    {
+      "turn": 2,
+      "verdict": "supported",
+      "evidence_quote": "rowData.removeValue(columnKey);",
+      "quote_verified": true,
+      "quote_matched": "observation",
+      "hypothesis": "The method KeyedObjects2D.removeColumn(Comparable) iterates through all rows and calls rowData.removeValue(columnKey). However, if a row does not contain the columnKey, KeyedObjects.removeValue(Comparable) throws an UnknownKeyException, which causes the entire removeColumn operation to fail prematurely. The fix is to check if the row contains the key before attempting to remove it, or to handle the exception.",
+      "leading_type": "Algorithm/Method",
+      "rival_type": "Checking",
+      "prediction": "The source code for KeyedObjects.removeValue(Comparable) will show that it calls getIndex(key) and throws UnknownKeyException if the index is less than 0, confirming that it does not check for existence before attempting removal.",
+      "action": "conclude",
+      "forced": false,
+      "predicted_fix": "In KeyedObjects2D.removeColumn(Comparable), modify the loop to check if the row contains the columnKey before calling rowData.removeValue(columnKey), or modify KeyedObjects.removeValue to be safe.",
+      "conclusion_odc_type": "Algorithm/Method",
+      "evidence_from": 1,
+      "gate_failure": null,
+      "duration_seconds": 6.647
+    }
+  ],
+  "llm_calls_used": 2,
+  "termination_reason": "concluded",
+  "loop_duration_seconds": 8.756,
+  "probe_misses": 0,
+  "gate_rejections": 0,
+  "evidence_gate_passed": true,
+  "predicted_fix": "In KeyedObjects2D.removeColumn(Comparable), modify the loop to check if the row contains the columnKey before calling rowData.removeValue(columnKey), or modify KeyedObjects.removeValue to be safe.",
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Algorithm/Method\", \"family\": \"Control and Data Flow\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The removeColumn method iterates through all rows and calls removeValue on each. The removeValue method in KeyedObjects throws an UnknownKeyException if the key is not found. If any row is missing the column key, the entire operation fails, even if other rows have it.\", \"hypothesis\": \"The method KeyedObjects2D.removeColumn(Comparable) iterates through all rows and calls rowData.removeValue(columnKey). However, if a row does not contain the columnKey, KeyedObjects.removeValue(Comparable) throws an UnknownKeyException, which causes the entire removeColumn operation to fail prematurely. The fix is to check if the row contains the key before attempting to remove it, or to handle the exception.\", \"prediction\": \"The source code for KeyedObjects.removeValue(Comparable) will show that it calls getIndex(key) and throws UnknownKeyException if the index is less than 0, confirming that it does not check for existence before attempting removal.\", \"experiment_rationale\": \"The source code of KeyedObjects2D.removeColumn confirms it blindly calls removeValue on every row. The stack trace confirms that this call is the source of the UnknownKeyException. This is a procedural error in the algorithm for removing a column.\", \"reasoning_summary\": \"The bug is an algorithmic flaw where the removal process assumes all rows contain the column being removed. When a row is missing the column, the process crashes. This is a classic Algorithm/Method defect.\", \"evidence_used\": [\"The stack trace shows UnknownKeyException at KeyedObjects.removeValue(KeyedObjects.java:268), which is called by KeyedObjects2D.removeColumn(KeyedObjects2D.java:378).\", \"The source code of KeyedObjects2D.removeColumn shows it iterates through all rows and calls rowData.removeValue(columnKey) without checking if the row contains the key.\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Checking\", \"why_not_primary\": \"While the fix involves adding a check, the root cause is the incorrect implementation of the removal algorithm, which fails to account for the possibility that a row might not contain the column key.\"}]}",
+  "prompt_version": "v3.1-2026-10-07"
+}

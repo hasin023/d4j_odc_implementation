@@ -1,0 +1,101 @@
+{
+  "project_id": "Chart",
+  "bug_id": 18,
+  "version_id": "18b",
+  "prompt_style": "scientific",
+  "model": "gemini-3.1-flash-lite",
+  "provider": "gemini",
+  "created_at": "2026-10-07T13:49:53+00:00",
+  "odc_type": "Checking",
+  "family": "Control and Data Flow",
+  "confidence": 1.0,
+  "needs_human_review": false,
+  "observation_summary": "The method DefaultKeyedValues2D.removeColumn(Comparable) iterates over all rows and unconditionally calls rowData.removeValue(columnKey). If a row does not contain the columnKey, rowData.getIndex(columnKey) returns -1, which is then passed to rowData.removeValue(int), causing an IndexOutOfBoundsException.",
+  "hypothesis": "The defect is a missing check for the existence of the column key within each row before attempting to remove it, which leads to an invalid index being passed to the removal method.",
+  "prediction": "The fix will involve adding a check to ensure the column key exists in the row before calling the removal method.",
+  "experiment_rationale": "The source code inspection confirmed that the removal logic in DefaultKeyedValues2D.removeColumn(Comparable) lacks a check for the existence of the column key in each row, directly causing the observed IndexOutOfBoundsException.",
+  "reasoning_summary": "The bug is a classic missing validation (Checking). The code assumes that if a column exists in the dataset, it must exist in every row, which is not guaranteed. The fix requires adding a conditional check to validate the presence of the key before proceeding with the removal.",
+  "evidence_used": [
+    "The source code of DefaultKeyedValues2D.removeColumn(Comparable) shows an unconditional call to rowData.removeValue(columnKey)."
+  ],
+  "evidence_gaps": [],
+  "alternative_types": [
+    {
+      "type": "Algorithm/Method",
+      "why_not_primary": "The fix is not about changing the algorithm for removal, but about adding a necessary validation check to prevent an invalid state from being processed."
+    }
+  ],
+  "target": "Design/Code",
+  "qualifier": null,
+  "age": null,
+  "source": null,
+  "inferred_activity": null,
+  "inferred_triggers": [],
+  "evidence_mode": "post-fix",
+  "strategy": "scientific",
+  "taxonomy_mode": "open",
+  "consistency_k": 1,
+  "consistency_confidence": null,
+  "sample_labels": [],
+  "turns": [
+    {
+      "turn": 1,
+      "verdict": "none",
+      "evidence_quote": null,
+      "quote_verified": false,
+      "quote_matched": null,
+      "hypothesis": "The IndexOutOfBoundsException occurs because DefaultKeyedValues2D.removeColumn(columnKey) iterates through all rows and calls rowData.removeValue(columnKey) even if the columnKey does not exist in that specific row, leading to an invalid index operation inside DefaultKeyedValues.removeValue.",
+      "leading_type": "Checking",
+      "rival_type": "Algorithm/Method",
+      "prediction": "The source code for DefaultKeyedValues2D.removeColumn will show that it iterates over all rows and calls removeValue(columnKey) without checking if the columnKey exists in the current row, and DefaultKeyedValues.removeValue will lack a check for whether the index is valid before performing the removal.",
+      "action": "request_evidence",
+      "forced": false,
+      "probe": {
+        "name": "source",
+        "argument": "DefaultKeyedValues2D"
+      },
+      "observation_number": 1,
+      "observation_summary": [
+        "class_name",
+        "hint",
+        "legend",
+        "outline",
+        "total_lines"
+      ],
+      "observation": "{\n  \"class_name\": \"org.jfree.data.DefaultKeyedValues2D\",\n  \"total_lines\": 560,\n  \"legend\": \"'*' = line executed by the failing test(s) per recorded coverage\",\n  \"outline\": [\n    {\n      \"line\": 94,\n      \"end_line\": 96,\n      \"signature\": \"public DefaultKeyedValues2D() {\",\n      \"executed_lines\": 2\n    },\n    {\n      \"line\": 103,\n      \"end_line\": 108,\n      \"signature\": \"public DefaultKeyedValues2D(boolean sortRowKeys) {\",\n      \"executed_lines\": 6\n    },\n    {\n      \"line\": 117,\n      \"end_line\": 119,\n      \"signature\": \"public int getRowCount() {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 128,\n      \"end_line\": 130,\n      \"signature\": \"public int getColumnCount() {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 142,\n      \"end_line\": 155,\n      \"signature\": \"public Number getValue(int row, int column) {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 167,\n      \"end_line\": 169,\n      \"signature\": \"public Comparable getRowKey(int row) {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 181,\n      \"end_line\": 191,\n      \"signature\": \"public int getRowIndex(Comparable key) {\",\n      \"executed_lines\": 3\n    },\n    {\n      \"line\": 200,\n      \"end_line\": 202,\n      \"signature\": \"public List getRowKeys() {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 215,\n      \"end_line\": 217,\n      \"signature\": \"public Comparable getColumnKey(int column) {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 229,\n      \"end_line\": 234,\n      \"signature\": \"public int getColumnIndex(Comparable key) {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 243,\n      \"end_line\": 245,\n      \"signature\": \"public List getColumnKeys() {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 260,\n      \"end_line\": 287,\n      \"signature\": \"public Number getValue(Comparable rowKey, Comparable columnKey) {\",\n      \"executed_lines\": 0\n    },\n    {\n      \"line\": 300,\n      \"end_line\": 304,\n      \"signature\": \"public void addValue(Number value, Comparable ",
+      "observation_truncated": true,
+      "observation_chars": 3607,
+      "duration_seconds": 9.76
+    },
+    {
+      "turn": 2,
+      "verdict": "supported",
+      "evidence_quote": "public void removeColumn(Comparable columnKey) {\n        Iterator iterator = this.rows.iterator();\n        while (iterator.hasNext()) {\n            DefaultKeyedValues rowData = (DefaultKeyedValues) iterator.next();\n            rowData.removeValue(columnKey);\n        }\n        this.columnKeys.remove(columnKey);\n    }",
+      "quote_verified": true,
+      "quote_matched": "class_file",
+      "hypothesis": "The IndexOutOfBoundsException occurs because DefaultKeyedValues2D.removeColumn(columnKey) iterates through all rows and calls rowData.removeValue(columnKey) even if the columnKey does not exist in that specific row, leading to an invalid index operation inside DefaultKeyedValues.removeValue.",
+      "leading_type": "Checking",
+      "rival_type": "Algorithm/Method",
+      "prediction": "The source code for DefaultKeyedValues2D.removeColumn will show that it iterates over all rows and calls removeValue(columnKey) without checking if the columnKey exists in the current row, and DefaultKeyedValues.removeValue will lack a check for whether the index is valid before performing the removal.",
+      "action": "conclude",
+      "forced": false,
+      "predicted_fix": "Add a check in DefaultKeyedValues2D.removeColumn to verify if the columnKey exists in the row before calling rowData.removeValue(columnKey), and potentially add validation for the columnKey itself.",
+      "conclusion_odc_type": "Checking",
+      "evidence_from": 1,
+      "gate_failure": null,
+      "duration_seconds": 6.632
+    }
+  ],
+  "llm_calls_used": 2,
+  "termination_reason": "concluded",
+  "loop_duration_seconds": 16.392,
+  "probe_misses": 0,
+  "gate_rejections": 0,
+  "evidence_gate_passed": true,
+  "predicted_fix": "Add a check in DefaultKeyedValues2D.removeColumn to verify if the columnKey exists in the row before calling rowData.removeValue(columnKey), and potentially add validation for the columnKey itself.",
+  "other_justification": null,
+  "nearest_type": null,
+  "other_confidence": null,
+  "raw_response": "{\"odc_type\": \"Checking\", \"family\": \"Control and Data Flow\", \"confidence\": 1.0, \"needs_human_review\": false, \"observation_summary\": \"The method DefaultKeyedValues2D.removeColumn(Comparable) iterates over all rows and unconditionally calls rowData.removeValue(columnKey). If a row does not contain the columnKey, rowData.getIndex(columnKey) returns -1, which is then passed to rowData.removeValue(int), causing an IndexOutOfBoundsException.\", \"hypothesis\": \"The defect is a missing check for the existence of the column key within each row before attempting to remove it, which leads to an invalid index being passed to the removal method.\", \"prediction\": \"The fix will involve adding a check to ensure the column key exists in the row before calling the removal method.\", \"experiment_rationale\": \"The source code inspection confirmed that the removal logic in DefaultKeyedValues2D.removeColumn(Comparable) lacks a check for the existence of the column key in each row, directly causing the observed IndexOutOfBoundsException.\", \"reasoning_summary\": \"The bug is a classic missing validation (Checking). The code assumes that if a column exists in the dataset, it must exist in every row, which is not guaranteed. The fix requires adding a conditional check to validate the presence of the key before proceeding with the removal.\", \"evidence_used\": [\"The source code of DefaultKeyedValues2D.removeColumn(Comparable) shows an unconditional call to rowData.removeValue(columnKey).\"], \"evidence_gaps\": [], \"alternative_types\": [{\"type\": \"Algorithm/Method\", \"why_not_primary\": \"The fix is not about changing the algorithm for removal, but about adding a necessary validation check to prevent an invalid state from being processed.\"}]}",
+  "prompt_version": "v3.1-2026-10-07"
+}
