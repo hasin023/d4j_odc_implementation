@@ -16,11 +16,14 @@ prompting.py), so `scientific` = `few` + the loop, nothing else.
 
 When the evidence is enough (the evidence gate, enforced by the harness — not
 left to the model; see `_evidence_gate`): a conclusion is accepted only if the
-experiment just run returned real evidence, the model judged it SUPPORTED with
-a verbatim quote the harness finds in that observation, it states the concrete
-fix (ODC types the nature of the fix), and the concluded type is one of the two
-types that experiment was designed to discriminate. This is AutoSD's
-<DONE>-after-a-supported-hypothesis rule, made verifiable. A rejected
+experiment it rests on returned real evidence, the model judged it SUPPORTED with
+a verbatim quote the harness finds in that observation (an outline counts as its
+whole class), it states the concrete fix (ODC types the nature of the fix), and
+the concluded type is one of the two types that experiment was designed to
+discriminate. By default that is the latest experiment; the model may backtrack
+to an earlier supported one (`evidence_from`) only by judging the latest refuted
+or inconclusive. This is AutoSD's <DONE>-after-a-supported-hypothesis rule, made
+verifiable. A rejected
 conclusion costs a turn; running out of turns forces a conclusion that is
 flagged for human review.
 
@@ -104,6 +107,9 @@ def turn_response_schema(taxonomy: str) -> dict:
         "properties": {
             "verdict": {"type": "string", "enum": list(VERDICTS)},
             "evidence_quote": {"type": ["string", "null"]},
+            # Concluding only: the number of the observation the conclusion
+            # rests on; null = the latest (see _evidence_gate).
+            "evidence_from": {"type": ["integer", "null"]},
             "hypothesis": {"type": "string"},
             "leading_type": {"type": "string", "enum": types},
             "rival_type": {"type": "string", "enum": types},
@@ -459,46 +465,122 @@ def _string_leaves(value: Any) -> list[str]:
     return []
 
 
-def _quote_found(quote: str | None, observation: dict[str, Any] | None) -> bool:
-    """Is `quote` a verbatim excerpt of what the probe actually returned?
+# The `*   286: ` / `    287: ` prefix _render_lines puts in front of every
+# source line (coverage mark, line number). Not part of the code, so a quote
+# must not have to include it — or be rejected for leaving it out.
+_LINE_PREFIX_RE = re.compile(r"(?m)^[* ]?[ \t]*\d+: ?")
+
+
+def _without_layout(text: str) -> str:
+    """The text with source-line prefixes and ALL whitespace removed."""
+    return re.sub(r"\s+", "", _LINE_PREFIX_RE.sub("", text))
+
+
+def _outline_source(observation: dict[str, Any], source_dirs) -> str:
+    """Full source of the class an outline observation stands for ('' if none).
+
+    A `source` probe on a long class returns only an outline, but the probe
+    examined the whole class, so a quote may be any line of it."""
+    if not source_dirs or "outline" not in observation or not observation.get("class_name"):
+        return ""
+    path = _source_index(tuple(str(d) for d in source_dirs)).get(observation["class_name"])
+    if not path:
+        return ""
+    try:
+        return Path(path).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+
+
+def _quote_match(
+    quote: str | None, observation: dict[str, Any] | None, source_dirs=None
+) -> str | None:
+    """Where `quote` was found verbatim: "observation", "class_file", or None.
 
     Checked against both the JSON the model was shown (escaped quotes) and
-    the raw string values (unescaped), whitespace-normalised."""
+    the raw string values (unescaped); an outline is expanded to its class's
+    full source. Layout is ignored: line-number prefixes and all whitespace,
+    so a statement the source splits over two lines still matches when the
+    model quotes it as one (Chart_7, v3 pilot). The characters themselves
+    must still match exactly."""
     if not quote or observation is None:
-        return False
-    needle = _normalize(quote.strip().strip("`'\""))
-    if len(needle) < MIN_QUOTE_CHARS:
-        return False
-    haystack = _normalize(json.dumps(observation) + "\n" + "\n".join(_string_leaves(observation)))
-    return needle in haystack
+        return None
+    needle = quote.strip().strip("`'\"")
+    if len(_normalize(needle)) < MIN_QUOTE_CHARS:
+        return None
+    # Strip prefixes before whitespace: they are only recognisable at line starts.
+    needle = _without_layout(needle)
+    shown = json.dumps(observation) + "\n" + "\n".join(_string_leaves(observation))
+    if needle in _without_layout(shown):
+        return "observation"
+    if needle in _without_layout(_outline_source(observation, source_dirs)):
+        return "class_file"
+    return None
+
+
+def _quote_found(quote: str | None, observation: dict[str, Any] | None, source_dirs=None) -> bool:
+    return _quote_match(quote, observation, source_dirs) is not None
+
+
+def _experiment_label(number: int, experiment: dict[str, Any]) -> str:
+    """'#3 (source org.Foo, an outline)' — how a rejection names an observation."""
+    what = " ".join(str(part) for part in (experiment["probe"], experiment["argument"]) if part)
+    if "outline" in experiment["observation"]:
+        what += ", an outline"
+    return f"#{number} ({what})"
 
 
 def _evidence_gate(
     turn: dict[str, Any],
-    last_experiment: dict[str, Any] | None,
-) -> str | None:
-    """Return why a conclusion is NOT yet justified, or None if it is.
+    experiments: dict[int, dict[str, Any]],
+    source_dirs=None,
+) -> tuple[str | None, int | None]:
+    """Return (why a conclusion is NOT yet justified or None, the observation it rests on).
 
-    `last_experiment` is the most recent probe that returned evidence:
-    {"observation": ..., "leading_type": ..., "rival_type": ...} as committed
-    on the turn that requested it."""
-    if last_experiment is None:
+    `experiments` maps observation number → {"observation", "probe", "argument",
+    "leading_type", "rival_type" (as committed on the turn that requested it),
+    "ok" (returned evidence, not an error), "verdict" (the model's verdict on it,
+    given in the turn after it)}. By default a conclusion rests on the latest
+    observation that returned evidence; `evidence_from` may name an EARLIER one
+    (backtracking), which is allowed only if that one was judged supported and
+    the latest is now judged refuted or inconclusive."""
+    with_evidence = [number for number, exp in experiments.items() if exp["ok"]]
+    if not with_evidence:
         return ("no experiment has returned evidence yet — run a probe that tests your "
-                "prediction before concluding")
-    if turn.get("verdict") != "supported":
+                "prediction before concluding"), None
+    latest = max(with_evidence)
+    cited = turn.get("evidence_from")
+    target = cited if isinstance(cited, int) and not isinstance(cited, bool) else latest
+    experiment = experiments.get(target)
+    if target != latest:
+        if experiment is None or not experiment["ok"]:
+            return (f"observation #{target} returned no evidence — evidence_from must name an "
+                    "observation that did"), target
+        if experiment["verdict"] != "supported":
+            return (f"observation #{target} was judged {experiment['verdict']!r}, not supported; "
+                    "only an experiment that SUPPORTS the hypothesis can carry a conclusion"), target
+        if turn.get("verdict") not in ("refuted", "inconclusive"):
+            return (f"to rest the conclusion on the earlier observation #{target}, give the latest "
+                    f"observation {_experiment_label(latest, experiments[latest])} a verdict of "
+                    "refuted or inconclusive and say why it did not hold"), target
+    elif turn.get("verdict") != "supported":
         return (f"verdict is {turn.get('verdict')!r}; you may only conclude after an "
-                "experiment SUPPORTS the hypothesis")
-    if not _quote_found(turn.get("evidence_quote"), last_experiment["observation"]):
-        return (f"evidence_quote was not found verbatim (min {MIN_QUOTE_CHARS} chars) in the "
-                "last experiment's observation — quote the exact text that supports it")
+                "experiment SUPPORTS the hypothesis"), target
+    if not _quote_found(turn.get("evidence_quote"), experiment["observation"], source_dirs):
+        message = (f"evidence_quote was not found verbatim (min {MIN_QUOTE_CHARS} chars) in "
+                   f"observation {_experiment_label(target, experiment)}. Quote observation #{target}")
+        if target == latest:
+            message += (", or set evidence_from to the observation you are quoting and give "
+                        f"observation #{latest} a verdict of refuted or inconclusive")
+        return message, target
     if len(str(turn.get("predicted_fix") or "").strip()) < 10:
-        return "predicted_fix is missing — state the concrete code change that would fix the defect"
+        return "predicted_fix is missing — state the concrete code change that would fix the defect", target
     concluded = (turn.get("conclusion") or {}).get("odc_type")
-    tested = {last_experiment.get("leading_type"), last_experiment.get("rival_type")} - {None}
+    tested = {experiment.get("leading_type"), experiment.get("rival_type")} - {None}
     if tested and concluded not in tested and concluded != OTHER_TYPE_NAME:
-        return (f"concluded type {concluded!r} was not under test — the last experiment "
-                f"discriminated {' vs '.join(sorted(tested))}; test {concluded!r} first")
-    return None
+        return (f"concluded type {concluded!r} was not under test — observation #{target}'s "
+                f"experiment discriminated {' vs '.join(sorted(tested))}; test {concluded!r} first"), target
+    return None, target
 
 
 # ---------------------------------------------------------------------------
@@ -546,11 +628,16 @@ def _agent_system_prompt(taxonomy: str, has_fix_diff: bool = False) -> str:
         "",
         "WHEN THE EVIDENCE IS ENOUGH — the harness enforces this; a conclusion that fails it is "
         "rejected and costs a turn. Conclude only when ALL hold:",
-        "a. your previous turn ran a probe that returned evidence (not an error);",
-        "b. verdict=supported for that experiment, with evidence_quote copied verbatim from it;",
+        "a. the conclusion rests on ONE experiment: by default your latest probe. To rest it on "
+        "an EARLIER observation instead, set evidence_from to that observation's number;",
+        "b. that experiment returned evidence (not an error) and you judged it supported, with "
+        "evidence_quote copied verbatim from it (if it returned an outline of a class, you may "
+        "quote any line of that class);",
         "c. predicted_fix states the concrete code change that would fix the defect — the ODC "
         "type is the nature of THAT change, so classify the fix, not the symptom or the context;",
-        "d. conclusion.odc_type is the leading_type or rival_type of that experiment.",
+        "d. conclusion.odc_type is the leading_type or rival_type of that experiment;",
+        "e. if you rest on an earlier observation, your verdict on the latest probe must be "
+        "refuted or inconclusive: say why the newer line of inquiry did not hold.",
         "Until then keep experimenting. If the turn budget runs out you are forced to conclude "
         "and the result is flagged for human review.",
         "",
@@ -566,7 +653,7 @@ def _agent_system_prompt(taxonomy: str, has_fix_diff: bool = False) -> str:
     parts.append(
         "Every response must be a single JSON object matching the turn schema (verdict, "
         "evidence_quote, hypothesis, leading_type, rival_type, prediction, action, probe?, "
-        "predicted_fix?, conclusion?)."
+        "predicted_fix?, evidence_from?, conclusion?)."
     )
     if taxonomy == TAXONOMY_OPEN:
         parts.append(
@@ -620,7 +707,9 @@ def run_agentic_classification(
     schema = turn_response_schema(taxonomy)
     transcript: list[dict[str, Any]] = []
     served_at: dict[tuple[str, str], int] = {}
-    last_experiment: dict[str, Any] | None = None
+    # Observation number → the experiment that produced it (see _evidence_gate).
+    experiments: dict[int, dict[str, Any]] = {}
+    observation_count = 0
     forced = False
     probe_misses = 0
     gate_rejections = 0
@@ -632,16 +721,31 @@ def run_agentic_classification(
         turn = extract_json_object(raw)
         messages.append({"role": "assistant", "content": raw})
 
+        # This turn's verdict judges the latest observation; the first verdict
+        # given on an observation is the one backtracking (evidence_from) relies on.
+        verdict = turn.get("verdict")
+        if observation_count in experiments and verdict not in (None, "none"):
+            if experiments[observation_count]["verdict"] is None:
+                experiments[observation_count]["verdict"] = verdict
+        # The quote is checked against the observation it claims to come from
+        # (evidence_from, else the latest that returned evidence), so the
+        # confirm/refute record is exogenous rather than self-reported.
+        cited = turn.get("evidence_from")
+        if not isinstance(cited, int) or isinstance(cited, bool) or cited not in experiments:
+            cited = max((n for n, exp in experiments.items() if exp["ok"]), default=None)
+        quote_matched = _quote_match(
+            turn.get("evidence_quote"),
+            experiments[cited]["observation"] if cited is not None else None,
+            source_dirs,
+        )
+
         record: dict[str, Any] = {
             "turn": turn_index,
-            "verdict": turn.get("verdict"),
+            "verdict": verdict,
             "evidence_quote": turn.get("evidence_quote"),
-            # Checked against the observation the verdict judges, so the
-            # confirm/refute record is exogenous rather than self-reported.
-            "quote_verified": _quote_found(
-                turn.get("evidence_quote"),
-                last_experiment["observation"] if last_experiment else None,
-            ),
+            "quote_verified": quote_matched is not None,
+            # "observation" or "class_file" (an outline expanded to its class).
+            "quote_matched": quote_matched,
             "hypothesis": str(turn.get("hypothesis", "")).strip(),
             "leading_type": turn.get("leading_type"),
             "rival_type": turn.get("rival_type"),
@@ -654,9 +758,11 @@ def run_agentic_classification(
         remaining = max_turns - turn_index
 
         if turn.get("action") == "conclude" and isinstance(turn.get("conclusion"), dict):
-            gate_failure = _evidence_gate(turn, last_experiment)
+            gate_failure, evidence_from = _evidence_gate(turn, experiments, source_dirs)
             record["predicted_fix"] = turn.get("predicted_fix")
             record["conclusion_odc_type"] = turn["conclusion"].get("odc_type")
+            # The observation the conclusion rests on (the latest unless backtracking).
+            record["evidence_from"] = evidence_from
             record["gate_failure"] = gate_failure
             if gate_failure is None or forced or remaining == 0:
                 record["duration_seconds"] = round(time.monotonic() - turn_started, 3)
@@ -705,23 +811,31 @@ def run_agentic_classification(
             served_at[probe_key] = turn_index
             observation = execute_probe(context, probe_name, probe_argument, source_dirs)
 
+        observation_count += 1
+        experiments[observation_count] = {
+            "observation": observation,
+            "probe": probe_name,
+            "argument": probe_argument,
+            "leading_type": turn.get("leading_type"),
+            "rival_type": turn.get("rival_type"),
+            "ok": "error" not in observation,
+            "verdict": None,
+        }
         record["probe"] = {"name": probe_name, "argument": probe_argument}
+        record["observation_number"] = observation_count
         record["observation_summary"] = (
             sorted(observation.keys()) if "error" not in observation else observation["error"]
         )
         if "error" in observation:
             probe_misses += 1
-        else:
-            last_experiment = {
-                "observation": observation,
-                "leading_type": turn.get("leading_type"),
-                "rival_type": turn.get("rival_type"),
-            }
         record.update(_render_observation(observation))
         record["duration_seconds"] = round(time.monotonic() - turn_started, 3)
         transcript.append(record)
 
-        observation_message = f"Observation (probe {probe_name!r}):\n" + json.dumps(observation, indent=2)
+        described = f"probe {probe_name!r}" + (f", argument {probe_argument!r}" if probe_argument else "")
+        observation_message = (
+            f"Observation #{observation_count} ({described}):\n" + json.dumps(observation, indent=2)
+        )
         if remaining == 1:
             forced = True
             observation_message += "\n\n" + _force_conclude_message()

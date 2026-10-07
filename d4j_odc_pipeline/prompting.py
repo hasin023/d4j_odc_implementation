@@ -20,8 +20,11 @@ from .odc import (
 # guidance, the taxonomy rendering or the worked examples change, and log the
 # change in docs/study_execution_log.md. "v3-2026-10-05": real worked examples,
 # IBM-only taxonomy, pre-July guidance removed — rationale in
-# docs/prompt_review_v3.md. Artifacts without the field predate it.
-PROMPT_VERSION = "v3-2026-10-05"
+# docs/prompt_review_v3.md. "v3.1-2026-10-07": the scientific loop's gate
+# rules (numbered observations, evidence_from backtracking, outline quotes);
+# the few/zero prompt text is byte-identical to v3. Artifacts without the
+# field predate it.
+PROMPT_VERSION = "v3.1-2026-10-07"
 
 
 def build_messages(

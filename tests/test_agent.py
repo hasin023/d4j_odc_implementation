@@ -9,6 +9,8 @@ from unittest.mock import MagicMock, patch
 from d4j_odc_pipeline.agent import (
     AGENT_MAX_TURNS,
     _agent_system_prompt,
+    _quote_found,
+    _render_lines,
     execute_probe,
     run_agentic_classification,
     turn_response_schema,
@@ -589,6 +591,120 @@ class EvidenceGateTests(unittest.TestCase):
         self.assertFalse(result.evidence_gate_passed)
         self.assertTrue(result.needs_human_review)
         self.assertEqual(AGENT_MAX_TURNS - 2, result.gate_rejections)
+
+
+class QuoteMatchingTests(unittest.TestCase):
+    """The gate's verbatim check ignores layout (line-number prefixes and
+    whitespace) but not content. Lines from the Chart_7 v3 pilot run, where a
+    statement split over two source lines was rejected when quoted as one."""
+
+    LINES = [
+        "        if (this.maxMiddleIndex >= 0) {",
+        "            long s = getDataItem(this.minMiddleIndex).getPeriod().getStart()",
+        "                .getTime();",
+    ]
+
+    def _observation(self) -> dict:
+        content = _render_lines(self.LINES, 1, 3, executed={2, 3})
+        return {"class_name": "org.jfree.data.time.TimePeriodValues", "content": content}
+
+    def test_statement_split_over_two_lines_matches_when_joined(self) -> None:
+        quote = "long s = getDataItem(this.minMiddleIndex).getPeriod().getStart().getTime();"
+        self.assertTrue(_quote_found(quote, self._observation()))
+
+    def test_quote_that_copies_the_line_prefixes_matches(self) -> None:
+        quote = ("2:             long s = getDataItem(this.minMiddleIndex).getPeriod().getStart()\n"
+                 "3:                 .getTime();")
+        self.assertTrue(_quote_found(quote, self._observation()))
+
+    def test_changed_code_is_still_rejected(self) -> None:
+        quote = "long s = getDataItem(this.maxMiddleIndex).getPeriod().getStart().getTime();"
+        self.assertFalse(_quote_found(quote, self._observation()))
+
+    def test_short_quote_is_still_rejected(self) -> None:
+        self.assertFalse(_quote_found(".getTime();", self._observation()))
+
+
+def _with(turn_json: str, **extra) -> str:
+    return json.dumps({**json.loads(turn_json), **extra})
+
+
+class OutlineAndBacktrackingGateTests(unittest.TestCase):
+    """v3.1 gate: an outline counts as its whole class, observations are
+    numbered, and a conclusion may rest on an EARLIER supported observation
+    (evidence_from) only if the latest one is judged refuted or inconclusive."""
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        root = Path(self.tmp.name) / "src"
+        (root / "org" / "example").mkdir(parents=True)
+        body = ["package org.example;", "", "public class Foo {", "    public int run(int a) {",
+                "        int x = -1;", "        return a + x;", "    }"]
+        body += [f"    public void filler{i}() {{ }}" for i in range(200)] + ["}"]
+        (root / "org" / "example" / "Foo.java").write_text("\n".join(body))
+        self.dirs = [root]
+        self.fake = MagicMock()
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def _run(self, *turns):
+        self.fake.complete.side_effect = list(turns)
+        return run_agentic_classification(
+            context=_rich_context(), client=self.fake, taxonomy="closed",
+            validate_conclusion=LoopObservabilityTests._validate, source_dirs=self.dirs)
+
+    SNIPPET = _turn("request_evidence", probe={"name": "snippet", "argument": "Foo"})
+    REPORT = _with(_turn("request_evidence", probe={"name": "bug_report", "argument": None}),
+                   verdict="supported", evidence_quote=QUOTE)
+
+    def test_quote_from_an_outlined_class_is_accepted(self) -> None:
+        outline = _turn("request_evidence", probe={"name": "source", "argument": "Foo"})
+        conclude = _turn("conclude", conclusion=_conclusion_payload(),
+                         quote="int x = -1;\n        return a + x;")
+        result = self._run(outline, conclude)
+        self.assertEqual("concluded", result.termination_reason)
+        self.assertEqual("class_file", result.turns[1]["quote_matched"])
+
+    def test_observations_are_numbered(self) -> None:
+        self._run(self.SNIPPET, _turn("conclude", conclusion=_conclusion_payload()))
+        messages = self.fake.complete.call_args_list[-1].args[0]  # the loop's one growing list
+        self.assertTrue(any(m["role"] == "user" and m["content"].startswith(
+            "Observation #1 (probe 'snippet', argument 'Foo'):") for m in messages))
+
+    def test_backtracking_to_a_supported_observation_is_accepted(self) -> None:
+        back = _with(_turn("conclude", conclusion=_conclusion_payload(), verdict="inconclusive"),
+                     evidence_from=1)
+        result = self._run(self.SNIPPET, self.REPORT, back)
+        self.assertEqual("concluded", result.termination_reason)
+        self.assertEqual(1, result.turns[2]["evidence_from"])
+        self.assertTrue(result.evidence_gate_passed)
+
+    def test_backtracking_needs_the_latest_judged_refuted_or_inconclusive(self) -> None:
+        back = _with(_turn("conclude", conclusion=_conclusion_payload()), evidence_from=1)
+        result = self._run(self.SNIPPET, self.REPORT, back, _turn("conclude", conclusion=_conclusion_payload(),
+                                                                   quote="wrong when bar is empty"))
+        self.assertEqual("conclude_rejected", result.turns[2]["action"])
+        self.assertIn("refuted or inconclusive", result.turns[2]["gate_failure"])
+
+    def test_backtracking_needs_the_cited_observation_supported(self) -> None:
+        unsure = _with(self.REPORT, verdict="inconclusive")
+        back = _with(_turn("conclude", conclusion=_conclusion_payload(), verdict="refuted"),
+                     evidence_from=1)
+        result = self._run(self.SNIPPET, unsure, back, _turn("conclude", conclusion=_conclusion_payload(),
+                                                              quote="wrong when bar is empty"))
+        self.assertEqual("conclude_rejected", result.turns[2]["action"])
+        self.assertIn("not supported", result.turns[2]["gate_failure"])
+
+    def test_rejection_names_the_observation_and_the_way_back(self) -> None:
+        outline = _turn("request_evidence", probe={"name": "source", "argument": "Foo"})
+        wrong = _turn("conclude", conclusion=_conclusion_payload(), quote="int y = 12345; // nowhere")
+        result = self._run(self.SNIPPET, _with(outline, verdict="supported", evidence_quote=QUOTE),
+                           wrong, _turn("conclude", conclusion=_conclusion_payload(),
+                                        quote="int x = -1;\n        return a + x;"))
+        failure = result.turns[2]["gate_failure"]
+        self.assertIn("observation #2 (source Foo, an outline)", failure)
+        self.assertIn("set evidence_from", failure)
 
 
 class SharedGuidanceTests(unittest.TestCase):
