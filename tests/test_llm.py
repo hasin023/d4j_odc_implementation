@@ -272,5 +272,135 @@ class KeyFailoverTests(unittest.TestCase):
             self.assertEqual(403, ctx.exception.status_code)
 
 
+
+class OverloadRoundsTests(unittest.TestCase):
+    """When EVERY key fails with 429/503 (a model-wide burst), wait and try the
+    whole rotation again instead of failing the request after ~1 minute."""
+
+    def _client(self, env: str):
+        with patch.dict(os.environ, {env + "S": "k1,k2"}, clear=False):
+            return LLMClient.from_env(provider="gemini", model="m", api_key_env=env)
+
+    def test_burst_then_recovery_waits_and_succeeds(self) -> None:
+        client = self._client("TEST_OVERLOAD_RECOVER_KEY")
+        calls = {"n": 0}
+
+        def fake_urlopen(request, **kwargs):
+            calls["n"] += 1
+            if calls["n"] <= 6:  # round 1 = k1 once + the last key k2 with its 5 same-key attempts
+                raise _http_error(429)
+            return _FakeResponse(_fake_gemini_response("ok").encode())
+
+        with (
+            patch("d4j_odc_pipeline.llm.urllib.request.urlopen", side_effect=fake_urlopen),
+            patch("time.sleep") as mock_sleep,
+        ):
+            self.assertEqual("ok", client.complete([{"role": "user", "content": "hi"}]))
+        self.assertIn(30, [c.args[0] for c in mock_sleep.call_args_list])
+
+    def test_persistent_overload_gives_up_after_all_rounds(self) -> None:
+        client = self._client("TEST_OVERLOAD_PERSIST_KEY")
+        with (
+            patch("d4j_odc_pipeline.llm.urllib.request.urlopen", side_effect=lambda *a, **k: (_ for _ in ()).throw(_http_error(503))),
+            patch("time.sleep") as mock_sleep,
+        ):
+            with self.assertRaises(LLMError) as ctx:
+                client.complete([{"role": "user", "content": "hi"}])
+        self.assertEqual(503, ctx.exception.status_code)
+        waits = [c.args[0] for c in mock_sleep.call_args_list]
+        for w in (30, 60, 120):
+            self.assertIn(w, waits)
+
+    def test_invalid_keys_do_not_trigger_overload_waits(self) -> None:
+        client = self._client("TEST_OVERLOAD_403_KEY")
+        with (
+            patch("d4j_odc_pipeline.llm.urllib.request.urlopen", side_effect=lambda *a, **k: (_ for _ in ()).throw(_http_error(403))),
+            patch("time.sleep") as mock_sleep,
+        ):
+            with self.assertRaises(LLMError):
+                client.complete([{"role": "user", "content": "hi"}])
+        mock_sleep.assert_not_called()
+
+
+_QUOTA_429_BODY = json.dumps({
+    "error": {
+        "code": 429,
+        "status": "RESOURCE_EXHAUSTED",
+        "message": "You exceeded your current quota.",
+        "details": [
+            {
+                "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+                "violations": [{
+                    "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_input_token_count",
+                    "quotaId": "GenerateContentInputTokensPerModelPerMinute-FreeTier",
+                    "quotaValue": "250000",
+                }],
+            },
+            {"@type": "type.googleapis.com/google.rpc.RetryInfo", "retryDelay": "41s"},
+        ],
+    }
+})
+
+
+class UsageAndErrorLogTests(unittest.TestCase):
+    """The 429 body and the Gemini usageMetadata reach the local jsonl logs."""
+
+    def _read_jsonl(self, path) -> list[dict]:
+        return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+
+    def test_429_body_is_logged_and_summarized_without_the_key(self) -> None:
+        from d4j_odc_pipeline import llm
+
+        with patch.dict(os.environ, {"TEST_LOG_429_KEYS": "secret-a,secret-b"}, clear=False):
+            client = LLMClient.from_env(provider="gemini", model="m", api_key_env="TEST_LOG_429_KEY")
+
+            def fake_urlopen(request, **kwargs):
+                if _key_from_request(request) == "secret-a":
+                    raise urllib.error.HTTPError(
+                        url="https://example.invalid", code=429, msg="error", hdrs={},
+                        fp=io.BytesIO(_QUOTA_429_BODY.encode()),
+                    )
+                return _FakeResponse(_fake_gemini_response("ok").encode())
+
+            with (
+                patch("d4j_odc_pipeline.llm.urllib.request.urlopen", side_effect=fake_urlopen),
+                patch("d4j_odc_pipeline.console.warn") as warn,
+            ):
+                client.complete([{"role": "user", "content": "hi"}])
+
+        entries = self._read_jsonl(llm._HTTP_ERROR_LOG)
+        self.assertEqual(1, len(entries))
+        self.assertEqual(429, entries[0]["status"])
+        self.assertEqual("RESOURCE_EXHAUSTED", entries[0]["body"]["error"]["status"])
+        self.assertNotIn("secret-a", json.dumps(entries[0]))
+        warned = warn.call_args.args[0]
+        self.assertIn("GenerateContentInputTokensPerModelPerMinute-FreeTier=250000", warned)
+        self.assertIn("retryDelay 41s", warned)
+
+    def test_gemini_usage_metadata_is_logged(self) -> None:
+        from d4j_odc_pipeline import llm
+
+        with patch.dict(os.environ, {"TEST_LOG_USAGE_KEY": "k"}, clear=False):
+            client = LLMClient.from_env(provider="gemini", model="m", api_key_env="TEST_LOG_USAGE_KEY")
+            response = json.dumps({
+                "candidates": [{"content": {"parts": [{"text": "ok"}]}}],
+                "usageMetadata": {
+                    "promptTokenCount": 12000, "candidatesTokenCount": 300,
+                    "thoughtsTokenCount": 50, "totalTokenCount": 12350,
+                },
+            })
+            with patch(
+                "d4j_odc_pipeline.llm.urllib.request.urlopen",
+                return_value=_FakeResponse(response.encode()),
+            ):
+                client.complete([{"role": "user", "content": "hi"}])
+
+        [entry] = self._read_jsonl(llm._TOKEN_USAGE_LOG)
+        self.assertEqual(12000, entry["prompt_tokens"])
+        self.assertEqual(50, entry["thoughts_tokens"])
+        self.assertGreater(entry["request_bytes"], 0)
+        self.assertNotEqual("k", entry["key"])
+
+
 if __name__ == "__main__":
     unittest.main()

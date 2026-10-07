@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import hashlib
 import itertools
 import json
 import os
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -13,39 +15,128 @@ from typing import Callable, Iterator
 
 _USER_AGENT = "d4j-odc-pipeline/1.0"
 
-# Local, gitignored running log of real (non-Gemini) API usage — lets a user
-# on a borrowed/shared key track actual token consumption to reconcile with
-# whoever's account it's billing against. Every real (non-dry-run) call
-# through _complete_openai_compatible appends one line here, using whatever
-# `usage` the provider's response reports (OpenAI-compatible APIs return
-# prompt_tokens/completion_tokens/total_tokens). Best-effort: a write failure
-# here must never break an actual classification call.
+# Local, gitignored running log of real API usage — lets a user on a
+# borrowed/shared key track actual token consumption, and lets anyone check
+# which rate limit (tokens vs requests per minute) a run is close to. Every
+# successful real (non-dry-run) call appends one line here, using whatever
+# usage the provider's response reports (OpenAI-compatible `usage`, Gemini
+# `usageMetadata`). Best-effort: a write failure here must never break an
+# actual classification call.
 _TOKEN_USAGE_LOG = Path(".dist/study/token_usage_log.jsonl")
 
+# Local, gitignored log of every HTTP error response, with the full response
+# body. A Gemini 429 body names the exact quota that was exceeded (quotaId,
+# quotaValue) and how long to wait (RetryInfo.retryDelay); without it there is
+# no way to tell a tokens-per-minute limit from a requests-per-day one.
+_HTTP_ERROR_LOG = Path(".dist/study/llm_http_errors.jsonl")
 
-def _log_token_usage(provider: str, model: str, usage: dict) -> None:
-    if not usage:
-        return
+
+def _append_jsonl(path: Path, entry: dict) -> None:
     try:
-        _TOKEN_USAGE_LOG.parent.mkdir(parents=True, exist_ok=True)
-        entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "provider": provider,
-            "model": model,
-            "prompt_tokens": usage.get("prompt_tokens"),
-            "completion_tokens": usage.get("completion_tokens"),
-            "total_tokens": usage.get("total_tokens"),
-        }
-        with _TOKEN_USAGE_LOG.open("a", encoding="utf-8") as f:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(entry) + "\n")
     except OSError:
         pass
 
 
+def _key_fingerprint(api_key: str | None) -> str | None:
+    """Short hash that tells keys apart in the logs without storing the key."""
+    if not api_key:
+        return None
+    return hashlib.sha256(api_key.encode("utf-8")).hexdigest()[:8]
+
+
+def _request_key_fingerprint(request: urllib.request.Request) -> str | None:
+    key = request.get_header("X-goog-api-key")
+    if key is None:
+        auth = request.get_header("Authorization") or ""
+        key = auth.removeprefix("Bearer ") or None
+    return _key_fingerprint(key)
+
+
+def _log_token_usage(
+    provider: str,
+    model: str,
+    usage: dict,
+    *,
+    key: str | None = None,
+    request_bytes: int | None = None,
+) -> None:
+    if not usage:
+        return
+    _append_jsonl(_TOKEN_USAGE_LOG, {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "provider": provider,
+        "model": model,
+        "key": key,
+        "request_bytes": request_bytes,
+        "prompt_tokens": usage.get("prompt_tokens"),
+        "completion_tokens": usage.get("completion_tokens"),
+        "thoughts_tokens": usage.get("thoughts_tokens"),
+        "total_tokens": usage.get("total_tokens"),
+    })
+
+
+def _gemini_usage(data: dict) -> dict:
+    meta = data.get("usageMetadata") or {}
+    if not meta:
+        return {}
+    return {
+        "prompt_tokens": meta.get("promptTokenCount"),
+        "completion_tokens": meta.get("candidatesTokenCount"),
+        "thoughts_tokens": meta.get("thoughtsTokenCount"),
+        "total_tokens": meta.get("totalTokenCount"),
+    }
+
+
+def _summarize_error_body(body: str) -> str:
+    """One line out of a Google-style error body: which quota, its value, the wait."""
+    try:
+        error = json.loads(body).get("error") or {}
+    except (ValueError, AttributeError):
+        return body[:160]
+    if not isinstance(error, dict):
+        return body[:160]
+    quotas: list[str] = []
+    retry_delay = None
+    for detail in error.get("details") or []:
+        if not isinstance(detail, dict):
+            continue
+        for violation in detail.get("violations") or []:
+            if isinstance(violation, dict) and violation.get("quotaId"):
+                quotas.append(f"{violation['quotaId']}={violation.get('quotaValue')}")
+        retry_delay = detail.get("retryDelay", retry_delay)
+    parts = [str(error.get("status") or "")]
+    parts.append(", ".join(quotas) if quotas else str(error.get("message") or "")[:160])
+    if retry_delay:
+        parts.append(f"retryDelay {retry_delay}")
+    return " | ".join(part for part in parts if part)
+
+
+def _log_http_error(request: urllib.request.Request, status: int, body: str, headers) -> str:
+    try:
+        parsed_body: object = json.loads(body)
+    except ValueError:
+        parsed_body = body
+    _append_jsonl(_HTTP_ERROR_LOG, {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "status": status,
+        "url": request.full_url,
+        "key": _request_key_fingerprint(request),
+        "request_bytes": len(request.data or b""),
+        "retry_after": headers.get("Retry-After") if headers else None,
+        "body": parsed_body,
+    })
+    return _summarize_error_body(body)
+
+
 class LLMError(RuntimeError):
-    def __init__(self, message: str, status_code: int | None = None) -> None:
+    def __init__(self, message: str, status_code: int | None = None, detail: str = "") -> None:
         super().__init__(message)
         self.status_code = status_code
+        # One-line summary of the error body (e.g. the exceeded quota), for console output.
+        self.detail = detail
 
 
 @dataclass
@@ -116,6 +207,14 @@ def _get_key_cycle(cache_key: str, keys: list[str]) -> Iterator[str]:
 
 _KEY_SPECIFIC_STATUS_CODES = {401, 403, 429}
 
+# Model-wide overload: a bare 429 RESOURCE_EXHAUSTED (no quota id) or a 503
+# "model is experiencing high demand". Measured 2026-10-07: these arrive in
+# bursts of ~2-2.5 minutes across ALL keys, longer than one full key rotation
+# plus the last key's own backoff (~62 s), so the run in flight was skipped.
+# When every key fails this way, wait and try the whole rotation again.
+_OVERLOAD_STATUS_CODES = {429, 503}
+_OVERLOAD_WAITS = (30, 60, 120)
+
 
 class LLMClient:
     def __init__(
@@ -127,11 +226,36 @@ class LLMClient:
         self.settings = settings
         self._key_cycle = key_cycle or itertools.cycle([settings.api_key])
         self._key_pool_size = max(1, key_pool_size)
+        # Fingerprint of the key that served the last successful request (for the usage log).
+        self._last_key_fingerprint: str | None = None
 
     def _next_api_key(self) -> str:
         return next(self._key_cycle)
 
     def _request_with_key_failover(
+        self, build_request: Callable[[str], urllib.request.Request]
+    ) -> str:
+        """Try every key; if they all fail with a model-wide overload (429/503),
+        wait (_OVERLOAD_WAITS) and try every key again before giving up."""
+        from . import console
+
+        for round_index in range(len(_OVERLOAD_WAITS) + 1):
+            try:
+                return self._try_every_key(build_request)
+            except LLMError as exc:
+                if exc.status_code not in _OVERLOAD_STATUS_CODES or round_index == len(_OVERLOAD_WAITS):
+                    raise
+                wait = _OVERLOAD_WAITS[round_index]
+                detail = f": {exc.detail}" if exc.detail else ""
+                console.warn(
+                    f"All keys failed (status {exc.status_code}){detail} — model-wide overload; "
+                    f"waiting {wait}s, then trying every key again "
+                    f"({len(_OVERLOAD_WAITS) - round_index} round(s) left)."
+                )
+                time.sleep(wait)
+        raise AssertionError("unreachable")
+
+    def _try_every_key(
         self, build_request: Callable[[str], urllib.request.Request]
     ) -> str:
         """Build+send a request, failing over to the next key in the rotation
@@ -154,13 +278,16 @@ class LLMClient:
             # other key to fall back to; otherwise fail fast so we can swap.
             retry_codes = {500, 502, 503} | (set() if can_fail_over else {429})
             try:
-                return _urlopen_json(request, retry_status_codes=retry_codes)
+                raw = _urlopen_json(request, retry_status_codes=retry_codes)
+                self._last_key_fingerprint = _key_fingerprint(api_key)
+                return raw
             except LLMError as exc:
                 last_error = exc
                 if can_fail_over and exc.status_code in _KEY_SPECIFIC_STATUS_CODES:
+                    detail = f": {exc.detail}" if exc.detail else ""
                     console.warn(
                         f"Key attempt {attempt + 1}/{self._key_pool_size} failed "
-                        f"(status {exc.status_code}) — trying next key."
+                        f"(status {exc.status_code}){detail} — trying next key."
                     )
                     continue
                 raise
@@ -268,7 +395,13 @@ class LLMClient:
             else:
                 raise
         data = json.loads(raw)
-        _log_token_usage(self.settings.provider, self.settings.model, data.get("usage") or {})
+        _log_token_usage(
+            self.settings.provider,
+            self.settings.model,
+            data.get("usage") or {},
+            key=self._last_key_fingerprint,
+            request_bytes=len(json.dumps(payload).encode("utf-8")),
+        )
         try:
             return data["choices"][0]["message"]["content"]
         except (KeyError, IndexError, TypeError) as exc:
@@ -308,6 +441,13 @@ class LLMClient:
 
         raw = self._request_with_key_failover(build_request)
         data = json.loads(raw)
+        _log_token_usage(
+            self.settings.provider,
+            self.settings.model,
+            _gemini_usage(data),
+            key=self._last_key_fingerprint,
+            request_bytes=len(json.dumps(payload).encode("utf-8")),
+        )
         try:
             parts = data["candidates"][0]["content"]["parts"]
             text_parts = [part.get("text", "") for part in parts if isinstance(part, dict)]
@@ -486,6 +626,7 @@ def _urlopen_json(
     _RETRYABLE_STATUS_CODES = retry_status_codes if retry_status_codes is not None else {429, 500, 502, 503}
 
     last_exception: Exception | None = None
+    last_detail = ""
 
     for attempt in range(max_retries):
         try:
@@ -494,11 +635,16 @@ def _urlopen_json(
         except urllib.error.HTTPError as exc:
             body = exc.read().decode("utf-8", errors="replace")
             last_exception = exc
+            last_detail = _log_http_error(request, exc.code, body, exc.headers)
 
             if exc.code not in _RETRYABLE_STATUS_CODES:
                 # Non-retryable (or, for the failover wrapper, deliberately
                 # not-retried-on-this-key) — fail immediately.
-                raise LLMError(f"LLM request failed with status {exc.code}: {body}", status_code=exc.code) from exc
+                raise LLMError(
+                    f"LLM request failed with status {exc.code}: {body}",
+                    status_code=exc.code,
+                    detail=last_detail,
+                ) from exc
 
             # Check for Retry-After header (some APIs send it with 429)
             retry_after = exc.headers.get("Retry-After") if exc.headers else None
@@ -512,8 +658,9 @@ def _urlopen_json(
                 wait = min(base_delay * (2 ** attempt) + random.uniform(0, 1), max_delay)
 
             remaining = max_retries - attempt - 1
+            detail = f" {last_detail}." if last_detail else ""
             console.warn(
-                f"LLM request failed (HTTP {exc.code}). "
+                f"LLM request failed (HTTP {exc.code}).{detail} "
                 f"Retrying in {wait:.1f}s... ({remaining} attempt(s) left)"
             )
             time.sleep(wait)
@@ -551,9 +698,10 @@ def _urlopen_json(
     if isinstance(last_exception, urllib.error.HTTPError):
         raise LLMError(
             f"LLM request failed after {max_retries} attempts "
-            f"(last status: {last_exception.code}). The API may be under heavy load. "
+            f"(last status: {last_exception.code}; {last_detail}). The API may be under heavy load. "
             f"Try again in a few minutes.",
             status_code=last_exception.code,
+            detail=last_detail,
         ) from last_exception
     raise LLMError(f"LLM request failed after {max_retries} attempts: {last_exception}") from last_exception
 
